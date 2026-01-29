@@ -14,8 +14,8 @@ out/
 
 # Environment variables
 .env
-# Keep .env.example, .env.development, .env.production as templates
-
+.env.development
+.env.production
 # Logs
 logs
 *.log
@@ -45,3 +45,9 @@ Thumbs.db
 .cache/
 temp/
 tmp/
+
+# Roadmap
+roadmap.json
+ROADMAP.txt
+SpecificheProfetto.txt
+
