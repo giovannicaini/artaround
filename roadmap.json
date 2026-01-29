@@ -1,0 +1,815 @@
+{
+  "project": "ArtAround",
+  "version": "1.1.0",
+  "lastUpdated": "2026-01-29T18:30:00",
+  "progress": {
+    "phase0": "completed",
+    "phase1": "completed",
+    "phase2": "in-progress"
+  },
+  "phases": [
+    {
+      "id": 0,
+      "name": "Setup Progetto Base",
+      "status": "completed",
+      "completedDate": "2026-01-29",
+      "estimatedDays": "1-2",
+      "steps": [
+        {
+          "id": "0.1",
+          "name": "Inizializzazione Monorepo",
+          "status": "completed",
+          "tasks": [
+            "Creare struttura cartelle (server, marketplace, navigator, shared)",
+            "Setup Turborepo per orchestrazione monorepo",
+            "Configurare package.json root con workspaces",
+            "Setup Git + .gitignore"
+          ]
+        },
+        {
+          "id": "0.2",
+          "name": "Cartella Shared",
+          "status": "completed",
+          "tasks": [
+            "Creare /shared per tipi TypeScript",
+            "Definire interface User, Visit, Item, Museum",
+            "Definire ItemMetadata, MuseumConfig",
+            "Definire APIResponse<T>"
+          ]
+        },
+        {
+          "id": "0.3",
+          "name": "Environment & Config",
+          "status": "completed",
+          "tasks": [
+            "Creare .env.development e .env.production",
+            "Variabili: MONGODB_URI, JWT_SECRET, PORT, NODE_ENV",
+            "Setup dotenv con symlink .env -> .env.development"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "name": "Backend - Server Core",
+      "status": "completed",
+      "completedDate": "2026-01-29",
+      "estimatedDays": "5-7",
+      "steps": [
+        {
+          "id": "1.1",
+          "name": "Setup Server Base",
+          "status": "completed",
+          "tasks": [
+            "Inizializzare Node.js + TypeScript + Express",
+            "Configurare tsconfig.json",
+            "Setup tsx per hot reload (dev) e node per prod",
+            "Struttura: models, routes, controllers, middleware, utils, config"
+          ]
+        },
+        {
+          "id": "1.2",
+          "name": "Database MongoDB + Mongoose",
+          "status": "completed",
+          "tasks": [
+            "Setup connessione MongoDB",
+            "Schema User (username, password, email, role, preferences)",
+            "Schema Museum (name, description, location, configFile)",
+            "Schema Item (museumId, objectId, contents[], metadata, image)",
+            "Schema Visit (museumId, title, items[], logisticNotes[], metadata)",
+            "Schema VisitPurchase (userId, visitId, price, purchaseDate)"
+          ]
+        },
+        {
+          "id": "1.3",
+          "name": "Authentication System",
+          "status": "completed",
+          "tasks": [
+            "Setup JWT + bcryptjs",
+            "Middleware authMiddleware",
+            "Middleware roleMiddleware",
+            "POST /api/auth/register",
+            "POST /api/auth/login",
+            "GET /api/auth/me"
+          ]
+        },
+        {
+          "id": "1.4",
+          "name": "API Museums",
+          "status": "completed",
+          "tasks": [
+            "GET /api/museums - lista musei",
+            "GET /api/museums/:id - dettaglio",
+            "GET /api/museums/:id/config - config JSON",
+            "POST /api/museums - crea (admin only)"
+          ]
+        },
+        {
+          "id": "1.5",
+          "name": "API Items",
+          "status": "completed",
+          "tasks": [
+            "GET /api/items - lista con filtri (museumId, targetAudience, difficulty)",
+            "GET /api/items/:id - dettaglio",
+            "POST /api/items - crea (author)",
+            "PUT /api/items/:id - aggiorna (owner)",
+            "DELETE /api/items/:id - elimina (owner)",
+            "GET /api/items/search - ricerca con pagination"
+          ]
+        },
+        {
+          "id": "1.6",
+          "name": "API Visits",
+          "status": "completed",
+          "tasks": [
+            "GET /api/visits - lista con filtri",
+            "GET /api/visits/:id - dettaglio completo",
+            "POST /api/visits - crea (author)",
+            "PUT /api/visits/:id - aggiorna (owner)",
+            "DELETE /api/visits/:id - elimina (owner)",
+            "POST /api/visits/:id/publish - pubblica",
+            "GET /api/visits/my-visits - visite utente"
+          ]
+        },
+        {
+          "id": "1.7",
+          "name": "API Marketplace",
+          "status": "completed",
+          "tasks": [
+            "GET /api/marketplace/visits - visite pubblicate con filtri",
+            "POST /api/marketplace/purchase/:visitId - acquisto simulato",
+            "GET /api/marketplace/my-purchases - acquisti utente"
+          ]
+        },
+        {
+          "id": "1.8",
+          "name": "API Wikidata Integration",
+          "status": "completed",
+          "tasks": [
+            "GET /api/utils/wikidata/:id - recupera dati Wikidata entity",
+            "GET /api/utils/wikidata/search - ricerca opere Wikidata",
+            "WikidataService con cache automatico MongoDB"
+          ]
+        },
+        {
+          "id": "1.9",
+          "name": "API Translation (AI)",
+          "status": "completed",
+          "tasks": [
+            "POST /api/utils/translate - traduzione testi via OpenAI/Claude",
+            "Setup OpenAI/Claude per traduzioni",
+            "TranslationService con provider fallback"
+          ]
+        },
+        {
+          "id": "1.10",
+          "name": "Seeding Database",
+          "status": "completed",
+          "tasks": [
+            "Script seed.ts (npm run seed)",
+            "4 utenti (autore1, autore2, visitatore1, visitatore2) - password: 12345678",
+            "2 musei (Museo Archeologico, Pinacoteca Moderna)",
+            "10 items con 16 varianti ciascuno",
+            "3 visite differenziate per livello"
+          ]
+        },
+        {
+          "id": "1.11",
+          "name": "Validation & Error Handling",
+          "status": "completed",
+          "tasks": [
+            "Setup express-validator su tutti gli endpoint",
+            "Middleware errorHandler centralizzato",
+            "Standardizzare risposte API con APIResponse<T>",
+            "Classe AppError custom per gestione errori"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Marketplace - Web Components",
+      "status": "in-progress",
+      "estimatedDays": "7-10",
+      "priority": "high",
+      "steps": [
+        {
+          "id": "2.1",
+          "name": "Setup Web Components Project",
+          "status": "not-started",
+          "tasks": [
+            "Inizializzare Vite + TypeScript",
+            "Setup Lit per Web Components",
+            "Setup Tailwind CSS con PostCSS",
+            "Struttura: components, services, types, utils"
+          ]
+        },
+        {
+          "id": "2.2",
+          "name": "Base Components",
+          "status": "not-started",
+          "tasks": [
+            "<app-header> - header con menu",
+            "<app-sidebar> - navigazione",
+            "<app-button> - button riusabile",
+            "<app-modal> - modal generico",
+            "<app-input> - input con validazione",
+            "<app-select> - select dropdown"
+          ]
+        },
+        {
+          "id": "2.3",
+          "name": "Authentication UI",
+          "status": "not-started",
+          "tasks": [
+            "<auth-login> - form login",
+            "<auth-register> - form registrazione",
+            "Gestione JWT localStorage",
+            "Protected routes"
+          ]
+        },
+        {
+          "id": "2.4",
+          "name": "Museum Selection",
+          "status": "not-started",
+          "tasks": [
+            "<museum-selector> - lista musei",
+            "Card preview con immagine",
+            "Selezione museo attivo"
+          ]
+        },
+        {
+          "id": "2.5",
+          "name": "Item Creator",
+          "status": "not-started",
+          "tasks": [
+            "<item-creator> - form completo",
+            "Input Wikidata ID con autocomplete",
+            "Upload immagine → base64",
+            "Editor multi-contenuto (durata × linguaggio)",
+            "Integrazione AI per traduzioni",
+            "Preview sintesi vocale"
+          ]
+        },
+        {
+          "id": "2.6",
+          "name": "Items Browser",
+          "status": "not-started",
+          "tasks": [
+            "<items-browser> - lista items",
+            "Filtri avanzati (museo, autore, stile, lingua)",
+            "Virtual scroll per performance",
+            "Search bar con debounce",
+            "Pagination server-side"
+          ]
+        },
+        {
+          "id": "2.7",
+          "name": "Visit Creator/Editor",
+          "status": "not-started",
+          "tasks": [
+            "<visit-editor> - editor principale",
+            "Form metadati (titolo, target, prezzo, licenza)",
+            "Multilingua UI (flag selezione lingua)",
+            "<visit-items-list> - gestione items",
+            "Drag & drop riordino items (SortableJS)",
+            "Items multipli per stesso oggetto",
+            "Items opzionali"
+          ]
+        },
+        {
+          "id": "2.8",
+          "name": "Logistic & Navigation Editor",
+          "status": "not-started",
+          "tasks": [
+            "<logistic-notes-editor>",
+            "<navigation-notes-editor>",
+            "Rich text editor base",
+            "Posizionamento nella sequenza"
+          ]
+        },
+        {
+          "id": "2.9",
+          "name": "Visits Dashboard",
+          "status": "not-started",
+          "tasks": [
+            "<visits-dashboard>",
+            "Tabs: mie visite, tutte, crea nuova",
+            "Azioni: edit, delete, publish, duplicate",
+            "Stato pubblicazione"
+          ]
+        },
+        {
+          "id": "2.10",
+          "name": "Content Marketplace View",
+          "status": "not-started",
+          "tasks": [
+            "<content-marketplace> - vetrina",
+            "Filtri autori, licenze, prezzi",
+            "Preview items (parziale se paid)",
+            "Acquisto simulato",
+            "Mock gestione vendite"
+          ]
+        },
+        {
+          "id": "2.11",
+          "name": "Responsive & UX",
+          "status": "not-started",
+          "tasks": [
+            "Test desktop (1920x1080, 1366x768)",
+            "Test tablet (iPad)",
+            "Test mobile (ridotto ma usabile)",
+            "Loading states",
+            "Error handling user-friendly"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Navigator - React App",
+      "status": "not-started",
+      "estimatedDays": "7-10",
+      "priority": "high",
+      "steps": [
+        {
+          "id": "3.1",
+          "name": "Setup React App",
+          "status": "not-started",
+          "tasks": [
+            "Inizializzare Vite + React + TypeScript",
+            "Setup Tailwind CSS",
+            "React Router",
+            "Struttura: components, pages, hooks, services, store, types"
+          ]
+        },
+        {
+          "id": "3.2",
+          "name": "State Management & API",
+          "status": "not-started",
+          "tasks": [
+            "Setup Zustand",
+            "Store: auth, visit, navigation, audio, i18n",
+            "Axios con interceptor JWT",
+            "Services: auth, visit, museum, wikidata, translation"
+          ]
+        },
+        {
+          "id": "3.3",
+          "name": "Internationalization",
+          "status": "not-started",
+          "tasks": [
+            "Setup i18next",
+            "Integrazione API traduzione AI",
+            "Language switcher UI",
+            "Traduzioni dinamiche contenuti"
+          ]
+        },
+        {
+          "id": "3.4",
+          "name": "Authentication UI",
+          "status": "not-started",
+          "tasks": [
+            "Login/Register pages",
+            "Form validazione",
+            "JWT management",
+            "Protected routes",
+            "Responsive mobile-first"
+          ]
+        },
+        {
+          "id": "3.5",
+          "name": "Museum & Visit Selection",
+          "status": "not-started",
+          "tasks": [
+            "Pagina selezione museo",
+            "Carica config JSON museo",
+            "Pagina lista visite disponibili",
+            "Filtri (gratis/paid, livello, durata)",
+            "Avvio visita (carica in memoria)"
+          ]
+        },
+        {
+          "id": "3.6",
+          "name": "Map Visualization",
+          "status": "not-started",
+          "tasks": [
+            "Integrazione Leaflet.js",
+            "Parsing config JSON markers",
+            "Marker items, servizi, entrata/uscita",
+            "Marker differenziati (colori/icone)",
+            "Click marker → info item"
+          ]
+        },
+        {
+          "id": "3.7",
+          "name": "Navigation System",
+          "status": "not-started",
+          "tasks": [
+            "UI principale (mappa + item + controlli)",
+            "Gestione sequenza items",
+            "Prossimo/Precedente",
+            "Progress bar visita",
+            "Note logistiche tra items"
+          ]
+        },
+        {
+          "id": "3.8",
+          "name": "Text-to-Speech",
+          "status": "not-started",
+          "tasks": [
+            "Integrazione Web Speech API",
+            "Controlli play/pause/stop",
+            "Selezione velocità",
+            "Auto-play opzionale",
+            "Fallback se API non disponibile"
+          ]
+        },
+        {
+          "id": "3.9",
+          "name": "Voice Commands Base",
+          "status": "not-started",
+          "tasks": [
+            "Integrazione react-speech-recognition",
+            "Vocabolario controllato",
+            "Comandi: prossimo, precedente, ripeti, dimmi più/meno",
+            "Comandi servizi: uscita, toilette, bar, shop",
+            "UI feedback riconoscimento",
+            "Interface ICommandInterpreter per AI futura"
+          ]
+        },
+        {
+          "id": "3.10",
+          "name": "Item Detail & Multi-Content",
+          "status": "not-started",
+          "tasks": [
+            "UI dettaglio item (immagine + testo)",
+            "Selector durata (3s/15s/40s/2min)",
+            "Selector livello (infantile/semplice/medio/avanzato)",
+            "Auto-selezione in base a profilo",
+            "Override manuale"
+          ]
+        },
+        {
+          "id": "3.11",
+          "name": "User Profile & Preferences",
+          "status": "not-started",
+          "tasks": [
+            "Pagina profilo",
+            "Preferenze: competenza, interessi, tempo, età",
+            "Salvataggio in DB via API",
+            "Auto-selezione contenuti"
+          ]
+        },
+        {
+          "id": "3.12",
+          "name": "Wikidata Integration",
+          "status": "not-started",
+          "tasks": [
+            "Fetch dati Wikidata per opere",
+            "Display info aggiuntive (autore, stile, epoca)",
+            "Link approfondimenti Wikidata"
+          ]
+        },
+        {
+          "id": "3.13",
+          "name": "Accessibility & Responsive",
+          "status": "not-started",
+          "tasks": [
+            "Test mobile (iOS/Android)",
+            "Test tablet e desktop",
+            "Contrasti WCAG AA",
+            "Pulsanti touch-friendly",
+            "Keyboard navigation",
+            "Screen reader support"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Integration & Configuration",
+      "status": "not-started",
+      "estimatedDays": "2-3",
+      "steps": [
+        {
+          "id": "4.1",
+          "name": "Routing Unificato",
+          "status": "not-started",
+          "tasks": [
+            "Entry point unico server/index.ts",
+            "Express serve /api → API",
+            "Express serve /navigator → React build",
+            "Express serve /marketplace → Web Components build",
+            "Porta 8000"
+          ]
+        },
+        {
+          "id": "4.2",
+          "name": "Build Scripts Orchestration",
+          "status": "not-started",
+          "tasks": [
+            "Root package.json scripts",
+            "npm run dev (concurrently tutto)",
+            "npm run build (build tutte app)",
+            "npm run start (prod)",
+            "npm run seed",
+            "Turborepo pipeline configurato"
+          ]
+        },
+        {
+          "id": "4.3",
+          "name": "CORS & Environment",
+          "status": "not-started",
+          "tasks": [
+            "CORS dev (localhost)",
+            "CORS prod (dominio esterno)",
+            "Env-specific config",
+            "Switch automatico dev/prod"
+          ]
+        },
+        {
+          "id": "4.4",
+          "name": "Museum Config Files",
+          "status": "not-started",
+          "tasks": [
+            "museum-config-generic.json",
+            "museum-config-galleria-parma.json",
+            "Struttura JSON con mappa",
+            "Immagini base64 integrate",
+            "Markers locations"
+          ]
+        },
+        {
+          "id": "4.5",
+          "name": "Shared Types Distribution",
+          "status": "not-started",
+          "tasks": [
+            "Setup workspace per /shared",
+            "Import @artaround/shared in tutte app",
+            "Sync automatico"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Data & Content",
+      "status": "not-started",
+      "estimatedDays": "2-3",
+      "steps": [
+        {
+          "id": "5.1",
+          "name": "Database Seeding Completo",
+          "status": "not-started",
+          "tasks": [
+            "4 utenti con password 12345678",
+            "2 musei (Galleria Parma + Generico)",
+            "30+ items (16 versioni ciascuno)",
+            "3 visite pubblicate differenziate"
+          ]
+        },
+        {
+          "id": "5.2",
+          "name": "Immagini Opere",
+          "status": "not-started",
+          "tasks": [
+            "Procurare immagini CC0/pubblico dominio",
+            "Script conversione → base64",
+            "Integrazione in items"
+          ]
+        },
+        {
+          "id": "5.3",
+          "name": "Contenuti Testuali",
+          "status": "not-started",
+          "tasks": [
+            "Generare contenuti per 30 opere",
+            "4 livelli linguaggio per ciascuna",
+            "4 durate per ciascuna",
+            "Note logistiche musei"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Advanced Features (opzionali)",
+      "status": "not-started",
+      "estimatedDays": "3-5",
+      "priority": "low",
+      "steps": [
+        {
+          "id": "6.1",
+          "name": "AI Command Interpreter",
+          "status": "not-started",
+          "tasks": [
+            "Implementare AICommandInterpreter",
+            "Integrazione OpenAI/Claude",
+            "Mapping linguaggio naturale → comandi",
+            "Integrazione trasparente navigator"
+          ]
+        },
+        {
+          "id": "6.2",
+          "name": "Recommendation System",
+          "status": "not-started",
+          "tasks": [
+            "Algoritmo suggerimenti items",
+            "Basato su preferenze + tempo",
+            "Score rilevanza items"
+          ]
+        },
+        {
+          "id": "6.3",
+          "name": "Analytics & Tracking",
+          "status": "not-started",
+          "tasks": [
+            "Tracciamento tempo per item",
+            "Items skipped vs completati",
+            "Comandi vocali usati",
+            "Dashboard autori"
+          ]
+        },
+        {
+          "id": "6.4",
+          "name": "Social Features",
+          "status": "not-started",
+          "tasks": [
+            "Rating visite (stelle)",
+            "Commenti/recensioni",
+            "Condivisione social"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Testing & QA",
+      "status": "not-started",
+      "estimatedDays": "3-5",
+      "steps": [
+        {
+          "id": "7.1",
+          "name": "Unit Testing",
+          "status": "not-started",
+          "tasks": [
+            "Test backend (Jest)",
+            "Test frontend (Vitest)",
+            "Coverage > 70%"
+          ]
+        },
+        {
+          "id": "7.2",
+          "name": "Integration Testing",
+          "status": "not-started",
+          "tasks": [
+            "Test flussi API completi",
+            "Test auth cross-app",
+            "Test acquisto → utilizzo"
+          ]
+        },
+        {
+          "id": "7.3",
+          "name": "E2E Testing",
+          "status": "not-started",
+          "tasks": [
+            "Setup Playwright/Cypress",
+            "Test scenari utente completi",
+            "Test cross-browser"
+          ]
+        },
+        {
+          "id": "7.4",
+          "name": "Performance & Security",
+          "status": "not-started",
+          "tasks": [
+            "Lighthouse score > 90",
+            "Test caricamento 1000+ items",
+            "Security audit (XSS, injection)",
+            "Rate limiting API"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Deployment & DevOps",
+      "status": "not-started",
+      "estimatedDays": "2-3",
+      "steps": [
+        {
+          "id": "8.1",
+          "name": "Production Build",
+          "status": "not-started",
+          "tasks": [
+            "Ottimizzazione build",
+            "Minification",
+            "Tree shaking",
+            "Sourcemaps"
+          ]
+        },
+        {
+          "id": "8.2",
+          "name": "Docker Setup",
+          "status": "not-started",
+          "tasks": [
+            "Dockerfile server",
+            "docker-compose.yml",
+            "Volume MongoDB"
+          ]
+        },
+        {
+          "id": "8.3",
+          "name": "Environment Production",
+          "status": "not-started",
+          "tasks": [
+            "Setup MongoDB production",
+            "HTTPS setup",
+            "Domain configuration",
+            "Env variables prod"
+          ]
+        },
+        {
+          "id": "8.4",
+          "name": "CI/CD",
+          "status": "not-started",
+          "tasks": [
+            "GitHub Actions pipeline",
+            "Automated testing",
+            "Automated deployment"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "name": "Documentation",
+      "status": "not-started",
+      "estimatedDays": "2-3",
+      "steps": [
+        {
+          "id": "9.1",
+          "name": "Code Documentation",
+          "status": "not-started",
+          "tasks": [
+            "JSDoc funzioni principali",
+            "README per ogni app",
+            "API docs (Swagger)"
+          ]
+        },
+        {
+          "id": "9.2",
+          "name": "User Documentation",
+          "status": "not-started",
+          "tasks": [
+            "Guida utente Navigator",
+            "Guida autore Marketplace",
+            "Video tutorial (opzionale)"
+          ]
+        },
+        {
+          "id": "9.3",
+          "name": "Developer Documentation",
+          "status": "not-started",
+          "tasks": [
+            "Setup guide",
+            "Architecture overview",
+            "Database schema",
+            "Deployment guide"
+          ]
+        }
+      ]
+    }
+  ],
+  "notes": {
+    "priorityOrder": [
+      "Fase 0: Setup",
+      "Fase 1: Backend",
+      "Fase 2: Marketplace (PRIMA del Navigator)",
+      "Fase 3: Navigator",
+      "Fase 4: Integration",
+      "Fase 5: Data",
+      "Fase 7: Testing",
+      "Fase 8: Deployment",
+      "Fase 6: Advanced (opzionale)",
+      "Fase 9: Documentation"
+    ],
+    "techStack": {
+      "backend": ["Node.js", "Express", "TypeScript", "MongoDB", "Mongoose", "JWT"],
+      "marketplace": ["Web Components", "Lit", "Tailwind", "Vite"],
+      "navigator": ["React", "TypeScript", "Tailwind", "Zustand", "Leaflet", "Web Speech API"],
+      "monorepo": ["Turborepo"],
+      "ai": ["OpenAI/Claude API per traduzioni e comandi naturali"],
+      "external": ["Wikidata API"]
+    },
+    "keyDecisions": {
+      "multilingua": "Preparato con i18next + AI traduzioni real-time",
+      "wikidata": "Integrazione API Wikidata per metadati opere",
+      "voiceCommands": "Base vocabolario controllato + architettura estensibile per AI",
+      "images": "Base64 in JSON config per opere legate a config, altrimenti DB",
+      "payments": "Simulati, no integrazione reale",
+      "deployment": "Dev locale, prod dominio esterno separato"
+    }
+  }
+}
