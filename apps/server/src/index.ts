@@ -1,9 +1,12 @@
 import express, { Express } from 'express';
 import cors from 'cors';
+import path from 'path';
+import swaggerUi from 'swagger-ui-express';
 import { config } from './config/config';
 import { connectDB } from './config/database';
 import { errorHandler } from './middleware';
 import routes from './routes';
+import { swaggerSpec } from './config/swagger';
 
 const app: Express = express();
 
@@ -15,8 +18,29 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'ArtAround API Documentation',
+}));
+
+// Swagger JSON
+app.get('/api-docs.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
 // API Routes
 app.use('/api', routes);
+
+// Serve marketplace static files
+const marketplacePath = path.resolve(__dirname, '../../marketplace/dist');
+app.use('/marketplace', express.static(marketplacePath));
+
+// SPA fallback - serve index.html for all /marketplace routes
+app.get('/marketplace/*', (req, res) => {
+  res.sendFile(path.join(marketplacePath, 'index.html'));
+});
 
 // Error handling
 app.use(errorHandler);
@@ -32,6 +56,7 @@ const startServer = async () => {
       console.log(`🚀 Server running on port ${config.port}`);
       console.log(`📝 Environment: ${config.env}`);
       console.log(`🌐 API: http://localhost:${config.port}/api`);
+      console.log(`📚 API Docs: http://localhost:${config.port}/api-docs`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);

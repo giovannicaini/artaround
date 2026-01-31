@@ -4,9 +4,9 @@ import { config } from './config';
 export const connectDB = async (): Promise<void> => {
   try {
     await mongoose.connect(config.mongodb.uri);
-    console.log(`Connesso al MongoDB: ${config.mongodb.uri}`);
+    console.log(`Connesso a MongoDB: ${config.mongodb.uri}`);
   } catch (error) {
-    console.error('Errore nella connessione al MongoDB:', error);
+    console.error('Errore nella connessione a MongoDB:', error);
     process.exit(1);
   }
 };

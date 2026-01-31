@@ -1,9 +1,11 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load environment variables from root directory
-// Use .env as main file (can be a symlink to .env.development or .env.production)
-dotenv.config({ path: path.resolve(process.cwd(), '../../', '.env') });
+// Load environment variables based on NODE_ENV
+// npm run dev -> .env.development
+// npm run start (production) -> .env.production
+const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development';
+dotenv.config({ path: path.resolve(process.cwd(), '../../', envFile) });
 
 export const config = {
   env: process.env.NODE_ENV || 'development',
