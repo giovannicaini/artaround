@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { Visit, VisitPurchase } from '../models';
-import { AppError } from '../middleware';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { Visit, VisitPurchase } from '../models/index.js';
+import { AppError } from '../middleware/index.js';
+import { AuthRequest } from '../middleware/auth.middleware.js';
 
 export class MarketplaceController {
   // Get published visits (marketplace catalog)
@@ -16,7 +16,7 @@ export class MarketplaceController {
         limit = '20',
       } = req.query;
 
-      const filter: any = { isPublished: true };
+      const filter: Record<string, unknown> = { isPublished: true };
       if (museumId) filter.museumId = museumId;
       if (isFree !== undefined) filter['metadata.isFree'] = isFree === 'true';
       if (minRating) filter['metadata.rating'] = { $gte: parseFloat(minRating as string) };
@@ -26,16 +26,13 @@ export class MarketplaceController {
       const skip = (pageNum - 1) * limitNum;
 
       // Sorting
-      let sort: any = { createdAt: -1 };
+      let sort: Record<string, 1 | -1> = { createdAt: -1 };
       if (sortBy === 'rating') sort = { 'metadata.rating': -1 };
       if (sortBy === 'price') sort = { 'metadata.price': 1 };
       if (sortBy === 'downloads') sort = { 'metadata.downloadsCount': -1 };
 
       const [visits, total] = await Promise.all([
-        Visit.find(filter)
-          .sort(sort)
-          .skip(skip)
-          .limit(limitNum),
+        Visit.find(filter).sort(sort).skip(skip).limit(limitNum),
         Visit.countDocuments(filter),
       ]);
 

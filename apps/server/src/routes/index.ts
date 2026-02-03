@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import authRoutes from './auth.routes';
-import museumRoutes from './museum.routes';
-import itemRoutes from './item.routes';
-import visitRoutes from './visit.routes';
-import marketplaceRoutes from './marketplace.routes';
-import utilsRoutes from './utils.routes';
+import authRoutes from './auth.routes.js';
+import museumRoutes from './museum.routes.js';
+import itemRoutes from './item.routes.js';
+import visitRoutes from './visit.routes.js';
+import marketplaceRoutes from './marketplace.routes.js';
+import utilsRoutes from './utils.routes.js';
 
 const router = Router();
 

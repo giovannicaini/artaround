@@ -3,12 +3,15 @@ import { customElement, property } from 'lit/decorators.js';
 
 @customElement('ui-badge')
 export class UiBadge extends LitElement {
-  @property({ type: String }) variant: 'default' | 'primary' | 'success' | 'warning' | 'danger' = 'default';
+  @property({ type: String }) variant: 'default' | 'primary' | 'success' | 'warning' | 'danger' =
+    'default';
   @property({ type: String }) size: 'sm' | 'md' = 'md';
   @property({ type: Boolean }) dot = false;
   @property({ type: String }) label = '';
 
-  createRenderRoot() { return this; }
+  createRenderRoot() {
+    return this;
+  }
 
   private get variantClasses() {
     const variants: Record<string, string> = {

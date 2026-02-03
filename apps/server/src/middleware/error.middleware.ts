@@ -1,12 +1,17 @@
 import { Request, Response, NextFunction } from 'express';
 import { APIError } from '@artaround/shared';
 
+interface MongoServerError extends Error {
+  code: number;
+  keyPattern?: Record<string, unknown>;
+}
+
 export class AppError extends Error {
   constructor(
     public statusCode: number,
     public code: string,
     message: string,
-    public details?: any
+    public details?: unknown,
   ) {
     super(message);
     this.name = 'AppError';
@@ -18,7 +23,7 @@ export const errorHandler = (
   err: Error | AppError,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction,
 ): void => {
   console.error('Error:', err);
 
@@ -50,13 +55,28 @@ export const errorHandler = (
   }
 
   // Mongoose duplicate key error
-  if (err.name === 'MongoServerError' && (err as any).code === 11000) {
-    res.status(409).json({
+  if (err.name === 'MongoServerError') {
+    const mongoErr = err as MongoServerError;
+    if (mongoErr.code === 11000) {
+      res.status(409).json({
+        success: false,
+        error: {
+          code: 'DUPLICATE_ERROR',
+          message: 'Resource already exists',
+          details: mongoErr.keyPattern,
+        },
+      });
+      return;
+    }
+  }
+
+  // Other MongoServerError
+  if (err.name === 'MongoServerError') {
+    res.status(400).json({
       success: false,
       error: {
-        code: 'DUPLICATE_ERROR',
-        message: 'Resource already exists',
-        details: (err as any).keyPattern,
+        code: 'DATABASE_ERROR',
+        message: err.message,
       },
     });
     return;

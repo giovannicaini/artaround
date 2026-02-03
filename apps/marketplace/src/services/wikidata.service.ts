@@ -5,6 +5,12 @@ export interface WikidataSearchResult {
   id: string;
   label: string;
   description?: string;
+  imageUrl?: string;
+  author?: string;
+  authorId?: string;
+  style?: string;
+  styleId?: string;
+  epoch?: string;
 }
 
 export class WikidataService {
@@ -14,13 +20,13 @@ export class WikidataService {
     }
 
     const response = await apiService.get<WikidataSearchResult[]>(
-      `/utils/wikidata-search?q=${encodeURIComponent(query)}&limit=${limit}`
+      `/utils/wikidata-search?q=${encodeURIComponent(query)}&limit=${limit}`,
     );
-    
+
     if (response.success && response.data) {
       return response.data;
     }
-    
+
     return [];
   }
 
@@ -30,11 +36,11 @@ export class WikidataService {
     }
 
     const response = await apiService.get<WikidataEntity>(`/utils/wikidata/${id}`);
-    
+
     if (response.success && response.data) {
       return response.data;
     }
-    
+
     return null;
   }
 }

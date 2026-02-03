@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { UtilsController } from '../controllers/utils.controller';
-import { authMiddleware } from '../middleware';
+import { UtilsController } from '../controllers/utils.controller.js';
+import { authMiddleware } from '../middleware/index.js';
 
 const router = Router();
 
@@ -149,7 +149,7 @@ router.post(
   '/translate',
   authMiddleware,
   UtilsController.translateValidation,
-  UtilsController.translate
+  UtilsController.translate,
 );
 
 export default router;

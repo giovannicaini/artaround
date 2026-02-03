@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { MarketplaceController } from '../controllers/marketplace.controller';
-import { authMiddleware } from '../middleware';
+import { MarketplaceController } from '../controllers/marketplace.controller.js';
+import { authMiddleware } from '../middleware/index.js';
 
 const router = Router();
 
@@ -88,11 +88,7 @@ router.get('/visits', MarketplaceController.getVisits);
  *       404:
  *         $ref: '#/components/responses/NotFoundError'
  */
-router.post(
-  '/purchase/:visitId',
-  authMiddleware,
-  MarketplaceController.purchaseVisit
-);
+router.post('/purchase/:visitId', authMiddleware, MarketplaceController.purchaseVisit);
 
 /**
  * @swagger
@@ -130,10 +126,6 @@ router.post(
  *       401:
  *         $ref: '#/components/responses/UnauthorizedError'
  */
-router.get(
-  '/my-purchases',
-  authMiddleware,
-  MarketplaceController.getMyPurchases
-);
+router.get('/my-purchases', authMiddleware, MarketplaceController.getMyPurchases);
 
 export default router;

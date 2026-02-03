@@ -1,19 +1,15 @@
 import axios from 'axios';
-import { config } from '../config/config';
+import { config } from '../config/config.js';
 
 export class TranslationService {
   // Translate text using OpenAI or Claude
-  static async translate(
-    text: string,
-    sourceLang: string,
-    targetLang: string
-  ): Promise<string> {
+  static async translate(text: string, sourceLang: string, targetLang: string): Promise<string> {
     try {
       // Try OpenAI first
       if (config.ai.openaiApiKey) {
         return await this.translateWithOpenAI(text, sourceLang, targetLang);
       }
-      
+
       // Fallback to Claude
       if (config.ai.anthropicApiKey) {
         return await this.translateWithClaude(text, sourceLang, targetLang);
@@ -29,7 +25,7 @@ export class TranslationService {
   private static async translateWithOpenAI(
     text: string,
     sourceLang: string,
-    targetLang: string
+    targetLang: string,
   ): Promise<string> {
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
@@ -49,10 +45,10 @@ export class TranslationService {
       },
       {
         headers: {
-          'Authorization': `Bearer ${config.ai.openaiApiKey}`,
+          Authorization: `Bearer ${config.ai.openaiApiKey}`,
           'Content-Type': 'application/json',
         },
-      }
+      },
     );
 
     return response.data.choices[0].message.content.trim();
@@ -61,7 +57,7 @@ export class TranslationService {
   private static async translateWithClaude(
     text: string,
     sourceLang: string,
-    targetLang: string
+    targetLang: string,
   ): Promise<string> {
     const response = await axios.post(
       'https://api.anthropic.com/v1/messages',
@@ -82,7 +78,7 @@ export class TranslationService {
           'anthropic-version': '2023-06-01',
           'Content-Type': 'application/json',
         },
-      }
+      },
     );
 
     return response.data.content[0].text.trim();
@@ -92,9 +88,9 @@ export class TranslationService {
   static async batchTranslate(
     texts: string[],
     sourceLang: string,
-    targetLang: string
+    targetLang: string,
   ): Promise<string[]> {
-    const promises = texts.map(text => this.translate(text, sourceLang, targetLang));
+    const promises = texts.map((text) => this.translate(text, sourceLang, targetLang));
     return await Promise.all(promises);
   }
 }

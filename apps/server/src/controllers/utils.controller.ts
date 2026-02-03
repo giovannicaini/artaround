@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { body, validationResult } from 'express-validator';
-import { WikidataService } from '../utils/wikidata.service';
-import { TranslationService } from '../utils/translation.service';
-import { AppError } from '../middleware';
+import { WikidataService } from '../utils/wikidata.service.js';
+import { TranslationService } from '../utils/translation.service.js';
+import { AppError } from '../middleware/index.js';
 
 export class UtilsController {
   // Get Wikidata entity

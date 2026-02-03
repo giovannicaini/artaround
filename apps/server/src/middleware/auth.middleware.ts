@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { config } from '../config/config';
+import { config } from '../config/config.js';
 import { UserRole } from '@artaround/shared';
 
 export interface AuthRequest extends Request {
@@ -15,7 +15,7 @@ export interface AuthRequest extends Request {
 export const authMiddleware = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
@@ -48,7 +48,7 @@ export const authMiddleware = async (
         success: false,
         error: {
           code: 'INVALID_TOKEN',
-          message: 'Invalid or expired token',
+          message: `Invalid or expired token. Errore completo: ${(error as Error).message}`,
         },
       });
     }

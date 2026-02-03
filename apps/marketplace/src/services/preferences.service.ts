@@ -35,13 +35,11 @@ class PreferencesService {
 
   private watchSystemTheme() {
     if (window.matchMedia) {
-      window
-        .matchMedia('(prefers-color-scheme: dark)')
-        .addEventListener('change', () => {
-          if (this.theme === 'auto') {
-            this.applyTheme();
-          }
-        });
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (this.theme === 'auto') {
+          this.applyTheme();
+        }
+      });
     }
   }
 
@@ -61,9 +59,7 @@ class PreferencesService {
     let effectiveTheme = this.theme;
 
     if (effectiveTheme === 'auto') {
-      effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
-        ? 'dark'
-        : 'light';
+      effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
 
     root.setAttribute('data-theme', effectiveTheme);
@@ -86,7 +82,7 @@ class PreferencesService {
     // Reduce motion
     root.style.setProperty(
       '--animation-duration',
-      this.accessibility.reduceMotion ? '0.01ms' : '300ms'
+      this.accessibility.reduceMotion ? '0.01ms' : '300ms',
     );
 
     // High contrast
@@ -105,9 +101,7 @@ class PreferencesService {
   }
 
   private notifyAccessibilityChange() {
-    window.dispatchEvent(
-      new CustomEvent('accessibility-changed', { detail: this.accessibility })
-    );
+    window.dispatchEvent(new CustomEvent('accessibility-changed', { detail: this.accessibility }));
   }
 
   // Museum selection
@@ -124,7 +118,7 @@ class PreferencesService {
     return null;
   }
 
-  getSelectedMuseum(): any | null {
+  getSelectedMuseum(): { _id: string; name: string } | null {
     const saved = localStorage.getItem('selectedMuseum');
     if (saved) {
       try {
@@ -136,7 +130,7 @@ class PreferencesService {
     return null;
   }
 
-  setSelectedMuseum(museum: any) {
+  setSelectedMuseum(museum: { _id: string; name: string }) {
     localStorage.setItem('selectedMuseum', JSON.stringify(museum));
     window.dispatchEvent(new CustomEvent('museum-changed', { detail: museum }));
   }

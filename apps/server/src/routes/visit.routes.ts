@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { VisitController } from '../controllers/visit.controller';
-import { authMiddleware, roleMiddleware } from '../middleware';
+import { VisitController } from '../controllers/visit.controller.js';
+import { authMiddleware, roleMiddleware } from '../middleware/index.js';
 import { UserRole } from '@artaround/shared';
 
 const router = Router();
@@ -66,11 +66,7 @@ router.get('/:id', VisitController.getById);
  *       200:
  *         description: Lista visite dell'utente
  */
-router.get(
-  '/user/my-visits',
-  authMiddleware,
-  VisitController.getMyVisits
-);
+router.get('/user/my-visits', authMiddleware, VisitController.getMyVisits);
 
 /**
  * @swagger
@@ -122,7 +118,7 @@ router.post(
   authMiddleware,
   roleMiddleware(UserRole.AUTHOR),
   VisitController.createValidation,
-  VisitController.create
+  VisitController.create,
 );
 
 /**
@@ -147,7 +143,7 @@ router.put(
   '/:id',
   authMiddleware,
   roleMiddleware(UserRole.AUTHOR, UserRole.ADMIN),
-  VisitController.update
+  VisitController.update,
 );
 
 /**
@@ -173,7 +169,7 @@ router.post(
   '/:id/publish',
   authMiddleware,
   roleMiddleware(UserRole.AUTHOR, UserRole.ADMIN),
-  VisitController.publish
+  VisitController.publish,
 );
 
 /**
@@ -198,7 +194,7 @@ router.delete(
   '/:id',
   authMiddleware,
   roleMiddleware(UserRole.AUTHOR, UserRole.ADMIN),
-  VisitController.delete
+  VisitController.delete,
 );
 
 export default router;

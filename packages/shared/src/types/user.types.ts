@@ -13,7 +13,7 @@ export interface User {
 export enum UserRole {
   AUTHOR = 'author',
   VISITOR = 'visitor',
-  ADMIN = 'admin'
+  ADMIN = 'admin',
 }
 
 export interface UserPreferences {
@@ -28,11 +28,11 @@ export enum CompetenceLevel {
   INFANTILE = 'infantile',
   SEMPLICE = 'semplice',
   MEDIO = 'medio',
-  AVANZATO = 'avanzato'
+  AVANZATO = 'avanzato',
 }
 
 export enum TimePreference {
-  VELOCE = 'veloce',      // 30-45 min
-  NORMALE = 'normale',     // 1-2 ore
-  APPROFONDITO = 'approfondito' // 2+ ore
+  VELOCE = 'veloce', // 30-45 min
+  NORMALE = 'normale', // 1-2 ore
+  APPROFONDITO = 'approfondito', // 2+ ore
 }

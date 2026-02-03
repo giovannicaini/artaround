@@ -1,5 +1,10 @@
-export { User, UserDocument } from './User';
-export { Museum, MuseumDocument } from './Museum';
-export { Item, ItemDocument } from './Item';
-export { Visit, VisitDocument } from './Visit';
-export { VisitPurchase, VisitPurchaseDocument } from './VisitPurchase';
+export { User } from './User.js';
+export type { UserDocument } from './User.js';
+export { Museum } from './Museum.js';
+export type { MuseumDocument } from './Museum.js';
+export { Item } from './Item.js';
+export type { ItemDocument } from './Item.js';
+export { Visit } from './Visit.js';
+export type { VisitDocument } from './Visit.js';
+export { VisitPurchase } from './VisitPurchase.js';
+export type { VisitPurchaseDocument } from './VisitPurchase.js';

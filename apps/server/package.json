@@ -2,6 +2,7 @@
   "name": "@artaround/server",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "ArtAround backend server with Express and MongoDB",
   "main": "dist/index.js",
   "scripts": {
@@ -37,6 +38,9 @@
     "@typescript-eslint/eslint-plugin": "^8.20.0",
     "@typescript-eslint/parser": "^8.20.0",
     "eslint": "^9.18.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "prettier": "^3.8.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

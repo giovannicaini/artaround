@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { body, validationResult } from 'express-validator';
-import { Item } from '../models';
-import { AppError } from '../middleware';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { Item } from '../models/index.js';
+import { AppError } from '../middleware/index.js';
+import { AuthRequest } from '../middleware/auth.middleware.js';
 
 export class ItemController {
   // Validation rules
@@ -17,15 +17,9 @@ export class ItemController {
   // Get all items with filters and pagination
   static async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const {
-        museumId,
-        authorId,
-        isFree,
-        page = '1',
-        limit = '50',
-      } = req.query;
+      const { museumId, authorId, isFree, page = '1', limit = '50' } = req.query;
 
-      const filter: any = {};
+      const filter: Record<string, unknown> = {};
       if (museumId) filter.museumId = museumId;
       if (authorId) filter.authorId = authorId;
       if (isFree !== undefined) filter['metadata.isFree'] = isFree === 'true';
@@ -35,10 +29,7 @@ export class ItemController {
       const skip = (pageNum - 1) * limitNum;
 
       const [items, total] = await Promise.all([
-        Item.find(filter)
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(limitNum),
+        Item.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum),
         Item.countDocuments(filter),
       ]);
 
@@ -60,23 +51,17 @@ export class ItemController {
   // Search items
   static async search(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const {
-        q,
-        museumId,
-        tags,
-        page = '1',
-        limit = '50',
-      } = req.query;
+      const { q, museumId, tags, page = '1', limit = '50' } = req.query;
 
-      const filter: any = {};
-      
+      const filter: Record<string, unknown> = {};
+
       if (q) {
         filter.$or = [
           { title: { $regex: q, $options: 'i' } },
           { 'contents.text': { $regex: q, $options: 'i' } },
         ];
       }
-      
+
       if (museumId) filter.museumId = museumId;
       if (tags) filter['metadata.tags'] = { $in: (tags as string).split(',') };
 
@@ -85,10 +70,7 @@ export class ItemController {
       const skip = (pageNum - 1) * limitNum;
 
       const [items, total] = await Promise.all([
-        Item.find(filter)
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(limitNum),
+        Item.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum),
         Item.countDocuments(filter),
       ]);
 

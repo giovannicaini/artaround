@@ -1,6 +1,5 @@
 import swaggerJsdoc from 'swagger-jsdoc';
-import { config } from './config';
-import { url } from 'inspector';
+import { config } from './config.js';
 
 const swaggerDefinition = {
   openapi: '3.0.0',
@@ -61,8 +60,14 @@ const swaggerDefinition = {
             type: 'object',
             properties: {
               language: { type: 'string', example: 'it' },
-              targetAudience: { type: 'string', enum: ['CHILDREN', 'FAMILIES', 'ADULTS', 'EXPERTS'] },
-              difficulty: { type: 'string', enum: ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'] },
+              targetAudience: {
+                type: 'string',
+                enum: ['CHILDREN', 'FAMILIES', 'ADULTS', 'EXPERTS'],
+              },
+              difficulty: {
+                type: 'string',
+                enum: ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'],
+              },
             },
           },
           createdAt: { type: 'string', format: 'date-time' },
@@ -105,8 +110,14 @@ const swaggerDefinition = {
             items: {
               type: 'object',
               properties: {
-                targetAudience: { type: 'string', enum: ['CHILDREN', 'FAMILIES', 'ADULTS', 'EXPERTS'] },
-                difficulty: { type: 'string', enum: ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'] },
+                targetAudience: {
+                  type: 'string',
+                  enum: ['CHILDREN', 'FAMILIES', 'ADULTS', 'EXPERTS'],
+                },
+                difficulty: {
+                  type: 'string',
+                  enum: ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'],
+                },
                 title: { type: 'string' },
                 description: { type: 'string' },
                 audioUrl: { type: 'string' },
@@ -256,7 +267,7 @@ const swaggerDefinition = {
     },
     {
       name: 'Items',
-      description: 'Gestione opere d\'arte e contenuti',
+      description: "Gestione opere d'arte e contenuti",
     },
     {
       name: 'Visits',

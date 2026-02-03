@@ -11,8 +11,19 @@ export interface Item {
   metadata: ItemMetadata;
   image?: string; // base64 or URL for recognition
   relatedItems?: string[]; // IDs of related items (style, artist, etc.)
+  // Map position
+  mapPosition?: ItemMapPosition;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Position on museum map
+export interface ItemMapPosition {
+  floorId: string; // Which floor the item is on
+  x: number; // X coordinate on the floor map
+  y: number; // Y coordinate on the floor map
+  rotation?: number; // 0-360 degrees (for directional items)
+  room?: string; // Room name/number (e.g., "Sala VIII")
 }
 
 export interface ItemContent {
@@ -26,7 +37,7 @@ export enum ContentDuration {
   SHORT = '3s',
   MEDIUM = '15s',
   LONG = '40s',
-  EXTENDED = '2min'
+  EXTENDED = '2min',
 }
 
 export interface ItemMetadata {
@@ -44,7 +55,7 @@ export enum LicenseType {
   CC_BY = 'CC BY',
   CC_BY_SA = 'CC BY-SA',
   CC_BY_NC = 'CC BY-NC',
-  PROPRIETARY = 'proprietary'
+  PROPRIETARY = 'proprietary',
 }
 
 // Wikidata integration
@@ -53,5 +64,11 @@ export interface WikidataEntity {
   label: string;
   description?: string;
   imageUrl?: string;
-  properties?: Record<string, any>;
+  // Extracted metadata from Wikidata
+  author?: string; // P170 - creator
+  authorId?: string; // P170 - creator Wikidata ID
+  style?: string; // P135 - movement/style
+  styleId?: string; // P135 - style Wikidata ID
+  epoch?: string; // P571 - inception date/period
+  properties?: Record<string, unknown>;
 }

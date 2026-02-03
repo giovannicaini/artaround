@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { MuseumController } from '../controllers/museum.controller';
-import { authMiddleware, roleMiddleware } from '../middleware';
+import { MuseumController } from '../controllers/museum.controller.js';
+import { authMiddleware, roleMiddleware } from '../middleware/index.js';
 import { UserRole } from '@artaround/shared';
 
 const router = Router();
@@ -154,21 +154,190 @@ router.post(
   authMiddleware,
   roleMiddleware(UserRole.ADMIN),
   MuseumController.createValidation,
-  MuseumController.create
+  MuseumController.create,
 );
 
+router.put('/:id', authMiddleware, roleMiddleware(UserRole.ADMIN), MuseumController.update);
+
+router.delete('/:id', authMiddleware, roleMiddleware(UserRole.ADMIN), MuseumController.delete);
+
+// ========================================
+// FLOOR ROUTES
+// ========================================
+
+/**
+ * @swagger
+ * /api/museums/{id}/floors:
+ *   get:
+ *     tags: [Museum Floors]
+ *     summary: Lista piani del museo
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Lista piani
+ */
+router.get('/:id/floors', MuseumController.getFloors);
+
+/**
+ * @swagger
+ * /api/museums/{id}/floors/{floorId}:
+ *   get:
+ *     tags: [Museum Floors]
+ *     summary: Dettaglio piano
+ */
+router.get('/:id/floors/:floorId', MuseumController.getFloor);
+
+/**
+ * @swagger
+ * /api/museums/{id}/floors:
+ *   post:
+ *     tags: [Museum Floors]
+ *     summary: Aggiunge un piano con mappa SVG
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post(
+  '/:id/floors',
+  authMiddleware,
+  roleMiddleware(UserRole.ADMIN, UserRole.AUTHOR),
+  MuseumController.floorValidation,
+  MuseumController.addFloor,
+);
+
+/**
+ * @swagger
+ * /api/museums/{id}/floors/{floorId}:
+ *   put:
+ *     tags: [Museum Floors]
+ *     summary: Aggiorna un piano
+ */
 router.put(
-  '/:id',
+  '/:id/floors/:floorId',
   authMiddleware,
-  roleMiddleware(UserRole.ADMIN),
-  MuseumController.update
+  roleMiddleware(UserRole.ADMIN, UserRole.AUTHOR),
+  MuseumController.updateFloor,
 );
 
+/**
+ * @swagger
+ * /api/museums/{id}/floors/{floorId}:
+ *   delete:
+ *     tags: [Museum Floors]
+ *     summary: Elimina un piano
+ */
 router.delete(
-  '/:id',
+  '/:id/floors/:floorId',
   authMiddleware,
   roleMiddleware(UserRole.ADMIN),
-  MuseumController.delete
+  MuseumController.deleteFloor,
+);
+
+// ========================================
+// MARKER ROUTES (POI)
+// ========================================
+
+/**
+ * @swagger
+ * /api/museums/{id}/floors/{floorId}/markers:
+ *   get:
+ *     tags: [Map Markers]
+ *     summary: Lista marker di un piano
+ */
+router.get('/:id/floors/:floorId/markers', MuseumController.getMarkers);
+
+/**
+ * @swagger
+ * /api/museums/{id}/floors/{floorId}/markers:
+ *   post:
+ *     tags: [Map Markers]
+ *     summary: Aggiunge un marker (POI)
+ */
+router.post(
+  '/:id/floors/:floorId/markers',
+  authMiddleware,
+  roleMiddleware(UserRole.ADMIN, UserRole.AUTHOR),
+  MuseumController.markerValidation,
+  MuseumController.addMarker,
+);
+
+/**
+ * @swagger
+ * /api/museums/{id}/floors/{floorId}/markers:
+ *   put:
+ *     tags: [Map Markers]
+ *     summary: Aggiorna tutti i marker (bulk update)
+ */
+router.put(
+  '/:id/floors/:floorId/markers',
+  authMiddleware,
+  roleMiddleware(UserRole.ADMIN, UserRole.AUTHOR),
+  MuseumController.updateMarkers,
+);
+
+/**
+ * @swagger
+ * /api/museums/{id}/floors/{floorId}/markers/{markerId}:
+ *   put:
+ *     tags: [Map Markers]
+ *     summary: Aggiorna un marker
+ */
+router.put(
+  '/:id/floors/:floorId/markers/:markerId',
+  authMiddleware,
+  roleMiddleware(UserRole.ADMIN, UserRole.AUTHOR),
+  MuseumController.updateMarker,
+);
+
+/**
+ * @swagger
+ * /api/museums/{id}/floors/{floorId}/markers/{markerId}:
+ *   delete:
+ *     tags: [Map Markers]
+ *     summary: Elimina un marker
+ */
+router.delete(
+  '/:id/floors/:floorId/markers/:markerId',
+  authMiddleware,
+  roleMiddleware(UserRole.ADMIN, UserRole.AUTHOR),
+  MuseumController.deleteMarker,
+);
+
+// ========================================
+// CONNECTION ROUTES (Stairs, Elevators)
+// ========================================
+
+/**
+ * @swagger
+ * /api/museums/{id}/floors/{floorId}/connections:
+ *   post:
+ *     tags: [Floor Connections]
+ *     summary: Aggiunge un collegamento tra piani
+ */
+router.post(
+  '/:id/floors/:floorId/connections',
+  authMiddleware,
+  roleMiddleware(UserRole.ADMIN, UserRole.AUTHOR),
+  MuseumController.connectionValidation,
+  MuseumController.addConnection,
+);
+
+/**
+ * @swagger
+ * /api/museums/{id}/floors/{floorId}/connections/{connectionId}:
+ *   delete:
+ *     tags: [Floor Connections]
+ *     summary: Elimina un collegamento
+ */
+router.delete(
+  '/:id/floors/:floorId/connections/:connectionId',
+  authMiddleware,
+  roleMiddleware(UserRole.ADMIN, UserRole.AUTHOR),
+  MuseumController.deleteConnection,
 );
 
 export default router;

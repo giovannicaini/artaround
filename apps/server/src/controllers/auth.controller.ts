@@ -2,16 +2,19 @@ import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
-import { User } from '../models';
-import { AppError } from '../middleware';
-import { config } from '../config/config';
+import { User } from '../models/index.js';
+import { AppError } from '../middleware/index.js';
+import { config } from '../config/config.js';
 import { AuthResponse, LoginRequest, RegisterRequest } from '@artaround/shared';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest } from '../middleware/auth.middleware.js';
 
 export class AuthController {
   // Validation rules
   static registerValidation = [
-    body('username').trim().isLength({ min: 3 }).withMessage('Username must be at least 3 characters'),
+    body('username')
+      .trim()
+      .isLength({ min: 3 })
+      .withMessage('Username must be at least 3 characters'),
     body('email').isEmail().withMessage('Invalid email address'),
     body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
     body('role').optional().isIn(['author', 'visitor']).withMessage('Invalid role'),
@@ -63,7 +66,7 @@ export class AuthController {
           role: user.role,
         },
         config.jwt.secret,
-        { expiresIn: '7d' }
+        { expiresIn: '7d' },
       );
 
       const response: AuthResponse = {
@@ -117,7 +120,7 @@ export class AuthController {
           role: user.role,
         },
         config.jwt.secret,
-        { expiresIn: '7d' }
+        { expiresIn: '7d' },
       );
 
       const response: AuthResponse = {

@@ -15,17 +15,17 @@ import '../ui/ui-card';
 @customElement('item-creator')
 export class ItemCreator extends LitElement {
   @property({ type: String }) itemId = ''; // For edit mode
-  
+
   @state() private loading = false;
   @state() private error = '';
   @state() private success = '';
-  
+
   // Form data
   @state() private objectId = '';
   @state() private itemTitle = '';
   @state() private image = '';
   @state() private contents: ItemContent[] = [];
-  
+
   // Metadata
   @state() private author = '';
   @state() private artStyle = '';
@@ -44,12 +44,27 @@ export class ItemCreator extends LitElement {
     { value: LicenseType.PROPRIETARY, label: 'Proprietaria' },
   ];
 
-  createRenderRoot() { return this; }
+  createRenderRoot() {
+    return this;
+  }
 
   private handleWikidataSelect(e: CustomEvent) {
     this.objectId = e.detail.id;
     if (!this.itemTitle) {
       this.itemTitle = e.detail.label;
+    }
+    // Auto-fill metadata from Wikidata if available
+    if (e.detail.author && !this.author) {
+      this.author = e.detail.author;
+    }
+    if (e.detail.style && !this.artStyle) {
+      this.artStyle = e.detail.style;
+    }
+    if (e.detail.epoch && !this.epoch) {
+      this.epoch = e.detail.epoch;
+    }
+    if (e.detail.imageUrl && !this.image) {
+      this.image = e.detail.imageUrl;
     }
   }
 
@@ -70,7 +85,7 @@ export class ItemCreator extends LitElement {
   }
 
   private handleRemoveTag(tag: string) {
-    this.tags = this.tags.filter(t => t !== tag);
+    this.tags = this.tags.filter((t) => t !== tag);
   }
 
   private handleTagKeydown(e: KeyboardEvent) {
@@ -87,7 +102,7 @@ export class ItemCreator extends LitElement {
 
   private validateForm(): string | null {
     if (!this.objectId) {
-      return 'Seleziona un\'opera da Wikidata';
+      return "Seleziona un'opera da Wikidata";
     }
     if (!this.itemTitle.trim()) {
       return 'Il titolo è obbligatorio';
@@ -100,7 +115,7 @@ export class ItemCreator extends LitElement {
 
   private async handleSubmit(e: Event) {
     e.preventDefault();
-    
+
     const validationError = this.validateForm();
     if (validationError) {
       this.error = validationError;
@@ -135,23 +150,24 @@ export class ItemCreator extends LitElement {
       };
 
       await itemService.createItem(itemData);
-      
+
       this.success = 'Opera creata con successo!';
-      
+
       // Dispatch success event
-      this.dispatchEvent(new CustomEvent('item-created', {
-        bubbles: true,
-        composed: true
-      }));
+      this.dispatchEvent(
+        new CustomEvent('item-created', {
+          bubbles: true,
+          composed: true,
+        }),
+      );
 
       // Reset form after short delay
       setTimeout(() => {
         this.resetForm();
       }, 2000);
-
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error creating item:', err);
-      this.error = err.message || 'Errore durante la creazione dell\'opera';
+      this.error = err instanceof Error ? err.message : "Errore durante la creazione dell'opera";
     } finally {
       this.loading = false;
     }
@@ -175,37 +191,56 @@ export class ItemCreator extends LitElement {
   }
 
   private handleCancel() {
-    this.dispatchEvent(new CustomEvent('cancel', {
-      bubbles: true,
-      composed: true
-    }));
+    this.dispatchEvent(
+      new CustomEvent('cancel', {
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   render() {
     return html`
       <form @submit=${this.handleSubmit} class="space-y-8">
         <!-- Success/Error Messages -->
-        ${this.success ? html`
-          <div class="p-4 rounded-lg bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 flex items-center gap-3">
-            <ui-icon name="check" size="sm" class="text-success-600 dark:text-success-400"></ui-icon>
-            <p class="text-sm text-success-800 dark:text-success-300">${this.success}</p>
-          </div>
-        ` : ''}
-        
-        ${this.error ? html`
-          <div class="p-4 rounded-lg bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 flex items-center gap-3">
-            <ui-icon name="warning" size="sm" class="text-danger-600 dark:text-danger-400"></ui-icon>
-            <p class="text-sm text-danger-800 dark:text-danger-300">${this.error}</p>
-          </div>
-        ` : ''}
+        ${this.success
+          ? html`
+              <div
+                class="p-4 rounded-lg bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 flex items-center gap-3"
+              >
+                <ui-icon
+                  name="check"
+                  size="sm"
+                  class="text-success-600 dark:text-success-400"
+                ></ui-icon>
+                <p class="text-sm text-success-800 dark:text-success-300">${this.success}</p>
+              </div>
+            `
+          : ''}
+        ${this.error
+          ? html`
+              <div
+                class="p-4 rounded-lg bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 flex items-center gap-3"
+              >
+                <ui-icon
+                  name="warning"
+                  size="sm"
+                  class="text-danger-600 dark:text-danger-400"
+                ></ui-icon>
+                <p class="text-sm text-danger-800 dark:text-danger-300">${this.error}</p>
+              </div>
+            `
+          : ''}
 
         <!-- Section: Identificazione Opera -->
         <section>
-          <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2">
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
             <ui-icon name="link" size="sm" class="text-brand-500"></ui-icon>
             Identificazione Opera
           </h3>
-          
+
           <ui-card>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div class="lg:col-span-2">
@@ -217,34 +252,34 @@ export class ItemCreator extends LitElement {
                   @wikidata-select=${this.handleWikidataSelect}
                 ></wikidata-autocomplete>
               </div>
-              
+
               <ui-input
                 label="Titolo"
                 placeholder="Titolo dell'opera"
                 .value=${this.itemTitle}
                 required
-                @input-change=${(e: CustomEvent) => this.itemTitle = e.detail.value}
+                @input-change=${(e: CustomEvent) => (this.itemTitle = e.detail.value)}
               ></ui-input>
-              
+
               <ui-input
                 label="Autore/Artista"
                 placeholder="Nome dell'artista"
                 .value=${this.author}
-                @input-change=${(e: CustomEvent) => this.author = e.detail.value}
+                @input-change=${(e: CustomEvent) => (this.author = e.detail.value)}
               ></ui-input>
-              
+
               <ui-input
                 label="Stile/Corrente"
                 placeholder="Es: Rinascimento, Impressionismo..."
                 .value=${this.artStyle}
-                @input-change=${(e: CustomEvent) => this.artStyle = e.detail.value}
+                @input-change=${(e: CustomEvent) => (this.artStyle = e.detail.value)}
               ></ui-input>
-              
+
               <ui-input
                 label="Epoca"
                 placeholder="Es: XVI secolo, 1500-1600..."
                 .value=${this.epoch}
-                @input-change=${(e: CustomEvent) => this.epoch = e.detail.value}
+                @input-change=${(e: CustomEvent) => (this.epoch = e.detail.value)}
               ></ui-input>
             </div>
           </ui-card>
@@ -252,11 +287,13 @@ export class ItemCreator extends LitElement {
 
         <!-- Section: Immagine -->
         <section>
-          <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2">
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
             <ui-icon name="image" size="sm" class="text-brand-500"></ui-icon>
             Immagine di Riferimento
           </h3>
-          
+
           <ui-card>
             <image-uploader
               label="Immagine dell'opera"
@@ -269,22 +306,28 @@ export class ItemCreator extends LitElement {
 
         <!-- Section: Contenuti -->
         <section>
-          <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2">
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
             <ui-icon name="document" size="sm" class="text-brand-500"></ui-icon>
             Contenuti Descrittivi
           </h3>
-          
+
           <ui-card>
             <content-matrix-editor
               .contents=${this.contents}
               @contents-change=${this.handleContentsChange}
             ></content-matrix-editor>
-            
-            <div class="mt-4 p-3 rounded-lg bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
+
+            <div
+              class="mt-4 p-3 rounded-lg bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700"
+            >
               <div class="flex items-start gap-2">
                 <ui-icon name="info" size="xs" class="text-brand-500 mt-0.5"></ui-icon>
                 <p class="text-xs text-surface-600 dark:text-surface-400">
-                  Clicca su una cella per aggiungere il contenuto. Ogni cella rappresenta una combinazione unica di durata (quanto tempo ha l'utente) e livello di competenza (bambino, adulto, esperto).
+                  Clicca su una cella per aggiungere il contenuto. Ogni cella rappresenta una
+                  combinazione unica di durata (quanto tempo ha l'utente) e livello di competenza
+                  (bambino, adulto, esperto).
                 </p>
               </div>
             </div>
@@ -293,11 +336,13 @@ export class ItemCreator extends LitElement {
 
         <!-- Section: Licenza e Prezzo -->
         <section>
-          <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2">
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
             <ui-icon name="currency" size="sm" class="text-brand-500"></ui-icon>
             Licenza e Prezzo
           </h3>
-          
+
           <ui-card>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ui-select
@@ -305,9 +350,9 @@ export class ItemCreator extends LitElement {
                 .value=${this.license}
                 .options=${this.licenseOptions}
                 required
-                @select-change=${(e: CustomEvent) => this.license = e.detail.value as LicenseType}
+                @select-change=${(e: CustomEvent) => (this.license = e.detail.value as LicenseType)}
               ></ui-select>
-              
+
               <ui-input
                 type="number"
                 label="Prezzo (€)"
@@ -322,11 +367,13 @@ export class ItemCreator extends LitElement {
 
         <!-- Section: Tags -->
         <section>
-          <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2">
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
             <ui-icon name="tag" size="sm" class="text-brand-500"></ui-icon>
             Tag
           </h3>
-          
+
           <ui-card>
             <div class="space-y-3">
               <div class="flex gap-2">
@@ -334,7 +381,7 @@ export class ItemCreator extends LitElement {
                   <ui-input
                     placeholder="Aggiungi un tag..."
                     .value=${this.tagInput}
-                    @input-change=${(e: CustomEvent) => this.tagInput = e.detail.value}
+                    @input-change=${(e: CustomEvent) => (this.tagInput = e.detail.value)}
                     @keydown=${this.handleTagKeydown}
                   ></ui-input>
                 </div>
@@ -346,33 +393,41 @@ export class ItemCreator extends LitElement {
                   @click=${this.handleAddTag}
                 ></ui-button>
               </div>
-              
-              ${this.tags.length > 0 ? html`
-                <div class="flex flex-wrap gap-2">
-                  ${this.tags.map(tag => html`
-                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-sm bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300">
-                      ${tag}
-                      <button
-                        type="button"
-                        class="p-0.5 hover:bg-surface-200 dark:hover:bg-surface-700 rounded-full transition-colors"
-                        @click=${() => this.handleRemoveTag(tag)}
-                      >
-                        <ui-icon name="x" size="xs"></ui-icon>
-                      </button>
-                    </span>
-                  `)}
-                </div>
-              ` : html`
-                <p class="text-sm text-surface-500 dark:text-surface-400">
-                  Nessun tag aggiunto
-                </p>
-              `}
+
+              ${this.tags.length > 0
+                ? html`
+                    <div class="flex flex-wrap gap-2">
+                      ${this.tags.map(
+                        (tag) => html`
+                          <span
+                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-sm bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300"
+                          >
+                            ${tag}
+                            <button
+                              type="button"
+                              class="p-0.5 hover:bg-surface-200 dark:hover:bg-surface-700 rounded-full transition-colors"
+                              @click=${() => this.handleRemoveTag(tag)}
+                            >
+                              <ui-icon name="x" size="xs"></ui-icon>
+                            </button>
+                          </span>
+                        `,
+                      )}
+                    </div>
+                  `
+                : html`
+                    <p class="text-sm text-surface-500 dark:text-surface-400">
+                      Nessun tag aggiunto
+                    </p>
+                  `}
             </div>
           </ui-card>
         </section>
 
         <!-- Actions -->
-        <div class="flex items-center justify-end gap-3 pt-6 border-t border-surface-200 dark:border-surface-700">
+        <div
+          class="flex items-center justify-end gap-3 pt-6 border-t border-surface-200 dark:border-surface-700"
+        >
           <ui-button
             type="button"
             variant="secondary"

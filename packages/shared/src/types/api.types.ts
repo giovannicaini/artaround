@@ -1,5 +1,5 @@
 // API Response types
-export interface APIResponse<T = any> {
+export interface APIResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: APIError;
@@ -9,7 +9,7 @@ export interface APIResponse<T = any> {
 export interface APIError {
   code: string;
   message: string;
-  details?: any;
+  details?: unknown;
 }
 
 export interface PaginatedResponse<T> {

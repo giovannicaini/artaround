@@ -1,3 +1,4 @@
-export { authMiddleware, AuthRequest } from './auth.middleware';
-export { roleMiddleware } from './role.middleware';
-export { errorHandler, AppError } from './error.middleware';
+export { authMiddleware } from './auth.middleware.js';
+export type { AuthRequest } from './auth.middleware.js';
+export { roleMiddleware } from './role.middleware.js';
+export { errorHandler, AppError } from './error.middleware.js';

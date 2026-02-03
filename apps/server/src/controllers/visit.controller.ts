@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { body, validationResult } from 'express-validator';
-import { Visit } from '../models';
-import { AppError } from '../middleware';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { Visit } from '../models/index.js';
+import { AppError } from '../middleware/index.js';
+import { AuthRequest } from '../middleware/auth.middleware.js';
 
 export class VisitController {
   static createValidation = [
@@ -16,16 +16,9 @@ export class VisitController {
   // Get all visits with filters
   static async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const {
-        museumId,
-        authorId,
-        isPublished,
-        isFree,
-        page = '1',
-        limit = '20',
-      } = req.query;
+      const { museumId, authorId, isPublished, isFree, page = '1', limit = '20' } = req.query;
 
-      const filter: any = {};
+      const filter: Record<string, unknown> = {};
       if (museumId) filter.museumId = museumId;
       if (authorId) filter.authorId = authorId;
       if (isPublished !== undefined) filter.isPublished = isPublished === 'true';
@@ -36,10 +29,7 @@ export class VisitController {
       const skip = (pageNum - 1) * limitNum;
 
       const [visits, total] = await Promise.all([
-        Visit.find(filter)
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(limitNum),
+        Visit.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum),
         Visit.countDocuments(filter),
       ]);
 
@@ -63,8 +53,7 @@ export class VisitController {
     try {
       const { id } = req.params;
 
-      const visit = await Visit.findById(id)
-        .populate('items.itemId');
+      const visit = await Visit.findById(id).populate('items.itemId');
 
       if (!visit) {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
@@ -86,8 +75,7 @@ export class VisitController {
         throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
       }
 
-      const visits = await Visit.find({ authorId: req.user.id })
-        .sort({ createdAt: -1 });
+      const visits = await Visit.find({ authorId: req.user.id }).sort({ createdAt: -1 });
 
       res.json({
         success: true,

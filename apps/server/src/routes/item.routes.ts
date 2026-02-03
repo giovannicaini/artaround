@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { ItemController } from '../controllers/item.controller';
-import { authMiddleware, roleMiddleware } from '../middleware';
+import { ItemController } from '../controllers/item.controller.js';
+import { authMiddleware, roleMiddleware } from '../middleware/index.js';
 import { UserRole } from '@artaround/shared';
 
 const router = Router();
@@ -189,7 +189,7 @@ router.post(
   authMiddleware,
   roleMiddleware(UserRole.AUTHOR),
   ItemController.createValidation,
-  ItemController.create
+  ItemController.create,
 );
 
 /**
@@ -226,7 +226,7 @@ router.put(
   '/:id',
   authMiddleware,
   roleMiddleware(UserRole.AUTHOR, UserRole.ADMIN),
-  ItemController.update
+  ItemController.update,
 );
 
 /**
@@ -257,7 +257,7 @@ router.delete(
   '/:id',
   authMiddleware,
   roleMiddleware(UserRole.AUTHOR, UserRole.ADMIN),
-  ItemController.delete
+  ItemController.delete,
 );
 
 export default router;

@@ -15,7 +15,10 @@ export interface RegisterData {
 
 export class AuthService {
   async login(credentials: LoginCredentials): Promise<User | null> {
-    const response = await apiService.post<{ user: User; token: string }>('/auth/login', credentials);
+    const response = await apiService.post<{ user: User; token: string }>(
+      '/auth/login',
+      credentials,
+    );
 
     if (response.success && response.data) {
       localStorage.setItem('authToken', response.data.token);
