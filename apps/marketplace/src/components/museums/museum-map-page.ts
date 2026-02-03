@@ -12,7 +12,7 @@ import '../ui/ui-card';
 
 /**
  * Museum Map Page
- * 
+ *
  * Full page for managing museum floor maps, markers, and artwork positions
  */
 @customElement('museum-map-page')
@@ -136,7 +136,9 @@ export class MuseumMapPage extends LitElement {
     return html`
       <div class="min-h-screen bg-surface-950 ${this.isFullscreen ? 'fixed inset-0 z-50' : ''}">
         <!-- Header -->
-        <div class="flex items-center justify-between p-4 bg-surface-900 border-b border-surface-800">
+        <div
+          class="flex items-center justify-between p-4 bg-surface-900 border-b border-surface-800"
+        >
           <div class="flex items-center gap-4">
             <button
               class="px-3 py-2 rounded-lg bg-surface-800 text-white hover:bg-surface-700 transition-colors flex items-center gap-2"
@@ -152,9 +154,7 @@ export class MuseumMapPage extends LitElement {
 
           <div class="flex items-center gap-3">
             ${this.hasChanges
-              ? html`
-                  <span class="text-yellow-400 text-sm">● Modifiche non salvate</span>
-                `
+              ? html` <span class="text-yellow-400 text-sm">● Modifiche non salvate</span> `
               : ''}
             <button
               class="px-3 py-2 rounded-lg bg-surface-800 text-white hover:bg-surface-700 transition-colors"
@@ -174,7 +174,10 @@ export class MuseumMapPage extends LitElement {
         </div>
 
         <!-- Main Content -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 p-4" style="min-height: calc(100vh - 80px);">
+        <div
+          class="grid grid-cols-1 lg:grid-cols-12 gap-4 p-4"
+          style="min-height: calc(100vh - 80px);"
+        >
           <!-- Left Panel: Floors & Artworks -->
           <div class="lg:col-span-3 xl:col-span-2 space-y-4 overflow-y-auto order-2 lg:order-1">
             <floor-manager
@@ -189,7 +192,9 @@ export class MuseumMapPage extends LitElement {
             <!-- Artworks List -->
             <div class="bg-surface-800 rounded-lg overflow-hidden border border-surface-700">
               <div class="p-4 bg-surface-700 border-b border-surface-600">
-                <h3 class="text-white font-medium text-base m-0">🖼️ Opere (${this.artworks.length})</h3>
+                <h3 class="text-white font-medium text-base m-0">
+                  🖼️ Opere (${this.artworks.length})
+                </h3>
               </div>
               <div class="max-h-64 overflow-y-auto">
                 ${this.artworks.length > 0
@@ -238,12 +243,12 @@ export class MuseumMapPage extends LitElement {
   }
 
   private renderArtworkItem(artwork: Item) {
-    const hasPosition = this.floors.some((f) =>
-      f.markers?.some((m) => m.itemId === artwork._id)
-    );
+    const hasPosition = this.floors.some((f) => f.markers?.some((m) => m.itemId === artwork._id));
 
     return html`
-      <div class="flex items-center gap-3 p-3 border-b border-surface-600 hover:bg-surface-700 transition-colors">
+      <div
+        class="flex items-center gap-3 p-3 border-b border-surface-600 hover:bg-surface-700 transition-colors"
+      >
         <div class="w-10 h-10 rounded bg-surface-600 overflow-hidden flex-shrink-0">
           ${artwork.image
             ? html`<img src=${artwork.image} alt="" class="w-full h-full object-cover" />`
@@ -251,7 +256,9 @@ export class MuseumMapPage extends LitElement {
         </div>
         <div class="flex-1 min-w-0">
           <div class="text-white text-sm font-medium truncate">${artwork.title}</div>
-          <div class="text-surface-400 text-xs">${artwork.metadata?.author || 'Artista sconosciuto'}</div>
+          <div class="text-surface-400 text-xs">
+            ${artwork.metadata?.author || 'Artista sconosciuto'}
+          </div>
         </div>
         <div class="flex-shrink-0">
           ${hasPosition
@@ -280,7 +287,7 @@ export class MuseumMapPage extends LitElement {
       new CustomEvent('navigate-back', {
         bubbles: true,
         composed: true,
-      })
+      }),
     );
   }
 
@@ -301,11 +308,11 @@ export class MuseumMapPage extends LitElement {
         this.selectedFloorId = result.data.id;
         this.hasChanges = false;
       } else {
-        await modalService.error(result.error || 'Errore durante l\'aggiunta del piano');
+        await modalService.error(result.error || "Errore durante l'aggiunta del piano");
       }
     } catch (err) {
       console.error('Error adding floor:', err);
-      await modalService.error('Errore di connessione durante l\'aggiunta del piano');
+      await modalService.error("Errore di connessione durante l'aggiunta del piano");
     }
   }
 
@@ -318,7 +325,7 @@ export class MuseumMapPage extends LitElement {
       this.hasChanges = false;
     } catch (err) {
       console.error('Error updating floor:', err);
-      await modalService.error('Errore durante l\'aggiornamento del piano');
+      await modalService.error("Errore durante l'aggiornamento del piano");
     }
   }
 
@@ -334,7 +341,7 @@ export class MuseumMapPage extends LitElement {
       }
     } catch (err) {
       console.error('Error deleting floor:', err);
-      await modalService.error('Errore durante l\'eliminazione del piano');
+      await modalService.error("Errore durante l'eliminazione del piano");
     }
   }
 
@@ -371,7 +378,7 @@ export class MuseumMapPage extends LitElement {
       this.clickPosition = null;
     } catch (err) {
       console.error('Error adding marker:', err);
-      await modalService.error('Errore durante l\'aggiunta del marker');
+      await modalService.error("Errore durante l'aggiunta del marker");
     }
   }
 
@@ -383,9 +390,7 @@ export class MuseumMapPage extends LitElement {
       if (f.id === this.selectedFloorId) {
         return {
           ...f,
-          markers: f.markers?.map((m) =>
-            m.id === markerId ? { ...m, x, y } : m
-          ),
+          markers: f.markers?.map((m) => (m.id === markerId ? { ...m, x, y } : m)),
         };
       }
       return f;
@@ -402,9 +407,7 @@ export class MuseumMapPage extends LitElement {
       if (f.id === this.selectedFloorId) {
         return {
           ...f,
-          markers: f.markers?.map((m) =>
-            m.id === updatedMarker.id ? updatedMarker : m
-          ),
+          markers: f.markers?.map((m) => (m.id === updatedMarker.id ? updatedMarker : m)),
         };
       }
       return f;
@@ -439,7 +442,7 @@ export class MuseumMapPage extends LitElement {
       }
     } catch (err) {
       console.error('Error deleting marker:', err);
-      await modalService.error('Errore durante l\'eliminazione del marker');
+      await modalService.error("Errore durante l'eliminazione del marker");
     }
   }
 

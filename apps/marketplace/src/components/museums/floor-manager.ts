@@ -7,7 +7,7 @@ import '../ui/ui-input';
 
 /**
  * Floor Manager Component
- * 
+ *
  * Manages museum floors - add, edit, delete floors and upload SVG maps
  */
 @customElement('floor-manager')
@@ -42,9 +42,13 @@ export class FloorManager extends LitElement {
 
   render() {
     return html`
-      <div class="bg-surface-800 dark:bg-surface-800 rounded-lg overflow-hidden border border-surface-700">
+      <div
+        class="bg-surface-800 dark:bg-surface-800 rounded-lg overflow-hidden border border-surface-700"
+      >
         <!-- Header -->
-        <div class="flex justify-between items-center p-4 bg-surface-700 border-b border-surface-600">
+        <div
+          class="flex justify-between items-center p-4 bg-surface-700 border-b border-surface-600"
+        >
           <h3 class="text-white font-medium text-base m-0">📐 Piani del Museo</h3>
           <ui-button
             variant="primary"
@@ -73,24 +77,27 @@ export class FloorManager extends LitElement {
 
     return html`
       <div
-        class="flex items-center gap-3 p-3 border-b border-surface-600 cursor-pointer transition-colors hover:bg-surface-700 ${isActive ? 'bg-surface-600 border-l-4 border-l-brand-500' : ''}"
+        class="flex items-center gap-3 p-3 border-b border-surface-600 cursor-pointer transition-colors hover:bg-surface-700 ${isActive
+          ? 'bg-surface-600 border-l-4 border-l-brand-500'
+          : ''}"
         @click=${() => this.selectFloor(floor)}
       >
-        <div class="w-10 h-10 flex items-center justify-center bg-surface-600 rounded-lg text-white font-bold text-sm">
+        <div
+          class="w-10 h-10 flex items-center justify-center bg-surface-600 rounded-lg text-white font-bold text-sm"
+        >
           ${floor.level}
         </div>
         <div class="flex-1 min-w-0">
           <div class="text-white font-medium truncate">${floor.name}</div>
           <div class="text-surface-400 text-xs">
-            ${floor.dimensions.width}×${floor.dimensions.height}px •
-            ${markerCount} marker •
+            ${floor.dimensions.width}×${floor.dimensions.height}px • ${markerCount} marker •
             ${connectionCount} collegamenti
           </div>
         </div>
         <div class="flex gap-1">
-          <button 
+          <button
             class="p-1.5 rounded hover:bg-surface-500 text-surface-400 hover:text-white transition-colors"
-            @click=${(e: Event) => this.editFloor(e, floor)} 
+            @click=${(e: Event) => this.editFloor(e, floor)}
             title="Modifica"
           >
             ✏️
@@ -139,8 +146,9 @@ export class FloorManager extends LitElement {
 
         <!-- SVG Upload -->
         <div
-          class="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all mb-3 ${this.newFloor.svgContent 
-            ? 'border-green-500 bg-green-500/10' 
+          class="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all mb-3 ${this
+            .newFloor.svgContent
+            ? 'border-green-500 bg-green-500/10'
             : 'border-surface-500 hover:border-brand-500 hover:bg-brand-500/10'}"
           @click=${() => this.triggerFileUpload()}
           @dragover=${(e: DragEvent) => e.preventDefault()}
@@ -152,9 +160,7 @@ export class FloorManager extends LitElement {
             class="hidden"
             @change=${this.handleFileSelect}
           />
-          <div class="text-3xl mb-2">
-            ${this.newFloor.svgContent ? '✅' : '📄'}
-          </div>
+          <div class="text-3xl mb-2">${this.newFloor.svgContent ? '✅' : '📄'}</div>
           <div class="text-surface-400 text-sm">
             ${this.newFloor.svgContent
               ? 'File SVG caricato - Clicca per cambiare'
@@ -165,7 +171,9 @@ export class FloorManager extends LitElement {
         <!-- SVG Preview -->
         ${this.newFloor.svgContent
           ? html`
-              <div class="max-h-36 overflow-hidden rounded bg-surface-900 mb-3 p-2 flex justify-center">
+              <div
+                class="max-h-36 overflow-hidden rounded bg-surface-900 mb-3 p-2 flex justify-center"
+              >
                 <div class="svg-preview-container" .innerHTML=${this.newFloor.svgContent}></div>
               </div>
             `
@@ -209,9 +217,7 @@ export class FloorManager extends LitElement {
       <div class="p-10 text-center text-surface-400">
         <div class="text-5xl mb-3">🏛️</div>
         <p class="m-0">Nessun piano configurato</p>
-        <p class="text-xs mt-1 m-0">
-          Aggiungi i piani del museo per iniziare
-        </p>
+        <p class="text-xs mt-1 m-0">Aggiungi i piani del museo per iniziare</p>
       </div>
     `;
   }
@@ -269,7 +275,7 @@ export class FloorManager extends LitElement {
         detail: floor,
         bubbles: true,
         composed: true,
-      })
+      }),
     );
   }
 
@@ -295,14 +301,14 @@ export class FloorManager extends LitElement {
       confirmLabel: 'Elimina',
       variant: 'danger',
     });
-    
+
     if (confirmed) {
       this.dispatchEvent(
         new CustomEvent('floor-delete', {
           detail: floor,
           bubbles: true,
           composed: true,
-        })
+        }),
       );
     }
   }
@@ -348,7 +354,7 @@ export class FloorManager extends LitElement {
         detail: floorData,
         bubbles: true,
         composed: true,
-      })
+      }),
     );
 
     this.cancelForm();

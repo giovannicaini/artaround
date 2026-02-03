@@ -120,12 +120,12 @@ export class AppRoot extends LitElement {
       case 'dashboard':
         return html`<dashboard-page .user=${this.currentUser}></dashboard-page>`;
       case 'museums':
-        return html`<museums-page 
+        return html`<museums-page
           @museum-confirmed=${this.handleMuseumConfirmed}
           @open-map-editor=${this.handleOpenMapEditor}
         ></museums-page>`;
       case 'museum-maps':
-        return html`<museum-map-page 
+        return html`<museum-map-page
           .museumId=${this.routeParams.museumId || ''}
         ></museum-map-page>`;
       case 'artworks':

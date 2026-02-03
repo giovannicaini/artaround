@@ -1,10 +1,5 @@
 import { apiService } from './api.service';
-import type {
-  Museum,
-  MuseumFloor,
-  MapMarker,
-  FloorConnection,
-} from '@artaround/shared';
+import type { Museum, MuseumFloor, MapMarker, FloorConnection } from '@artaround/shared';
 
 export interface MuseumConfig {
   theme?: {
@@ -54,24 +49,20 @@ export class MuseumService {
   // ========================================
 
   async getFloors(museumId: string): Promise<MuseumFloor[]> {
-    const response = await apiService.get<MuseumFloor[]>(
-      `/museums/${museumId}/floors`
-    );
+    const response = await apiService.get<MuseumFloor[]>(`/museums/${museumId}/floors`);
     return response.success && response.data ? response.data : [];
   }
 
   async getFloor(museumId: string, floorId: string): Promise<MuseumFloor | null> {
-    const response = await apiService.get<MuseumFloor>(
-      `/museums/${museumId}/floors/${floorId}`
-    );
+    const response = await apiService.get<MuseumFloor>(`/museums/${museumId}/floors/${floorId}`);
     return response.success && response.data ? response.data : null;
   }
 
-  async addFloor(museumId: string, floor: Omit<MuseumFloor, 'markers' | 'connections'>): Promise<{ data: MuseumFloor | null; error?: string }> {
-    const response = await apiService.post<MuseumFloor>(
-      `/museums/${museumId}/floors`,
-      floor
-    );
+  async addFloor(
+    museumId: string,
+    floor: Omit<MuseumFloor, 'markers' | 'connections'>,
+  ): Promise<{ data: MuseumFloor | null; error?: string }> {
+    const response = await apiService.post<MuseumFloor>(`/museums/${museumId}/floors`, floor);
     if (response.success && response.data) {
       return { data: response.data };
     }
@@ -81,11 +72,11 @@ export class MuseumService {
   async updateFloor(
     museumId: string,
     floorId: string,
-    data: Partial<MuseumFloor>
+    data: Partial<MuseumFloor>,
   ): Promise<MuseumFloor | null> {
     const response = await apiService.put<MuseumFloor>(
       `/museums/${museumId}/floors/${floorId}`,
-      data
+      data,
     );
     return response.success && response.data ? response.data : null;
   }
@@ -101,7 +92,7 @@ export class MuseumService {
 
   async getMarkers(museumId: string, floorId: string): Promise<MapMarker[]> {
     const response = await apiService.get<MapMarker[]>(
-      `/museums/${museumId}/floors/${floorId}/markers`
+      `/museums/${museumId}/floors/${floorId}/markers`,
     );
     return response.success && response.data ? response.data : [];
   }
@@ -109,11 +100,11 @@ export class MuseumService {
   async addMarker(
     museumId: string,
     floorId: string,
-    marker: Omit<MapMarker, 'floorId' | 'isVisible'>
+    marker: Omit<MapMarker, 'floorId' | 'isVisible'>,
   ): Promise<MapMarker | null> {
     const response = await apiService.post<MapMarker>(
       `/museums/${museumId}/floors/${floorId}/markers`,
-      marker
+      marker,
     );
     return response.success && response.data ? response.data : null;
   }
@@ -122,11 +113,11 @@ export class MuseumService {
     museumId: string,
     floorId: string,
     markerId: string,
-    data: Partial<MapMarker>
+    data: Partial<MapMarker>,
   ): Promise<MapMarker | null> {
     const response = await apiService.put<MapMarker>(
       `/museums/${museumId}/floors/${floorId}/markers/${markerId}`,
-      data
+      data,
     );
     return response.success && response.data ? response.data : null;
   }
@@ -134,22 +125,18 @@ export class MuseumService {
   async updateMarkers(
     museumId: string,
     floorId: string,
-    markers: MapMarker[]
+    markers: MapMarker[],
   ): Promise<MapMarker[]> {
     const response = await apiService.put<MapMarker[]>(
       `/museums/${museumId}/floors/${floorId}/markers`,
-      { markers }
+      { markers },
     );
     return response.success && response.data ? response.data : [];
   }
 
-  async deleteMarker(
-    museumId: string,
-    floorId: string,
-    markerId: string
-  ): Promise<boolean> {
+  async deleteMarker(museumId: string, floorId: string, markerId: string): Promise<boolean> {
     const response = await apiService.delete(
-      `/museums/${museumId}/floors/${floorId}/markers/${markerId}`
+      `/museums/${museumId}/floors/${floorId}/markers/${markerId}`,
     );
     return response.success;
   }
@@ -161,11 +148,11 @@ export class MuseumService {
   async addConnection(
     museumId: string,
     floorId: string,
-    connection: FloorConnection
+    connection: FloorConnection,
   ): Promise<FloorConnection | null> {
     const response = await apiService.post<FloorConnection>(
       `/museums/${museumId}/floors/${floorId}/connections`,
-      connection
+      connection,
     );
     return response.success && response.data ? response.data : null;
   }
@@ -173,10 +160,10 @@ export class MuseumService {
   async deleteConnection(
     museumId: string,
     floorId: string,
-    connectionId: string
+    connectionId: string,
   ): Promise<boolean> {
     const response = await apiService.delete(
-      `/museums/${museumId}/floors/${floorId}/connections/${connectionId}`
+      `/museums/${museumId}/floors/${floorId}/connections/${connectionId}`,
     );
     return response.success;
   }

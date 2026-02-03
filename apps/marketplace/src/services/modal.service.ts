@@ -37,10 +37,9 @@ class ModalService {
   alert(options: ModalOptions | string): Promise<void> {
     return new Promise((resolve) => {
       const modal = this.createModal();
-      
-      const opts: ModalOptions = typeof options === 'string' 
-        ? { title: 'Avviso', message: options }
-        : options;
+
+      const opts: ModalOptions =
+        typeof options === 'string' ? { title: 'Avviso', message: options } : options;
 
       modal.setAttribute('open', 'true');
       modal.setAttribute('title', opts.title);
@@ -96,10 +95,11 @@ class ModalService {
   confirm(options: ModalOptions | string): Promise<boolean> {
     return new Promise((resolve) => {
       const modal = this.createModal();
-      
-      const opts: ModalOptions = typeof options === 'string' 
-        ? { title: 'Conferma', message: options, variant: 'danger' }
-        : options;
+
+      const opts: ModalOptions =
+        typeof options === 'string'
+          ? { title: 'Conferma', message: options, variant: 'danger' }
+          : options;
 
       modal.setAttribute('open', 'true');
       modal.setAttribute('title', opts.title);

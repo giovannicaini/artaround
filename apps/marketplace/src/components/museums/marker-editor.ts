@@ -8,7 +8,7 @@ import '../ui/ui-select';
 
 /**
  * Marker Editor Component
- * 
+ *
  * Panel for adding/editing map markers (POI)
  */
 @customElement('marker-editor')
@@ -85,23 +85,26 @@ export class MarkerEditor extends LitElement {
     return html`
       <div class="bg-surface-800 rounded-lg overflow-hidden border border-surface-700">
         <!-- Header -->
-        <div class="flex justify-between items-center p-4 bg-surface-700 border-b border-surface-600">
+        <div
+          class="flex justify-between items-center p-4 bg-surface-700 border-b border-surface-600"
+        >
           <h3 class="text-white font-medium text-base m-0">📍 Marker / POI</h3>
         </div>
 
         <!-- Tabs -->
         <div class="flex border-b border-surface-600">
           <button
-            class="flex-1 py-3 px-4 text-sm font-medium transition-colors ${this.activeTab === 'add' 
-              ? 'text-brand-400 border-b-2 border-brand-400 bg-surface-700' 
+            class="flex-1 py-3 px-4 text-sm font-medium transition-colors ${this.activeTab === 'add'
+              ? 'text-brand-400 border-b-2 border-brand-400 bg-surface-700'
               : 'text-surface-400 hover:text-white hover:bg-surface-700'}"
             @click=${() => (this.activeTab = 'add')}
           >
             ➕ Aggiungi
           </button>
           <button
-            class="flex-1 py-3 px-4 text-sm font-medium transition-colors ${this.activeTab === 'list' 
-              ? 'text-brand-400 border-b-2 border-brand-400 bg-surface-700' 
+            class="flex-1 py-3 px-4 text-sm font-medium transition-colors ${this.activeTab ===
+            'list'
+              ? 'text-brand-400 border-b-2 border-brand-400 bg-surface-700'
               : 'text-surface-400 hover:text-white hover:bg-surface-700'}"
             @click=${() => (this.activeTab = 'list')}
           >
@@ -118,7 +121,9 @@ export class MarkerEditor extends LitElement {
   }
 
   private renderAddForm() {
-    const isArtworkType = [MarkerType.ARTWORK, MarkerType.SCULPTURE, MarkerType.PAINTING].includes(this.selectedType);
+    const isArtworkType = [MarkerType.ARTWORK, MarkerType.SCULPTURE, MarkerType.PAINTING].includes(
+      this.selectedType,
+    );
 
     return html`
       <!-- Click Position Info -->
@@ -155,7 +160,7 @@ export class MarkerEditor extends LitElement {
                 <div class="text-xl">${icon}</div>
                 <div class="text-xs mt-1 truncate">${label}</div>
               </button>
-            `
+            `,
           )}
         </div>
       </div>
@@ -170,7 +175,7 @@ export class MarkerEditor extends LitElement {
                 @change=${(e: Event) => {
                   const select = e.target as HTMLSelectElement;
                   this.selectedArtworkId = select.value;
-                  const artwork = this.artworks.find(a => a._id === select.value);
+                  const artwork = this.artworks.find((a) => a._id === select.value);
                   if (artwork) {
                     this.markerLabel = artwork.title;
                   }
@@ -179,10 +184,13 @@ export class MarkerEditor extends LitElement {
                 <option value="">-- Seleziona opera --</option>
                 ${this.artworks.map(
                   (artwork) => html`
-                    <option value=${artwork._id} ?selected=${this.selectedArtworkId === artwork._id}>
+                    <option
+                      value=${artwork._id}
+                      ?selected=${this.selectedArtworkId === artwork._id}
+                    >
                       ${artwork.title}
                     </option>
-                  `
+                  `,
                 )}
               </select>
             </div>
@@ -201,7 +209,9 @@ export class MarkerEditor extends LitElement {
 
       <!-- Description -->
       <div class="mb-4">
-        <label class="block text-sm font-medium text-surface-300 mb-2">Descrizione (opzionale)</label>
+        <label class="block text-sm font-medium text-surface-300 mb-2"
+          >Descrizione (opzionale)</label
+        >
         <textarea
           class="w-full px-3 py-2 bg-surface-700 border border-surface-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
           rows="2"
@@ -233,18 +243,18 @@ export class MarkerEditor extends LitElement {
     }
 
     // Get selected marker's artwork for focal point editor
-    const selectedArtwork = this.selectedMarker?.itemId 
-      ? this.artworks.find(a => a._id === this.selectedMarker?.itemId) 
+    const selectedArtwork = this.selectedMarker?.itemId
+      ? this.artworks.find((a) => a._id === this.selectedMarker?.itemId)
       : null;
 
     return html`
       <div class="space-y-2 max-h-64 overflow-y-auto mb-4 p-1">
         ${this.markers.map((marker) => this.renderMarkerItem(marker))}
       </div>
-      
+
       <!-- Edit Form (when marker is selected) -->
       ${this.selectedMarker ? this.renderEditForm() : ''}
-      
+
       <!-- Focal Point Editor (when artwork marker is selected) -->
       ${selectedArtwork?.image ? this.renderFocalPointEditor(selectedArtwork) : ''}
     `;
@@ -252,13 +262,15 @@ export class MarkerEditor extends LitElement {
 
   private renderEditForm() {
     if (!this.selectedMarker) return '';
-    
-    const isArtworkType = [MarkerType.ARTWORK, MarkerType.SCULPTURE, MarkerType.PAINTING].includes(this.selectedMarker.type);
+
+    const isArtworkType = [MarkerType.ARTWORK, MarkerType.SCULPTURE, MarkerType.PAINTING].includes(
+      this.selectedMarker.type,
+    );
 
     return html`
       <div class="p-3 bg-surface-700 rounded-lg border border-brand-500/50 mb-4">
         <div class="text-brand-400 text-sm font-medium mb-3">✏️ Modifica Marker</div>
-        
+
         <!-- Marker Type Grid -->
         <div class="mb-3">
           <label class="block text-xs font-medium text-surface-300 mb-2">Tipo</label>
@@ -266,7 +278,8 @@ export class MarkerEditor extends LitElement {
             ${this.markerTypes.map(
               ({ type, icon, label }) => html`
                 <button
-                  class="p-1.5 rounded text-center transition-all ${this.selectedMarker?.type === type
+                  class="p-1.5 rounded text-center transition-all ${this.selectedMarker?.type ===
+                  type
                     ? 'bg-brand-500 text-white'
                     : 'bg-surface-600 text-surface-300 hover:bg-surface-500'}"
                   @click=${() => this.updateMarkerType(type)}
@@ -274,7 +287,7 @@ export class MarkerEditor extends LitElement {
                 >
                   <div class="text-lg">${icon}</div>
                 </button>
-              `
+              `,
             )}
           </div>
         </div>
@@ -283,19 +296,25 @@ export class MarkerEditor extends LitElement {
         ${isArtworkType
           ? html`
               <div class="mb-3">
-                <label class="block text-xs font-medium text-surface-300 mb-1">Opera collegata</label>
+                <label class="block text-xs font-medium text-surface-300 mb-1"
+                  >Opera collegata</label
+                >
                 <select
                   class="w-full px-2 py-1.5 bg-surface-600 border border-surface-500 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                   .value=${this.selectedMarker.itemId || ''}
-                  @change=${(e: Event) => this.updateMarkerArtwork((e.target as HTMLSelectElement).value)}
+                  @change=${(e: Event) =>
+                    this.updateMarkerArtwork((e.target as HTMLSelectElement).value)}
                 >
                   <option value="">-- Nessuna opera --</option>
                   ${this.artworks.map(
                     (artwork) => html`
-                      <option value=${artwork._id} ?selected=${this.selectedMarker?.itemId === artwork._id}>
+                      <option
+                        value=${artwork._id}
+                        ?selected=${this.selectedMarker?.itemId === artwork._id}
+                      >
                         ${artwork.title}
                       </option>
-                    `
+                    `,
                   )}
                 </select>
               </div>
@@ -321,7 +340,8 @@ export class MarkerEditor extends LitElement {
             class="w-full px-2 py-1.5 bg-surface-600 border border-surface-500 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
             rows="2"
             .value=${this.selectedMarker.description || ''}
-            @input=${(e: Event) => this.updateMarkerDescription((e.target as HTMLTextAreaElement).value)}
+            @input=${(e: Event) =>
+              this.updateMarkerDescription((e.target as HTMLTextAreaElement).value)}
             placeholder="Descrizione aggiuntiva..."
           ></textarea>
         </div>
@@ -349,23 +369,23 @@ export class MarkerEditor extends LitElement {
         detail: { ...this.selectedMarker, type },
         bubbles: true,
         composed: true,
-      })
+      }),
     );
   }
 
   private updateMarkerArtwork(itemId: string) {
     if (!this.selectedMarker) return;
-    const artwork = this.artworks.find(a => a._id === itemId);
+    const artwork = this.artworks.find((a) => a._id === itemId);
     this.dispatchEvent(
       new CustomEvent('marker-update', {
-        detail: { 
-          ...this.selectedMarker, 
+        detail: {
+          ...this.selectedMarker,
           itemId: itemId || undefined,
-          label: artwork?.title || this.selectedMarker.label
+          label: artwork?.title || this.selectedMarker.label,
         },
         bubbles: true,
         composed: true,
-      })
+      }),
     );
   }
 
@@ -376,7 +396,7 @@ export class MarkerEditor extends LitElement {
         detail: { ...this.selectedMarker, label },
         bubbles: true,
         composed: true,
-      })
+      }),
     );
   }
 
@@ -387,7 +407,7 @@ export class MarkerEditor extends LitElement {
         detail: { ...this.selectedMarker, description: description || undefined },
         bubbles: true,
         composed: true,
-      })
+      }),
     );
   }
 
@@ -397,7 +417,7 @@ export class MarkerEditor extends LitElement {
         detail: null,
         bubbles: true,
         composed: true,
-      })
+      }),
     );
   }
 
@@ -413,60 +433,65 @@ export class MarkerEditor extends LitElement {
 
     return html`
       <div class="mt-4 p-3 bg-surface-700 rounded-lg border border-surface-600">
-        <div class="text-surface-300 text-sm font-medium mb-2">
-          🎯 Ritaglio Immagine
-        </div>
+        <div class="text-surface-300 text-sm font-medium mb-2">🎯 Ritaglio Immagine</div>
         <p class="text-surface-400 text-xs mb-3">
           Trascina l'immagine per spostarla • Scroll per zoom
         </p>
-        
+
         <!-- Fixed circle with movable/zoomable image inside -->
-        <div 
+        <div
           class="relative w-full aspect-square rounded-full overflow-hidden border-4 border-brand-400 shadow-xl cursor-move select-none bg-surface-900"
           @mousedown=${this.handleImageDragStart}
           @touchstart=${this.handleImageTouchStart}
           @wheel=${this.handleImageWheel}
         >
-          <img 
-            src="${artwork.image}" 
-            alt="${artwork.title || ''}" 
+          <img
+            src="${artwork.image}"
+            alt="${artwork.title || ''}"
             class="absolute w-full h-full object-cover pointer-events-none"
-            style="transform: scale(${focalZoom}) translate(${offsetX / focalZoom}%, ${offsetY / focalZoom}%);"
+            style="transform: scale(${focalZoom}) translate(${offsetX / focalZoom}%, ${offsetY /
+            focalZoom}%);"
           />
           <!-- Center crosshair (fixed) -->
           <div class="absolute inset-0 pointer-events-none">
             <div class="absolute left-1/2 top-0 bottom-0 w-px bg-white/30 -translate-x-1/2"></div>
             <div class="absolute top-1/2 left-0 right-0 h-px bg-white/30 -translate-y-1/2"></div>
-            <div class="absolute left-1/2 top-1/2 w-3 h-3 border-2 border-white rounded-full -translate-x-1/2 -translate-y-1/2"></div>
+            <div
+              class="absolute left-1/2 top-1/2 w-3 h-3 border-2 border-white rounded-full -translate-x-1/2 -translate-y-1/2"
+            ></div>
           </div>
         </div>
-        
+
         <!-- Preview: uses exact same transform -->
         <div class="mt-3 flex items-center gap-3">
           <div class="text-surface-400 text-xs">Anteprima:</div>
-          <div class="w-8 h-8 rounded-full overflow-hidden border-2 border-white/80 shadow-lg flex-shrink-0 bg-surface-900">
-            <img 
-              src="${artwork.image}" 
-              alt="" 
+          <div
+            class="w-8 h-8 rounded-full overflow-hidden border-2 border-white/80 shadow-lg flex-shrink-0 bg-surface-900"
+          >
+            <img
+              src="${artwork.image}"
+              alt=""
               class="w-full h-full object-cover"
-              style="transform: scale(${focalZoom}) translate(${offsetX / focalZoom}%, ${offsetY / focalZoom}%);"
+              style="transform: scale(${focalZoom}) translate(${offsetX / focalZoom}%, ${offsetY /
+              focalZoom}%);"
             />
           </div>
-          <div class="w-12 h-12 rounded-full overflow-hidden border-2 border-brand-400 shadow-lg flex-shrink-0 bg-surface-900">
-            <img 
-              src="${artwork.image}" 
-              alt="" 
+          <div
+            class="w-12 h-12 rounded-full overflow-hidden border-2 border-brand-400 shadow-lg flex-shrink-0 bg-surface-900"
+          >
+            <img
+              src="${artwork.image}"
+              alt=""
               class="w-full h-full object-cover"
-              style="transform: scale(${focalZoom}) translate(${offsetX / focalZoom}%, ${offsetY / focalZoom}%);"
+              style="transform: scale(${focalZoom}) translate(${offsetX / focalZoom}%, ${offsetY /
+              focalZoom}%);"
             />
           </div>
         </div>
-        
+
         <!-- Info and reset -->
         <div class="flex justify-between items-center mt-3">
-          <div class="text-xs text-surface-400">
-            Zoom: ${focalZoom.toFixed(1)}x
-          </div>
+          <div class="text-xs text-surface-400">Zoom: ${focalZoom.toFixed(1)}x</div>
           <button
             class="px-2 py-1 bg-surface-600 hover:bg-surface-500 text-surface-300 text-xs rounded transition-colors"
             @click=${this.resetFocalPoint}
@@ -481,7 +506,7 @@ export class MarkerEditor extends LitElement {
   private handleImageDragStart(e: MouseEvent) {
     if (!this.selectedMarker) return;
     e.preventDefault();
-    
+
     const container = e.currentTarget as HTMLElement;
     const rect = container.getBoundingClientRect();
     const startX = e.clientX;
@@ -495,12 +520,12 @@ export class MarkerEditor extends LitElement {
     // Formula: min = 50/zoom, max = 100 - 50/zoom
     const minFocal = 50 / zoom;
     const maxFocal = 100 - 50 / zoom;
-    
+
     const onMove = (moveEvent: MouseEvent) => {
       // Calculate how much the mouse moved as percentage of container
       const dx = ((moveEvent.clientX - startX) / rect.width) * 100;
       const dy = ((moveEvent.clientY - startY) / rect.height) * 100;
-      
+
       // Moving image right = focal point moves left (inverse)
       // Divide by zoom because larger zoom = smaller movements have bigger effect
       const newFocalX = Math.max(minFocal, Math.min(maxFocal, startFocalX - dx / zoom));
@@ -510,19 +535,19 @@ export class MarkerEditor extends LitElement {
         new CustomEvent('marker-update', {
           detail: {
             ...this.selectedMarker,
-            focalPoint: { x: newFocalX, y: newFocalY }
+            focalPoint: { x: newFocalX, y: newFocalY },
           },
           bubbles: true,
           composed: true,
-        })
+        }),
       );
     };
-    
+
     const onUp = () => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
     };
-    
+
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   }
@@ -530,7 +555,7 @@ export class MarkerEditor extends LitElement {
   private handleImageTouchStart(e: TouchEvent) {
     if (!this.selectedMarker) return;
     e.preventDefault();
-    
+
     const container = e.currentTarget as HTMLElement;
     const rect = container.getBoundingClientRect();
     const touch = e.touches[0];
@@ -539,16 +564,16 @@ export class MarkerEditor extends LitElement {
     const startFocalX = (this.selectedMarker as any).focalPoint?.x ?? 50;
     const startFocalY = (this.selectedMarker as any).focalPoint?.y ?? 50;
     const zoom = (this.selectedMarker as any).focalZoom ?? 1;
-    
+
     // Same limits for touch
     const minFocal = 50 / zoom;
     const maxFocal = 100 - 50 / zoom;
-    
+
     const onMove = (moveEvent: TouchEvent) => {
       const t = moveEvent.touches[0];
       const dx = ((t.clientX - startX) / rect.width) * 100;
       const dy = ((t.clientY - startY) / rect.height) * 100;
-      
+
       const newFocalX = Math.max(minFocal, Math.min(maxFocal, startFocalX - dx / zoom));
       const newFocalY = Math.max(minFocal, Math.min(maxFocal, startFocalY - dy / zoom));
 
@@ -556,19 +581,19 @@ export class MarkerEditor extends LitElement {
         new CustomEvent('marker-update', {
           detail: {
             ...this.selectedMarker,
-            focalPoint: { x: newFocalX, y: newFocalY }
+            focalPoint: { x: newFocalX, y: newFocalY },
           },
           bubbles: true,
           composed: true,
-        })
+        }),
       );
     };
-    
+
     const onEnd = () => {
       document.removeEventListener('touchmove', onMove);
       document.removeEventListener('touchend', onEnd);
     };
-    
+
     document.addEventListener('touchmove', onMove);
     document.addEventListener('touchend', onEnd);
   }
@@ -576,47 +601,47 @@ export class MarkerEditor extends LitElement {
   private handleImageWheel(e: WheelEvent) {
     if (!this.selectedMarker) return;
     e.preventDefault();
-    
+
     const currentZoom = (this.selectedMarker as any).focalZoom ?? 1;
     const currentFocalX = (this.selectedMarker as any).focalPoint?.x ?? 50;
     const currentFocalY = (this.selectedMarker as any).focalPoint?.y ?? 50;
-    
+
     const delta = e.deltaY > 0 ? -0.2 : 0.2;
     const newZoom = Math.max(1, Math.min(10, currentZoom + delta));
-    
+
     // Recalculate limits for new zoom and clamp focal point
     const minFocal = 50 / newZoom;
     const maxFocal = 100 - 50 / newZoom;
     const newFocalX = Math.max(minFocal, Math.min(maxFocal, currentFocalX));
     const newFocalY = Math.max(minFocal, Math.min(maxFocal, currentFocalY));
-    
+
     this.dispatchEvent(
       new CustomEvent('marker-update', {
         detail: {
           ...this.selectedMarker,
           focalZoom: Math.round(newZoom * 10) / 10,
-          focalPoint: { x: newFocalX, y: newFocalY }
+          focalPoint: { x: newFocalX, y: newFocalY },
         },
         bubbles: true,
         composed: true,
-      })
+      }),
     );
   }
 
   private handleZoomChange(e: Event) {
     if (!this.selectedMarker) return;
-    
+
     const zoom = parseFloat((e.target as HTMLInputElement).value);
-    
+
     this.dispatchEvent(
       new CustomEvent('marker-update', {
         detail: {
           ...this.selectedMarker,
-          focalZoom: zoom
+          focalZoom: zoom,
         },
         bubbles: true,
         composed: true,
-      })
+      }),
     );
   }
 
@@ -628,21 +653,24 @@ export class MarkerEditor extends LitElement {
         detail: {
           ...this.selectedMarker,
           focalPoint: { x: 50, y: 50 },
-          focalZoom: 1
+          focalZoom: 1,
         },
         bubbles: true,
         composed: true,
-      })
+      }),
     );
   }
 
   private renderMarkerItem(marker: MapMarker) {
     const typeInfo = this.markerTypes.find((t) => t.type === marker.type);
-    const artwork = marker.itemId ? this.artworks.find(a => a._id === marker.itemId) : null;
+    const artwork = marker.itemId ? this.artworks.find((a) => a._id === marker.itemId) : null;
 
     return html`
       <div
-        class="flex items-center gap-3 p-3 bg-surface-700 rounded-lg hover:bg-surface-600 transition-colors cursor-pointer ${this.selectedMarker?.id === marker.id ? 'ring-2 ring-brand-500' : ''}"
+        class="flex items-center gap-3 p-3 bg-surface-700 rounded-lg hover:bg-surface-600 transition-colors cursor-pointer ${this
+          .selectedMarker?.id === marker.id
+          ? 'ring-2 ring-brand-500'
+          : ''}"
         @click=${() => this.selectMarker(marker)}
       >
         <div class="text-2xl">${typeInfo?.icon || '📍'}</div>
@@ -651,7 +679,9 @@ export class MarkerEditor extends LitElement {
             ${marker.label || typeInfo?.label || 'Marker'}
           </div>
           <div class="text-surface-400 text-xs">
-            ${artwork ? `🖼️ ${artwork.title}` : `X: ${Math.round(marker.x)} Y: ${Math.round(marker.y)}`}
+            ${artwork
+              ? `🖼️ ${artwork.title}`
+              : `X: ${Math.round(marker.x)} Y: ${Math.round(marker.y)}`}
           </div>
         </div>
         <button
@@ -685,7 +715,7 @@ export class MarkerEditor extends LitElement {
         detail: marker,
         bubbles: true,
         composed: true,
-      })
+      }),
     );
 
     // Reset form
@@ -700,7 +730,7 @@ export class MarkerEditor extends LitElement {
         detail: marker,
         bubbles: true,
         composed: true,
-      })
+      }),
     );
   }
 
@@ -713,14 +743,14 @@ export class MarkerEditor extends LitElement {
       confirmLabel: 'Elimina',
       variant: 'danger',
     });
-    
+
     if (confirmed) {
       this.dispatchEvent(
         new CustomEvent('marker-delete', {
           detail: marker,
           bubbles: true,
           composed: true,
-        })
+        }),
       );
     }
   }

@@ -105,9 +105,7 @@ export class UiModal extends LitElement {
               <h3 id="modal-title" class="text-lg font-semibold text-surface-900 dark:text-white">
                 ${this.title}
               </h3>
-              <div class="mt-2 text-sm text-surface-600 dark:text-surface-400">
-                ${this.message}
-              </div>
+              <div class="mt-2 text-sm text-surface-600 dark:text-surface-400">${this.message}</div>
             </div>
           </div>
 

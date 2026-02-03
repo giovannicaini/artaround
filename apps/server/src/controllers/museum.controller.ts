@@ -35,16 +35,12 @@ export class MuseumController {
     body('floorId').trim().notEmpty().withMessage('Floor ID is required'),
     body('x').isNumeric().withMessage('X coordinate is required'),
     body('y').isNumeric().withMessage('Y coordinate is required'),
-    body('type')
-      .isIn(Object.values(MarkerType))
-      .withMessage('Invalid marker type'),
+    body('type').isIn(Object.values(MarkerType)).withMessage('Invalid marker type'),
   ];
 
   static connectionValidation = [
     body('id').trim().notEmpty().withMessage('Connection ID is required'),
-    body('type')
-      .isIn(Object.values(ConnectionType))
-      .withMessage('Invalid connection type'),
+    body('type').isIn(Object.values(ConnectionType)).withMessage('Invalid connection type'),
     body('x').isNumeric().withMessage('X coordinate is required'),
     body('y').isNumeric().withMessage('Y coordinate is required'),
     body('targetFloorId').trim().notEmpty().withMessage('Target floor ID is required'),
@@ -257,10 +253,10 @@ export class MuseumController {
       }
 
       museum.floors.push(floorData);
-      
+
       // Sort floors by level
       museum.floors.sort((a, b) => a.level - b.level);
-      
+
       await museum.save();
 
       res.status(201).json({
@@ -430,9 +426,7 @@ export class MuseumController {
         throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
       }
 
-      const markerIndex = museum.floors![floorIndex].markers?.findIndex(
-        (m) => m.id === markerId
-      );
+      const markerIndex = museum.floors![floorIndex].markers?.findIndex((m) => m.id === markerId);
       if (markerIndex === undefined || markerIndex === -1) {
         throw new AppError(404, 'MARKER_NOT_FOUND', 'Marker not found');
       }
@@ -471,9 +465,7 @@ export class MuseumController {
         throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
       }
 
-      const markerIndex = museum.floors![floorIndex].markers?.findIndex(
-        (m) => m.id === markerId
-      );
+      const markerIndex = museum.floors![floorIndex].markers?.findIndex((m) => m.id === markerId);
       if (markerIndex === undefined || markerIndex === -1) {
         throw new AppError(404, 'MARKER_NOT_FOUND', 'Marker not found');
       }
@@ -511,10 +503,13 @@ export class MuseumController {
       }
 
       // Replace all markers with the new array
-      museum.floors![floorIndex].markers = markers.map((m: Partial<MapMarker>) => ({
-        ...m,
-        floorId,
-      } as MapMarker));
+      museum.floors![floorIndex].markers = markers.map(
+        (m: Partial<MapMarker>) =>
+          ({
+            ...m,
+            floorId,
+          }) as MapMarker,
+      );
 
       await museum.save();
 
@@ -579,7 +574,11 @@ export class MuseumController {
   }
 
   // Delete a connection
-  static async deleteConnection(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  static async deleteConnection(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const { id, floorId, connectionId } = req.params;
 
@@ -594,7 +593,7 @@ export class MuseumController {
       }
 
       const connectionIndex = museum.floors![floorIndex].connections?.findIndex(
-        (c) => c.id === connectionId
+        (c) => c.id === connectionId,
       );
       if (connectionIndex === undefined || connectionIndex === -1) {
         throw new AppError(404, 'CONNECTION_NOT_FOUND', 'Connection not found');

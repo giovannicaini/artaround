@@ -68,19 +68,19 @@ export enum MarkerType {
   ARTWORK = 'artwork',
   SCULPTURE = 'sculpture',
   PAINTING = 'painting',
-  
+
   // Navigation
   ENTRANCE = 'entrance',
   EXIT = 'exit',
   EMERGENCY_EXIT = 'emergency_exit',
   INFO_POINT = 'info_point',
-  
+
   // Accessibility
   ELEVATOR = 'elevator',
   STAIRS = 'stairs',
   ESCALATOR = 'escalator',
   RAMP = 'ramp',
-  
+
   // Facilities
   TOILETTE = 'toilette',
   ACCESSIBLE_TOILETTE = 'accessible_toilette',
@@ -89,11 +89,11 @@ export enum MarkerType {
   SHOP = 'shop',
   CLOAKROOM = 'cloakroom',
   LOCKER = 'locker',
-  
+
   // Rooms
   ROOM = 'room',
   GALLERY = 'gallery',
-  
+
   // Other
   ACCESSIBILITY = 'accessibility',
   OBSTACLE = 'obstacle',

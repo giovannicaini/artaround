@@ -16,7 +16,7 @@ export interface MapClickEvent {
 
 /**
  * SVG Map Editor Component
- * 
+ *
  * Allows viewing and editing museum floor maps with draggable markers
  */
 @customElement('svg-map-editor')
@@ -95,20 +95,24 @@ export class SvgMapEditor extends LitElement {
     return html`
       <div class="bg-surface-900 rounded-lg overflow-hidden border border-surface-700">
         <!-- Toolbar -->
-        <div class="flex items-center justify-between p-3 bg-surface-800 border-b border-surface-700">
+        <div
+          class="flex items-center justify-between p-3 bg-surface-800 border-b border-surface-700"
+        >
           <!-- Floor Tabs -->
           <div class="flex gap-1">
             ${this.floors.map(
               (f) => html`
                 <button
-                  class="px-3 py-1.5 rounded text-sm font-medium transition-colors ${this.selectedFloorId === f.id || (!this.selectedFloorId && f === this.floors[0])
+                  class="px-3 py-1.5 rounded text-sm font-medium transition-colors ${this
+                    .selectedFloorId === f.id ||
+                  (!this.selectedFloorId && f === this.floors[0])
                     ? 'bg-brand-500 text-white'
                     : 'bg-surface-700 text-surface-300 hover:bg-surface-600'}"
                   @click=${() => this.selectFloor(f.id)}
                 >
                   ${f.name}
                 </button>
-              `
+              `,
             )}
           </div>
 
@@ -121,7 +125,9 @@ export class SvgMapEditor extends LitElement {
             >
               ➖
             </button>
-            <span class="text-surface-300 text-sm w-16 text-center">${Math.round(this.zoom * 100)}%</span>
+            <span class="text-surface-300 text-sm w-16 text-center"
+              >${Math.round(this.zoom * 100)}%</span
+            >
             <button
               class="w-8 h-8 flex items-center justify-center rounded bg-surface-700 text-white hover:bg-surface-600 transition-colors"
               @click=${() => this.setZoom(this.zoom + 0.25)}
@@ -157,10 +163,7 @@ export class SvgMapEditor extends LitElement {
                   style="transform: translate(${this.panX}px, ${this.panY}px) scale(${this.zoom});"
                 >
                   <!-- SVG Map -->
-                  <div
-                    class="map-svg-container"
-                    @click=${this.handleMapClick}
-                  >
+                  <div class="map-svg-container" @click=${this.handleMapClick}>
                     ${unsafeHTML(floor.svgContent)}
                   </div>
 
@@ -182,14 +185,18 @@ export class SvgMapEditor extends LitElement {
         </div>
 
         <!-- Status Bar -->
-        <div class="flex items-center justify-between p-2 bg-surface-800 border-t border-surface-700 text-xs text-surface-400">
+        <div
+          class="flex items-center justify-between p-2 bg-surface-800 border-t border-surface-700 text-xs text-surface-400"
+        >
           <div>
             ${floor
               ? `${floor.dimensions.width} × ${floor.dimensions.height}px • ${floor.markers?.length || 0} marker`
               : 'Nessun piano selezionato'}
           </div>
           <div>
-            ${this.editMode ? '✏️ Click: aggiungi marker • Scroll: zoom • Tasto destro: sposta' : '👁️ Modalità Visualizzazione'}
+            ${this.editMode
+              ? '✏️ Click: aggiungi marker • Scroll: zoom • Tasto destro: sposta'
+              : '👁️ Modalità Visualizzazione'}
           </div>
         </div>
       </div>
@@ -198,25 +205,27 @@ export class SvgMapEditor extends LitElement {
 
   private renderMarker(marker: MapMarker) {
     const isSelected = this.selectedMarkerId === marker.id;
-    
+
     // Find artwork image if this is an artwork marker
-    const artwork = marker.itemId ? this.artworks.find(a => a._id === marker.itemId) : null;
+    const artwork = marker.itemId ? this.artworks.find((a) => a._id === marker.itemId) : null;
     const hasImage = artwork?.image;
-    
+
     // Get focal point and zoom settings
     const focalX = (marker as any).focalPoint?.x ?? 50;
     const focalY = (marker as any).focalPoint?.y ?? 50;
     const focalZoom = (marker as any).focalZoom ?? 1;
-    
+
     // Calculate image transform (same formula as editor)
     const offsetX = (50 - focalX) * focalZoom;
     const offsetY = (50 - focalY) * focalZoom;
-    
+
     const markerSize = isSelected ? 48 : 32;
 
     return html`
       <div
-        class="absolute pointer-events-auto cursor-pointer transition-all duration-200 hover:scale-110 hover:z-50 ${isSelected ? 'scale-125 z-50' : 'z-10'}"
+        class="absolute pointer-events-auto cursor-pointer transition-all duration-200 hover:scale-110 hover:z-50 ${isSelected
+          ? 'scale-125 z-50'
+          : 'z-10'}"
         style="left: ${marker.x}px; top: ${marker.y}px; transform: translate(-50%, -50%);"
         @click=${(e: Event) => this.handleMarkerClick(e, marker)}
         @mousedown=${(e: MouseEvent) => this.handleMarkerDragStart(e, marker)}
@@ -226,15 +235,18 @@ export class SvgMapEditor extends LitElement {
           ${hasImage
             ? html`
                 <!-- Artwork marker with image -->
-                <div 
-                  class="rounded-full overflow-hidden border-2 shadow-lg transition-all duration-200 ${isSelected ? 'border-brand-400 ring-2 ring-brand-400/50' : 'border-white/80 hover:border-brand-300'}"
+                <div
+                  class="rounded-full overflow-hidden border-2 shadow-lg transition-all duration-200 ${isSelected
+                    ? 'border-brand-400 ring-2 ring-brand-400/50'
+                    : 'border-white/80 hover:border-brand-300'}"
                   style="width: ${markerSize}px; height: ${markerSize}px;"
                 >
-                  <img 
-                    src="${artwork.image}" 
-                    alt="${artwork.title || ''}" 
+                  <img
+                    src="${artwork.image}"
+                    alt="${artwork.title || ''}"
                     class="w-full h-full object-cover pointer-events-none"
-                    style="transform: scale(${focalZoom}) translate(${offsetX / focalZoom}%, ${offsetY / focalZoom}%);"
+                    style="transform: scale(${focalZoom}) translate(${offsetX /
+                    focalZoom}%, ${offsetY / focalZoom}%);"
                     draggable="false"
                   />
                 </div>
@@ -244,22 +256,25 @@ export class SvgMapEditor extends LitElement {
                 <div class="text-2xl filter drop-shadow-lg ${isSelected ? 'animate-pulse' : ''}">
                   ${this.markerIcons[marker.type] || '📍'}
                 </div>
-              `
-          }
-          
+              `}
+
           <!-- Label: only visible when selected -->
           ${isSelected && (marker.label || artwork?.title)
             ? html`
-                <div class="absolute left-1/2 top-full -translate-x-1/2 mt-2 px-2 py-1 bg-surface-900/95 text-white text-xs rounded shadow-lg whitespace-nowrap max-w-32 truncate border border-surface-600">
+                <div
+                  class="absolute left-1/2 top-full -translate-x-1/2 mt-2 px-2 py-1 bg-surface-900/95 text-white text-xs rounded shadow-lg whitespace-nowrap max-w-32 truncate border border-surface-600"
+                >
                   ${marker.label || artwork?.title}
                 </div>
               `
             : ''}
-          
+
           <!-- Selection ring for non-image markers -->
           ${isSelected && !hasImage
             ? html`
-                <div class="absolute inset-0 -m-2 border-2 border-brand-500 rounded-full animate-ping"></div>
+                <div
+                  class="absolute inset-0 -m-2 border-2 border-brand-500 rounded-full animate-ping"
+                ></div>
               `
             : ''}
         </div>
@@ -273,7 +288,7 @@ export class SvgMapEditor extends LitElement {
         detail: { floorId },
         bubbles: true,
         composed: true,
-      })
+      }),
     );
   }
 
@@ -319,7 +334,7 @@ export class SvgMapEditor extends LitElement {
 
     const target = e.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
-    
+
     // Calculate position relative to the SVG, accounting for zoom
     const x = (e.clientX - rect.left) / this.zoom;
     const y = (e.clientY - rect.top) / this.zoom;
@@ -329,7 +344,7 @@ export class SvgMapEditor extends LitElement {
         detail: { x, y },
         bubbles: true,
         composed: true,
-      })
+      }),
     );
   }
 
@@ -341,7 +356,7 @@ export class SvgMapEditor extends LitElement {
         detail: marker,
         bubbles: true,
         composed: true,
-      })
+      }),
     );
   }
 
@@ -369,7 +384,7 @@ export class SvgMapEditor extends LitElement {
           },
           bubbles: true,
           composed: true,
-        })
+        }),
       );
     };
 
