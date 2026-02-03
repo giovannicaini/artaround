@@ -31,6 +31,17 @@ const markerIcons: Record<MarkerType, { icon: string; color: string; label: stri
   [MarkerType.ROOM]: { icon: '🏛️', color: 'bg-surface-500', label: 'Sala' },
   [MarkerType.INFO_POINT]: { icon: 'ℹ️', color: 'bg-blue-400', label: 'Info' },
   [MarkerType.OBSTACLE]: { icon: '⚠️', color: 'bg-yellow-500', label: 'Ostacolo' },
+  [MarkerType.BENCH]: { icon: '🪑', color: 'bg-lime-500', label: 'Panchina' },
+  [MarkerType.AUDIO_GUIDE]: { icon: '🎧', color: 'bg-indigo-500', label: 'Audioguida' },
+  [MarkerType.WIFI]: { icon: '📶', color: 'bg-teal-500', label: 'Wi-Fi' },
+  [MarkerType.RESTAURANT]: { icon: '🍽️', color: 'bg-amber-600', label: 'Ristorante' },
+  [MarkerType.CLOAKROOM]: { icon: '🧥', color: 'bg-rose-500', label: 'Guardaroba' },
+  [MarkerType.LOCKER]: { icon: '🗄️', color: 'bg-fuchsia-500', label: 'Armadio' },
+  [MarkerType.SCULPTURE]: { icon: '🗿', color: 'bg-brand-400', label: 'Scultura' },
+  [MarkerType.PAINTING]: { icon: '🖌️', color: 'bg-brand-300', label: 'Dipinto' },
+  [MarkerType.ESCALATOR]: { icon: '🎢', color: 'bg-orange-600', label: 'Scala mobile' },
+  [MarkerType.RAMP]: { icon: '🛤️', color: 'bg-yellow-600', label: 'Rampa' },
+  [MarkerType.GALLERY]: { icon: '🖼️', color: 'bg-surface-600', label: 'Galleria' },
 };
 
 export default function MapView({

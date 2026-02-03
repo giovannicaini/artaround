@@ -459,21 +459,20 @@ export class ArtworksPage extends LitElement {
 
   render() {
     return html`
-      ${
-        this.viewMode === 'create'
-          ? this.renderCreateView()
-          : this.viewMode === 'edit'
-            ? this.renderEditView()
-            : this.viewMode === 'view'
-              ? this.renderViewMode()
-              : this.renderListView()
-      }
+      ${this.viewMode === 'create'
+        ? this.renderCreateView()
+        : this.viewMode === 'edit'
+          ? this.renderEditView()
+          : this.viewMode === 'view'
+            ? this.renderViewMode()
+            : this.renderListView()}
 
       <!-- Delete Confirmation Modal -->
       <ui-modal
         ?open=${this.deleteModalOpen}
         title="Elimina Opera"
-        message="Sei sicuro di voler eliminare \"${this.itemToDelete?.title}\"? Questa azione non può essere annullata."
+        message='Sei sicuro di voler eliminare "${this.itemToDelete
+          ?.title}" ? Questa azione non può essere annullata.'
         variant="danger"
         confirmLabel="Elimina"
         cancelLabel="Annulla"

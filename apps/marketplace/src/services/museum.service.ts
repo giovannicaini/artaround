@@ -66,7 +66,7 @@ export class MuseumService {
     if (response.success && response.data) {
       return { data: response.data };
     }
-    return { data: null, error: response.error?.message || 'Errore sconosciuto' };
+    return { data: null, error: response.error || 'Errore sconosciuto' };
   }
 
   async updateFloor(
