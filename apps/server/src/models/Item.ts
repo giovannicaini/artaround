@@ -1,26 +1,39 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import {
   Item as IItem,
-  ItemContent,
-  ItemMetadata,
-  ItemMapPosition,
+  ItemReferenceType,
   ContentDuration,
+  LanguageLevel,
   LicenseType,
 } from '@artaround/shared';
-import { CompetenceLevel } from '@artaround/shared';
 
 export interface ItemDocument extends Omit<IItem, '_id'>, Document {}
 
-const itemContentSchema = new Schema<ItemContent>(
+const itemSchema = new Schema<ItemDocument>(
   {
-    duration: {
+    // Museum context
+    museumId: {
       type: String,
-      enum: Object.values(ContentDuration),
       required: true,
+      index: true,
     },
-    language: {
+
+    // Reference - what this item is about
+    referenceType: {
       type: String,
-      enum: Object.values(CompetenceLevel),
+      enum: Object.values(ItemReferenceType),
+      required: true,
+      index: true,
+    },
+    referenceId: {
+      type: String, // Wikidata ID
+      index: true,
+    },
+    referenceTitle: String,
+
+    // Content
+    title: {
+      type: String,
       required: true,
     },
     text: {
@@ -31,15 +44,29 @@ const itemContentSchema = new Schema<ItemContent>(
       type: Map,
       of: String,
     },
-  },
-  { _id: false },
-);
 
-const itemMetadataSchema = new Schema<ItemMetadata>(
-  {
-    author: { type: String },
-    style: { type: String },
-    epoch: { type: String },
+    // Content characteristics
+    duration: {
+      type: String,
+      enum: Object.values(ContentDuration),
+      required: true,
+    },
+    languageLevel: {
+      type: String,
+      enum: Object.values(LanguageLevel),
+      required: true,
+    },
+
+    // Authorship
+    authorId: {
+      type: String,
+      required: true,
+      ref: 'User',
+      index: true,
+    },
+    authorName: String,
+
+    // Licensing & Pricing
     license: {
       type: String,
       enum: Object.values(LicenseType),
@@ -54,55 +81,19 @@ const itemMetadataSchema = new Schema<ItemMetadata>(
       type: Boolean,
       default: true,
     },
-    tags: [{ type: String }],
-  },
-  { _id: false },
-);
 
-const mapPositionSchema = new Schema<ItemMapPosition>(
-  {
-    floorId: { type: String, required: true },
-    x: { type: Number, required: true },
-    y: { type: Number, required: true },
-    rotation: { type: Number, default: 0 },
-    room: { type: String },
-  },
-  { _id: false },
-);
+    // Media
+    image: String,
 
-const itemSchema = new Schema<ItemDocument>(
-  {
-    museumId: {
-      type: String,
-      required: true,
-      ref: 'Museum',
+    // Statistics
+    usageCount: {
+      type: Number,
+      default: 0,
     },
-    objectId: {
-      type: String,
-      required: true, // Wikidata ID
-    },
-    authorId: {
-      type: String,
-      required: true,
-      ref: 'User',
-    },
-    title: {
-      type: String,
-      required: true,
-    },
-    contents: [
-      {
-        type: itemContentSchema,
-        required: true,
-      },
-    ],
-    metadata: {
-      type: itemMetadataSchema,
-      required: true,
-    },
-    image: { type: String }, // base64 or URL
-    relatedItems: [{ type: String }],
-    mapPosition: { type: mapPositionSchema }, // Position on museum map
+    rating: Number,
+
+    // Metadata
+    tags: [String],
   },
   {
     timestamps: true,
@@ -110,10 +101,10 @@ const itemSchema = new Schema<ItemDocument>(
 );
 
 // Indexes
-itemSchema.index({ museumId: 1 });
-itemSchema.index({ authorId: 1 });
-itemSchema.index({ objectId: 1 });
-itemSchema.index({ 'metadata.isFree': 1 });
-itemSchema.index({ 'metadata.tags': 1 });
+itemSchema.index({ referenceType: 1, referenceId: 1 });
+itemSchema.index({ museumId: 1, referenceType: 1 });
+itemSchema.index({ isFree: 1 });
+itemSchema.index({ duration: 1, languageLevel: 1 });
+itemSchema.index({ title: 'text', text: 'text' });
 
-export const Item = mongoose.model<ItemDocument>('Item', itemSchema);
+export const ItemModel = mongoose.model<ItemDocument>('Item', itemSchema);

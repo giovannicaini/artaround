@@ -1,20 +1,8 @@
 import { apiService } from './api.service';
-import type { User } from '@artaround/shared';
-
-export interface LoginCredentials {
-  username: string;
-  password: string;
-}
-
-export interface RegisterData {
-  username: string;
-  email: string;
-  password: string;
-  role?: 'VISITOR' | 'AUTHOR';
-}
+import type { User, LoginRequest, RegisterRequest } from '@artaround/shared';
 
 export class AuthService {
-  async login(credentials: LoginCredentials): Promise<User | null> {
+  async login(credentials: LoginRequest): Promise<User | null> {
     const response = await apiService.post<{ user: User; token: string }>(
       '/auth/login',
       credentials,
@@ -28,7 +16,7 @@ export class AuthService {
     return null;
   }
 
-  async register(data: RegisterData): Promise<User | null> {
+  async register(data: RegisterRequest): Promise<User | null> {
     const response = await apiService.post<{ user: User; token: string }>('/auth/register', data);
 
     if (response.success && response.data) {

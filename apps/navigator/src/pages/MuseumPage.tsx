@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { api, ApiError } from '../services/api';
 import { useNavigator } from '../context/NavigatorContext';
-import { CompetenceLevel, type Visit } from '@artaround/shared';
+import { LanguageLevel, type Visit } from '@artaround/shared';
 
 export default function MuseumPage() {
   const navigate = useNavigate();
@@ -22,7 +22,7 @@ export default function MuseumPage() {
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filterLevel, setFilterLevel] = useState<CompetenceLevel | null>(null);
+  const [filterLevel, setFilterLevel] = useState<LanguageLevel | null>(null);
 
   const loadVisits = useCallback(async () => {
     if (!museumId) return;
@@ -52,45 +52,45 @@ export default function MuseumPage() {
     navigate(`/visit/${visit._id}`);
   }
 
-  function getLevelIcon(level: CompetenceLevel) {
+  function getLevelIcon(level: LanguageLevel) {
     switch (level) {
-      case CompetenceLevel.INFANTILE:
+      case LanguageLevel.CHILDREN:
         return '👶';
-      case CompetenceLevel.SEMPLICE:
+      case LanguageLevel.ELEMENTARY:
         return '🌱';
-      case CompetenceLevel.MEDIO:
+      case LanguageLevel.MEDIUM:
         return '🌿';
-      case CompetenceLevel.AVANZATO:
+      case LanguageLevel.SPECIALIST:
         return '🌳';
       default:
         return '📚';
     }
   }
 
-  function getLevelLabel(level: CompetenceLevel) {
+  function getLevelLabel(level: LanguageLevel) {
     switch (level) {
-      case CompetenceLevel.INFANTILE:
+      case LanguageLevel.CHILDREN:
         return 'Bambini';
-      case CompetenceLevel.SEMPLICE:
+      case LanguageLevel.ELEMENTARY:
         return 'Base';
-      case CompetenceLevel.MEDIO:
+      case LanguageLevel.MEDIUM:
         return 'Intermedio';
-      case CompetenceLevel.AVANZATO:
+      case LanguageLevel.SPECIALIST:
         return 'Avanzato';
       default:
         return level;
     }
   }
 
-  function getLevelColor(level: CompetenceLevel) {
+  function getLevelColor(level: LanguageLevel) {
     switch (level) {
-      case CompetenceLevel.INFANTILE:
+      case LanguageLevel.CHILDREN:
         return 'bg-pink-50 text-pink-700 border-pink-200';
-      case CompetenceLevel.SEMPLICE:
+      case LanguageLevel.ELEMENTARY:
         return 'bg-green-50 text-green-700 border-green-200';
-      case CompetenceLevel.MEDIO:
+      case LanguageLevel.MEDIUM:
         return 'bg-brand-50 text-brand-700 border-brand-200';
-      case CompetenceLevel.AVANZATO:
+      case LanguageLevel.SPECIALIST:
         return 'bg-purple-50 text-purple-700 border-purple-200';
       default:
         return 'bg-surface-50 text-surface-700 border-surface-200';
@@ -98,7 +98,7 @@ export default function MuseumPage() {
   }
 
   const filteredVisits = filterLevel
-    ? visits.filter((v) => v.targetAudience?.competenceLevel?.includes(filterLevel))
+    ? visits.filter((v) => v.targetAudience?.languageLevels?.includes(filterLevel))
     : visits;
 
   return (
@@ -171,7 +171,7 @@ export default function MuseumPage() {
               {/* Filter pills */}
               <div className="flex items-center gap-2 overflow-x-auto pb-1">
                 <Filter className="w-4 h-4 text-surface-400 flex-shrink-0" />
-                {Object.values(CompetenceLevel).map((level) => (
+                {Object.values(LanguageLevel).map((level) => (
                   <button
                     key={level}
                     onClick={() => setFilterLevel(filterLevel === level ? null : level)}
@@ -257,7 +257,7 @@ export default function MuseumPage() {
 
                       {/* Level badges */}
                       <div className="flex items-center gap-2 flex-wrap mb-3">
-                        {visit.targetAudience?.competenceLevel?.map((level) => (
+                        {visit.targetAudience?.languageLevels?.map((level) => (
                           <span
                             key={level}
                             className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${getLevelColor(level)}`}
@@ -277,11 +277,11 @@ export default function MuseumPage() {
                         <div className="flex items-center gap-4 text-xs text-surface-500">
                           <span className="flex items-center gap-1.5">
                             <Clock className="w-4 h-4" />
-                            {visit.metadata?.duration} min
+                            {visit.metadata?.estimatedDuration} min
                           </span>
                           <span className="flex items-center gap-1.5">
                             <Users className="w-4 h-4" />
-                            {visit.metadata?.itemsCount} opere
+                            {visit.metadata?.artworksCount} opere
                           </span>
                           {visit.metadata?.rating && (
                             <span className="flex items-center gap-1">

@@ -1,14 +1,15 @@
 import { LitElement, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { museumService } from '../../services/museum.service';
-import { itemService } from '../../services/item.service';
+import { artworkService } from '../../services/artwork.service';
 import { modalService } from '../../services/modal.service';
-import type { Museum, MuseumFloor, MapMarker, Item } from '@artaround/shared';
+import type { Museum, MuseumFloor, MapMarker, Artwork } from '@artaround/shared';
 import './svg-map-editor';
 import './floor-manager';
 import './marker-editor';
 import '../ui/ui-button';
 import '../ui/ui-card';
+import '../ui/ui-image-placeholder';
 
 /**
  * Museum Map Page
@@ -31,7 +32,7 @@ export class MuseumMapPage extends LitElement {
   private floors: MuseumFloor[] = [];
 
   @state()
-  private artworks: Item[] = [];
+  private artworks: Artwork[] = [];
 
   @state()
   private selectedFloorId: string | null = null;
@@ -77,12 +78,12 @@ export class MuseumMapPage extends LitElement {
       const [museum, floors, artworksResponse] = await Promise.all([
         museumService.getMuseum(this.museumId),
         museumService.getFloors(this.museumId),
-        itemService.getItems({ museumId: this.museumId }),
+        artworkService.getArtworksByMuseum(this.museumId),
       ]);
 
       this.museum = museum;
       this.floors = floors || [];
-      this.artworks = artworksResponse?.items || [];
+      this.artworks = artworksResponse || [];
 
       // Select first floor by default
       if (this.floors.length > 0 && !this.selectedFloorId) {
@@ -140,12 +141,7 @@ export class MuseumMapPage extends LitElement {
           class="flex items-center justify-between p-4 bg-surface-900 border-b border-surface-800"
         >
           <div class="flex items-center gap-4">
-            <button
-              class="px-3 py-2 rounded-lg bg-surface-800 text-white hover:bg-surface-700 transition-colors flex items-center gap-2"
-              @click=${this.goBack}
-            >
-              ← Indietro
-            </button>
+            <ui-button variant="secondary" label="← Indietro" @click=${this.goBack}></ui-button>
             <div>
               <h1 class="text-xl font-semibold text-white m-0">🗺️ Gestione Mappe</h1>
               <p class="text-sm text-surface-400 m-0">${this.museum?.name || 'Museo'}</p>
@@ -156,13 +152,11 @@ export class MuseumMapPage extends LitElement {
             ${this.hasChanges
               ? html` <span class="text-yellow-400 text-sm">● Modifiche non salvate</span> `
               : ''}
-            <button
-              class="px-3 py-2 rounded-lg bg-surface-800 text-white hover:bg-surface-700 transition-colors"
+            <ui-button
+              variant="secondary"
+              .label=${this.isFullscreen ? '⬜ Riduci' : '⛶ Schermo intero'}
               @click=${() => (this.isFullscreen = !this.isFullscreen)}
-              title=${this.isFullscreen ? 'Esci da schermo intero' : 'Schermo intero'}
-            >
-              ${this.isFullscreen ? '⬜' : '⛶'}
-            </button>
+            ></ui-button>
             <ui-button
               variant="primary"
               label="💾 Salva Tutto"
@@ -242,23 +236,42 @@ export class MuseumMapPage extends LitElement {
     `;
   }
 
-  private renderArtworkItem(artwork: Item) {
-    const hasPosition = this.floors.some((f) => f.markers?.some((m) => m.itemId === artwork._id));
+  private renderArtworkItem(artwork: Artwork) {
+    const hasPosition = this.floors.some((f) =>
+      f.markers?.some((m) => m.artworkId === artwork.wikidataId),
+    );
 
     return html`
       <div
         class="flex items-center gap-3 p-3 border-b border-surface-600 hover:bg-surface-700 transition-colors"
       >
-        <div class="w-10 h-10 rounded bg-surface-600 overflow-hidden flex-shrink-0">
+        <div class="w-10 h-10 rounded bg-surface-600 overflow-hidden flex-shrink-0 relative">
           ${artwork.image
-            ? html`<img src=${artwork.image} alt="" class="w-full h-full object-cover" />`
-            : html`<div class="w-full h-full flex items-center justify-center text-xl">🖼️</div>`}
+            ? html`
+                <img
+                  src=${artwork.image}
+                  alt=""
+                  class="w-full h-full object-cover"
+                  @error=${(e: Event) => {
+                    const img = e.target as HTMLImageElement;
+                    img.style.display = 'none';
+                    img.parentElement
+                      ?.querySelector('ui-image-placeholder')
+                      ?.removeAttribute('hidden');
+                  }}
+                />
+                <ui-image-placeholder
+                  type="artwork"
+                  size="xs"
+                  hidden
+                  class="absolute inset-0"
+                ></ui-image-placeholder>
+              `
+            : html`<ui-image-placeholder type="artwork" size="xs"></ui-image-placeholder>`}
         </div>
         <div class="flex-1 min-w-0">
           <div class="text-white text-sm font-medium truncate">${artwork.title}</div>
-          <div class="text-surface-400 text-xs">
-            ${artwork.metadata?.author || 'Artista sconosciuto'}
-          </div>
+          <div class="text-surface-400 text-xs">${artwork.author || 'Artista sconosciuto'}</div>
         </div>
         <div class="flex-shrink-0">
           ${hasPosition

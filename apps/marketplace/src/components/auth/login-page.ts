@@ -4,6 +4,8 @@ import { authService } from '../../services/auth.service';
 import '../ui/ui-button';
 import '../ui/ui-input';
 import '../ui/ui-card';
+import '../ui/ui-alert';
+import '../ui/ui-checkbox';
 
 @customElement('login-page')
 export class LoginPage extends LitElement {
@@ -85,25 +87,7 @@ export class LoginPage extends LitElement {
           <ui-card padding="lg">
             <form @submit=${this.handleSubmit} class="space-y-5">
               ${this.error
-                ? html`
-                    <div
-                      class="p-3 rounded-lg bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800"
-                      role="alert"
-                    >
-                      <p
-                        class="text-sm text-danger-700 dark:text-danger-300 flex items-center gap-2"
-                      >
-                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path
-                            fill-rule="evenodd"
-                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                            clip-rule="evenodd"
-                          />
-                        </svg>
-                        ${this.error}
-                      </p>
-                    </div>
-                  `
+                ? html`<ui-alert variant="danger" .message=${this.error}></ui-alert>`
                 : ''}
 
               <ui-input
@@ -125,13 +109,7 @@ export class LoginPage extends LitElement {
               ></ui-input>
 
               <div class="flex items-center justify-between">
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    class="w-4 h-4 rounded border-surface-300 text-brand-600 focus:ring-brand-500 dark:border-surface-600 dark:bg-surface-800"
-                  />
-                  <span class="text-sm text-surface-600 dark:text-surface-400">Ricordami</span>
-                </label>
+                <ui-checkbox label="Ricordami"></ui-checkbox>
                 <a
                   href="#"
                   class="text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
@@ -141,6 +119,7 @@ export class LoginPage extends LitElement {
               </div>
 
               <ui-button
+                type="submit"
                 variant="primary"
                 size="lg"
                 block

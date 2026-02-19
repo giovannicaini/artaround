@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 import {
   Museum as IMuseum,
   MuseumLocation,
+  MuseumServices,
   MuseumFloor,
   MapMarker,
   MarkerType,
@@ -18,10 +19,27 @@ const locationSchema = new Schema<MuseumLocation>(
     address: { type: String, required: true },
     city: { type: String, required: true },
     country: { type: String, required: true },
+    region: String,
+    postalCode: String,
     coordinates: {
-      lat: { type: Number },
-      lng: { type: Number },
+      lat: Number,
+      lng: Number,
     },
+  },
+  { _id: false },
+);
+
+const servicesSchema = new Schema<MuseumServices>(
+  {
+    ticketInfo: String,
+    openingHours: String,
+    closedDays: String,
+    website: String,
+    phone: String,
+    email: String,
+    services: [String],
+    accessibility: String,
+    wheelchairAccessible: Boolean,
   },
   { _id: false },
 );
@@ -30,11 +48,11 @@ const accessibilityInfoSchema = new Schema<AccessibilityInfo>(
   {
     wheelchairAccessible: { type: Boolean, default: false },
     hasSteps: { type: Boolean, default: false },
-    stepCount: { type: Number },
+    stepCount: Number,
     hasRamp: { type: Boolean, default: false },
     visualAids: { type: Boolean, default: false },
     audioAids: { type: Boolean, default: false },
-    notes: { type: String },
+    notes: String,
   },
   { _id: false },
 );
@@ -42,7 +60,7 @@ const accessibilityInfoSchema = new Schema<AccessibilityInfo>(
 const mapMarkerSchema = new Schema<MapMarker>(
   {
     id: { type: String, required: true },
-    floorId: { type: String }, // Optional for legacy config
+    floorId: String,
     x: { type: Number, required: true },
     y: { type: Number, required: true },
     type: {
@@ -50,17 +68,17 @@ const mapMarkerSchema = new Schema<MapMarker>(
       enum: Object.values(MarkerType),
       required: true,
     },
-    label: { type: String },
-    description: { type: String },
-    itemId: { type: String }, // Reference to Item for artwork markers
-    icon: { type: String },
+    label: String,
+    description: String,
+    artworkId: String, // Wikidata ID for artwork markers
+    icon: String,
     isVisible: { type: Boolean, default: true },
     focalPoint: {
       x: { type: Number, default: 50 },
       y: { type: Number, default: 50 },
     },
     focalZoom: { type: Number, default: 1 },
-    accessibilityInfo: { type: accessibilityInfoSchema },
+    accessibilityInfo: accessibilityInfoSchema,
   },
   { _id: false },
 );
@@ -76,9 +94,9 @@ const floorConnectionSchema = new Schema<FloorConnection>(
     x: { type: Number, required: true },
     y: { type: Number, required: true },
     targetFloorId: { type: String, required: true },
-    targetX: { type: Number },
-    targetY: { type: Number },
-    label: { type: String },
+    targetX: Number,
+    targetY: Number,
+    label: String,
     isAccessible: { type: Boolean, default: false },
   },
   { _id: false },
@@ -89,8 +107,8 @@ const floorSchema = new Schema<MuseumFloor>(
     id: { type: String, required: true },
     name: { type: String, required: true },
     level: { type: Number, required: true },
-    svgContent: { type: String, required: true }, // Raw SVG content
-    svgUrl: { type: String },
+    svgContent: { type: String, required: true },
+    svgUrl: String,
     dimensions: {
       width: { type: Number, required: true },
       height: { type: Number, required: true },
@@ -101,8 +119,61 @@ const floorSchema = new Schema<MuseumFloor>(
   { _id: false },
 );
 
+const navigatorConfigSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    slug: { type: String, required: true },
+    branding: {
+      logo: String,
+      splashImage: String,
+      primaryColor: { type: String, required: true },
+      secondaryColor: String,
+    },
+    content: {
+      homeTitle: String,
+      homeSubtitle: String,
+      welcomeText: String,
+      openingImage: String,
+    },
+    pwa: {
+      manifestName: { type: String, required: true },
+      shortName: { type: String, required: true },
+      description: String,
+      themeColor: { type: String, required: true },
+      backgroundColor: { type: String, required: true },
+      display: {
+        type: String,
+        enum: ['standalone', 'fullscreen', 'minimal-ui', 'browser'],
+        default: 'standalone',
+      },
+      orientation: {
+        type: String,
+        enum: ['any', 'natural', 'landscape', 'portrait'],
+        default: 'portrait',
+      },
+      startUrl: { type: String, default: '/' },
+      scope: { type: String, default: '/' },
+      icon192: String,
+      icon512: String,
+      iconMaskable: String,
+      appleTouchIcon: String,
+    },
+  },
+  { _id: false },
+);
+
 const museumSchema = new Schema<MuseumDocument>(
   {
+    // Wikidata ID as primary identifier
+    wikidataId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
+
+    // Basic info
     name: {
       type: String,
       required: true,
@@ -112,16 +183,31 @@ const museumSchema = new Schema<MuseumDocument>(
       type: String,
       required: true,
     },
+
+    // Location
     location: {
       type: locationSchema,
       required: true,
     },
-    images: [{ type: String }],
-    configFile: { type: String }, // Legacy: JSON config as string
-    floors: [floorSchema], // New: Multi-floor map system
+
+    // Media
+    images: [String],
+    coverImage: String,
+
+    // Floor maps
+    floors: [floorSchema],
+
+    // Services
+    services: servicesSchema,
+
+    // Navigator app configurations
+    navigatorConfigs: [navigatorConfigSchema],
+
+    // Status
     isActive: {
       type: Boolean,
       default: true,
+      index: true,
     },
   },
   {
@@ -130,8 +216,7 @@ const museumSchema = new Schema<MuseumDocument>(
 );
 
 // Indexes
-museumSchema.index({ name: 1 });
+museumSchema.index({ name: 'text', description: 'text' });
 museumSchema.index({ 'location.city': 1 });
-museumSchema.index({ isActive: 1 });
 
-export const Museum = mongoose.model<MuseumDocument>('Museum', museumSchema);
+export const MuseumModel = mongoose.model<MuseumDocument>('Museum', museumSchema);

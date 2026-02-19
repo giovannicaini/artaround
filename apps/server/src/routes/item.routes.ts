@@ -1,33 +1,107 @@
 import { Router } from 'express';
 import { ItemController } from '../controllers/item.controller.js';
-import { authMiddleware, roleMiddleware } from '../middleware/index.js';
+import {
+  authMiddleware as authenticate,
+  roleMiddleware as authorizeRoles,
+} from '../middleware/index.js';
 import { UserRole } from '@artaround/shared';
 
 const router = Router();
 
 /**
  * @swagger
+ * components:
+ *   schemas:
+ *     Item:
+ *       type: object
+ *       required:
+ *         - referenceType
+ *         - title
+ *         - contentMatrix
+ *         - license
+ *       properties:
+ *         referenceType:
+ *           type: string
+ *           enum: [artwork, author, movement, period, museum]
+ *           description: Type of entity this item references
+ *         referenceId:
+ *           type: string
+ *           description: Wikidata ID of the referenced entity
+ *         title:
+ *           type: string
+ *         titleTranslations:
+ *           type: object
+ *         contentMatrix:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               duration:
+ *                 type: string
+ *                 enum: ['3s', '15s', '1min', '4min', '10min']
+ *               languageLevel:
+ *                 type: string
+ *                 enum: [infantile, elementare, medio, specialistico]
+ *               content:
+ *                 type: object
+ *                 properties:
+ *                   type:
+ *                     type: string
+ *                     enum: [text, audio, video, image, ar]
+ *                   text:
+ *                     type: string
+ *                   audioUrl:
+ *                     type: string
+ *         authorId:
+ *           type: string
+ *           description: User ID of the content creator
+ *         license:
+ *           type: string
+ *           enum: [free, cc-by, cc-by-nc, commercial]
+ *         price:
+ *           type: number
+ *         tags:
+ *           type: array
+ *           items:
+ *             type: string
+ */
+
+/**
+ * @swagger
  * /api/items:
  *   get:
  *     tags: [Items]
- *     summary: Lista items (opere d'arte)
- *     description: Ottiene la lista di items con filtri opzionali
+ *     summary: Get all items
+ *     description: Get list of content items with filters
  *     parameters:
  *       - in: query
- *         name: museumId
+ *         name: referenceType
  *         schema:
  *           type: string
- *         description: Filtra per museo
+ *           enum: [artwork, author, movement, period, museum]
  *       - in: query
- *         name: targetAudience
+ *         name: referenceId
  *         schema:
  *           type: string
- *           enum: [CHILDREN, FAMILIES, ADULTS, EXPERTS]
+ *         description: Wikidata ID of referenced entity
  *       - in: query
- *         name: difficulty
+ *         name: authorId
  *         schema:
  *           type: string
- *           enum: [BEGINNER, INTERMEDIATE, ADVANCED, EXPERT]
+ *       - in: query
+ *         name: duration
+ *         schema:
+ *           type: string
+ *           enum: ['3s', '15s', '1min', '4min', '10min']
+ *       - in: query
+ *         name: languageLevel
+ *         schema:
+ *           type: string
+ *           enum: [infantile, elementare, medio, specialistico]
+ *       - in: query
+ *         name: isFree
+ *         schema:
+ *           type: boolean
  *       - in: query
  *         name: page
  *         schema:
@@ -37,35 +111,10 @@ const router = Router();
  *         name: limit
  *         schema:
  *           type: integer
- *           default: 20
+ *           default: 50
  *     responses:
  *       200:
- *         description: Lista items
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     items:
- *                       type: array
- *                       items:
- *                         $ref: '#/components/schemas/Item'
- *                     pagination:
- *                       type: object
- *                       properties:
- *                         page:
- *                           type: integer
- *                         limit:
- *                           type: integer
- *                         total:
- *                           type: integer
- *                         pages:
- *                           type: integer
+ *         description: List of items with pagination
  */
 router.get('/', ItemController.getAll);
 
@@ -74,19 +123,24 @@ router.get('/', ItemController.getAll);
  * /api/items/search:
  *   get:
  *     tags: [Items]
- *     summary: Ricerca items
- *     description: Ricerca full-text negli items
+ *     summary: Search items
+ *     description: Full-text search in items
  *     parameters:
  *       - in: query
  *         name: q
  *         required: true
  *         schema:
  *           type: string
- *         description: Termine di ricerca
+ *         description: Search term
  *       - in: query
- *         name: museumId
+ *         name: referenceType
  *         schema:
  *           type: string
+ *       - in: query
+ *         name: tags
+ *         schema:
+ *           type: string
+ *         description: Comma-separated tags
  *       - in: query
  *         name: page
  *         schema:
@@ -96,20 +150,108 @@ router.get('/', ItemController.getAll);
  *         name: limit
  *         schema:
  *           type: integer
- *           default: 20
+ *           default: 50
  *     responses:
  *       200:
- *         description: Risultati ricerca
+ *         description: Search results
  */
 router.get('/search', ItemController.search);
+
+/**
+ * @swagger
+ * /api/items/my-items:
+ *   get:
+ *     tags: [Items]
+ *     summary: Get my items
+ *     description: Get items created by authenticated user
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User's items
+ */
+router.get('/my-items', authenticate, ItemController.getMyItems);
+
+/**
+ * @swagger
+ * /api/items/artwork/{artworkId}:
+ *   get:
+ *     tags: [Items]
+ *     summary: Get items for an artwork
+ *     description: Get all content items referencing a specific artwork
+ *     parameters:
+ *       - in: path
+ *         name: artworkId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Artwork's Wikidata ID
+ *       - in: query
+ *         name: duration
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: languageLevel
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Items for the artwork
+ */
+router.get('/artwork/:artworkId', ItemController.getByArtwork);
+
+/**
+ * @swagger
+ * /api/items/author/{authorWikidataId}:
+ *   get:
+ *     tags: [Items]
+ *     summary: Get items for an author
+ *     description: Get all content items about a specific artist
+ *     parameters:
+ *       - in: path
+ *         name: authorWikidataId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Author's Wikidata ID
+ *     responses:
+ *       200:
+ *         description: Items about the author
+ */
+router.get('/author/:authorWikidataId', ItemController.getByAuthor);
+
+/**
+ * @swagger
+ * /api/items/reference/{referenceType}/{referenceId}:
+ *   get:
+ *     tags: [Items]
+ *     summary: Get items by reference
+ *     description: Get content items by reference type and ID
+ *     parameters:
+ *       - in: path
+ *         name: referenceType
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [artwork, author, movement, period, museum]
+ *       - in: path
+ *         name: referenceId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Wikidata ID
+ *     responses:
+ *       200:
+ *         description: Items for the reference
+ */
+router.get('/reference/:referenceType/:referenceId', ItemController.getByReference);
 
 /**
  * @swagger
  * /api/items/{id}:
  *   get:
  *     tags: [Items]
- *     summary: Dettaglio item
- *     description: Ottiene i dettagli completi di un item
+ *     summary: Get item by ID
  *     parameters:
  *       - in: path
  *         name: id
@@ -118,18 +260,9 @@ router.get('/search', ItemController.search);
  *           type: string
  *     responses:
  *       200:
- *         description: Dettagli item
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   $ref: '#/components/schemas/Item'
+ *         description: Item details
  *       404:
- *         $ref: '#/components/responses/NotFoundError'
+ *         description: Item not found
  */
 router.get('/:id', ItemController.getById);
 
@@ -138,8 +271,7 @@ router.get('/:id', ItemController.getById);
  * /api/items:
  *   post:
  *     tags: [Items]
- *     summary: Crea nuovo item (Author only)
- *     description: Crea un nuovo item con contenuti multilivello
+ *     summary: Create item
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -147,47 +279,15 @@ router.get('/:id', ItemController.getById);
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required: [museumId, objectId, contents]
- *             properties:
- *               museumId:
- *                 type: string
- *               objectId:
- *                 type: string
- *                 description: ID Wikidata (es. Q123456)
- *               contents:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     targetAudience:
- *                       type: string
- *                       enum: [CHILDREN, FAMILIES, ADULTS, EXPERTS]
- *                     difficulty:
- *                       type: string
- *                       enum: [BEGINNER, INTERMEDIATE, ADVANCED, EXPERT]
- *                     title:
- *                       type: string
- *                     description:
- *                       type: string
- *                     audioUrl:
- *                       type: string
- *               metadata:
- *                 type: object
- *               image:
- *                 type: string
+ *             $ref: '#/components/schemas/Item'
  *     responses:
  *       201:
- *         description: Item creato
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       403:
- *         $ref: '#/components/responses/ForbiddenError'
+ *         description: Item created
  */
 router.post(
   '/',
-  authMiddleware,
-  roleMiddleware(UserRole.AUTHOR),
+  authenticate,
+  authorizeRoles(UserRole.ADMIN, UserRole.AUTHOR, UserRole.CURATOR),
   ItemController.createValidation,
   ItemController.create,
 );
@@ -197,7 +297,7 @@ router.post(
  * /api/items/{id}:
  *   put:
  *     tags: [Items]
- *     summary: Aggiorna item (Owner/Admin)
+ *     summary: Update item
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -211,21 +311,15 @@ router.post(
  *       content:
  *         application/json:
  *           schema:
- *             type: object
+ *             $ref: '#/components/schemas/Item'
  *     responses:
  *       200:
- *         description: Item aggiornato
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       403:
- *         $ref: '#/components/responses/ForbiddenError'
- *       404:
- *         $ref: '#/components/responses/NotFoundError'
+ *         description: Item updated
  */
 router.put(
   '/:id',
-  authMiddleware,
-  roleMiddleware(UserRole.AUTHOR, UserRole.ADMIN),
+  authenticate,
+  authorizeRoles(UserRole.ADMIN, UserRole.AUTHOR, UserRole.CURATOR),
   ItemController.update,
 );
 
@@ -234,7 +328,7 @@ router.put(
  * /api/items/{id}:
  *   delete:
  *     tags: [Items]
- *     summary: Elimina item (Owner/Admin)
+ *     summary: Delete item
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -245,18 +339,12 @@ router.put(
  *           type: string
  *     responses:
  *       200:
- *         description: Item eliminato
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       403:
- *         $ref: '#/components/responses/ForbiddenError'
- *       404:
- *         $ref: '#/components/responses/NotFoundError'
+ *         description: Item deleted
  */
 router.delete(
   '/:id',
-  authMiddleware,
-  roleMiddleware(UserRole.AUTHOR, UserRole.ADMIN),
+  authenticate,
+  authorizeRoles(UserRole.ADMIN, UserRole.AUTHOR, UserRole.CURATOR),
   ItemController.delete,
 );
 

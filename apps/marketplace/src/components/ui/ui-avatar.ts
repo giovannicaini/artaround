@@ -1,5 +1,5 @@
 import { LitElement, html } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 
 @customElement('ui-avatar')
 export class UiAvatar extends LitElement {
@@ -8,6 +8,8 @@ export class UiAvatar extends LitElement {
   @property({ type: String }) initials = '';
   @property({ type: String }) size: 'xs' | 'sm' | 'md' | 'lg' | 'xl' = 'md';
   @property({ type: Boolean }) online = false;
+
+  @state() private imageError = false;
 
   createRenderRoot() {
     return this;
@@ -42,8 +44,15 @@ export class UiAvatar extends LitElement {
           class="${this
             .sizeClasses} rounded-full overflow-hidden flex items-center justify-center font-semibold bg-brand-100 text-brand-700 dark:bg-brand-900 dark:text-brand-300"
         >
-          ${this.src
-            ? html` <img src="${this.src}" alt="${this.alt}" class="w-full h-full object-cover" /> `
+          ${this.src && !this.imageError
+            ? html`
+                <img
+                  src="${this.src}"
+                  alt="${this.alt}"
+                  class="w-full h-full object-cover"
+                  @error=${() => (this.imageError = true)}
+                />
+              `
             : html` <span>${this.initials || '?'}</span> `}
         </div>
         ${this.online

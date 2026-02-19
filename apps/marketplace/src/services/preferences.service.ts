@@ -110,7 +110,7 @@ class PreferencesService {
     if (saved) {
       try {
         const museum = JSON.parse(saved);
-        return museum._id || null;
+        return museum.wikidataId || museum._id || null;
       } catch {
         return null;
       }
@@ -118,7 +118,7 @@ class PreferencesService {
     return null;
   }
 
-  getSelectedMuseum(): { _id: string; name: string } | null {
+  getSelectedMuseum(): { _id: string; wikidataId?: string; name: string } | null {
     const saved = localStorage.getItem('selectedMuseum');
     if (saved) {
       try {
@@ -130,7 +130,7 @@ class PreferencesService {
     return null;
   }
 
-  setSelectedMuseum(museum: { _id: string; name: string }) {
+  setSelectedMuseum(museum: { _id: string; wikidataId?: string; name: string }) {
     localStorage.setItem('selectedMuseum', JSON.stringify(museum));
     window.dispatchEvent(new CustomEvent('museum-changed', { detail: museum }));
   }

@@ -1,13 +1,40 @@
-// Museum types
+/**
+ * Museum Types
+ *
+ * Uses Wikidata ID as primary identifier for museums.
+ */
+
+// ========================================
+// MUSEUM
+// ========================================
+
 export interface Museum {
-  _id: string;
+  _id: string; // MongoDB ObjectId
+  wikidataId: string; // Wikidata Q number (e.g., Q180916 for Galleria Borghese) - PRIMARY KEY
+
+  // Basic info
   name: string;
   description: string;
+
+  // Location
   location: MuseumLocation;
+
+  // Media
   images: string[];
-  configFile?: string; // JSON config file path or content (legacy)
-  floors: MuseumFloor[]; // Multi-floor map support
+  coverImage?: string;
+
+  // Floor maps
+  floors: MuseumFloor[];
+
+  // Services & Info
+  services: MuseumServices;
+
+  // Navigator app configurations for this museum
+  navigatorConfigs?: NavigatorAppConfig[];
+
+  // Status
   isActive: boolean;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -16,10 +43,103 @@ export interface MuseumLocation {
   address: string;
   city: string;
   country: string;
+  region?: string;
+  postalCode?: string;
   coordinates?: {
     lat: number;
     lng: number;
   };
+}
+
+export interface MuseumServices {
+  ticketInfo?: string; // "€15, ridotto €8"
+  openingHours?: string; // "Mar-Dom 9:00-19:00"
+  closedDays?: string; // "Lunedì"
+  website?: string;
+  phone?: string;
+  email?: string;
+  services: string[]; // ["Bar", "Guardaroba", "WiFi", "Shop"]
+  accessibility?: string;
+  wheelchairAccessible?: boolean;
+}
+
+// ========================================
+// MUSEUM API REQUESTS/RESPONSES
+// ========================================
+
+export interface CreateMuseumData {
+  wikidataId: string;
+  name: string;
+  description: string;
+  location: MuseumLocation;
+  images?: string[];
+  coverImage?: string;
+  services?: Partial<MuseumServices>;
+  navigatorConfigs?: NavigatorAppConfig[];
+}
+
+export interface NavigatorAppConfig {
+  id: string;
+  name: string;
+  slug: string;
+  branding: {
+    logo?: string;
+    splashImage?: string;
+    primaryColor: string;
+    secondaryColor?: string;
+  };
+  content?: {
+    homeTitle?: string;
+    homeSubtitle?: string;
+    welcomeText?: string;
+    openingImage?: string;
+  };
+  pwa: {
+    manifestName: string;
+    shortName: string;
+    description?: string;
+    themeColor: string;
+    backgroundColor: string;
+    display: 'standalone' | 'fullscreen' | 'minimal-ui' | 'browser';
+    orientation: 'any' | 'natural' | 'landscape' | 'portrait';
+    startUrl: string;
+    scope: string;
+    icon192?: string;
+    icon512?: string;
+    iconMaskable?: string;
+    appleTouchIcon?: string;
+  };
+}
+
+export interface MuseumCurator {
+  _id: string;
+  username: string;
+  email: string;
+}
+
+export interface MuseumConfigResponse {
+  wikidataId: string;
+  name: string;
+  services: MuseumServices;
+  navigatorConfigs?: NavigatorAppConfig[];
+  floors?: Array<{
+    id: string;
+    name: string;
+    level: number;
+    markersCount: number;
+  }>;
+}
+
+export interface MuseumMap {
+  type: 'svg' | 'image';
+  imageUrl?: string;
+  svgContent?: string;
+  dimensions: {
+    width: number;
+    height: number;
+  };
+  markers?: MapMarker[];
+  floors?: MuseumFloor[];
 }
 
 // ========================================
@@ -104,13 +224,13 @@ export enum MarkerType {
 
 export interface MapMarker {
   id: string;
-  floorId?: string; // Which floor this marker belongs to (optional for legacy config)
+  floorId?: string; // Which floor this marker belongs to
   x: number;
   y: number;
   type: MarkerType;
   label?: string;
   description?: string;
-  itemId?: string; // Link to Item for ARTWORK markers
+  artworkId?: string; // Wikidata ID of the artwork for ARTWORK/PAINTING/SCULPTURE markers
   icon?: string; // Custom icon URL/SVG
   isVisible?: boolean; // Can be hidden/shown (defaults to true)
   focalPoint?: { x: number; y: number }; // Image focal point for artwork markers (0-100%)
@@ -129,34 +249,3 @@ export interface AccessibilityInfo {
 }
 
 // Note: ItemMapPosition is defined in item.types.ts
-
-// ========================================
-// LEGACY CONFIG (for backwards compatibility)
-// ========================================
-
-export interface MuseumConfig {
-  id: string;
-  name: string;
-  coverImage: string; // base64 or URL
-  map: MuseumMap;
-  locations: MuseumServices;
-}
-
-export interface MuseumMap {
-  type: 'image' | '3d' | 'svg';
-  imageUrl?: string; // base64 or URL
-  svgContent?: string; // Inline SVG
-  dimensions: {
-    width: number;
-    height: number;
-  };
-  markers: MapMarker[];
-  floors?: MuseumFloor[]; // Multi-floor support
-}
-
-export interface MuseumServices {
-  entrance: string;
-  ticketPrice?: string;
-  services: string[];
-  openingHours?: string;
-}

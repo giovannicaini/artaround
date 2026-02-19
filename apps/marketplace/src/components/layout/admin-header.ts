@@ -1,8 +1,12 @@
 import { LitElement, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { User } from '@artaround/shared';
+import { preferencesService } from '../../services/preferences.service';
 import '../ui/ui-icon';
 import '../ui/ui-avatar';
+import '../ui/ui-button';
+import '../ui/ui-icon-button';
+import '../ui/ui-search-bar';
 
 @customElement('admin-header')
 export class AdminHeader extends LitElement {
@@ -11,6 +15,7 @@ export class AdminHeader extends LitElement {
   @property({ type: Boolean }) sidebarCollapsed = false;
   @state() private darkMode = false;
   @state() private userMenuOpen = false;
+  @state() private selectedMuseum: { _id: string; name: string } | null = null;
 
   createRenderRoot() {
     return this;
@@ -19,6 +24,8 @@ export class AdminHeader extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.darkMode = document.documentElement.classList.contains('dark');
+    this.selectedMuseum = preferencesService.getSelectedMuseum();
+    window.addEventListener('museum-changed', this.handleMuseumChanged as EventListener);
 
     // Close menu on outside click
     document.addEventListener('click', (e) => {
@@ -27,6 +34,15 @@ export class AdminHeader extends LitElement {
       }
     });
   }
+
+  disconnectedCallback() {
+    window.removeEventListener('museum-changed', this.handleMuseumChanged as EventListener);
+    super.disconnectedCallback();
+  }
+
+  private handleMuseumChanged = (event: CustomEvent) => {
+    this.selectedMuseum = event.detail || null;
+  };
 
   private toggleDarkMode() {
     this.darkMode = !this.darkMode;
@@ -48,6 +64,14 @@ export class AdminHeader extends LitElement {
     this.dispatchEvent(new CustomEvent('sidebar-toggle', { bubbles: true, composed: true }));
   }
 
+  private handleSelectMuseum() {
+    this.dispatchEvent(new CustomEvent('select-museum', { bubbles: true, composed: true }));
+  }
+
+  private handleClearMuseum() {
+    preferencesService.clearSelectedMuseum();
+  }
+
   render() {
     const marginLeft = this.sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64';
 
@@ -59,30 +83,20 @@ export class AdminHeader extends LitElement {
           <!-- Left Section -->
           <div class="flex items-center gap-4">
             <!-- Mobile Menu Button -->
-            <button
+            <ui-icon-button
               @click=${this.handleMenuToggle}
-              class="lg:hidden p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-              aria-label="Toggle menu"
-            >
-              <ui-icon
-                name="menu"
-                size="sm"
-                class="text-surface-600 dark:text-surface-300"
-              ></ui-icon>
-            </button>
+              class="lg:hidden"
+              icon="menu"
+              title="Toggle menu"
+            ></ui-icon-button>
 
             <!-- Sidebar Collapse Button (Desktop) -->
-            <button
+            <ui-icon-button
               @click=${this.handleSidebarToggle}
-              class="hidden lg:flex p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-              aria-label="Toggle sidebar"
-            >
-              <ui-icon
-                name="menu"
-                size="sm"
-                class="text-surface-600 dark:text-surface-300"
-              ></ui-icon>
-            </button>
+              class="hidden lg:inline-flex"
+              icon="menu"
+              title="Toggle sidebar"
+            ></ui-icon-button>
 
             <!-- Page Title -->
             <h1 class="text-lg font-semibold text-surface-900 dark:text-white">${this.title}</h1>
@@ -90,16 +104,28 @@ export class AdminHeader extends LitElement {
 
           <!-- Right Section -->
           <div class="flex items-center gap-2">
+            <div class="hidden lg:flex items-center gap-1">
+              <ui-button
+                variant="secondary"
+                size="sm"
+                icon="location"
+                .label=${this.selectedMuseum?.name || 'Seleziona museo'}
+                @click=${this.handleSelectMuseum}
+              ></ui-button>
+              ${this.selectedMuseum
+                ? html`
+                    <ui-icon-button
+                      icon="x"
+                      title="Deseleziona museo"
+                      @click=${this.handleClearMuseum}
+                    ></ui-icon-button>
+                  `
+                : ''}
+            </div>
+
             <!-- Search (Desktop) -->
-            <div
-              class="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-100 dark:bg-surface-800 w-64"
-            >
-              <ui-icon name="search" size="xs" class="text-surface-400"></ui-icon>
-              <input
-                type="search"
-                placeholder="Cerca..."
-                class="bg-transparent border-none outline-none text-sm text-surface-900 dark:text-white placeholder:text-surface-400 w-full"
-              />
+            <div class="hidden md:flex items-center gap-2 w-64">
+              <ui-search-bar placeholder="Cerca..." .showButton=${false}></ui-search-bar>
               <kbd
                 class="hidden lg:inline-flex items-center px-1.5 py-0.5 text-2xs font-mono text-surface-400 bg-surface-200 dark:bg-surface-700 rounded"
               >
@@ -108,17 +134,11 @@ export class AdminHeader extends LitElement {
             </div>
 
             <!-- Theme Toggle -->
-            <button
+            <ui-icon-button
               @click=${this.toggleDarkMode}
-              class="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-              aria-label="Toggle theme"
-            >
-              <ui-icon
-                name="${this.darkMode ? 'sun' : 'moon'}"
-                size="sm"
-                class="text-surface-600 dark:text-surface-300"
-              ></ui-icon>
-            </button>
+              icon="${this.darkMode ? 'sun' : 'moon'}"
+              title="Toggle theme"
+            ></ui-icon-button>
 
             <!-- Notifications -->
             <button

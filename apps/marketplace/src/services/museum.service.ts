@@ -1,17 +1,13 @@
-import { apiService } from './api.service';
-import type { Museum, MuseumFloor, MapMarker, FloorConnection } from '@artaround/shared';
-
-export interface MuseumConfig {
-  theme?: {
-    primaryColor?: string;
-    secondaryColor?: string;
-  };
-  features?: {
-    audioGuide?: boolean;
-    virtualTour?: boolean;
-  };
-  settings?: Record<string, unknown>;
-}
+import { apiService, getErrorMessage } from './api.service';
+import type {
+  Museum,
+  MuseumFloor,
+  MapMarker,
+  FloorConnection,
+  CreateMuseumData,
+  MuseumCurator,
+  MuseumConfigResponse,
+} from '@artaround/shared';
 
 export class MuseumService {
   async getMuseums(): Promise<Museum[]> {
@@ -34,8 +30,8 @@ export class MuseumService {
     return null;
   }
 
-  async getMuseumConfig(id: string): Promise<MuseumConfig | null> {
-    const response = await apiService.get<MuseumConfig>(`/museums/${id}/config`);
+  async getMuseumConfig(id: string): Promise<MuseumConfigResponse | null> {
+    const response = await apiService.get<MuseumConfigResponse>(`/museums/${id}/config`);
 
     if (response.success && response.data) {
       return response.data;
@@ -44,9 +40,74 @@ export class MuseumService {
     return null;
   }
 
-  // ========================================
-  // FLOOR MANAGEMENT
-  // ========================================
+  async createMuseum(data: CreateMuseumData): Promise<{ data: Museum | null; error?: string }> {
+    const response = await apiService.post<Museum>('/museums', data);
+    if (response.success && response.data) {
+      return { data: response.data };
+    }
+    return {
+      data: null,
+      error: getErrorMessage(response, 'Errore durante la creazione del museo'),
+    };
+  }
+
+  async updateMuseum(
+    id: string,
+    data: Partial<CreateMuseumData>,
+  ): Promise<{ data: Museum | null; error?: string }> {
+    const response = await apiService.put<Museum>(`/museums/${id}`, data);
+    if (response.success && response.data) {
+      return { data: response.data };
+    }
+    return {
+      data: null,
+      error: getErrorMessage(response, 'Errore durante aggiornamento del museo'),
+    };
+  }
+
+  async deleteMuseum(id: string): Promise<{ success: boolean; error?: string }> {
+    const response = await apiService.delete(`/museums/${id}`);
+    if (response.success) {
+      return { success: true };
+    }
+    return {
+      success: false,
+      error: getErrorMessage(response, 'Errore durante eliminazione del museo'),
+    };
+  }
+
+  async getCurators(museumId: string): Promise<MuseumCurator[]> {
+    const response = await apiService.get<MuseumCurator[]>(`/museums/${museumId}/curators`);
+    return response.success && response.data ? response.data : [];
+  }
+
+  async addCurator(
+    museumId: string,
+    userId: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    const response = await apiService.post(`/museums/${museumId}/curators`, { userId });
+    if (response.success) {
+      return { success: true };
+    }
+    return {
+      success: false,
+      error: getErrorMessage(response, 'Errore durante assegnazione curatore'),
+    };
+  }
+
+  async removeCurator(
+    museumId: string,
+    userId: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    const response = await apiService.delete(`/museums/${museumId}/curators/${userId}`);
+    if (response.success) {
+      return { success: true };
+    }
+    return {
+      success: false,
+      error: getErrorMessage(response, 'Errore durante rimozione curatore'),
+    };
+  }
 
   async getFloors(museumId: string): Promise<MuseumFloor[]> {
     const response = await apiService.get<MuseumFloor[]>(`/museums/${museumId}/floors`);
@@ -66,7 +127,7 @@ export class MuseumService {
     if (response.success && response.data) {
       return { data: response.data };
     }
-    return { data: null, error: response.error || 'Errore sconosciuto' };
+    return { data: null, error: getErrorMessage(response, 'Errore sconosciuto') };
   }
 
   async updateFloor(
@@ -85,10 +146,6 @@ export class MuseumService {
     const response = await apiService.delete(`/museums/${museumId}/floors/${floorId}`);
     return response.success;
   }
-
-  // ========================================
-  // MARKER MANAGEMENT
-  // ========================================
 
   async getMarkers(museumId: string, floorId: string): Promise<MapMarker[]> {
     const response = await apiService.get<MapMarker[]>(
@@ -140,10 +197,6 @@ export class MuseumService {
     );
     return response.success;
   }
-
-  // ========================================
-  // CONNECTION MANAGEMENT
-  // ========================================
 
   async addConnection(
     museumId: string,

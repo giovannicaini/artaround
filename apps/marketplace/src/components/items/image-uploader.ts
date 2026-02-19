@@ -2,6 +2,7 @@ import { LitElement, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import '../ui/ui-icon';
 import '../ui/ui-button';
+import '../ui/ui-image-placeholder';
 
 @customElement('image-uploader')
 export class ImageUploader extends LitElement {
@@ -113,7 +114,24 @@ export class ImageUploader extends LitElement {
               <div
                 class="relative rounded-lg overflow-hidden border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800"
               >
-                <img src="${this.value}" alt="Preview" class="w-full h-48 object-contain" />
+                <img
+                  src="${this.value}"
+                  alt="Preview"
+                  class="w-full h-48 object-contain"
+                  @error=${(e: Event) => {
+                    const img = e.target as HTMLImageElement;
+                    img.style.display = 'none';
+                    img.parentElement
+                      ?.querySelector('ui-image-placeholder')
+                      ?.removeAttribute('hidden');
+                  }}
+                />
+                <ui-image-placeholder
+                  type="default"
+                  size="lg"
+                  hidden
+                  class="w-full h-48"
+                ></ui-image-placeholder>
                 <div class="absolute top-2 right-2 flex gap-2">
                   <button
                     type="button"

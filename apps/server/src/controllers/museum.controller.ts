@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { body, validationResult } from 'express-validator';
-import { Museum } from '../models/index.js';
+import { MuseumModel } from '../models/index.js';
 import { AppError } from '../middleware/index.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import {
@@ -9,9 +9,116 @@ import {
   FloorConnection,
   MarkerType,
   ConnectionType,
+  RoleAssignment,
 } from '@artaround/shared';
 
 export class MuseumController {
+  private static readonly HEX_COLOR_REGEX = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
+  private static readonly SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+  private static validateNavigatorConfigsPayload(navigatorConfigs: unknown): void {
+    if (navigatorConfigs === undefined) {
+      return;
+    }
+
+    if (!Array.isArray(navigatorConfigs)) {
+      throw new AppError(
+        400,
+        'VALIDATION_ERROR',
+        'navigatorConfigs must be an array when provided',
+      );
+    }
+
+    if (navigatorConfigs.length === 0) {
+      return;
+    }
+
+    const slugSet = new Set<string>();
+
+    for (const [index, rawConfig] of navigatorConfigs.entries()) {
+      const config = rawConfig as Record<string, unknown>;
+      const prefix = `navigatorConfigs[${index}]`;
+
+      const id = String(config.id || '').trim();
+      const name = String(config.name || '').trim();
+      const slug = String(config.slug || '').trim();
+      const branding = (config.branding || {}) as Record<string, unknown>;
+      const pwa = (config.pwa || {}) as Record<string, unknown>;
+
+      const primaryColor = String(branding.primaryColor || '').trim();
+      const secondaryColor = String(branding.secondaryColor || '').trim();
+      const themeColor = String(pwa.themeColor || '').trim();
+      const backgroundColor = String(pwa.backgroundColor || '').trim();
+
+      const manifestName = String(pwa.manifestName || '').trim();
+      const shortName = String(pwa.shortName || '').trim();
+      const startUrl = String(pwa.startUrl || '').trim();
+      const scope = String(pwa.scope || '').trim();
+      const icon192 = String(pwa.icon192 || '').trim();
+      const icon512 = String(pwa.icon512 || '').trim();
+
+      if (!id) {
+        throw new AppError(400, 'VALIDATION_ERROR', `${prefix}.id is required`);
+      }
+      if (!name) {
+        throw new AppError(400, 'VALIDATION_ERROR', `${prefix}.name is required`);
+      }
+      if (!slug || !MuseumController.SLUG_REGEX.test(slug)) {
+        throw new AppError(
+          400,
+          'VALIDATION_ERROR',
+          `${prefix}.slug is required and must be lowercase-kebab-case`,
+        );
+      }
+      if (slugSet.has(slug)) {
+        throw new AppError(400, 'VALIDATION_ERROR', `Duplicate navigator slug: ${slug}`);
+      }
+      slugSet.add(slug);
+
+      if (!manifestName) {
+        throw new AppError(400, 'VALIDATION_ERROR', `${prefix}.pwa.manifestName is required`);
+      }
+      if (!shortName) {
+        throw new AppError(400, 'VALIDATION_ERROR', `${prefix}.pwa.shortName is required`);
+      }
+      if (!startUrl) {
+        throw new AppError(400, 'VALIDATION_ERROR', `${prefix}.pwa.startUrl is required`);
+      }
+      if (!scope) {
+        throw new AppError(400, 'VALIDATION_ERROR', `${prefix}.pwa.scope is required`);
+      }
+
+      if (!icon192 || !icon512) {
+        throw new AppError(
+          400,
+          'VALIDATION_ERROR',
+          `${prefix}.pwa.icon192 and ${prefix}.pwa.icon512 are required`,
+        );
+      }
+
+      const colors = [
+        { key: 'branding.primaryColor', value: primaryColor },
+        { key: 'branding.secondaryColor', value: secondaryColor, optional: true },
+        { key: 'pwa.themeColor', value: themeColor },
+        { key: 'pwa.backgroundColor', value: backgroundColor },
+      ];
+
+      for (const color of colors) {
+        if (!color.value && color.optional) {
+          continue;
+        }
+
+        if (!MuseumController.HEX_COLOR_REGEX.test(color.value)) {
+          throw new AppError(
+            400,
+            'VALIDATION_ERROR',
+            `${prefix}.${color.key} must be a valid HEX color`,
+          );
+        }
+      }
+    }
+  }
+
   // Validation rules
   static createValidation = [
     body('name').trim().notEmpty().withMessage('Name is required'),
@@ -55,7 +162,7 @@ export class MuseumController {
       if (city) filter['location.city'] = city;
       if (isActive !== undefined) filter.isActive = isActive === 'true';
 
-      const museums = await Museum.find(filter).sort({ name: 1 });
+      const museums = await MuseumModel.find(filter).sort({ name: 1 });
 
       res.json({
         success: true,
@@ -71,7 +178,7 @@ export class MuseumController {
     try {
       const { id } = req.params;
 
-      const museum = await Museum.findById(id);
+      const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
@@ -85,22 +192,34 @@ export class MuseumController {
     }
   }
 
-  // Get museum config
+  // Get museum config (services and info)
   static async getConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
 
-      const museum = await Museum.findById(id);
+      // Try MongoDB ID first, then Wikidata ID
+      let museum = await MuseumModel.findById(id);
+      if (!museum) {
+        museum = await MuseumModel.findOne({ wikidataId: id });
+      }
+
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
 
-      if (!museum.configFile) {
-        throw new AppError(404, 'CONFIG_NOT_FOUND', 'Museum configuration not available');
-      }
-
-      // Parse JSON config
-      const config = JSON.parse(museum.configFile);
+      // Return museum services and floor info as config
+      const config = {
+        wikidataId: museum.wikidataId,
+        name: museum.name,
+        services: museum.services,
+        navigatorConfigs: museum.navigatorConfigs || [],
+        floors: museum.floors?.map((f) => ({
+          id: f.id,
+          name: f.name,
+          level: f.level,
+          markersCount: f.markers?.length || 0,
+        })),
+      };
 
       res.json({
         success: true,
@@ -119,7 +238,9 @@ export class MuseumController {
         throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
       }
 
-      const museum = new Museum(req.body);
+      MuseumController.validateNavigatorConfigsPayload(req.body.navigatorConfigs);
+
+      const museum = new MuseumModel(req.body);
       await museum.save();
 
       res.status(201).json({
@@ -137,7 +258,9 @@ export class MuseumController {
     try {
       const { id } = req.params;
 
-      const museum = await Museum.findByIdAndUpdate(id, req.body, {
+      MuseumController.validateNavigatorConfigsPayload(req.body.navigatorConfigs);
+
+      const museum = await MuseumModel.findByIdAndUpdate(id, req.body, {
         new: true,
         runValidators: true,
       });
@@ -161,7 +284,7 @@ export class MuseumController {
     try {
       const { id } = req.params;
 
-      const museum = await Museum.findByIdAndDelete(id);
+      const museum = await MuseumModel.findByIdAndDelete(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
@@ -184,7 +307,7 @@ export class MuseumController {
     try {
       const { id } = req.params;
 
-      const museum = await Museum.findById(id);
+      const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
@@ -203,7 +326,7 @@ export class MuseumController {
     try {
       const { id, floorId } = req.params;
 
-      const museum = await Museum.findById(id);
+      const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
@@ -237,7 +360,7 @@ export class MuseumController {
         connections: req.body.connections || [],
       };
 
-      const museum = await Museum.findById(id);
+      const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
@@ -274,7 +397,7 @@ export class MuseumController {
     try {
       const { id, floorId } = req.params;
 
-      const museum = await Museum.findById(id);
+      const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
@@ -314,7 +437,7 @@ export class MuseumController {
     try {
       const { id, floorId } = req.params;
 
-      const museum = await Museum.findById(id);
+      const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
@@ -345,7 +468,7 @@ export class MuseumController {
     try {
       const { id, floorId } = req.params;
 
-      const museum = await Museum.findById(id);
+      const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
@@ -379,7 +502,7 @@ export class MuseumController {
         isVisible: req.body.isVisible !== false,
       };
 
-      const museum = await Museum.findById(id);
+      const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
@@ -416,7 +539,7 @@ export class MuseumController {
     try {
       const { id, floorId, markerId } = req.params;
 
-      const museum = await Museum.findById(id);
+      const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
@@ -455,7 +578,7 @@ export class MuseumController {
     try {
       const { id, floorId, markerId } = req.params;
 
-      const museum = await Museum.findById(id);
+      const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
@@ -492,7 +615,7 @@ export class MuseumController {
         throw new AppError(400, 'VALIDATION_ERROR', 'Markers must be an array');
       }
 
-      const museum = await Museum.findById(id);
+      const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
@@ -541,7 +664,7 @@ export class MuseumController {
         isAccessible: req.body.isAccessible || false,
       };
 
-      const museum = await Museum.findById(id);
+      const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
@@ -582,7 +705,7 @@ export class MuseumController {
     try {
       const { id, floorId, connectionId } = req.params;
 
-      const museum = await Museum.findById(id);
+      const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
@@ -605,6 +728,151 @@ export class MuseumController {
       res.json({
         success: true,
         message: 'Connection deleted successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ========================================
+  // CURATOR MANAGEMENT
+  // ========================================
+
+  // Get curators for a museum
+  static async getCurators(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { User } = await import('../models/index.js');
+      const { ResourceType, ContextualRole } = await import('@artaround/shared');
+
+      // Verify museum exists
+      const museum = await MuseumModel.findById(id);
+      if (!museum) {
+        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      }
+
+      // Find users who have MANAGER role on this museum
+      const curators = await User.find({
+        roleAssignments: {
+          $elemMatch: {
+            resourceType: ResourceType.MUSEUM,
+            resourceId: id,
+            role: ContextualRole.MANAGER,
+          },
+        },
+      }).select('-password');
+
+      res.json({
+        success: true,
+        data: curators,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Add a curator to a museum
+  static async addCurator(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { userId } = req.body;
+      const { User } = await import('../models/index.js');
+      const { ResourceType, ContextualRole } = await import('@artaround/shared');
+
+      if (!userId) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'User ID is required');
+      }
+
+      // Verify museum exists
+      const museum = await MuseumModel.findById(id);
+      if (!museum) {
+        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      }
+
+      // Verify user exists
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+      }
+
+      // Check if already a curator
+      const isAlreadyCurator = user.roleAssignments?.some(
+        (assignment: RoleAssignment) =>
+          assignment.resourceType === ResourceType.MUSEUM &&
+          assignment.resourceId === id &&
+          assignment.role === ContextualRole.MANAGER,
+      );
+
+      if (isAlreadyCurator) {
+        throw new AppError(400, 'ALREADY_CURATOR', 'User is already a curator of this museum');
+      }
+
+      // Add role assignment
+      if (!user.roleAssignments) {
+        user.roleAssignments = [];
+      }
+
+      user.roleAssignments.push({
+        role: ContextualRole.MANAGER,
+        resourceType: ResourceType.MUSEUM,
+        resourceId: id as string,
+        assignedAt: new Date(),
+        assignedBy: req.user!.id,
+      });
+
+      await user.save();
+
+      res.status(201).json({
+        success: true,
+        message: `User ${user.username} added as curator of ${museum.name}`,
+        data: {
+          userId: user._id,
+          username: user.username,
+          email: user.email,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Remove a curator from a museum
+  static async removeCurator(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id, userId } = req.params;
+      const { User } = await import('../models/index.js');
+      const { ResourceType, ContextualRole } = await import('@artaround/shared');
+
+      // Verify museum exists
+      const museum = await MuseumModel.findById(id);
+      if (!museum) {
+        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      }
+
+      // Verify user exists
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+      }
+
+      // Find and remove the role assignment
+      const assignmentIndex = user.roleAssignments?.findIndex(
+        (assignment: RoleAssignment) =>
+          assignment.resourceType === ResourceType.MUSEUM &&
+          assignment.resourceId === id &&
+          assignment.role === ContextualRole.MANAGER,
+      );
+
+      if (assignmentIndex === undefined || assignmentIndex === -1) {
+        throw new AppError(400, 'NOT_A_CURATOR', 'User is not a curator of this museum');
+      }
+
+      user.roleAssignments!.splice(assignmentIndex, 1);
+      await user.save();
+
+      res.json({
+        success: true,
+        message: `User ${user.username} removed as curator of ${museum.name}`,
       });
     } catch (error) {
       next(error);

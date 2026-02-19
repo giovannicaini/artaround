@@ -8,6 +8,7 @@ import { connectDB } from './config/database.js';
 import { errorHandler } from './middleware/index.js';
 import routes from './routes/index.js';
 import { swaggerSpec } from './config/swagger.js';
+import { UploadService } from './utils/upload.service.js';
 
 // ESM equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -43,6 +44,16 @@ app.get('/api-docs.json', (req, res) => {
 
 // API Routes
 app.use('/api', routes);
+
+// Serve uploaded images (static files)
+const uploadsPath = UploadService.getUploadsDir();
+app.use(
+  '/uploads',
+  express.static(uploadsPath, {
+    maxAge: '7d',
+    immutable: true,
+  }),
+);
 
 // Serve marketplace static files
 const marketplacePath = path.resolve(__dirname, '../../marketplace/dist');

@@ -1,4 +1,4 @@
-import type { Museum, Visit, Item } from '@artaround/shared';
+import type { Museum, Visit, Item, Artwork } from '@artaround/shared';
 
 // API base URL - configurable via environment variable
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
@@ -68,18 +68,29 @@ export const api = {
 
   getVisit: (id: string): Promise<Visit> => request<Visit>(`/visits/${id}`),
 
-  // Items
+  // Artworks
+  getArtwork: (wikidataId: string): Promise<Artwork> =>
+    request<Artwork>(`/artworks/wikidata/${wikidataId}`),
+
+  getArtworksByMuseum: (museumWikidataId: string): Promise<Artwork[]> =>
+    request<Artwork[]>(`/artworks/museum/${museumWikidataId}`),
+
+  // Items (content)
   getItem: (id: string): Promise<Item> => request<Item>(`/items/${id}`),
 
-  getItems: (museumId?: string): Promise<Item[]> => {
-    const params = museumId ? `?museumId=${encodeURIComponent(museumId)}` : '';
-    return request<Item[]>(`/items${params}`);
+  getItemsForArtwork: (artworkWikidataId: string): Promise<Item[]> =>
+    request<Item[]>(`/items?referenceType=artwork&referenceId=${artworkWikidataId}`),
+
+  getItems: (filters?: { referenceType?: string; referenceId?: string }): Promise<Item[]> => {
+    const params = new URLSearchParams();
+    if (filters?.referenceType) params.set('referenceType', filters.referenceType);
+    if (filters?.referenceId) params.set('referenceId', filters.referenceId);
+    const query = params.toString();
+    return request<Item[]>(`/items${query ? `?${query}` : ''}`);
   },
 
-  searchItems: (query: string, museumId?: string): Promise<Item[]> => {
-    const params = new URLSearchParams({ q: query });
-    if (museumId) params.set('museumId', museumId);
-    return request<Item[]>(`/items/search?${params.toString()}`);
+  searchItems: (query: string): Promise<Item[]> => {
+    return request<Item[]>(`/items?search=${encodeURIComponent(query)}`);
   },
 
   // Get multiple items by IDs

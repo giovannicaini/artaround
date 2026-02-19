@@ -1,10 +1,14 @@
 export { User } from './User.js';
 export type { UserDocument } from './User.js';
-export { Museum } from './Museum.js';
+export { MuseumModel } from './Museum.js';
 export type { MuseumDocument } from './Museum.js';
-export { Item } from './Item.js';
+export { ArtworkModel } from './Artwork.js';
+export type { ArtworkDocument } from './Artwork.js';
+export { ItemModel } from './Item.js';
 export type { ItemDocument } from './Item.js';
-export { Visit } from './Visit.js';
+export { VisitModel } from './Visit.js';
 export type { VisitDocument } from './Visit.js';
 export { VisitPurchase } from './VisitPurchase.js';
 export type { VisitPurchaseDocument } from './VisitPurchase.js';
+export { AppConfigModel } from './AppConfig.js';
+export type { AppConfigDocument } from './AppConfig.js';

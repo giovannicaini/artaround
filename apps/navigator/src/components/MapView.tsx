@@ -5,8 +5,8 @@ import { MarkerType } from '@artaround/shared';
 
 interface MapViewProps {
   map: MuseumMap;
-  currentItemId?: string; // The item currently being viewed
-  visitItemIds?: string[]; // All items in the visit, in order
+  currentArtworkId?: string; // The artwork currently being viewed (Wikidata ID)
+  visitArtworkIds?: string[]; // All artworks in the visit, in order (Wikidata IDs)
   onMarkerClick?: (marker: MapMarker) => void;
   onClose?: () => void;
 }
@@ -46,8 +46,8 @@ const markerIcons: Record<MarkerType, { icon: string; color: string; label: stri
 
 export default function MapView({
   map,
-  currentItemId,
-  visitItemIds = [],
+  currentArtworkId,
+  visitArtworkIds = [],
   onMarkerClick,
   onClose,
 }: MapViewProps) {
@@ -58,11 +58,11 @@ export default function MapView({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showLegend, setShowLegend] = useState(false);
 
-  // Find current item marker and center on it
+  // Find current artwork marker and center on it
   useEffect(() => {
-    if (currentItemId && map.markers) {
+    if (currentArtworkId && map.markers) {
       const currentMarker = map.markers.find(
-        (m) => m.type === MarkerType.ARTWORK && m.itemId === currentItemId,
+        (m) => m.type === MarkerType.ARTWORK && m.artworkId === currentArtworkId,
       );
       if (currentMarker && containerRef.current) {
         const container = containerRef.current;
@@ -71,7 +71,7 @@ export default function MapView({
         setPosition({ x: centerX, y: centerY });
       }
     }
-  }, [currentItemId, map.markers, scale]);
+  }, [currentArtworkId, map.markers, scale]);
 
   const handleZoomIn = () => setScale((s) => Math.min(s + 0.25, 3));
   const handleZoomOut = () => setScale((s) => Math.max(s - 0.25, 0.5));
@@ -114,11 +114,14 @@ export default function MapView({
 
   // Get visit path (line connecting artworks in order)
   const getVisitPath = () => {
-    if (!visitItemIds.length || !map.markers) return null;
+    if (!visitArtworkIds.length || !map.markers) return null;
+    const markers = map.markers;
 
     const pathPoints: { x: number; y: number }[] = [];
-    visitItemIds.forEach((itemId) => {
-      const marker = map.markers.find((m) => m.type === MarkerType.ARTWORK && m.itemId === itemId);
+    visitArtworkIds.forEach((artworkId) => {
+      const marker = markers.find(
+        (m) => m.type === MarkerType.ARTWORK && m.artworkId === artworkId,
+      );
       if (marker) {
         pathPoints.push({ x: marker.x, y: marker.y });
       }
@@ -211,11 +214,12 @@ export default function MapView({
 
             {/* Markers */}
             {map.markers?.map((marker) => {
-              const isCurrentItem =
-                marker.type === MarkerType.ARTWORK && marker.itemId === currentItemId;
+              const isCurrentArtwork =
+                marker.type === MarkerType.ARTWORK && marker.artworkId === currentArtworkId;
               const isInVisit =
-                marker.type === MarkerType.ARTWORK && visitItemIds.includes(marker.itemId || '');
-              const visitIndex = marker.itemId ? visitItemIds.indexOf(marker.itemId) : -1;
+                marker.type === MarkerType.ARTWORK &&
+                visitArtworkIds.includes(marker.artworkId || '');
+              const visitIndex = marker.artworkId ? visitArtworkIds.indexOf(marker.artworkId) : -1;
               const config = markerIcons[marker.type];
 
               return (
@@ -224,8 +228,8 @@ export default function MapView({
                   className="pointer-events-auto cursor-pointer"
                   onClick={() => onMarkerClick?.(marker)}
                 >
-                  {/* Pulse animation for current item */}
-                  {isCurrentItem && (
+                  {/* Pulse animation for current artwork */}
+                  {isCurrentArtwork && (
                     <circle
                       cx={marker.x}
                       cy={marker.y}
@@ -239,8 +243,8 @@ export default function MapView({
                   <circle
                     cx={marker.x}
                     cy={marker.y}
-                    r={isCurrentItem ? 20 : 16}
-                    className={`${isCurrentItem ? 'fill-brand-500' : isInVisit ? 'fill-brand-400' : 'fill-surface-600'} stroke-white stroke-2`}
+                    r={isCurrentArtwork ? 20 : 16}
+                    className={`${isCurrentArtwork ? 'fill-brand-500' : isInVisit ? 'fill-brand-400' : 'fill-surface-600'} stroke-white stroke-2`}
                   />
 
                   {/* Icon or number */}
@@ -327,7 +331,7 @@ export default function MapView({
         </div>
 
         {/* Current position indicator */}
-        {currentItemId && (
+        {currentArtworkId && (
           <div className="absolute bottom-4 left-4 bg-brand-500/90 backdrop-blur text-white px-4 py-2 rounded-lg shadow-lg">
             <span className="text-sm font-medium">📍 Sei qui</span>
           </div>

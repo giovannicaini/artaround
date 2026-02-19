@@ -1,8 +1,23 @@
 import { Router } from 'express';
 import { UtilsController } from '../controllers/utils.controller.js';
-import { authMiddleware } from '../middleware/index.js';
+import { authMiddleware, roleMiddleware } from '../middleware/index.js';
+import { UserRole } from '@artaround/shared';
 
 const router = Router();
+
+router.get(
+  '/navigator-default-configs',
+  authMiddleware,
+  roleMiddleware(UserRole.ADMIN),
+  UtilsController.getNavigatorDefaultConfigs,
+);
+
+router.put(
+  '/navigator-default-configs',
+  authMiddleware,
+  roleMiddleware(UserRole.ADMIN),
+  UtilsController.updateNavigatorDefaultConfigs,
+);
 
 /**
  * @swagger

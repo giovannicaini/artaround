@@ -17,15 +17,36 @@ export class UiSelect extends LitElement {
   @property({ type: String }) hint = '';
   @property({ type: Boolean }) required = false;
   @property({ type: Boolean }) disabled = false;
+  @property({ type: Boolean }) clearable = false;
   @property({ type: Array }) options: SelectOption[] = [];
 
   createRenderRoot() {
     return this;
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    this.style.display = 'block';
+  }
+
   private handleChange(e: Event) {
     const target = e.target as HTMLSelectElement;
     this.value = target.value;
+    this.dispatchEvent(
+      new CustomEvent('select-change', {
+        detail: { value: this.value },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  private clearValue(e: Event) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (this.disabled || this.required) return;
+
+    this.value = '';
     this.dispatchEvent(
       new CustomEvent('select-change', {
         detail: { value: this.value },
@@ -73,7 +94,9 @@ export class UiSelect extends LitElement {
           >
             ${this.placeholder
               ? html`
-                  <option value="" disabled ?selected=${!this.value}>${this.placeholder}</option>
+                  <option value="" ?disabled=${this.required} ?selected=${!this.value}>
+                    ${this.placeholder}
+                  </option>
                 `
               : ''}
             ${this.options.map(
@@ -88,6 +111,21 @@ export class UiSelect extends LitElement {
               `,
             )}
           </select>
+
+          ${this.clearable && this.value && !this.disabled && !this.required
+            ? html`
+                <button
+                  type="button"
+                  class="absolute inset-y-0 right-8 my-auto h-5 w-5 rounded-full flex items-center justify-center text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                  @mousedown=${(e: Event) => e.preventDefault()}
+                  @click=${this.clearValue}
+                  aria-label="Azzera selezione"
+                  title="Azzera"
+                >
+                  <ui-icon name="x" size="xs"></ui-icon>
+                </button>
+              `
+            : ''}
 
           <!-- Dropdown arrow -->
           <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">

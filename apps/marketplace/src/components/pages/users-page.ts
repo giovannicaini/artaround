@@ -1,0 +1,929 @@
+import { LitElement, html, nothing } from 'lit';
+import { customElement, state, property } from 'lit/decorators.js';
+import { userService } from '../../services/user.service';
+import {
+  type User,
+  UserRole,
+  ContextualRole,
+  ResourceType,
+  type RoleAssignment,
+  type CreateUserData,
+  type UpdateUserData,
+  type RoleAssignmentData,
+} from '@artaround/shared';
+import '../ui/ui-button';
+import '../ui/ui-card';
+import '../ui/ui-icon';
+import '../ui/ui-input';
+import '../ui/ui-select';
+import '../ui/ui-badge';
+import '../ui/ui-modal';
+import '../ui/ui-image-placeholder';
+import '../ui/ui-page-header';
+import '../ui/ui-loading';
+import '../ui/ui-empty';
+import '../ui/ui-alert';
+import '../ui/ui-pagination';
+import '../ui/ui-search-bar';
+import '../ui/ui-section';
+import '../ui/ui-icon-button';
+import '../ui/ui-checkbox';
+import '../ui/ui-filter-tabs';
+
+type ViewMode = 'list' | 'create' | 'edit' | 'view';
+
+interface UserFormData {
+  username: string;
+  email: string;
+  password: string;
+  role: UserRole;
+  isActive: boolean;
+}
+
+/**
+ * Users Management Page
+ *
+ * Admin interface for managing users, roles, and contextual role assignments.
+ */
+@customElement('users-page')
+export class UsersPage extends LitElement {
+  @property({ type: Object }) currentUser: User | null = null;
+
+  @state() private viewMode: ViewMode = 'list';
+  @state() private users: User[] = [];
+  @state() private selectedUser: User | null = null;
+  @state() private loading = true;
+  @state() private saving = false;
+  @state() private error = '';
+  @state() private success = '';
+
+  // Pagination
+  @state() private page = 1;
+  @state() private totalPages = 1;
+  @state() private total = 0;
+
+  // Filters
+  @state() private searchQuery = '';
+  @state() private filterRole: UserRole | '' = '';
+  @state() private filterActive: 'all' | 'active' | 'inactive' = 'all';
+
+  // Form data
+  @state() private formData: UserFormData = {
+    username: '',
+    email: '',
+    password: '',
+    role: UserRole.VISITOR,
+    isActive: true,
+  };
+
+  // Delete modal
+  @state() private deleteModalOpen = false;
+  @state() private userToDelete: User | null = null;
+  @state() private deleting = false;
+
+  // Role assignment modal
+  @state() private roleAssignmentModalOpen = false;
+  @state() private roleAssignmentData: RoleAssignmentData = {
+    role: ContextualRole.VIEWER,
+    resourceType: ResourceType.ITEM,
+    resourceId: '',
+  };
+
+  createRenderRoot() {
+    return this;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.loadUsers();
+  }
+
+  private async loadUsers() {
+    this.loading = true;
+    this.error = '';
+
+    try {
+      const params: Record<string, unknown> = {
+        page: this.page,
+        limit: 20,
+      };
+
+      if (this.searchQuery) params.search = this.searchQuery;
+      if (this.filterRole) params.role = this.filterRole;
+      if (this.filterActive !== 'all') params.isActive = this.filterActive === 'active';
+
+      const response = await userService.getUsers(
+        params as Parameters<typeof userService.getUsers>[0],
+      );
+      this.users = response.users;
+      this.totalPages = response.pagination.pages;
+      this.total = response.pagination.total;
+    } catch (e) {
+      console.error('Error loading users:', e);
+      this.error = 'Errore nel caricamento degli utenti';
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  private handleFilterRole(role: UserRole | '') {
+    this.filterRole = role;
+    this.page = 1;
+    this.loadUsers();
+  }
+
+  private handleFilterActive(filter: 'all' | 'active' | 'inactive') {
+    this.filterActive = filter;
+    this.page = 1;
+    this.loadUsers();
+  }
+
+  private handlePageChange(newPage: number) {
+    this.page = newPage;
+    this.loadUsers();
+  }
+
+  private openCreateForm() {
+    this.formData = {
+      username: '',
+      email: '',
+      password: '',
+      role: UserRole.VISITOR,
+      isActive: true,
+    };
+    this.viewMode = 'create';
+    this.error = '';
+    this.success = '';
+  }
+
+  private openEditForm(user: User) {
+    this.selectedUser = user;
+    this.formData = {
+      username: user.username,
+      email: user.email,
+      password: '', // Don't populate password
+      role: user.role,
+      isActive: user.isActive,
+    };
+    this.viewMode = 'edit';
+    this.error = '';
+    this.success = '';
+  }
+
+  private openViewUser(user: User) {
+    this.selectedUser = user;
+    this.viewMode = 'view';
+  }
+
+  private handleCancel() {
+    this.viewMode = 'list';
+    this.selectedUser = null;
+    this.error = '';
+    this.success = '';
+  }
+
+  private async handleSubmit() {
+    this.error = '';
+    this.success = '';
+
+    // Validation
+    if (!this.formData.username.trim()) {
+      this.error = 'Username obbligatorio';
+      return;
+    }
+    if (!this.formData.email.trim()) {
+      this.error = 'Email obbligatoria';
+      return;
+    }
+    if (this.viewMode === 'create' && !this.formData.password) {
+      this.error = 'Password obbligatoria';
+      return;
+    }
+
+    this.saving = true;
+
+    try {
+      if (this.viewMode === 'create') {
+        const data: CreateUserData = {
+          username: this.formData.username.trim(),
+          email: this.formData.email.trim(),
+          password: this.formData.password,
+          role: this.formData.role,
+          isActive: this.formData.isActive,
+        };
+        await userService.create(data);
+        this.success = 'Utente creato con successo!';
+      } else if (this.viewMode === 'edit' && this.selectedUser) {
+        const data: UpdateUserData = {
+          username: this.formData.username.trim(),
+          email: this.formData.email.trim(),
+          role: this.formData.role,
+          isActive: this.formData.isActive,
+        };
+        if (this.formData.password) {
+          data.password = this.formData.password;
+        }
+        await userService.update(this.selectedUser._id, data);
+        this.success = 'Utente aggiornato con successo!';
+      }
+
+      // Refresh list and go back
+      await this.loadUsers();
+      setTimeout(() => {
+        this.viewMode = 'list';
+        this.selectedUser = null;
+      }, 1000);
+    } catch (e) {
+      console.error('Error saving user:', e);
+      this.error = e instanceof Error ? e.message : 'Errore nel salvataggio';
+    } finally {
+      this.saving = false;
+    }
+  }
+
+  private openDeleteModal(user: User) {
+    this.userToDelete = user;
+    this.deleteModalOpen = true;
+  }
+
+  private async handleConfirmDelete() {
+    if (!this.userToDelete) return;
+
+    this.deleting = true;
+    try {
+      await userService.delete(this.userToDelete._id);
+      await this.loadUsers();
+      this.deleteModalOpen = false;
+      this.userToDelete = null;
+    } catch (e) {
+      console.error('Error deleting user:', e);
+    } finally {
+      this.deleting = false;
+    }
+  }
+
+  // Role assignment methods
+  private openRoleAssignmentModal(user: User) {
+    this.selectedUser = user;
+    this.roleAssignmentData = {
+      role: ContextualRole.VIEWER,
+      resourceType: ResourceType.ITEM,
+      resourceId: '',
+    };
+    this.roleAssignmentModalOpen = true;
+  }
+
+  private async handleAddRoleAssignment() {
+    if (!this.selectedUser || !this.roleAssignmentData.resourceId) {
+      this.error = 'ID risorsa obbligatorio';
+      return;
+    }
+
+    this.saving = true;
+    try {
+      const updatedUser = await userService.addRoleAssignment(
+        this.selectedUser._id,
+        this.roleAssignmentData,
+      );
+      this.selectedUser = updatedUser;
+
+      // Update user in list
+      this.users = this.users.map((u) => (u._id === updatedUser._id ? updatedUser : u));
+
+      this.roleAssignmentModalOpen = false;
+      this.success = 'Ruolo assegnato con successo!';
+    } catch (e) {
+      console.error('Error adding role assignment:', e);
+      this.error = e instanceof Error ? e.message : "Errore nell'assegnazione del ruolo";
+    } finally {
+      this.saving = false;
+    }
+  }
+
+  private async handleRemoveRoleAssignment(assignment: RoleAssignment) {
+    if (!this.selectedUser) return;
+
+    try {
+      const updatedUser = await userService.removeRoleAssignment(this.selectedUser._id, {
+        role: assignment.role,
+        resourceType: assignment.resourceType,
+        resourceId: assignment.resourceId,
+      });
+      this.selectedUser = updatedUser;
+
+      // Update user in list
+      this.users = this.users.map((u) => (u._id === updatedUser._id ? updatedUser : u));
+    } catch (e) {
+      console.error('Error removing role assignment:', e);
+    }
+  }
+
+  render() {
+    return html`
+      <div class="users-page">
+        ${this.viewMode === 'list' ? this.renderList() : nothing}
+        ${this.viewMode === 'create' || this.viewMode === 'edit' ? this.renderForm() : nothing}
+        ${this.viewMode === 'view' ? this.renderUserDetail() : nothing} ${this.renderDeleteModal()}
+        ${this.renderRoleAssignmentModal()}
+      </div>
+    `;
+  }
+
+  private renderList() {
+    return html`
+      <!-- Header -->
+      <ui-page-header title="Gestione Utenti" .count=${this.total} countLabel="utenti">
+        <ui-button
+          slot="actions"
+          variant="primary"
+          icon="plus"
+          label="Nuovo Utente"
+          @click=${this.openCreateForm}
+        ></ui-button>
+      </ui-page-header>
+
+      <!-- Filters -->
+      <div class="flex flex-col lg:flex-row gap-4 mb-6">
+        <div class="flex-1">
+          <ui-search-bar
+            placeholder="🔍 Cerca per nome o email..."
+            .value=${this.searchQuery}
+            .showButton=${false}
+            @search=${(e: CustomEvent) => {
+              this.searchQuery = e.detail.value;
+              this.page = 1;
+              this.loadUsers();
+            }}
+          ></ui-search-bar>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <!-- Role filter -->
+          <ui-filter-tabs
+            .tabs=${[
+              { value: '', label: 'Tutti' },
+              ...Object.values(UserRole).map((role) => ({
+                value: role,
+                label: userService.getRoleLabel(role),
+              })),
+            ]}
+            .value=${this.filterRole}
+            @filter-change=${(e: CustomEvent) => this.handleFilterRole(e.detail.value)}
+          ></ui-filter-tabs>
+
+          <!-- Active filter -->
+          <ui-filter-tabs
+            .tabs=${[
+              { value: 'all', label: 'Tutti' },
+              { value: 'active', label: 'Attivi' },
+              { value: 'inactive', label: 'Inattivi' },
+            ]}
+            .value=${this.filterActive}
+            @filter-change=${(e: CustomEvent) => this.handleFilterActive(e.detail.value)}
+          ></ui-filter-tabs>
+        </div>
+      </div>
+
+      <!-- Error message -->
+      ${this.error
+        ? html`<ui-alert variant="danger" .message=${this.error} class="mb-4"></ui-alert>`
+        : nothing}
+
+      <!-- Users table -->
+      ${this.loading
+        ? html`<ui-loading size="lg" text="Caricamento utenti..."></ui-loading>`
+        : this.users.length === 0
+          ? html`<ui-empty
+              icon="users"
+              title="Nessun utente trovato"
+              .description=${this.searchQuery || this.filterRole || this.filterActive !== 'all'
+                ? 'Prova a modificare i filtri di ricerca'
+                : 'Crea il primo utente per iniziare'}
+            >
+              <ui-button
+                slot="action"
+                variant="primary"
+                icon="plus"
+                label="Nuovo Utente"
+                @click=${this.openCreateForm}
+              ></ui-button>
+            </ui-empty>`
+          : this.renderUsersTable()}
+
+      <!-- Pagination -->
+      ${this.totalPages > 1
+        ? html`<ui-pagination
+            .page=${this.page}
+            .totalPages=${this.totalPages}
+            @page-change=${(e: CustomEvent) => this.handlePageChange(e.detail.page)}
+          ></ui-pagination>`
+        : nothing}
+    `;
+  }
+
+  private renderUsersTable() {
+    return html`
+      <ui-card padding="none">
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-surface-50 dark:bg-surface-800/50">
+              <tr>
+                <th
+                  class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider"
+                >
+                  Utente
+                </th>
+                <th
+                  class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider"
+                >
+                  Ruolo
+                </th>
+                <th
+                  class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider"
+                >
+                  Ruoli Contestuali
+                </th>
+                <th
+                  class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider"
+                >
+                  Stato
+                </th>
+                <th
+                  class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider"
+                >
+                  Creato
+                </th>
+                <th
+                  class="px-4 py-3 text-right text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider"
+                >
+                  Azioni
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-surface-200 dark:divide-surface-700">
+              ${this.users.map((user) => this.renderUserRow(user))}
+            </tbody>
+          </table>
+        </div>
+      </ui-card>
+    `;
+  }
+
+  private renderUserRow(user: User) {
+    const roleColors: Record<UserRole, string> = {
+      admin: 'danger',
+      curator: 'primary',
+      author: 'success',
+      visitor: 'secondary',
+    };
+
+    return html`
+      <tr class="hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
+        <td class="px-4 py-3">
+          <div class="flex items-center gap-3">
+            <div
+              class="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-700 dark:text-brand-300 font-semibold"
+            >
+              ${user.username.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p class="font-medium text-surface-900 dark:text-white">${user.username}</p>
+              <p class="text-sm text-surface-500">${user.email}</p>
+            </div>
+          </div>
+        </td>
+        <td class="px-4 py-3">
+          <ui-badge
+            variant="${roleColors[user.role] || 'secondary'}"
+            .label=${userService.getRoleLabel(user.role)}
+          ></ui-badge>
+        </td>
+        <td class="px-4 py-3">
+          ${user.roleAssignments && user.roleAssignments.length > 0
+            ? html`
+                <div class="flex flex-wrap gap-1">
+                  ${user.roleAssignments
+                    .slice(0, 2)
+                    .map(
+                      (ra) => html`
+                        <ui-badge
+                          variant="outline"
+                          size="sm"
+                          .label=${`${userService.getContextualRoleLabel(ra.role)} - ${userService.getResourceTypeLabel(ra.resourceType)}`}
+                        ></ui-badge>
+                      `,
+                    )}
+                  ${user.roleAssignments.length > 2
+                    ? html`<ui-badge
+                        variant="outline"
+                        size="sm"
+                        .label=${`+${user.roleAssignments.length - 2}`}
+                      ></ui-badge>`
+                    : nothing}
+                </div>
+              `
+            : html`<span class="text-sm text-surface-400">—</span>`}
+        </td>
+        <td class="px-4 py-3">
+          ${user.isActive
+            ? html`<ui-badge variant="success" dot label="Attivo"></ui-badge>`
+            : html`<ui-badge variant="secondary" dot label="Inattivo"></ui-badge>`}
+        </td>
+        <td class="px-4 py-3 text-sm text-surface-500">
+          ${new Date(user.createdAt).toLocaleDateString('it-IT')}
+        </td>
+        <td class="px-4 py-3">
+          <div class="flex items-center justify-end gap-1">
+            <ui-icon-button
+              icon="eye"
+              size="sm"
+              title="Visualizza"
+              @click=${() => this.openViewUser(user)}
+            ></ui-icon-button>
+            <ui-icon-button
+              icon="edit"
+              size="sm"
+              title="Modifica"
+              @click=${() => this.openEditForm(user)}
+            ></ui-icon-button>
+            <ui-icon-button
+              icon="shield"
+              size="sm"
+              title="Assegna ruolo"
+              @click=${() => this.openRoleAssignmentModal(user)}
+            ></ui-icon-button>
+            ${user._id !== this.currentUser?._id
+              ? html`
+                  <ui-icon-button
+                    icon="trash"
+                    size="sm"
+                    variant="danger"
+                    title="Disattiva"
+                    @click=${() => this.openDeleteModal(user)}
+                  ></ui-icon-button>
+                `
+              : nothing}
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  private renderForm() {
+    const isEdit = this.viewMode === 'edit';
+
+    return html`
+      <div class="max-w-2xl mx-auto">
+        <!-- Header -->
+        <ui-page-header
+          .title=${isEdit ? 'Modifica Utente' : 'Nuovo Utente'}
+          .description=${isEdit
+            ? `Modifica i dati di ${this.selectedUser?.username}`
+            : 'Crea un nuovo account utente'}
+          showBack
+          @back=${this.handleCancel}
+        ></ui-page-header>
+
+        <!-- Messages -->
+        ${this.error
+          ? html`<ui-alert variant="danger" .message=${this.error} class="mb-4"></ui-alert>`
+          : nothing}
+        ${this.success
+          ? html`<ui-alert variant="success" .message=${this.success} class="mb-4"></ui-alert>`
+          : nothing}
+
+        <!-- Form -->
+        <ui-card>
+          <div class="space-y-5">
+            <ui-input
+              label="Username"
+              placeholder="mario_rossi"
+              .value=${this.formData.username}
+              @input=${(e: InputEvent) =>
+                (this.formData = {
+                  ...this.formData,
+                  username: (e.target as HTMLInputElement).value,
+                })}
+              required
+            ></ui-input>
+
+            <ui-input
+              type="email"
+              label="Email"
+              placeholder="mario@example.com"
+              .value=${this.formData.email}
+              @input=${(e: InputEvent) =>
+                (this.formData = { ...this.formData, email: (e.target as HTMLInputElement).value })}
+              required
+            ></ui-input>
+
+            <ui-input
+              type="password"
+              label=${isEdit ? 'Nuova Password (lascia vuoto per non modificare)' : 'Password'}
+              placeholder="••••••••"
+              .value=${this.formData.password}
+              @input=${(e: InputEvent) =>
+                (this.formData = {
+                  ...this.formData,
+                  password: (e.target as HTMLInputElement).value,
+                })}
+              ?required=${!isEdit}
+            ></ui-input>
+
+            <ui-select
+              label="Ruolo Globale"
+              .value=${this.formData.role}
+              .options=${Object.values(UserRole).map((role) => ({
+                value: role,
+                label: userService.getRoleLabel(role),
+              }))}
+              @select-change=${(e: CustomEvent) =>
+                (this.formData = {
+                  ...this.formData,
+                  role: e.detail.value as UserRole,
+                })}
+            ></ui-select>
+          </div>
+
+          <!-- Checkbox section -->
+          <div class="mt-8 pt-6 border-t border-surface-200 dark:border-surface-700">
+            <ui-checkbox
+              label="Account attivo"
+              hint="Se disattivo, l'utente non potrà accedere al sistema"
+              ?checked=${this.formData.isActive}
+              @checkbox-change=${(e: CustomEvent) =>
+                (this.formData = {
+                  ...this.formData,
+                  isActive: e.detail.checked,
+                })}
+            ></ui-checkbox>
+          </div>
+
+          <!-- Actions -->
+          <div
+            class="flex items-center justify-end gap-3 mt-8 pt-6 border-t border-surface-200 dark:border-surface-700"
+          >
+            <ui-button variant="ghost" label="Annulla" @click=${this.handleCancel}></ui-button>
+            <ui-button
+              variant="primary"
+              .label=${isEdit ? 'Salva Modifiche' : 'Crea Utente'}
+              @click=${this.handleSubmit}
+              ?loading=${this.saving}
+            ></ui-button>
+          </div>
+        </ui-card>
+      </div>
+    `;
+  }
+
+  private renderUserDetail() {
+    if (!this.selectedUser) return nothing;
+
+    const user = this.selectedUser;
+
+    return html`
+      <div class="max-w-3xl mx-auto">
+        <!-- Header -->
+        <div class="flex items-center gap-4 mb-6">
+          <ui-icon-button icon="arrow-left" size="md" @click=${this.handleCancel}></ui-icon-button>
+          <div class="flex-1">
+            <h1 class="text-2xl font-bold text-surface-900 dark:text-white">${user.username}</h1>
+            <p class="text-sm text-surface-500 dark:text-surface-400">${user.email}</p>
+          </div>
+          <ui-button
+            variant="outline"
+            icon="edit"
+            label="Modifica"
+            @click=${() => this.openEditForm(user)}
+          ></ui-button>
+        </div>
+
+        <!-- User info card -->
+        <ui-card class="mb-6">
+          <h3 class="font-semibold text-surface-900 dark:text-white mb-4">Informazioni Generali</h3>
+          <dl class="grid grid-cols-2 gap-4">
+            <div>
+              <dt class="text-sm text-surface-500">Ruolo Globale</dt>
+              <dd class="mt-1">
+                <ui-badge
+                  variant="primary"
+                  .label=${userService.getRoleLabel(user.role)}
+                ></ui-badge>
+              </dd>
+            </div>
+            <div>
+              <dt class="text-sm text-surface-500">Stato</dt>
+              <dd class="mt-1">
+                ${user.isActive
+                  ? html`<ui-badge variant="success" dot label="Attivo"></ui-badge>`
+                  : html`<ui-badge variant="secondary" dot label="Inattivo"></ui-badge>`}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-sm text-surface-500">Registrato il</dt>
+              <dd class="mt-1 text-surface-900 dark:text-white">
+                ${new Date(user.createdAt).toLocaleDateString('it-IT', {
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                })}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-sm text-surface-500">Ultimo accesso</dt>
+              <dd class="mt-1 text-surface-900 dark:text-white">
+                ${user.lastLogin
+                  ? new Date(user.lastLogin).toLocaleDateString('it-IT', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : 'Mai'}
+              </dd>
+            </div>
+          </dl>
+        </ui-card>
+
+        <!-- Role assignments card -->
+        <ui-card>
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-surface-900 dark:text-white">Ruoli Contestuali</h3>
+            <ui-button
+              variant="outline"
+              size="sm"
+              icon="plus"
+              label="Aggiungi Ruolo"
+              @click=${() => this.openRoleAssignmentModal(user)}
+            ></ui-button>
+          </div>
+
+          ${user.roleAssignments && user.roleAssignments.length > 0
+            ? html`
+                <div class="space-y-2">
+                  ${user.roleAssignments.map(
+                    (ra) => html`
+                      <div
+                        class="flex items-center justify-between p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50"
+                      >
+                        <div class="flex items-center gap-3">
+                          <div
+                            class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center"
+                          >
+                            <ui-icon
+                              name=${this.getResourceIcon(ra.resourceType)}
+                              size="sm"
+                              class="text-brand-600 dark:text-brand-400"
+                            ></ui-icon>
+                          </div>
+                          <div>
+                            <p class="font-medium text-surface-900 dark:text-white">
+                              ${userService.getContextualRoleLabel(ra.role)}
+                            </p>
+                            <p class="text-sm text-surface-500">
+                              ${userService.getResourceTypeLabel(ra.resourceType)}: ${ra.resourceId}
+                            </p>
+                          </div>
+                        </div>
+                        <ui-icon-button
+                          icon="x"
+                          size="sm"
+                          variant="danger"
+                          title="Rimuovi"
+                          @click=${() => this.handleRemoveRoleAssignment(ra)}
+                        ></ui-icon-button>
+                      </div>
+                    `,
+                  )}
+                </div>
+              `
+            : html`
+                <div class="text-center py-8 text-surface-500">
+                  <ui-icon name="shield" size="lg" class="mb-2 opacity-50"></ui-icon>
+                  <p>Nessun ruolo contestuale assegnato</p>
+                  <p class="text-sm mt-1">
+                    I ruoli contestuali permettono permessi specifici su singole risorse
+                  </p>
+                </div>
+              `}
+        </ui-card>
+      </div>
+    `;
+  }
+
+  private getResourceIcon(type: ResourceType): string {
+    const icons: Record<ResourceType, string> = {
+      item: 'document',
+      visit: 'map',
+      artwork: 'image',
+      museum: 'building',
+    };
+    return icons[type] || 'file';
+  }
+
+  private renderDeleteModal() {
+    return this.deleteModalOpen
+      ? html`
+          <ui-modal
+            title="Disattiva Utente"
+            message=${`Sei sicuro di voler disattivare l'utente "${this.userToDelete?.username}"? L'utente non potrà più accedere al sistema.`}
+            variant="danger"
+            confirmLabel="Disattiva"
+            cancelLabel="Annulla"
+            ?open=${this.deleteModalOpen}
+            ?loading=${this.deleting}
+            @confirm=${this.handleConfirmDelete}
+            @cancel=${() => {
+              this.deleteModalOpen = false;
+              this.userToDelete = null;
+            }}
+          ></ui-modal>
+        `
+      : nothing;
+  }
+
+  private renderRoleAssignmentModal() {
+    if (!this.roleAssignmentModalOpen) return nothing;
+
+    return html`
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        @click=${(e: Event) => {
+          if (e.target === e.currentTarget) {
+            this.roleAssignmentModalOpen = false;
+          }
+        }}
+      >
+        <div class="bg-white dark:bg-surface-900 rounded-xl shadow-2xl w-full max-w-md">
+          <div class="p-6 border-b border-surface-200 dark:border-surface-700">
+            <h3 class="text-lg font-semibold text-surface-900 dark:text-white">
+              Assegna Ruolo Contestuale
+            </h3>
+            <p class="text-sm text-surface-500 mt-1">
+              Assegna un ruolo specifico per una risorsa a ${this.selectedUser?.username}
+            </p>
+          </div>
+
+          <div class="p-6 space-y-4">
+            <ui-select
+              label="Tipo di Ruolo"
+              .value=${this.roleAssignmentData.role}
+              .options=${Object.values(ContextualRole).map((role) => ({
+                value: role,
+                label: userService.getContextualRoleLabel(role),
+              }))}
+              @select-change=${(e: CustomEvent) =>
+                (this.roleAssignmentData = {
+                  ...this.roleAssignmentData,
+                  role: e.detail.value as ContextualRole,
+                })}
+            ></ui-select>
+
+            <ui-select
+              label="Tipo di Risorsa"
+              .value=${this.roleAssignmentData.resourceType}
+              .options=${Object.values(ResourceType).map((type) => ({
+                value: type,
+                label: userService.getResourceTypeLabel(type),
+              }))}
+              @select-change=${(e: CustomEvent) =>
+                (this.roleAssignmentData = {
+                  ...this.roleAssignmentData,
+                  resourceType: e.detail.value as ResourceType,
+                })}
+            ></ui-select>
+
+            <ui-input
+              label="ID Risorsa"
+              placeholder="Es. 507f1f77bcf86cd799439011"
+              .value=${this.roleAssignmentData.resourceId}
+              @input=${(e: InputEvent) =>
+                (this.roleAssignmentData = {
+                  ...this.roleAssignmentData,
+                  resourceId: (e.target as HTMLInputElement).value,
+                })}
+              hint="L'ID della risorsa (opera, visita, contenuto o museo)"
+            ></ui-input>
+          </div>
+
+          <div
+            class="flex items-center justify-end gap-3 p-6 border-t border-surface-200 dark:border-surface-700"
+          >
+            <ui-button
+              variant="ghost"
+              label="Annulla"
+              @click=${() => (this.roleAssignmentModalOpen = false)}
+            ></ui-button>
+            <ui-button
+              variant="primary"
+              label="Assegna Ruolo"
+              @click=${this.handleAddRoleAssignment}
+              ?loading=${this.saving}
+            ></ui-button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+}

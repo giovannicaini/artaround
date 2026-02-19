@@ -18,6 +18,11 @@ export class UiTextarea extends LitElement {
     return this;
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    this.style.display = 'block';
+  }
+
   private handleInput(e: Event) {
     const target = e.target as HTMLTextAreaElement;
     this.value = target.value;

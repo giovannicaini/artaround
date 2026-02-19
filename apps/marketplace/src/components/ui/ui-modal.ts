@@ -18,6 +18,17 @@ export class UiModal extends LitElement {
     return this;
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    this.style.display = 'block';
+    document.addEventListener('keydown', this.handleKeydown.bind(this));
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    document.removeEventListener('keydown', this.handleKeydown.bind(this));
+  }
+
   private handleConfirm() {
     this.dispatchEvent(
       new CustomEvent('confirm', {
@@ -46,16 +57,6 @@ export class UiModal extends LitElement {
     if (e.key === 'Escape') {
       this.handleCancel();
     }
-  }
-
-  connectedCallback() {
-    super.connectedCallback();
-    document.addEventListener('keydown', this.handleKeydown.bind(this));
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    document.removeEventListener('keydown', this.handleKeydown.bind(this));
   }
 
   render() {

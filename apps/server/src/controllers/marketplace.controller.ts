@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { Visit, VisitPurchase } from '../models/index.js';
+import { VisitModel, VisitPurchase } from '../models/index.js';
 import { AppError } from '../middleware/index.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 
@@ -32,8 +32,8 @@ export class MarketplaceController {
       if (sortBy === 'downloads') sort = { 'metadata.downloadsCount': -1 };
 
       const [visits, total] = await Promise.all([
-        Visit.find(filter).sort(sort).skip(skip).limit(limitNum),
-        Visit.countDocuments(filter),
+        VisitModel.find(filter).sort(sort).skip(skip).limit(limitNum),
+        VisitModel.countDocuments(filter),
       ]);
 
       res.json({
@@ -60,7 +60,7 @@ export class MarketplaceController {
         throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
       }
 
-      const visit = await Visit.findById(visitId);
+      const visit = await VisitModel.findById(visitId);
       if (!visit) {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }

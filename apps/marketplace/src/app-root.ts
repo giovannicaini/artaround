@@ -1,7 +1,8 @@
 import { LitElement, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { authService } from './services/auth.service';
-import type { User } from '@artaround/shared';
+import { preferencesService } from './services/preferences.service';
+import { ContextualRole, ResourceType, UserRole, type User } from '@artaround/shared';
 
 // Check if we're in development mode (Vite built-in)
 const isDev = import.meta.env.DEV;
@@ -13,7 +14,12 @@ import './components/layout/admin-header';
 import './components/pages/dashboard-page';
 import './components/pages/museums-page';
 import './components/pages/artworks-page';
+import './components/pages/contents-page';
+import './components/pages/users-page';
+import './components/visits/visits-page';
 import './components/museums/museum-map-page';
+import './components/museums/museums-management-page';
+import './components/navigator/navigator-default-config-page';
 
 @customElement('app-root')
 export class AppRoot extends LitElement {
@@ -61,6 +67,12 @@ export class AppRoot extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.checkAuth();
+    window.addEventListener('museum-changed', this.handleMuseumChanged as EventListener);
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener('museum-changed', this.handleMuseumChanged as EventListener);
+    super.disconnectedCallback();
   }
 
   async checkAuth() {
@@ -97,14 +109,31 @@ export class AppRoot extends LitElement {
       return;
     }
 
+    if (this.requiresMuseumConfigAccess(route) && !this.canAccessMuseumConfigArea()) {
+      this.currentRoute = 'dashboard';
+      this.pageTitle = 'Dashboard';
+      return;
+    }
+
+    if (route === 'navigator-default-config' && this.currentUser?.role !== UserRole.ADMIN) {
+      this.currentRoute = 'dashboard';
+      this.pageTitle = 'Dashboard';
+      return;
+    }
+
     this.currentRoute = route;
 
     // Update page title based on route
     const titles: Record<string, string> = {
       dashboard: 'Dashboard',
       museums: 'Musei',
+      'museums-management': 'Gestione Musei',
       'museum-maps': 'Gestione Mappe',
+      'museum-edit': 'Modifica Museo',
       artworks: 'Gestione Opere',
+      'navigator-customizations': 'Configurazioni Navigator',
+      'navigator-default-config': 'Configurazione default app navigator',
+      contents: 'Contenuti',
       visits: 'Visite',
       users: 'Gestione Utenti',
       categories: 'Categorie',
@@ -121,15 +150,47 @@ export class AppRoot extends LitElement {
         return html`<dashboard-page .user=${this.currentUser}></dashboard-page>`;
       case 'museums':
         return html`<museums-page
+          .user=${this.currentUser}
           @museum-confirmed=${this.handleMuseumConfirmed}
           @open-map-editor=${this.handleOpenMapEditor}
         ></museums-page>`;
+      case 'museums-management':
+        return html`<museums-management-page
+          .currentUser=${this.currentUser}
+        ></museums-management-page>`;
+      case 'museum-edit': {
+        const selectedMuseum = preferencesService.getSelectedMuseum();
+        return html`<museums-management-page
+          .currentUser=${this.currentUser}
+          .selectedMuseumId=${selectedMuseum?._id || ''}
+          configMode="museum"
+        ></museums-management-page>`;
+      }
+      case 'navigator-customizations': {
+        const selectedMuseum = preferencesService.getSelectedMuseum();
+        return html`<museums-management-page
+          .currentUser=${this.currentUser}
+          .selectedMuseumId=${selectedMuseum?._id || ''}
+          configMode="navigator"
+        ></museums-management-page>`;
+      }
+      case 'navigator-default-config':
+        return html`<navigator-default-config-page></navigator-default-config-page>`;
       case 'museum-maps':
         return html`<museum-map-page
           .museumId=${this.routeParams.museumId || ''}
         ></museum-map-page>`;
       case 'artworks':
-        return html`<artworks-page></artworks-page>`;
+        return html`<artworks-page
+          .user=${this.currentUser}
+          .openingArtworkId=${this.routeParams.artworkId || ''}
+        ></artworks-page>`;
+      case 'contents':
+        return html`<contents-page .user=${this.currentUser}></contents-page>`;
+      case 'visits':
+        return html`<visits-page .user=${this.currentUser}></visits-page>`;
+      case 'users':
+        return html`<users-page .currentUser=${this.currentUser}></users-page>`;
       default:
         return html`
           <div class="flex items-center justify-center min-h-[400px]">
@@ -192,6 +253,7 @@ export class AppRoot extends LitElement {
       <div class="min-h-screen bg-surface-50 dark:bg-surface-950">
         <admin-sidebar
           .currentRoute=${this.currentRoute}
+          .user=${this.currentUser}
           ?collapsed=${this.sidebarCollapsed}
           @navigate=${this.handleNavigate}
         ></admin-sidebar>
@@ -202,11 +264,18 @@ export class AppRoot extends LitElement {
           ?sidebarCollapsed=${this.sidebarCollapsed}
           @menu-toggle=${this.handleMenuToggle}
           @sidebar-toggle=${this.handleSidebarToggle}
+          @select-museum=${this.handleSelectMuseum}
           @logout=${this.handleLogout}
         ></admin-header>
 
         <main class="${marginClass} pt-16 min-h-screen transition-all duration-300">
-          <div class="p-4 lg:p-6">${this.renderPage()}</div>
+          <div
+            class="p-4 lg:p-6"
+            @select-museum=${this.handleSelectMuseum}
+            @open-artwork-detail=${this.handleOpenArtworkDetail}
+          >
+            ${this.renderPage()}
+          </div>
         </main>
 
         ${this.renderDevBadge()}
@@ -226,15 +295,67 @@ export class AppRoot extends LitElement {
   }
 
   private handleMuseumConfirmed(e: CustomEvent) {
-    // Store selected museum and navigate to artworks
-    localStorage.setItem('selectedMuseum', JSON.stringify(e.detail));
+    preferencesService.setSelectedMuseum(e.detail);
     this.currentRoute = 'artworks';
     this.pageTitle = 'Gestione Opere';
   }
+
+  private handleSelectMuseum() {
+    this.currentRoute = 'museums';
+    this.pageTitle = 'Seleziona Museo';
+  }
+
+  private handleMuseumChanged = (event: CustomEvent) => {
+    if (!event.detail) {
+      this.currentRoute = 'dashboard';
+      this.pageTitle = 'Dashboard';
+      this.routeParams = {};
+      return;
+    }
+
+    if (this.requiresMuseumConfigAccess(this.currentRoute) && !this.canAccessMuseumConfigArea()) {
+      this.currentRoute = 'dashboard';
+      this.pageTitle = 'Dashboard';
+    }
+  };
 
   private handleOpenMapEditor(e: CustomEvent) {
     this.routeParams = { museumId: e.detail.museumId };
     this.currentRoute = 'museum-maps';
     this.pageTitle = 'Gestione Mappe';
+  }
+
+  private handleOpenArtworkDetail(e: CustomEvent) {
+    const artworkId = e.detail?.artworkId;
+    if (!artworkId) return;
+
+    this.routeParams = { ...this.routeParams, artworkId: String(artworkId) };
+    this.currentRoute = 'artworks';
+    this.pageTitle = 'Gestione Opere';
+  }
+
+  private requiresMuseumConfigAccess(route: string): boolean {
+    return route === 'museum-edit' || route === 'artworks' || route === 'navigator-customizations';
+  }
+
+  private canAccessMuseumConfigArea(): boolean {
+    const selectedMuseum = preferencesService.getSelectedMuseum();
+
+    if (!this.currentUser || !selectedMuseum) {
+      return false;
+    }
+
+    if (this.currentUser.role === UserRole.ADMIN) {
+      return true;
+    }
+
+    return (
+      this.currentUser.roleAssignments?.some(
+        (assignment) =>
+          assignment.resourceType === ResourceType.MUSEUM &&
+          assignment.resourceId === selectedMuseum._id &&
+          assignment.role === ContextualRole.MANAGER,
+      ) ?? false
+    );
   }
 }

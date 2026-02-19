@@ -1,75 +1,70 @@
-import mongoose, { Schema, Document, Types } from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
 import {
   Visit as IVisit,
-  VisitItem,
-  LogisticNote,
-  NavigationNote,
+  VisitStep,
+  VisitStepType,
+  VisitGeneralInfo,
   TargetAudience,
   VisitMetadata,
+  LanguageLevel,
 } from '@artaround/shared';
-import { CompetenceLevel, TimePreference } from '@artaround/shared';
 
 export interface VisitDocument extends Omit<IVisit, '_id'>, Document {}
 
-const visitItemSchema = new Schema(
+const visitStepSchema = new Schema<VisitStep>(
   {
-    itemId: {
-      type: Schema.Types.ObjectId,
-      required: true,
-      ref: 'Item',
-    },
-    order: {
-      type: Number,
-      required: true,
-    },
-    isOptional: {
-      type: Boolean,
-      default: false,
-    },
-    alternatives: [{ type: Schema.Types.ObjectId, ref: 'Item' }],
-  },
-  { _id: false },
-);
-
-const logisticNoteSchema = new Schema<LogisticNote>(
-  {
+    id: { type: String, required: true },
     order: { type: Number, required: true },
-    text: { type: String, required: true },
     type: {
       type: String,
-      enum: ['info', 'warning', 'direction'],
-      default: 'info',
+      enum: Object.values(VisitStepType),
+      required: true,
     },
+    // For ARTWORK steps
+    artworkId: String, // Wikidata ID
+    itemIds: [{ type: Schema.Types.ObjectId, ref: 'Item' }],
+    selectedItemId: { type: Schema.Types.ObjectId, ref: 'Item' },
+    // For LOGISTIC steps
+    logisticTitle: String,
+    logisticText: String,
+    logisticIcon: String,
+    // For NAVIGATION steps
+    navigationText: String,
+    navigationImage: String,
+    fromRoom: String,
+    toRoom: String,
+    // Common
+    isOptional: { type: Boolean, default: false },
+    estimatedDuration: Number,
   },
   { _id: false },
 );
 
-const navigationNoteSchema = new Schema(
+const generalInfoSchema = new Schema<VisitGeneralInfo>(
   {
-    fromItemId: { type: Schema.Types.ObjectId, required: true, ref: 'Item' },
-    toItemId: { type: Schema.Types.ObjectId, required: true, ref: 'Item' },
-    text: { type: String, required: true },
-    estimatedTime: { type: Number },
+    costs: String,
+    ticketInfo: String,
+    openingHours: String,
+    services: [String],
+    tips: [String],
+    accessibility: String,
+    wheelchairAccessible: Boolean,
   },
   { _id: false },
 );
 
 const targetAudienceSchema = new Schema<TargetAudience>(
   {
-    minAge: { type: Number },
-    maxAge: { type: Number },
-    competenceLevel: [
+    minAge: Number,
+    maxAge: Number,
+    languageLevels: [
       {
         type: String,
-        enum: Object.values(CompetenceLevel),
+        enum: Object.values(LanguageLevel),
       },
     ],
-    interests: [{ type: String }],
-    timeRequired: {
-      type: String,
-      enum: Object.values(TimePreference),
-      required: true,
-    },
+    interests: [String],
+    estimatedDuration: { type: Number, required: true },
   },
   { _id: false },
 );
@@ -77,12 +72,15 @@ const targetAudienceSchema = new Schema<TargetAudience>(
 const visitMetadataSchema = new Schema<VisitMetadata>(
   {
     language: { type: String, default: 'it' },
-    duration: { type: Number, required: true }, // minutes
-    itemsCount: { type: Number, required: true },
+    supportedLanguages: [String],
+    artworksCount: { type: Number, default: 0 },
+    totalItemsCount: { type: Number, default: 0 },
+    estimatedDuration: { type: Number, required: true },
     price: { type: Number, default: 0, min: 0 },
     isFree: { type: Boolean, default: true },
     license: { type: String, required: true },
     rating: { type: Number, min: 0, max: 5 },
+    ratingsCount: { type: Number, default: 0 },
     downloadsCount: { type: Number, default: 0 },
     purchasesCount: { type: Number, default: 0 },
   },
@@ -92,15 +90,17 @@ const visitMetadataSchema = new Schema<VisitMetadata>(
 const visitSchema = new Schema<VisitDocument>(
   {
     museumId: {
-      type: String,
+      type: String, // Wikidata ID
       required: true,
-      ref: 'Museum',
+      index: true,
     },
     authorId: {
       type: String,
       required: true,
       ref: 'User',
+      index: true,
     },
+    authorName: String,
     title: {
       type: String,
       required: true,
@@ -109,14 +109,9 @@ const visitSchema = new Schema<VisitDocument>(
       type: String,
       required: true,
     },
-    items: [
-      {
-        type: visitItemSchema,
-        required: true,
-      },
-    ],
-    logisticNotes: [logisticNoteSchema],
-    navigationNotes: [navigationNoteSchema],
+    coverImage: String,
+    steps: [visitStepSchema],
+    generalInfo: generalInfoSchema,
     targetAudience: {
       type: targetAudienceSchema,
       required: true,
@@ -128,8 +123,9 @@ const visitSchema = new Schema<VisitDocument>(
     isPublished: {
       type: Boolean,
       default: false,
+      index: true,
     },
-    publishedAt: { type: Date },
+    publishedAt: Date,
   },
   {
     timestamps: true,
@@ -137,10 +133,9 @@ const visitSchema = new Schema<VisitDocument>(
 );
 
 // Indexes
-visitSchema.index({ museumId: 1 });
-visitSchema.index({ authorId: 1 });
-visitSchema.index({ isPublished: 1 });
+visitSchema.index({ museumId: 1, isPublished: 1 });
 visitSchema.index({ 'metadata.isFree': 1 });
 visitSchema.index({ 'metadata.rating': -1 });
+visitSchema.index({ title: 'text', description: 'text' });
 
-export const Visit = mongoose.model<VisitDocument>('Visit', visitSchema);
+export const VisitModel = mongoose.model<VisitDocument>('Visit', visitSchema);

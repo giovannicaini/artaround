@@ -1,0 +1,1118 @@
+import { html, nothing } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
+import {
+  ArtworkType,
+  ARTWORK_TYPE_OPTIONS_IT,
+  type CreateArtworkData,
+  type UpdateArtworkData,
+  type Museum,
+} from '@artaround/shared';
+import { artworkService } from '../../services/artwork.service';
+import { museumService } from '../../services/museum.service';
+import { MuseumAwareMixin, AppBaseElement } from '../../base';
+import { modalService } from '../../services/modal.service';
+import { wikidataService } from '../../services/wikidata.service';
+import './wikidata-autocomplete';
+import '../ui/ui-input';
+import '../ui/ui-select';
+import '../ui/ui-button';
+import '../ui/ui-icon';
+import '../ui/ui-card';
+import '../ui/ui-textarea';
+import '../ui/ui-alert';
+import '../ui/ui-loading';
+import '../ui/image-editor';
+
+/**
+ * Artwork Creator/Editor Component
+ *
+ * Used to create new physical artworks or edit existing ones.
+ * Supports Wikidata integration for auto-filling artwork info.
+ */
+@customElement('artwork-creator')
+export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
+  @property({ type: String }) artworkId = ''; // For edit mode
+
+  @state() private loading = false;
+  @state() private loadingArtwork = false;
+  @state() private error = '';
+  @state() private success = '';
+  @state() private museums: Museum[] = [];
+  @state() private pendingWikidataFields: string[] = [];
+
+  // Wikidata reference
+  @state() private wikidataId = '';
+
+  // Basic info
+  @state() private artworkTitle = '';
+  @state() private description = '';
+
+  // Museum
+  @state() private museumId = ''; // Wikidata ID of museum
+
+  // Author
+  @state() private author = '';
+  @state() private authorWikidataId = '';
+
+  // Dating
+  @state() private year = '';
+
+  // Classification
+  @state() private artworkType: ArtworkType = ArtworkType.PAINTING;
+  @state() private movement = '';
+  @state() private movementWikidataId = '';
+  @state() private technique = '';
+
+  // Physical properties
+  @state() private materials: string[] = [];
+  @state() private materialInput = '';
+  @state() private dimensionHeight: number | undefined = undefined;
+  @state() private dimensionWidth: number | undefined = undefined;
+  @state() private dimensionDepth: number | undefined = undefined;
+  @state() private dimensionUnit: 'cm' | 'm' = 'cm';
+
+  // Media
+  @state() private image = '';
+
+  // Location
+  @state() private room = '';
+  @state() private floor = '';
+
+  private readonly artworkTypeOptions = ARTWORK_TYPE_OPTIONS_IT;
+
+  private dimensionUnitOptions = [
+    { value: 'cm', label: 'Centimetri (cm)' },
+    { value: 'm', label: 'Metri (m)' },
+  ];
+
+  async connectedCallback() {
+    super.connectedCallback();
+    await this.loadMuseums();
+
+    if (!this.artworkId && this.selectedMuseumId) {
+      this.museumId = this.selectedMuseumId;
+    }
+
+    if (this.artworkId) {
+      await this.loadArtwork();
+    }
+  }
+
+  onMuseumChanged(): void {
+    if (!this.artworkId && this.selectedMuseumId) {
+      this.museumId = this.selectedMuseumId;
+    }
+  }
+
+  private async loadMuseums() {
+    try {
+      this.museums = await museumService.getMuseums();
+    } catch (e) {
+      console.error('Error loading museums:', e);
+    }
+  }
+
+  private async loadArtwork() {
+    if (!this.artworkId) return;
+
+    this.loadingArtwork = true;
+    try {
+      const artwork = await artworkService.getArtwork(this.artworkId);
+      if (artwork) {
+        this.wikidataId = artwork.wikidataId;
+        this.artworkTitle = artwork.title;
+        this.description = artwork.description || '';
+        this.museumId = artwork.museumId;
+        this.author = artwork.author || '';
+        this.authorWikidataId = artwork.authorWikidataId || '';
+        this.year = artwork.year || '';
+        this.artworkType = artwork.artworkType;
+        this.movement = artwork.movement || '';
+        this.movementWikidataId = artwork.movementWikidataId || '';
+        this.technique = artwork.technique || '';
+        this.materials = artwork.materials || [];
+        this.image = artwork.image || '';
+        this.room = artwork.room || '';
+        this.floor = artwork.floor || '';
+
+        if (artwork.dimensions) {
+          this.dimensionHeight = artwork.dimensions.height;
+          this.dimensionWidth = artwork.dimensions.width;
+          this.dimensionDepth = artwork.dimensions.depth;
+          this.dimensionUnit = artwork.dimensions.unit || 'cm';
+        }
+      }
+    } catch (e) {
+      console.error('Error loading artwork:', e);
+      this.error = "Errore durante il caricamento dell'opera";
+    } finally {
+      this.loadingArtwork = false;
+    }
+  }
+
+  private clearWikidataAutocomplete() {
+    const autocomplete = this.querySelector('wikidata-autocomplete') as {
+      clearSelection?: () => void;
+    } | null;
+    autocomplete?.clearSelection?.();
+  }
+
+  private async isArtworkDuplicateForMuseum(wikidataId: string): Promise<boolean> {
+    if (!this.museumId || !wikidataId) return false;
+
+    const artworksInMuseum = await artworkService.getArtworksByMuseum(this.museumId);
+
+    return artworksInMuseum.some((artwork) => {
+      if (artwork.wikidataId !== wikidataId) return false;
+
+      if (!this.artworkId) return true;
+
+      const isCurrentArtwork =
+        artwork._id === this.artworkId || artwork.wikidataId === this.wikidataId;
+      return !isCurrentArtwork;
+    });
+  }
+
+  private inferFloorFromLocation(location?: string): string | undefined {
+    if (!location) return undefined;
+
+    const normalized = location.toLowerCase();
+    if (normalized.includes('piano terra') || normalized.includes('ground floor')) {
+      return 'Piano Terra';
+    }
+    if (normalized.includes('primo piano') || normalized.includes('first floor')) {
+      return 'Primo Piano';
+    }
+    if (normalized.includes('secondo piano') || normalized.includes('second floor')) {
+      return 'Secondo Piano';
+    }
+
+    return undefined;
+  }
+
+  private extractTechniqueFromDescription(description: string): string | undefined {
+    const match = description.match(/(?:dipinto|opera)\s+a\s+([^,.]+)/i);
+    if (match?.[1]) {
+      return match[1].trim();
+    }
+
+    const genericMatch = description.match(/(olio su [^,.]+|tempera su [^,.]+|affresco|mosaico)/i);
+    return genericMatch?.[1]?.trim();
+  }
+
+  private extractMaterialsFromDescription(description: string): string[] {
+    const extracted: string[] = [];
+
+    const suMatch = description.match(/su\s+([^,.]+)/i);
+    if (suMatch?.[1]) {
+      extracted.push(suMatch[1].trim());
+    }
+
+    if (/pioppo/i.test(description)) extracted.push('Pioppo');
+    if (/tela/i.test(description)) extracted.push('Tela');
+    if (/legno/i.test(description)) extracted.push('Legno');
+    if (/marmo/i.test(description)) extracted.push('Marmo');
+    if (/bronzo/i.test(description)) extracted.push('Bronzo');
+
+    return Array.from(new Set(extracted.filter(Boolean)));
+  }
+
+  private extractLocationFromDescription(description: string): string | undefined {
+    const parts = description
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    if (parts.length < 2) return undefined;
+
+    return parts[parts.length - 1];
+  }
+
+  private addPendingWikidataFields(fields: string[]) {
+    if (this.artworkId || fields.length === 0) return;
+    this.pendingWikidataFields = Array.from(new Set([...this.pendingWikidataFields, ...fields]));
+  }
+
+  private clearPendingWikidataField(field: string) {
+    if (!this.pendingWikidataFields.includes(field)) return;
+    this.pendingWikidataFields = this.pendingWikidataFields.filter((entry) => entry !== field);
+  }
+
+  private hasPendingWikidataField(field: string): boolean {
+    return this.pendingWikidataFields.includes(field);
+  }
+
+  private renderAutofillBanner(field: string) {
+    if (this.artworkId || !this.hasPendingWikidataField(field)) return nothing;
+
+    return html`
+      <div
+        class="flex items-start gap-2 p-2 rounded-md bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300"
+      >
+        <ui-icon name="warning" size="xs" class="mt-0.5"></ui-icon>
+        <p class="text-xs">
+          Campo compilato automaticamente da Wikidata: controllare il contenuto.
+        </p>
+      </div>
+    `;
+  }
+
+  private renderFieldWithBanner(field: string, content: unknown, containerClass = '') {
+    const classes = containerClass ? `${containerClass} space-y-2` : 'space-y-2';
+
+    return html` <div class=${classes}>${content} ${this.renderAutofillBanner(field)}</div> `;
+  }
+
+  private applyWikidataData(data: Record<string, unknown>) {
+    const getString = (key: string): string => {
+      const value = data[key];
+      return typeof value === 'string' ? value.trim() : '';
+    };
+
+    const getNumber = (key: string): number | undefined => {
+      const value = data[key];
+      if (typeof value === 'number' && !Number.isNaN(value)) return value;
+      if (typeof value === 'string') {
+        const parsed = Number(value);
+        return Number.isNaN(parsed) ? undefined : parsed;
+      }
+      return undefined;
+    };
+
+    const autofilledFields: string[] = [];
+
+    const title = getString('label');
+    if (title) {
+      this.artworkTitle = title;
+      autofilledFields.push('artworkTitle');
+    }
+
+    const description = getString('description');
+    if (description) {
+      this.description = description;
+      autofilledFields.push('description');
+    }
+
+    const imageUrl = getString('imageUrl');
+    if (imageUrl) {
+      this.image = imageUrl;
+      autofilledFields.push('image');
+    }
+
+    const author = getString('author');
+    if (author) {
+      this.author = author;
+      autofilledFields.push('author');
+    }
+
+    const authorId = getString('authorId');
+    if (authorId) {
+      this.authorWikidataId = authorId;
+      autofilledFields.push('authorWikidataId');
+    }
+
+    const movement = getString('movement') || getString('style') || getString('period');
+    if (movement) {
+      this.movement = movement;
+      autofilledFields.push('movement');
+    }
+
+    const movementId = getString('movementId') || getString('styleId') || getString('periodId');
+    if (movementId) {
+      this.movementWikidataId = movementId;
+      autofilledFields.push('movementWikidataId');
+    }
+
+    const year =
+      getString('year') || getString('inception') || getString('epoch') || getString('period');
+    if (year) {
+      this.year = year;
+      autofilledFields.push('year');
+    }
+
+    const technique = getString('technique');
+    const fallbackTechnique =
+      !technique && description ? this.extractTechniqueFromDescription(description) : undefined;
+    if (technique || fallbackTechnique) {
+      this.technique = technique || fallbackTechnique || '';
+      autofilledFields.push('technique');
+    }
+
+    const materials = data.materials;
+    if (Array.isArray(materials)) {
+      const normalizedMaterials = materials
+        .filter((value): value is string => typeof value === 'string')
+        .map((value) => value.trim())
+        .filter(Boolean);
+      if (normalizedMaterials.length > 0) {
+        this.materials = Array.from(new Set(normalizedMaterials));
+        autofilledFields.push('materials');
+      }
+    } else if (description) {
+      const parsedMaterials = this.extractMaterialsFromDescription(description);
+      if (parsedMaterials.length > 0) {
+        this.materials = parsedMaterials;
+        autofilledFields.push('materials');
+      }
+    }
+
+    const dimensionHeight = getNumber('dimensionHeight');
+    const dimensionWidth = getNumber('dimensionWidth');
+    const dimensionDepth = getNumber('dimensionDepth');
+    const dimensionUnit = getString('dimensionUnit');
+
+    if (dimensionHeight !== undefined) {
+      this.dimensionHeight = dimensionHeight;
+      autofilledFields.push('dimensionHeight');
+    }
+    if (dimensionWidth !== undefined) {
+      this.dimensionWidth = dimensionWidth;
+      autofilledFields.push('dimensionWidth');
+    }
+    if (dimensionDepth !== undefined) {
+      this.dimensionDepth = dimensionDepth;
+      autofilledFields.push('dimensionDepth');
+    }
+    if (dimensionUnit === 'cm' || dimensionUnit === 'm') {
+      this.dimensionUnit = dimensionUnit;
+      autofilledFields.push('dimensionUnit');
+    }
+
+    const room =
+      getString('room') ||
+      getString('location') ||
+      (description ? this.extractLocationFromDescription(description) : '');
+    if (room) {
+      this.room = room;
+      autofilledFields.push('room');
+    }
+
+    const floor = getString('floor') || this.inferFloorFromLocation(room);
+    if (floor) {
+      this.floor = floor;
+      autofilledFields.push('floor');
+    }
+
+    this.addPendingWikidataFields(autofilledFields);
+  }
+
+  private async handleWikidataSelect(e: CustomEvent) {
+    const selectedWikidataId = (e.detail.id || '').trim();
+    if (!selectedWikidataId) return;
+
+    const isDuplicate = await this.isArtworkDuplicateForMuseum(selectedWikidataId);
+    if (isDuplicate) {
+      this.wikidataId = '';
+      this.clearWikidataAutocomplete();
+      this.error =
+        'Questa opera è già stata aggiunta per il museo corrente e non può essere aggiunta nuovamente.';
+      await modalService.alert({
+        title: 'Opera già presente',
+        message:
+          'Questa opera è già stata aggiunta per il museo corrente e non può essere aggiunta nuovamente.',
+        variant: 'info',
+        confirmLabel: 'OK',
+      });
+      return;
+    }
+
+    this.error = '';
+    this.wikidataId = selectedWikidataId;
+
+    // Prefill from search payload first
+    this.applyWikidataData(e.detail as Record<string, unknown>);
+
+    // Then enrich with complete entity data from Wikidata
+    try {
+      const entity = await wikidataService.getEntity(selectedWikidataId);
+      if (entity) {
+        this.applyWikidataData(entity as unknown as Record<string, unknown>);
+      }
+    } catch (error) {
+      console.error('Error fetching Wikidata entity details:', error);
+    }
+  }
+
+  private handleAuthorSelect(e: CustomEvent) {
+    this.authorWikidataId = e.detail.id;
+    this.author = e.detail.label;
+    this.clearPendingWikidataField('authorWikidataId');
+    this.clearPendingWikidataField('author');
+  }
+
+  private handleMovementSelect(e: CustomEvent) {
+    this.movementWikidataId = e.detail.id;
+    this.movement = e.detail.label;
+    this.clearPendingWikidataField('movementWikidataId');
+    this.clearPendingWikidataField('movement');
+  }
+
+  private handleAddMaterial() {
+    const material = this.materialInput.trim();
+    if (material && !this.materials.includes(material)) {
+      this.materials = [...this.materials, material];
+      this.materialInput = '';
+      this.clearPendingWikidataField('materials');
+    }
+  }
+
+  private handleRemoveMaterial(material: string) {
+    this.materials = this.materials.filter((m) => m !== material);
+    this.clearPendingWikidataField('materials');
+  }
+
+  private handleMaterialKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      this.handleAddMaterial();
+    }
+  }
+
+  private getDimensionsDisplayText(): string {
+    const parts: string[] = [];
+    if (this.dimensionHeight) parts.push(`${this.dimensionHeight}`);
+    if (this.dimensionWidth) parts.push(`${this.dimensionWidth}`);
+    if (this.dimensionDepth) parts.push(`${this.dimensionDepth}`);
+    if (parts.length === 0) return '';
+    return `${parts.join(' × ')} ${this.dimensionUnit}`;
+  }
+
+  private validateForm(): string | null {
+    if (!this.wikidataId.trim()) {
+      return "L'ID Wikidata è obbligatorio (cerca l'opera su Wikidata)";
+    }
+    if (!this.artworkTitle.trim()) {
+      return 'Il titolo è obbligatorio';
+    }
+    if (!this.museumId) {
+      return 'Seleziona un museo attivo';
+    }
+    if (!this.image.trim()) {
+      return "L'immagine è obbligatoria";
+    }
+    return null;
+  }
+
+  private async handleSubmit(e: Event) {
+    e.preventDefault();
+
+    const validationError = this.validateForm();
+    if (validationError) {
+      this.error = validationError;
+      return;
+    }
+
+    this.loading = true;
+    this.error = '';
+    this.success = '';
+
+    try {
+      const dimensions =
+        this.dimensionHeight || this.dimensionWidth || this.dimensionDepth
+          ? {
+              height: this.dimensionHeight,
+              width: this.dimensionWidth,
+              depth: this.dimensionDepth,
+              unit: this.dimensionUnit,
+              displayText: this.getDimensionsDisplayText(),
+            }
+          : undefined;
+
+      const artworkData: CreateArtworkData = {
+        wikidataId: this.wikidataId.trim(),
+        museumId: this.museumId,
+        title: this.artworkTitle.trim(),
+        description: this.description.trim() || undefined,
+        author: this.author.trim() || undefined,
+        authorWikidataId: this.authorWikidataId.trim() || undefined,
+        year: this.year.trim() || undefined,
+        artworkType: this.artworkType,
+        movement: this.movement.trim() || undefined,
+        movementWikidataId: this.movementWikidataId.trim() || undefined,
+        dimensions,
+        materials: this.materials.length > 0 ? this.materials : undefined,
+        image: this.image.trim(),
+        room: this.room.trim() || undefined,
+        floor: this.floor.trim() || undefined,
+      };
+
+      if (this.artworkId) {
+        await artworkService.updateArtwork(this.artworkId, artworkData as UpdateArtworkData);
+        this.success = 'Opera aggiornata con successo!';
+      } else {
+        await artworkService.createArtwork(artworkData);
+        this.success = 'Opera creata con successo!';
+      }
+
+      this.pendingWikidataFields = [];
+
+      this.dispatchEvent(
+        new CustomEvent('artwork-created', {
+          bubbles: true,
+          composed: true,
+        }),
+      );
+
+      if (!this.artworkId) {
+        setTimeout(() => {
+          this.resetForm();
+        }, 2000);
+      }
+    } catch (err) {
+      console.error('Error saving artwork:', err);
+      this.error = err instanceof Error ? err.message : "Errore durante il salvataggio dell'opera";
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  private resetForm() {
+    this.wikidataId = '';
+    this.artworkTitle = '';
+    this.description = '';
+    this.museumId = '';
+    this.author = '';
+    this.authorWikidataId = '';
+    this.year = '';
+    this.artworkType = ArtworkType.PAINTING;
+    this.movement = '';
+    this.movementWikidataId = '';
+    this.technique = '';
+    this.materials = [];
+    this.materialInput = '';
+    this.dimensionHeight = undefined;
+    this.dimensionWidth = undefined;
+    this.dimensionDepth = undefined;
+    this.dimensionUnit = 'cm';
+    this.image = '';
+    this.room = '';
+    this.floor = '';
+    this.pendingWikidataFields = [];
+    this.success = '';
+    this.error = '';
+  }
+
+  private handleCancel() {
+    this.dispatchEvent(
+      new CustomEvent('cancel', {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  render() {
+    if (this.loadingArtwork) {
+      return html`<ui-loading size="lg" text="Caricamento opera..."></ui-loading>`;
+    }
+
+    const museumOptions = this.museums.map((m) => ({
+      value: m.wikidataId,
+      label: m.name,
+    }));
+
+    return html`
+      <form @submit=${this.handleSubmit} class="space-y-8">
+        <!-- Success/Error Messages -->
+        ${!this.museumId
+          ? html`
+              <ui-alert
+                variant="warning"
+                .message=${"Seleziona un museo attivo prima di creare l'opera."}
+              ></ui-alert>
+              <div class="flex justify-end">
+                <ui-button
+                  variant="secondary"
+                  size="sm"
+                  label="Seleziona museo"
+                  @click=${this.emitSelectMuseum}
+                ></ui-button>
+              </div>
+            `
+          : ''}
+        ${this.success
+          ? html`<ui-alert variant="success" .message=${this.success}></ui-alert>`
+          : nothing}
+        ${this.error
+          ? html`<ui-alert variant="danger" .message=${this.error}></ui-alert>`
+          : nothing}
+
+        <!-- Section: Wikidata Reference -->
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="link" size="sm" class="text-blue-500"></ui-icon>
+            Riferimento Wikidata
+          </h3>
+
+          <ui-card>
+            <div class="space-y-4">
+              ${this.artworkId
+                ? html`
+                    <p class="text-sm text-surface-500 dark:text-surface-400">
+                      Il riferimento Wikidata non è modificabile dopo la creazione dell'opera.
+                    </p>
+                  `
+                : html`
+                    <p class="text-sm text-surface-500 dark:text-surface-400">
+                      Cerca l'opera su Wikidata per compilare automaticamente i campi. L'ID Wikidata
+                      è obbligatorio per evitare duplicati.
+                    </p>
+                    <wikidata-autocomplete
+                      label="Cerca Opera su Wikidata"
+                      placeholder="Es: Gioconda, David di Michelangelo..."
+                      searchType="artwork"
+                      .value=${this.wikidataId}
+                      .selectedId=${this.wikidataId}
+                      @wikidata-select=${this.handleWikidataSelect}
+                    ></wikidata-autocomplete>
+                  `}
+              ${this.wikidataId
+                ? html`
+                    <div
+                      class="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg"
+                    >
+                      <span
+                        class="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300"
+                      >
+                        ${this.wikidataId}
+                      </span>
+                      <a
+                        href="https://www.wikidata.org/wiki/${this.wikidataId}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        Vedi su Wikidata →
+                      </a>
+                    </div>
+                  `
+                : nothing}
+            </div>
+          </ui-card>
+        </section>
+
+        <!-- Section: Basic Info -->
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="image" size="sm" class="text-brand-500"></ui-icon>
+            Informazioni Base
+          </h3>
+
+          <ui-card>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              ${this.renderFieldWithBanner(
+                'artworkTitle',
+                html`
+                  <ui-input
+                    label="Titolo *"
+                    placeholder="Titolo dell'opera"
+                    .value=${this.artworkTitle}
+                    @input-change=${(e: CustomEvent) => {
+                      this.artworkTitle = e.detail.value;
+                      this.clearPendingWikidataField('artworkTitle');
+                    }}
+                    required
+                  ></ui-input>
+                `,
+                'lg:col-span-2',
+              )}
+              ${this.renderFieldWithBanner(
+                'description',
+                html`
+                  <ui-textarea
+                    label="Descrizione"
+                    placeholder="Descrizione dell'opera..."
+                    .value=${this.description}
+                    @input-change=${(e: CustomEvent) => {
+                      this.description = e.detail.value;
+                      this.clearPendingWikidataField('description');
+                    }}
+                    rows="3"
+                  ></ui-textarea>
+                `,
+                'lg:col-span-2',
+              )}
+
+              <ui-select
+                label="Museo *"
+                .value=${this.museumId}
+                .options=${museumOptions}
+                placeholder="Seleziona il museo"
+                ?disabled=${true}
+                required
+              ></ui-select>
+
+              <ui-select
+                label="Tipo Opera *"
+                .value=${this.artworkType}
+                .options=${this.artworkTypeOptions}
+                @select-change=${(e: CustomEvent) => (this.artworkType = e.detail.value)}
+              ></ui-select>
+            </div>
+          </ui-card>
+        </section>
+
+        <!-- Section: Authorship -->
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="user" size="sm" class="text-amber-500"></ui-icon>
+            Autore
+          </h3>
+
+          <ui-card>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <wikidata-autocomplete
+                label="Cerca Autore su Wikidata"
+                placeholder="Es: Leonardo da Vinci, Caravaggio..."
+                searchType="author"
+                .value=${this.authorWikidataId}
+                .selectedId=${this.authorWikidataId}
+                @wikidata-select=${this.handleAuthorSelect}
+              ></wikidata-autocomplete>
+
+              ${this.authorWikidataId
+                ? html`
+                    <div class="lg:col-span-2 flex items-center gap-2 -mt-2">
+                      <span
+                        class="px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                      >
+                        ${this.authorWikidataId}
+                      </span>
+                      <a
+                        href="https://www.wikidata.org/wiki/${this.authorWikidataId}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-xs text-amber-700 dark:text-amber-300 hover:underline"
+                      >
+                        Vedi autore su Wikidata →
+                      </a>
+                    </div>
+                  `
+                : nothing}
+              ${this.renderFieldWithBanner(
+                'author',
+                html`
+                  <ui-input
+                    label="Nome Autore"
+                    placeholder="Nome dell'artista"
+                    .value=${this.author}
+                    @input-change=${(e: CustomEvent) => {
+                      this.author = e.detail.value;
+                      this.clearPendingWikidataField('author');
+                    }}
+                  ></ui-input>
+                `,
+              )}
+              ${this.renderFieldWithBanner(
+                'year',
+                html`
+                  <ui-input
+                    label="Anno / Periodo"
+                    placeholder="Es: 1605, 1598-1601, XVI secolo"
+                    .value=${this.year}
+                    @input-change=${(e: CustomEvent) => {
+                      this.year = e.detail.value;
+                      this.clearPendingWikidataField('year');
+                    }}
+                  ></ui-input>
+                `,
+              )}
+            </div>
+          </ui-card>
+        </section>
+
+        <!-- Section: Classification -->
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="tag" size="sm" class="text-purple-500"></ui-icon>
+            Classificazione
+          </h3>
+
+          <ui-card>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <wikidata-autocomplete
+                label="Movimento Artistico"
+                placeholder="Es: Rinascimento, Barocco..."
+                searchType="movement"
+                .value=${this.movementWikidataId}
+                .selectedId=${this.movementWikidataId}
+                @wikidata-select=${this.handleMovementSelect}
+              ></wikidata-autocomplete>
+
+              ${this.movementWikidataId
+                ? html`
+                    <div class="lg:col-span-2 flex items-center gap-2 -mt-2">
+                      <span
+                        class="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300"
+                      >
+                        ${this.movementWikidataId}
+                      </span>
+                      <a
+                        href="https://www.wikidata.org/wiki/${this.movementWikidataId}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-xs text-purple-700 dark:text-purple-300 hover:underline"
+                      >
+                        Vedi movimento su Wikidata →
+                      </a>
+                    </div>
+                  `
+                : nothing}
+              ${this.renderFieldWithBanner(
+                'movement',
+                html`
+                  <ui-input
+                    label="Nome Movimento"
+                    placeholder="Nome del movimento"
+                    .value=${this.movement}
+                    @input-change=${(e: CustomEvent) => {
+                      this.movement = e.detail.value;
+                      this.clearPendingWikidataField('movement');
+                    }}
+                  ></ui-input>
+                `,
+              )}
+              ${this.renderFieldWithBanner(
+                'technique',
+                html`
+                  <ui-input
+                    label="Tecnica"
+                    placeholder="Es: Olio su tela, Affresco..."
+                    .value=${this.technique}
+                    @input-change=${(e: CustomEvent) => {
+                      this.technique = e.detail.value;
+                      this.clearPendingWikidataField('technique');
+                    }}
+                  ></ui-input>
+                `,
+              )}
+
+              <!-- Materials -->
+              <div class="lg:col-span-2">
+                <label class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-2"
+                  >Materiali</label
+                >
+                <div class="flex gap-2 mb-2">
+                  <ui-input
+                    class="flex-1"
+                    placeholder="Es: Marmo di Carrara"
+                    .value=${this.materialInput}
+                    @input-change=${(e: CustomEvent) => (this.materialInput = e.detail.value)}
+                    @keydown=${this.handleMaterialKeydown}
+                  ></ui-input>
+                  <ui-button
+                    variant="secondary"
+                    icon="plus"
+                    @click=${this.handleAddMaterial}
+                  ></ui-button>
+                </div>
+                ${this.materials.length > 0
+                  ? html`
+                      <div class="flex flex-wrap gap-2">
+                        ${this.materials.map(
+                          (material) => html`
+                            <span
+                              class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300"
+                            >
+                              ${material}
+                              <button
+                                type="button"
+                                class="ml-1 text-surface-400 hover:text-danger-500"
+                                @click=${() => this.handleRemoveMaterial(material)}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          `,
+                        )}
+                      </div>
+                    `
+                  : nothing}
+                ${this.renderAutofillBanner('materials')}
+              </div>
+            </div>
+          </ui-card>
+        </section>
+
+        <!-- Section: Dimensions -->
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="chart" size="sm" class="text-teal-500"></ui-icon>
+            Dimensioni
+          </h3>
+
+          <ui-card>
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+              ${this.renderFieldWithBanner(
+                'dimensionHeight',
+                html`
+                  <ui-input
+                    type="number"
+                    label="Altezza"
+                    placeholder="0"
+                    .value=${String(this.dimensionHeight || '')}
+                    @input-change=${(e: CustomEvent) => {
+                      this.dimensionHeight = parseFloat(e.detail.value) || undefined;
+                      this.clearPendingWikidataField('dimensionHeight');
+                    }}
+                  ></ui-input>
+                `,
+              )}
+              ${this.renderFieldWithBanner(
+                'dimensionWidth',
+                html`
+                  <ui-input
+                    type="number"
+                    label="Larghezza"
+                    placeholder="0"
+                    .value=${String(this.dimensionWidth || '')}
+                    @input-change=${(e: CustomEvent) => {
+                      this.dimensionWidth = parseFloat(e.detail.value) || undefined;
+                      this.clearPendingWikidataField('dimensionWidth');
+                    }}
+                  ></ui-input>
+                `,
+              )}
+              ${this.renderFieldWithBanner(
+                'dimensionDepth',
+                html`
+                  <ui-input
+                    type="number"
+                    label="Profondità"
+                    placeholder="0"
+                    .value=${String(this.dimensionDepth || '')}
+                    @input-change=${(e: CustomEvent) => {
+                      this.dimensionDepth = parseFloat(e.detail.value) || undefined;
+                      this.clearPendingWikidataField('dimensionDepth');
+                    }}
+                  ></ui-input>
+                `,
+              )}
+              ${this.renderFieldWithBanner(
+                'dimensionUnit',
+                html`
+                  <ui-select
+                    label="Unità"
+                    .value=${this.dimensionUnit}
+                    .options=${this.dimensionUnitOptions}
+                    @select-change=${(e: CustomEvent) => {
+                      this.dimensionUnit = e.detail.value;
+                      this.clearPendingWikidataField('dimensionUnit');
+                    }}
+                  ></ui-select>
+                `,
+              )}
+
+              <div class="flex items-end">
+                ${this.getDimensionsDisplayText()
+                  ? html`
+                      <p class="text-sm text-surface-500 dark:text-surface-400 pb-3">
+                        ${this.getDimensionsDisplayText()}
+                      </p>
+                    `
+                  : nothing}
+              </div>
+            </div>
+          </ui-card>
+        </section>
+
+        <!-- Section: Location -->
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="location" size="sm" class="text-emerald-500"></ui-icon>
+            Posizione nel Museo
+          </h3>
+
+          <ui-card>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              ${this.renderFieldWithBanner(
+                'room',
+                html`
+                  <ui-input
+                    label="Sala"
+                    placeholder="Es: Sala VIII, Pinacoteca - Sala XIV"
+                    .value=${this.room}
+                    @input-change=${(e: CustomEvent) => {
+                      this.room = e.detail.value;
+                      this.clearPendingWikidataField('room');
+                    }}
+                  ></ui-input>
+                `,
+              )}
+              ${this.renderFieldWithBanner(
+                'floor',
+                html`
+                  <ui-input
+                    label="Piano"
+                    placeholder="Es: Piano Terra, Primo Piano"
+                    .value=${this.floor}
+                    @input-change=${(e: CustomEvent) => {
+                      this.floor = e.detail.value;
+                      this.clearPendingWikidataField('floor');
+                    }}
+                  ></ui-input>
+                `,
+              )}
+            </div>
+          </ui-card>
+        </section>
+
+        <!-- Section: Image -->
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="image" size="sm" class="text-pink-500"></ui-icon>
+            Immagine *
+          </h3>
+
+          <ui-card>
+            ${this.renderFieldWithBanner(
+              'image',
+              html`
+                <image-editor
+                  label="Immagine dell'opera"
+                  category="artworks"
+                  .value=${this.image}
+                  maxWidth=${1200}
+                  maxHeight=${1200}
+                  .maxOutputSizeMb=${0.5}
+                  defaultFormat="webp"
+                  @image-saved=${(e: CustomEvent) => {
+                    this.image = e.detail.path || '';
+                    this.clearPendingWikidataField('image');
+                  }}
+                ></image-editor>
+              `,
+            )}
+          </ui-card>
+        </section>
+
+        <!-- Actions -->
+        <div
+          class="flex items-center justify-end gap-4 pt-6 border-t border-surface-200 dark:border-surface-700"
+        >
+          <ui-button variant="ghost" label="Annulla" @click=${this.handleCancel}></ui-button>
+          <ui-button
+            type="submit"
+            variant="primary"
+            .label=${this.artworkId ? 'Aggiorna Opera' : 'Crea Opera'}
+            icon=${this.artworkId ? 'check' : 'plus'}
+            ?loading=${this.loading}
+          ></ui-button>
+        </div>
+      </form>
+    `;
+  }
+}

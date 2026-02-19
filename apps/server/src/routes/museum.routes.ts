@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { MuseumController } from '../controllers/museum.controller.js';
-import { authMiddleware, roleMiddleware } from '../middleware/index.js';
-import { UserRole } from '@artaround/shared';
+import { authMiddleware, roleMiddleware, resourceRoleMiddleware } from '../middleware/index.js';
+import { UserRole, ContextualRole, ResourceType } from '@artaround/shared';
 
 const router = Router();
 
@@ -157,9 +157,68 @@ router.post(
   MuseumController.create,
 );
 
-router.put('/:id', authMiddleware, roleMiddleware(UserRole.ADMIN), MuseumController.update);
+// Update: admin or curator of this museum
+router.put(
+  '/:id',
+  authMiddleware,
+  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  MuseumController.update,
+);
 
+// Delete: admin only
 router.delete('/:id', authMiddleware, roleMiddleware(UserRole.ADMIN), MuseumController.delete);
+
+// ========================================
+// CURATOR MANAGEMENT ROUTES
+// ========================================
+
+/**
+ * @swagger
+ * /api/museums/{id}/curators:
+ *   get:
+ *     tags: [Museum Curators]
+ *     summary: Lista curatori del museo
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get(
+  '/:id/curators',
+  authMiddleware,
+  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  MuseumController.getCurators,
+);
+
+/**
+ * @swagger
+ * /api/museums/{id}/curators:
+ *   post:
+ *     tags: [Museum Curators]
+ *     summary: Assegna un curatore al museo (Admin only)
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post(
+  '/:id/curators',
+  authMiddleware,
+  roleMiddleware(UserRole.ADMIN),
+  MuseumController.addCurator,
+);
+
+/**
+ * @swagger
+ * /api/museums/{id}/curators/{userId}:
+ *   delete:
+ *     tags: [Museum Curators]
+ *     summary: Rimuove un curatore dal museo (Admin only)
+ *     security:
+ *       - bearerAuth: []
+ */
+router.delete(
+  '/:id/curators/:userId',
+  authMiddleware,
+  roleMiddleware(UserRole.ADMIN),
+  MuseumController.removeCurator,
+);
 
 // ========================================
 // FLOOR ROUTES
@@ -204,7 +263,7 @@ router.get('/:id/floors/:floorId', MuseumController.getFloor);
 router.post(
   '/:id/floors',
   authMiddleware,
-  roleMiddleware(UserRole.ADMIN, UserRole.AUTHOR),
+  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
   MuseumController.floorValidation,
   MuseumController.addFloor,
 );
@@ -219,7 +278,7 @@ router.post(
 router.put(
   '/:id/floors/:floorId',
   authMiddleware,
-  roleMiddleware(UserRole.ADMIN, UserRole.AUTHOR),
+  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
   MuseumController.updateFloor,
 );
 
@@ -233,7 +292,7 @@ router.put(
 router.delete(
   '/:id/floors/:floorId',
   authMiddleware,
-  roleMiddleware(UserRole.ADMIN),
+  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
   MuseumController.deleteFloor,
 );
 
@@ -260,7 +319,7 @@ router.get('/:id/floors/:floorId/markers', MuseumController.getMarkers);
 router.post(
   '/:id/floors/:floorId/markers',
   authMiddleware,
-  roleMiddleware(UserRole.ADMIN, UserRole.AUTHOR),
+  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
   MuseumController.markerValidation,
   MuseumController.addMarker,
 );
@@ -275,7 +334,7 @@ router.post(
 router.put(
   '/:id/floors/:floorId/markers',
   authMiddleware,
-  roleMiddleware(UserRole.ADMIN, UserRole.AUTHOR),
+  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
   MuseumController.updateMarkers,
 );
 
@@ -289,7 +348,7 @@ router.put(
 router.put(
   '/:id/floors/:floorId/markers/:markerId',
   authMiddleware,
-  roleMiddleware(UserRole.ADMIN, UserRole.AUTHOR),
+  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
   MuseumController.updateMarker,
 );
 
@@ -303,7 +362,7 @@ router.put(
 router.delete(
   '/:id/floors/:floorId/markers/:markerId',
   authMiddleware,
-  roleMiddleware(UserRole.ADMIN, UserRole.AUTHOR),
+  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
   MuseumController.deleteMarker,
 );
 
@@ -321,7 +380,7 @@ router.delete(
 router.post(
   '/:id/floors/:floorId/connections',
   authMiddleware,
-  roleMiddleware(UserRole.ADMIN, UserRole.AUTHOR),
+  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
   MuseumController.connectionValidation,
   MuseumController.addConnection,
 );
@@ -336,7 +395,7 @@ router.post(
 router.delete(
   '/:id/floors/:floorId/connections/:connectionId',
   authMiddleware,
-  roleMiddleware(UserRole.ADMIN, UserRole.AUTHOR),
+  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
   MuseumController.deleteConnection,
 );
 

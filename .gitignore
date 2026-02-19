@@ -41,6 +41,9 @@ Thumbs.db
 # TypeScript
 *.tsbuildinfo
 
+# Uploaded files
+uploads/
+
 # Misc
 .cache/
 temp/

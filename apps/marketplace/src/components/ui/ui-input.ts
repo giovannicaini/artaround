@@ -16,6 +16,11 @@ export class UiInput extends LitElement {
     return this;
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    this.style.display = 'block';
+  }
+
   private handleInput(e: Event) {
     const target = e.target as HTMLInputElement;
     this.value = target.value;

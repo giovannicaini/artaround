@@ -1,35 +1,80 @@
 import { LitElement, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { ContextualRole, ResourceType, UserRole, type User } from '@artaround/shared';
+import { preferencesService } from '../../services/preferences.service';
 import '../ui/ui-icon';
 import '../ui/ui-avatar';
+import '../ui/ui-icon-button';
 
 interface MenuItem {
   id: string;
   label: string;
   icon: string;
   badge?: string;
+  roles?: UserRole[]; // If set, only these roles can see this item
 }
 
 @customElement('admin-sidebar')
 export class AdminSidebar extends LitElement {
   @property({ type: String }) currentRoute = 'dashboard';
   @property({ type: Boolean }) collapsed = false;
+  @property({ type: Object }) user: User | null = null;
   @state() private mobileOpen = false;
+  @state() private selectedMuseum: { _id: string; name: string } | null = null;
 
   createRenderRoot() {
     return this;
   }
 
-  private menuItems: MenuItem[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: 'home' },
-    { id: 'museums', label: 'Musei', icon: 'location' },
-    { id: 'artworks', label: 'Opere', icon: 'image' },
-    { id: 'visits', label: 'Visite', icon: 'document' },
-    { id: 'users', label: 'Utenti', icon: 'users' },
-    { id: 'analytics', label: 'Analytics', icon: 'chart' },
+  private dashboardItem: MenuItem = { id: 'dashboard', label: 'Dashboard', icon: 'home' };
+
+  private configureMuseumMenuItems: MenuItem[] = [
+    { id: 'museum-edit', label: 'Modifica Museo', icon: 'edit' },
+    { id: 'artworks', label: 'Gestione Opere', icon: 'image' },
+    {
+      id: 'navigator-customizations',
+      label: 'Configurazioni Navigator',
+      icon: 'cog',
+    },
+  ];
+
+  private adminMenuItems: MenuItem[] = [
+    {
+      id: 'museums-management',
+      label: 'Gestione Musei',
+      icon: 'cog',
+      roles: ['admin' as UserRole],
+    },
+    {
+      id: 'navigator-default-config',
+      label: 'Configurazione default app navigator',
+      icon: 'cog',
+      roles: ['admin' as UserRole],
+    },
+    { id: 'users', label: 'Utenti', icon: 'users', roles: ['admin' as UserRole] },
+    {
+      id: 'analytics',
+      label: 'Analytics',
+      icon: 'chart',
+      roles: ['admin' as UserRole, 'curator' as UserRole],
+    },
   ];
 
   private bottomItems: MenuItem[] = [{ id: 'settings', label: 'Impostazioni', icon: 'cog' }];
+  connectedCallback() {
+    super.connectedCallback();
+    this.selectedMuseum = preferencesService.getSelectedMuseum();
+    window.addEventListener('museum-changed', this.handleMuseumChanged as EventListener);
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener('museum-changed', this.handleMuseumChanged as EventListener);
+    super.disconnectedCallback();
+  }
+
+  private handleMuseumChanged = (event: CustomEvent) => {
+    this.selectedMuseum = event.detail || null;
+  };
 
   private handleNavigate(route: string) {
     this.dispatchEvent(
@@ -38,6 +83,25 @@ export class AdminSidebar extends LitElement {
         bubbles: true,
         composed: true,
       }),
+    );
+  }
+
+  private get canConfigureSelectedMuseum(): boolean {
+    if (!this.user || !this.selectedMuseum) {
+      return false;
+    }
+
+    if (this.user.role === UserRole.ADMIN) {
+      return true;
+    }
+
+    return (
+      this.user.roleAssignments?.some(
+        (assignment) =>
+          assignment.resourceType === ResourceType.MUSEUM &&
+          assignment.resourceId === this.selectedMuseum?._id &&
+          assignment.role === ContextualRole.MANAGER,
+      ) ?? false
     );
   }
 
@@ -79,8 +143,35 @@ export class AdminSidebar extends LitElement {
     `;
   }
 
+  private renderMenuSection(label: string, items: MenuItem[]) {
+    const userRole = this.user?.role;
+    const visibleItems = items.filter((item) => {
+      if (!item.roles) return true;
+      if (!userRole) return false;
+      return item.roles.includes(userRole);
+    });
+
+    if (visibleItems.length === 0) return null;
+
+    return html`
+      <div class="space-y-1">
+        ${!this.collapsed
+          ? html`
+              <p
+                class="px-3 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-surface-400"
+              >
+                ${label}
+              </p>
+            `
+          : ''}
+        ${visibleItems.map((item) => this.renderMenuItem(item))}
+      </div>
+    `;
+  }
+
   render() {
     const sidebarWidth = this.collapsed ? 'w-16' : 'w-64';
+    const showConfigureMuseumArea = this.canConfigureSelectedMuseum;
 
     return html`
       <!-- Desktop Sidebar -->
@@ -102,8 +193,21 @@ export class AdminSidebar extends LitElement {
         </div>
 
         <!-- Navigation -->
-        <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          ${this.menuItems.map((item) => this.renderMenuItem(item))}
+        <nav class="flex-1 px-3 py-4 space-y-3 overflow-y-auto">
+          ${!this.collapsed && this.selectedMuseum
+            ? html`
+                <div
+                  class="px-3 py-2 rounded-lg bg-surface-100 dark:bg-surface-800 text-xs text-surface-600 dark:text-surface-300"
+                >
+                  Museo attivo: <span class="font-semibold">${this.selectedMuseum.name}</span>
+                </div>
+              `
+            : ''}
+          ${this.renderMenuItem(this.dashboardItem)}
+          ${showConfigureMuseumArea
+            ? this.renderMenuSection('Configura Museo', this.configureMuseumMenuItems)
+            : ''}
+          ${this.renderMenuSection('Area Admin', this.adminMenuItems)}
         </nav>
 
         <!-- Bottom Section -->
@@ -148,15 +252,18 @@ export class AdminSidebar extends LitElement {
             </div>
             <span class="font-semibold text-surface-900 dark:text-white">ArtAround</span>
           </div>
-          <button
+          <ui-icon-button
+            icon="close"
+            title="Chiudi menu"
             @click=${() => (this.mobileOpen = false)}
-            class="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800"
-          >
-            <ui-icon name="close" size="sm" class="text-surface-500"></ui-icon>
-          </button>
+          ></ui-icon-button>
         </div>
-        <nav class="flex-1 px-3 py-4 space-y-1">
-          ${this.menuItems.map((item) => this.renderMenuItem(item))}
+        <nav class="flex-1 px-3 py-4 space-y-3">
+          ${this.renderMenuItem(this.dashboardItem)}
+          ${showConfigureMuseumArea
+            ? this.renderMenuSection('Configura Museo', this.configureMuseumMenuItems)
+            : ''}
+          ${this.renderMenuSection('Area Admin', this.adminMenuItems)}
         </nav>
       </aside>
     `;

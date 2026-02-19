@@ -1,0 +1,366 @@
+================================================================================
+                         ARTAROUND - STRUTTURA PROGETTO
+================================================================================
+
+Artaround è un monorepo che contiene tre applicazioni principali e un package
+condiviso per la gestione di contenuti museali, visite guidate e opere d'arte.
+
+================================================================================
+RADICE DEL PROGETTO
+================================================================================
+
+artaround/
+├── .env                    # Variabili d'ambiente (produzione)
+├── .env.development        # Variabili d'ambiente (sviluppo)
+├── .env.example            # Template variabili d'ambiente
+├── .gitignore              # File ignorati da Git
+├── .node-version           # Versione Node.js richiesta
+├── .prettierrc             # Configurazione Prettier (formattazione codice)
+├── package.json            # Configurazione npm workspace principale
+├── package-lock.json       # Lock file dipendenze
+├── turbo.json              # Configurazione Turborepo (build system)
+├── tsconfig.prune.json     # Configurazione TypeScript per pulizia
+├── README.md               # Documentazione principale
+├── ROADMAP.txt             # Piano di sviluppo
+├── SpecificheProgetto.txt  # Specifiche funzionali del progetto
+├── index.html              # Entry point HTML principale
+│
+├── apps/                   # Applicazioni del monorepo
+│   ├── marketplace/        # App di gestione contenuti (admin/curatori)
+│   ├── navigator/          # App di navigazione museo (utenti finali)
+│   └── server/             # Backend API REST
+│
+├── packages/               # Pacchetti condivisi
+│   └── shared/             # Tipi, costanti e utilità condivise
+│
+├── uploads/                # Directory per file caricati
+│   ├── artworks/           # Immagini opere d'arte
+│   ├── items/              # Immagini contenuti
+│   ├── misc/               # File vari
+│   ├── museums/            # Immagini musei e mappe SVG
+│   ├── users/              # Avatar utenti
+│   └── visits/             # Immagini visite guidate
+│
+├── roadmap/                # Documentazione roadmap dettagliata
+└── tmp/                    # File temporanei
+
+
+================================================================================
+APPS/MARKETPLACE - Applicazione Gestione Contenuti
+================================================================================
+
+Framework: LitElement (Web Components) + TypeScript + Vite
+UI: Tailwind CSS
+
+marketplace/
+├── index.html              # Entry point HTML
+├── package.json            # Dipendenze e script
+├── vite.config.ts          # Configurazione bundler Vite
+├── tsconfig.json           # Configurazione TypeScript
+├── tailwind.config.js      # Configurazione Tailwind CSS
+├── postcss.config.js       # Configurazione PostCSS
+├── eslint.config.js        # Configurazione linting
+│
+└── src/
+    ├── main.ts             # Entry point JavaScript
+    ├── app-root.ts         # Componente root dell'applicazione
+    ├── vite-env.d.ts       # Dichiarazioni tipi Vite
+    │
+    ├── base/               # Classi base per componenti
+    │   ├── index.ts                  # Barrel export
+    │   ├── app-base-element.ts       # Classe base LitElement (disabilita Shadow DOM)
+    │   └── museum-aware.mixin.ts     # Mixin per tracciamento museo selezionato
+    │
+    ├── components/         # Componenti UI
+    │   │
+    │   ├── auth/           # Componenti autenticazione
+    │   │   └── login-page.ts         # Pagina login
+    │   │
+    │   ├── items/          # Componenti gestione contenuti
+    │   │   ├── artwork-creator.ts        # Editor creazione/modifica opere
+    │   │   ├── item-creator.ts           # Editor creazione/modifica contenuti
+    │   │   ├── content-matrix-editor.ts  # Editor matrice contenuti
+    │   │   ├── image-uploader.ts         # Componente upload immagini
+    │   │   └── wikidata-autocomplete.ts  # Autocomplete ricerca Wikidata
+    │   │
+    │   ├── layout/         # Componenti layout
+    │   │   ├── admin-layout.ts       # Layout principale admin
+    │   │   ├── admin-header.ts       # Header con navigazione
+    │   │   └── admin-sidebar.ts      # Sidebar con menu
+    │   │
+    │   ├── museums/        # Componenti gestione musei
+    │   │   ├── museums-management-page.ts  # Pagina gestione musei
+    │   │   ├── museum-map-page.ts          # Pagina mappa museo
+    │   │   ├── museum-selector.ts          # Selettore museo attivo
+    │   │   ├── svg-map-editor.ts           # Editor mappe SVG
+    │   │   ├── marker-editor.ts            # Editor marker su mappa
+    │   │   └── floor-manager.ts            # Gestione piani edificio
+    │   │
+    │   ├── navigator/      # Componenti configurazione navigator
+    │   │   └── [configurazione app navigator]
+    │   │
+    │   ├── pages/          # Pagine principali
+    │   │   ├── dashboard-page.ts     # Dashboard con statistiche
+    │   │   ├── artworks-page.ts      # Lista e gestione opere
+    │   │   ├── contents-page.ts      # Lista e gestione contenuti (Items)
+    │   │   ├── museums-page.ts       # Lista musei
+    │   │   └── users-page.ts         # Gestione utenti (solo admin)
+    │   │
+    │   ├── visits/         # Componenti gestione visite
+    │   │   ├── visits-page.ts        # Lista visite guidate
+    │   │   └── visit-editor.ts       # Editor creazione/modifica visite
+    │   │
+    │   └── ui/             # Componenti UI riutilizzabili
+    │       ├── index.ts              # Barrel export
+    │       ├── ui-button.ts          # Pulsanti
+    │       ├── ui-card.ts            # Card container
+    │       ├── ui-modal.ts           # Finestre modali
+    │       ├── ui-input.ts           # Campi input
+    │       ├── ui-select.ts          # Select dropdown
+    │       ├── ui-textarea.ts        # Area testo
+    │       ├── ui-checkbox.ts        # Checkbox
+    │       ├── ui-icon.ts            # Icone (Lucide)
+    │       ├── ui-icon-button.ts     # Pulsanti con icona
+    │       ├── ui-badge.ts           # Badge/etichette
+    │       ├── ui-alert.ts           # Messaggi alert
+    │       ├── ui-loading.ts         # Indicatori caricamento
+    │       ├── ui-empty.ts           # Stato vuoto
+    │       ├── ui-avatar.ts          # Avatar utente
+    │       ├── ui-pagination.ts      # Paginazione
+    │       ├── ui-table.ts           # Tabelle dati
+    │       ├── ui-data-grid.ts       # Griglia dati
+    │       ├── ui-tabs.ts            # Tab navigation
+    │       ├── ui-filter-tabs.ts     # Tab con filtri
+    │       ├── ui-search-bar.ts      # Barra ricerca
+    │       ├── ui-page-header.ts     # Header pagina
+    │       ├── ui-section.ts         # Sezione con titolo
+    │       ├── ui-stat-card.ts       # Card statistiche
+    │       ├── ui-list-controls.ts   # Controlli lista (filtri, ordinamento)
+    │       ├── ui-list-row.ts        # Riga lista
+    │       ├── ui-tag-input.ts       # Input tag multipli
+    │       ├── ui-range-slider.ts    # Slider range
+    │       ├── ui-color-input.ts     # Selettore colore
+    │       ├── ui-form-actions.ts    # Azioni form (salva/annulla)
+    │       ├── ui-image-placeholder.ts # Placeholder immagine
+    │       └── image-editor.ts       # Editor immagine (crop, zoom)
+    │
+    ├── services/           # Servizi per comunicazione API
+    │   ├── api.service.ts            # Client HTTP base
+    │   ├── auth.service.ts           # Autenticazione (login, logout, token)
+    │   ├── user.service.ts           # Gestione utenti
+    │   ├── museum.service.ts         # Gestione musei
+    │   ├── artwork.service.ts        # Gestione opere d'arte
+    │   ├── item.service.ts           # Gestione contenuti
+    │   ├── visit.service.ts          # Gestione visite guidate
+    │   ├── upload.service.ts         # Upload file
+    │   ├── wikidata.service.ts       # Integrazione Wikidata
+    │   ├── permissions.service.ts    # Verifica permessi utente
+    │   ├── preferences.service.ts    # Preferenze utente (localStorage)
+    │   ├── modal.service.ts          # Gestione modali globali
+    │   └── navigator-default-config.service.ts  # Configurazione navigator
+    │
+    ├── utils/              # Utilità
+    │   ├── index.ts                  # Barrel export
+    │   ├── query-builder.ts          # Builder query string URL
+    │   └── events.ts                 # Helper per dispatchEvent
+    │
+    └── styles/
+        └── main.css                  # Stili globali + Tailwind
+
+
+================================================================================
+APPS/NAVIGATOR - Applicazione Navigazione Museo
+================================================================================
+
+Framework: React + TypeScript + Vite
+UI: Tailwind CSS
+
+navigator/
+├── index.html              # Entry point HTML
+├── package.json            # Dipendenze e script
+├── vite.config.ts          # Configurazione Vite
+├── tsconfig.json           # Configurazione TypeScript
+├── tsconfig.node.json      # TypeScript per config Node
+├── tailwind.config.js      # Configurazione Tailwind
+├── postcss.config.js       # Configurazione PostCSS
+├── eslint.config.js        # Configurazione linting
+│
+└── src/
+    ├── main.tsx            # Entry point React
+    ├── App.tsx             # Componente root con routing
+    ├── vite-env.d.ts       # Dichiarazioni tipi Vite
+    │
+    ├── components/         # Componenti React
+    │   └── MapView.tsx             # Visualizzatore mappa museo SVG
+    │
+    ├── context/            # React Context
+    │   └── NavigatorContext.tsx    # Context per stato navigazione
+    │
+    ├── pages/              # Pagine dell'app
+    │   ├── HomePage.tsx            # Home con lista musei
+    │   ├── MuseumPage.tsx          # Dettaglio museo
+    │   └── VisitPlayerPage.tsx     # Player visita guidata
+    │
+    ├── services/           # Servizi
+    │   ├── api.ts                  # Client API
+    │   └── speech.ts               # Sintesi vocale (Web Speech API)
+    │
+    └── styles/
+        └── main.css                # Stili globali
+
+
+================================================================================
+APPS/SERVER - Backend API REST
+================================================================================
+
+Framework: Express.js + TypeScript + MongoDB (Mongoose)
+
+server/
+├── package.json            # Dipendenze e script
+├── tsconfig.json           # Configurazione TypeScript
+├── eslint.config.js        # Configurazione linting
+│
+└── src/
+    ├── index.ts            # Entry point server Express
+    │
+    ├── config/             # Configurazioni
+    │   ├── config.ts               # Variabili ambiente e costanti
+    │   ├── database.ts             # Connessione MongoDB
+    │   └── swagger.ts              # Configurazione Swagger/OpenAPI
+    │
+    ├── controllers/        # Controller (logica business)
+    │   ├── auth.controller.ts      # Login, registrazione, token
+    │   ├── user.controller.ts      # CRUD utenti
+    │   ├── museum.controller.ts    # CRUD musei
+    │   ├── artwork.controller.ts   # CRUD opere d'arte
+    │   ├── item.controller.ts      # CRUD contenuti
+    │   ├── visit.controller.ts     # CRUD visite guidate
+    │   ├── upload.controller.ts    # Upload file con Multer
+    │   ├── marketplace.controller.ts # API pubbliche marketplace
+    │   └── utils.controller.ts     # Utility API (slug, config)
+    │
+    ├── middleware/         # Middleware Express
+    │   ├── index.ts                # Barrel export
+    │   ├── auth.middleware.ts      # Verifica JWT token
+    │   ├── role.middleware.ts      # Verifica ruoli utente
+    │   └── error.middleware.ts     # Gestione errori globale
+    │
+    ├── models/             # Modelli Mongoose
+    │   ├── index.ts                # Barrel export
+    │   ├── User.ts                 # Schema utente
+    │   ├── Museum.ts               # Schema museo
+    │   ├── Artwork.ts              # Schema opera d'arte
+    │   ├── Item.ts                 # Schema contenuto
+    │   ├── Visit.ts                # Schema visita guidata
+    │   ├── VisitPurchase.ts        # Schema acquisto visita
+    │   └── AppConfig.ts            # Schema configurazione app
+    │
+    ├── routes/             # Definizione route API
+    │   ├── index.ts                # Router principale
+    │   ├── auth.routes.ts          # /api/auth/*
+    │   ├── user.routes.ts          # /api/users/*
+    │   ├── museum.routes.ts        # /api/museums/*
+    │   ├── artwork.routes.ts       # /api/artworks/*
+    │   ├── item.routes.ts          # /api/items/*
+    │   ├── visit.routes.ts         # /api/visits/*
+    │   ├── upload.routes.ts        # /api/upload/*
+    │   ├── marketplace.routes.ts   # /api/marketplace/*
+    │   └── utils.routes.ts         # /api/utils/*
+    │
+    ├── scripts/            # Script utilità
+    │   └── [script di migrazione, seed, etc.]
+    │
+    └── utils/              # Utilità server
+        └── [helper functions]
+
+
+================================================================================
+PACKAGES/SHARED - Tipi e Utilità Condivise
+================================================================================
+
+Pacchetto npm locale condiviso tra tutte le applicazioni.
+
+shared/
+├── package.json            # Configurazione pacchetto
+├── tsconfig.json           # Configurazione TypeScript
+├── eslint.config.js        # Configurazione linting
+│
+└── src/
+    ├── index.ts            # Barrel export principale
+    │
+    ├── types/              # Definizioni TypeScript
+    │   ├── index.ts                # Barrel export
+    │   ├── api.types.ts            # Tipi risposte API
+    │   ├── user.types.ts           # Tipi User, UserRole, CreateUserData
+    │   ├── museum.types.ts         # Tipi Museum, Floor, Marker
+    │   ├── artwork.types.ts        # Tipi Artwork, ArtworkType
+    │   ├── item.types.ts           # Tipi Item, ContentDuration, LanguageLevel
+    │   ├── visit.types.ts          # Tipi Visit, VisitStep, VisitStepType
+    │   ├── upload.types.ts         # Tipi per upload file
+    │   └── wikidata.types.ts       # Tipi risposta Wikidata
+    │
+    └── display/            # Funzioni di formattazione/display
+        ├── index.ts                # Barrel export
+        ├── common.ts               # Utilità comuni (date, numeri)
+        ├── artwork.display.ts      # Label tipi opera d'arte
+        ├── item.display.ts         # Label tipi contenuto
+        ├── museum.display.ts       # Formattazione dati museo
+        └── visit.display.ts        # Label tipi step visita
+
+
+================================================================================
+CONCETTI PRINCIPALI DEL DOMINIO
+================================================================================
+
+MUSEUM (Museo)
+- Entità centrale che rappresenta un museo fisico
+- Identificato da Wikidata ID
+- Contiene floor (piani) con mappe SVG e marker
+
+ARTWORK (Opera d'Arte)
+- Oggetto fisico nel museo (dipinto, scultura, ecc.)
+- Collegato a un museo tramite museumId
+- Identificato da Wikidata ID
+- Contiene metadati: autore, anno, dimensioni, materiali
+
+ITEM (Contenuto)
+- Contenuto digitale associato a un'opera o museo
+- Può essere testo, audio, link esterno
+- Ha caratteristiche: durata, livello linguistico, licenza
+
+VISIT (Visita Guidata)
+- Percorso ordinato di tappe (VisitStep)
+- Ogni tappa può essere: opera, contenuto, informazione logistica
+- Destinato a un pubblico target specifico
+
+USER (Utente)
+- Ruoli: admin, curator, creator, user
+- Admin: gestione completa
+- Curator: gestione museo assegnato
+- Creator: creazione contenuti
+- User: fruizione contenuti
+
+
+================================================================================
+WORKFLOW DI SVILUPPO
+================================================================================
+
+1. Installazione dipendenze:
+   npm install
+
+2. Avvio sviluppo (tutti i servizi):
+   npm run dev
+
+3. Build produzione:
+   npm run build
+
+4. Singole app:
+   npm run dev --workspace=apps/marketplace
+   npm run dev --workspace=apps/navigator
+   npm run dev --workspace=apps/server
+
+5. Build singolo workspace:
+   npm run build --workspace=apps/marketplace
+
+
+================================================================================

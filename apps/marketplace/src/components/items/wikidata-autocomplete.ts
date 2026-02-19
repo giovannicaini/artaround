@@ -1,8 +1,11 @@
 import { LitElement, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { wikidataService, type WikidataSearchResult } from '../../services/wikidata.service';
+import { wikidataService } from '../../services/wikidata.service';
+import { preferencesService } from '../../services/preferences.service';
+import type { WikidataSearchResult } from '@artaround/shared';
 import '../ui/ui-input';
 import '../ui/ui-icon';
+import '../ui/ui-image-placeholder';
 
 @customElement('wikidata-autocomplete')
 export class WikidataAutocomplete extends LitElement {
@@ -13,12 +16,14 @@ export class WikidataAutocomplete extends LitElement {
   @property({ type: String }) error = '';
   @property({ type: Boolean }) required = false;
   @property({ type: Boolean }) disabled = false;
+  @property({ type: String }) searchType: 'artwork' | 'museum' | 'author' | 'movement' = 'artwork';
 
   @state() private query = '';
   @state() private results: WikidataSearchResult[] = [];
   @state() private loading = false;
   @state() private showDropdown = false;
   @state() private selectedLabel = '';
+  @state() private onlyCurrentMuseum = true;
 
   private searchTimeout: number | null = null;
 
@@ -49,12 +54,25 @@ export class WikidataAutocomplete extends LitElement {
     this.showDropdown = true;
 
     try {
-      this.results = await wikidataService.search(this.query);
+      const museumId =
+        this.searchType === 'artwork' && this.onlyCurrentMuseum
+          ? preferencesService.getSelectedMuseumId()
+          : undefined;
+      this.results = await wikidataService.search(this.query, 10, this.searchType, museumId);
     } catch (e) {
       console.error('Wikidata search error:', e);
       this.results = [];
     } finally {
       this.loading = false;
+    }
+  }
+
+  private handleOnlyCurrentMuseumChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    this.onlyCurrentMuseum = target.checked;
+
+    if (this.query.length >= 2) {
+      this.search();
     }
   }
 
@@ -74,9 +92,25 @@ export class WikidataAutocomplete extends LitElement {
           imageUrl: result.imageUrl,
           author: result.author,
           authorId: result.authorId,
+          movement: result.style,
+          movementId: result.styleId,
           style: result.style,
           styleId: result.styleId,
           epoch: result.epoch,
+          inception: result.inception,
+          year: result.year,
+          period: result.period,
+          periodId: result.periodId,
+          technique: result.technique,
+          materials: result.materials,
+          location: result.location,
+          locationId: result.locationId,
+          room: result.room,
+          floor: result.floor,
+          dimensionHeight: result.dimensionHeight,
+          dimensionWidth: result.dimensionWidth,
+          dimensionDepth: result.dimensionDepth,
+          dimensionUnit: result.dimensionUnit,
         },
         bubbles: true,
         composed: true,
@@ -97,12 +131,43 @@ export class WikidataAutocomplete extends LitElement {
     }, 200);
   }
 
+  clearSelection() {
+    this.query = '';
+    this.selectedId = '';
+    this.selectedLabel = '';
+    this.results = [];
+    this.showDropdown = false;
+  }
+
   render() {
     return html`
       <div class="relative">
         <label class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
           ${this.label} ${this.required ? html`<span class="text-danger-500 ml-0.5">*</span>` : ''}
         </label>
+
+        ${this.searchType === 'artwork'
+          ? html`
+              <div class="mb-2">
+                <label
+                  class="flex items-center gap-2 text-xs text-surface-600 dark:text-surface-300"
+                >
+                  <input
+                    type="checkbox"
+                    class="h-4 w-4 rounded border-surface-300 text-brand-600 focus:ring-brand-500"
+                    .checked=${this.onlyCurrentMuseum}
+                    @change=${this.handleOnlyCurrentMuseumChange}
+                    ?disabled=${this.disabled}
+                  />
+                  Includi solo opere del museo corrente su Wikidata
+                </label>
+                <p class="mt-1 text-[11px] text-surface-500 dark:text-surface-400">
+                  Se disattivo, la ricerca include anche opere di altri musei (es. mostre
+                  temporanee).
+                </p>
+              </div>
+            `
+          : ''}
 
         <div class="relative">
           <input
@@ -224,7 +289,7 @@ export class WikidataAutocomplete extends LitElement {
                               ${result.imageUrl
                                 ? html`
                                     <div
-                                      class="flex-shrink-0 w-12 h-12 rounded overflow-hidden bg-surface-100 dark:bg-surface-700"
+                                      class="flex-shrink-0 w-12 h-12 rounded overflow-hidden bg-surface-100 dark:bg-surface-700 relative"
                                     >
                                       <img
                                         src="${result.imageUrl}"
@@ -232,20 +297,29 @@ export class WikidataAutocomplete extends LitElement {
                                         class="w-full h-full object-cover"
                                         loading="lazy"
                                         @error="${(e: Event) => {
-                                          (e.target as HTMLImageElement).style.display = 'none';
+                                          const img = e.target as HTMLImageElement;
+                                          img.style.display = 'none';
+                                          img.parentElement
+                                            ?.querySelector('ui-image-placeholder')
+                                            ?.removeAttribute('hidden');
                                         }}"
                                       />
+                                      <ui-image-placeholder
+                                        type="artwork"
+                                        size="xs"
+                                        hidden
+                                        class="absolute inset-0"
+                                      ></ui-image-placeholder>
                                     </div>
                                   `
                                 : html`
                                     <div
-                                      class="flex-shrink-0 w-12 h-12 rounded bg-surface-100 dark:bg-surface-700 flex items-center justify-center"
+                                      class="flex-shrink-0 w-12 h-12 rounded bg-surface-100 dark:bg-surface-700 overflow-hidden"
                                     >
-                                      <ui-icon
-                                        name="image"
-                                        size="sm"
-                                        class="text-surface-400"
-                                      ></ui-icon>
+                                      <ui-image-placeholder
+                                        type="artwork"
+                                        size="xs"
+                                      ></ui-image-placeholder>
                                     </div>
                                   `}
                               <div class="flex-1 min-w-0">

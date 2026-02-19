@@ -1,10 +1,18 @@
 import { LitElement, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { MarkerType, type MapMarker, type Item } from '@artaround/shared';
+import {
+  MARKER_TYPE_EDITOR_OPTIONS_IT,
+  MarkerType,
+  type MapMarker,
+  type Artwork,
+} from '@artaround/shared';
 import { modalService } from '../../services/modal.service';
 import '../ui/ui-button';
 import '../ui/ui-input';
 import '../ui/ui-select';
+import '../ui/ui-textarea';
+import '../ui/ui-icon-button';
+import '../ui/ui-image-placeholder';
 
 /**
  * Marker Editor Component
@@ -24,7 +32,7 @@ export class MarkerEditor extends LitElement {
   markers: MapMarker[] = [];
 
   @property({ type: Array })
-  artworks: Item[] = [];
+  artworks: Artwork[] = [];
 
   @property({ type: String })
   currentFloorId: string = '';
@@ -47,32 +55,7 @@ export class MarkerEditor extends LitElement {
   @state()
   private selectedArtworkId = '';
 
-  // Marker type icons and labels
-  private markerTypes = [
-    { type: MarkerType.ARTWORK, icon: '🖼️', label: 'Opera' },
-    { type: MarkerType.SCULPTURE, icon: '🗿', label: 'Scultura' },
-    { type: MarkerType.PAINTING, icon: '🎨', label: 'Dipinto' },
-    { type: MarkerType.ENTRANCE, icon: '🚪', label: 'Ingresso' },
-    { type: MarkerType.EXIT, icon: '🚶', label: 'Uscita' },
-    { type: MarkerType.EMERGENCY_EXIT, icon: '🚨', label: 'Uscita Emergenza' },
-    { type: MarkerType.INFO_POINT, icon: 'ℹ️', label: 'Info Point' },
-    { type: MarkerType.ELEVATOR, icon: '🛗', label: 'Ascensore' },
-    { type: MarkerType.STAIRS, icon: '🪜', label: 'Scale' },
-    { type: MarkerType.ESCALATOR, icon: '📶', label: 'Scale Mobili' },
-    { type: MarkerType.RAMP, icon: '♿', label: 'Rampa' },
-    { type: MarkerType.TOILETTE, icon: '🚻', label: 'Bagni' },
-    { type: MarkerType.ACCESSIBLE_TOILETTE, icon: '♿🚻', label: 'Bagni Accessibili' },
-    { type: MarkerType.BAR, icon: '☕', label: 'Bar' },
-    { type: MarkerType.RESTAURANT, icon: '🍽️', label: 'Ristorante' },
-    { type: MarkerType.SHOP, icon: '🛒', label: 'Negozio' },
-    { type: MarkerType.CLOAKROOM, icon: '🧥', label: 'Guardaroba' },
-    { type: MarkerType.LOCKER, icon: '🔐', label: 'Armadietti' },
-    { type: MarkerType.ROOM, icon: '🚪', label: 'Sala' },
-    { type: MarkerType.GALLERY, icon: '🏛️', label: 'Galleria' },
-    { type: MarkerType.BENCH, icon: '🪑', label: 'Panchina' },
-    { type: MarkerType.AUDIO_GUIDE, icon: '🎧', label: 'Audioguida' },
-    { type: MarkerType.WIFI, icon: '📶', label: 'WiFi' },
-  ];
+  private readonly markerTypes = MARKER_TYPE_EDITOR_OPTIONS_IT;
 
   updated(changedProperties: Map<string, unknown>) {
     // When a marker is selected, switch to the list tab
@@ -169,30 +152,22 @@ export class MarkerEditor extends LitElement {
       ${isArtworkType
         ? html`
             <div class="mb-4">
-              <label class="block text-sm font-medium text-surface-300 mb-2">Opera collegata</label>
-              <select
-                class="w-full px-3 py-2 bg-surface-700 border border-surface-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                @change=${(e: Event) => {
-                  const select = e.target as HTMLSelectElement;
-                  this.selectedArtworkId = select.value;
-                  const artwork = this.artworks.find((a) => a._id === select.value);
+              <ui-select
+                label="Opera collegata"
+                .value=${this.selectedArtworkId}
+                .options=${this.artworks.map((artwork) => ({
+                  value: artwork._id,
+                  label: artwork.title,
+                }))}
+                placeholder="Seleziona opera"
+                @select-change=${(e: CustomEvent) => {
+                  this.selectedArtworkId = e.detail.value;
+                  const artwork = this.artworks.find((a) => a._id === e.detail.value);
                   if (artwork) {
                     this.markerLabel = artwork.title;
                   }
                 }}
-              >
-                <option value="">-- Seleziona opera --</option>
-                ${this.artworks.map(
-                  (artwork) => html`
-                    <option
-                      value=${artwork._id}
-                      ?selected=${this.selectedArtworkId === artwork._id}
-                    >
-                      ${artwork.title}
-                    </option>
-                  `,
-                )}
-              </select>
+              ></ui-select>
             </div>
           `
         : ''}
@@ -209,16 +184,13 @@ export class MarkerEditor extends LitElement {
 
       <!-- Description -->
       <div class="mb-4">
-        <label class="block text-sm font-medium text-surface-300 mb-2"
-          >Descrizione (opzionale)</label
-        >
-        <textarea
-          class="w-full px-3 py-2 bg-surface-700 border border-surface-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
-          rows="2"
+        <ui-textarea
+          label="Descrizione (opzionale)"
+          .rows=${2}
           placeholder="Descrizione aggiuntiva..."
           .value=${this.markerDescription}
-          @input=${(e: Event) => (this.markerDescription = (e.target as HTMLTextAreaElement).value)}
-        ></textarea>
+          @textarea-change=${(e: CustomEvent) => (this.markerDescription = e.detail.value)}
+        ></ui-textarea>
       </div>
 
       <!-- Add Button -->
@@ -243,8 +215,8 @@ export class MarkerEditor extends LitElement {
     }
 
     // Get selected marker's artwork for focal point editor
-    const selectedArtwork = this.selectedMarker?.itemId
-      ? this.artworks.find((a) => a._id === this.selectedMarker?.itemId)
+    const selectedArtwork = this.selectedMarker?.artworkId
+      ? this.artworks.find((a) => a.wikidataId === this.selectedMarker?.artworkId)
       : null;
 
     return html`
@@ -296,54 +268,39 @@ export class MarkerEditor extends LitElement {
         ${isArtworkType
           ? html`
               <div class="mb-3">
-                <label class="block text-xs font-medium text-surface-300 mb-1"
-                  >Opera collegata</label
-                >
-                <select
-                  class="w-full px-2 py-1.5 bg-surface-600 border border-surface-500 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                  .value=${this.selectedMarker.itemId || ''}
-                  @change=${(e: Event) =>
-                    this.updateMarkerArtwork((e.target as HTMLSelectElement).value)}
-                >
-                  <option value="">-- Nessuna opera --</option>
-                  ${this.artworks.map(
-                    (artwork) => html`
-                      <option
-                        value=${artwork._id}
-                        ?selected=${this.selectedMarker?.itemId === artwork._id}
-                      >
-                        ${artwork.title}
-                      </option>
-                    `,
-                  )}
-                </select>
+                <ui-select
+                  label="Opera collegata"
+                  .value=${this.selectedMarker.artworkId || ''}
+                  .options=${this.artworks.map((artwork) => ({
+                    value: artwork.wikidataId,
+                    label: artwork.title,
+                  }))}
+                  placeholder="Nessuna opera"
+                  @select-change=${(e: CustomEvent) => this.updateMarkerArtwork(e.detail.value)}
+                ></ui-select>
               </div>
             `
           : ''}
 
         <!-- Label -->
         <div class="mb-3">
-          <label class="block text-xs font-medium text-surface-300 mb-1">Etichetta</label>
-          <input
-            type="text"
-            class="w-full px-2 py-1.5 bg-surface-600 border border-surface-500 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-            .value=${this.selectedMarker.label || ''}
-            @input=${(e: Event) => this.updateMarkerLabel((e.target as HTMLInputElement).value)}
+          <ui-input
+            label="Etichetta"
             placeholder="Nome del punto"
-          />
+            .value=${this.selectedMarker.label || ''}
+            @input-change=${(e: CustomEvent) => this.updateMarkerLabel(e.detail.value)}
+          ></ui-input>
         </div>
 
         <!-- Description -->
         <div class="mb-3">
-          <label class="block text-xs font-medium text-surface-300 mb-1">Descrizione</label>
-          <textarea
-            class="w-full px-2 py-1.5 bg-surface-600 border border-surface-500 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
-            rows="2"
-            .value=${this.selectedMarker.description || ''}
-            @input=${(e: Event) =>
-              this.updateMarkerDescription((e.target as HTMLTextAreaElement).value)}
+          <ui-textarea
+            label="Descrizione"
+            .rows=${2}
             placeholder="Descrizione aggiuntiva..."
-          ></textarea>
+            .value=${this.selectedMarker.description || ''}
+            @textarea-change=${(e: CustomEvent) => this.updateMarkerDescription(e.detail.value)}
+          ></ui-textarea>
         </div>
 
         <!-- Position info -->
@@ -352,12 +309,13 @@ export class MarkerEditor extends LitElement {
         </div>
 
         <!-- Deselect button -->
-        <button
-          class="w-full px-3 py-1.5 bg-surface-600 hover:bg-surface-500 text-surface-300 text-sm rounded transition-colors"
+        <ui-button
+          variant="secondary"
+          size="sm"
+          label="✓ Chiudi modifica"
+          block
           @click=${this.deselectMarker}
-        >
-          ✓ Chiudi modifica
-        </button>
+        ></ui-button>
       </div>
     `;
   }
@@ -375,12 +333,12 @@ export class MarkerEditor extends LitElement {
 
   private updateMarkerArtwork(itemId: string) {
     if (!this.selectedMarker) return;
-    const artwork = this.artworks.find((a) => a._id === itemId);
+    const artwork = this.artworks.find((a) => a.wikidataId === itemId || a._id === itemId);
     this.dispatchEvent(
       new CustomEvent('marker-update', {
         detail: {
           ...this.selectedMarker,
-          itemId: itemId || undefined,
+          artworkId: itemId || undefined,
           label: artwork?.title || this.selectedMarker.label,
         },
         bubbles: true,
@@ -421,10 +379,10 @@ export class MarkerEditor extends LitElement {
     );
   }
 
-  private renderFocalPointEditor(artwork: Item) {
-    const focalX = (this.selectedMarker as any)?.focalPoint?.x ?? 50;
-    const focalY = (this.selectedMarker as any)?.focalPoint?.y ?? 50;
-    const focalZoom = (this.selectedMarker as any)?.focalZoom ?? 1;
+  private renderFocalPointEditor(artwork: Artwork) {
+    const focalX = this.selectedMarker?.focalPoint?.x ?? 50;
+    const focalY = this.selectedMarker?.focalPoint?.y ?? 50;
+    const focalZoom = this.selectedMarker?.focalZoom ?? 1;
 
     // Calculate image transform: we move the image so that the focal point is at center
     // offsetX/Y: how much to shift the image (negative = image moves left/up)
@@ -492,12 +450,12 @@ export class MarkerEditor extends LitElement {
         <!-- Info and reset -->
         <div class="flex justify-between items-center mt-3">
           <div class="text-xs text-surface-400">Zoom: ${focalZoom.toFixed(1)}x</div>
-          <button
-            class="px-2 py-1 bg-surface-600 hover:bg-surface-500 text-surface-300 text-xs rounded transition-colors"
+          <ui-button
+            variant="secondary"
+            size="xs"
+            label="🔄 Reset"
             @click=${this.resetFocalPoint}
-          >
-            🔄 Reset
-          </button>
+          ></ui-button>
         </div>
       </div>
     `;
@@ -511,9 +469,9 @@ export class MarkerEditor extends LitElement {
     const rect = container.getBoundingClientRect();
     const startX = e.clientX;
     const startY = e.clientY;
-    const startFocalX = (this.selectedMarker as any).focalPoint?.x ?? 50;
-    const startFocalY = (this.selectedMarker as any).focalPoint?.y ?? 50;
-    const zoom = (this.selectedMarker as any).focalZoom ?? 1;
+    const startFocalX = this.selectedMarker.focalPoint?.x ?? 50;
+    const startFocalY = this.selectedMarker.focalPoint?.y ?? 50;
+    const zoom = this.selectedMarker.focalZoom ?? 1;
     // Calculate limits based on zoom
     // When zoom = 1, image fits exactly, so focal must be 50 (no movement)
     // When zoom = 2, image is 2x larger, so focal can be 25-75
@@ -561,9 +519,9 @@ export class MarkerEditor extends LitElement {
     const touch = e.touches[0];
     const startX = touch.clientX;
     const startY = touch.clientY;
-    const startFocalX = (this.selectedMarker as any).focalPoint?.x ?? 50;
-    const startFocalY = (this.selectedMarker as any).focalPoint?.y ?? 50;
-    const zoom = (this.selectedMarker as any).focalZoom ?? 1;
+    const startFocalX = this.selectedMarker.focalPoint?.x ?? 50;
+    const startFocalY = this.selectedMarker.focalPoint?.y ?? 50;
+    const zoom = this.selectedMarker.focalZoom ?? 1;
 
     // Same limits for touch
     const minFocal = 50 / zoom;
@@ -602,9 +560,9 @@ export class MarkerEditor extends LitElement {
     if (!this.selectedMarker) return;
     e.preventDefault();
 
-    const currentZoom = (this.selectedMarker as any).focalZoom ?? 1;
-    const currentFocalX = (this.selectedMarker as any).focalPoint?.x ?? 50;
-    const currentFocalY = (this.selectedMarker as any).focalPoint?.y ?? 50;
+    const currentZoom = this.selectedMarker.focalZoom ?? 1;
+    const currentFocalX = this.selectedMarker.focalPoint?.x ?? 50;
+    const currentFocalY = this.selectedMarker.focalPoint?.y ?? 50;
 
     const delta = e.deltaY > 0 ? -0.2 : 0.2;
     const newZoom = Math.max(1, Math.min(10, currentZoom + delta));
@@ -621,23 +579,6 @@ export class MarkerEditor extends LitElement {
           ...this.selectedMarker,
           focalZoom: Math.round(newZoom * 10) / 10,
           focalPoint: { x: newFocalX, y: newFocalY },
-        },
-        bubbles: true,
-        composed: true,
-      }),
-    );
-  }
-
-  private handleZoomChange(e: Event) {
-    if (!this.selectedMarker) return;
-
-    const zoom = parseFloat((e.target as HTMLInputElement).value);
-
-    this.dispatchEvent(
-      new CustomEvent('marker-update', {
-        detail: {
-          ...this.selectedMarker,
-          focalZoom: zoom,
         },
         bubbles: true,
         composed: true,
@@ -663,7 +604,9 @@ export class MarkerEditor extends LitElement {
 
   private renderMarkerItem(marker: MapMarker) {
     const typeInfo = this.markerTypes.find((t) => t.type === marker.type);
-    const artwork = marker.itemId ? this.artworks.find((a) => a._id === marker.itemId) : null;
+    const artwork = marker.artworkId
+      ? this.artworks.find((a) => a.wikidataId === marker.artworkId)
+      : null;
 
     return html`
       <div
@@ -684,13 +627,12 @@ export class MarkerEditor extends LitElement {
               : `X: ${Math.round(marker.x)} Y: ${Math.round(marker.y)}`}
           </div>
         </div>
-        <button
-          class="p-1.5 rounded hover:bg-red-600 text-surface-400 hover:text-white transition-colors"
-          @click=${(e: Event) => this.deleteMarker(e, marker)}
+        <ui-icon-button
+          icon="trash"
+          variant="danger"
           title="Elimina"
-        >
-          🗑️
-        </button>
+          @click=${(e: Event) => this.deleteMarker(e, marker)}
+        ></ui-icon-button>
       </div>
     `;
   }
@@ -706,7 +648,7 @@ export class MarkerEditor extends LitElement {
       type: this.selectedType,
       label: this.markerLabel,
       description: this.markerDescription || undefined,
-      itemId: this.selectedArtworkId || undefined,
+      artworkId: this.selectedArtworkId || undefined,
       isVisible: true,
     };
 

@@ -1,0 +1,1473 @@
+import { html, nothing } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
+import { repeat } from 'lit/directives/repeat.js';
+import {
+  LANGUAGE_LEVEL_OPTIONS_EMOJI_IT,
+  VisitStepType,
+  LanguageLevel,
+  LicenseType,
+  getVisitStepTypeLabel,
+  type Artwork,
+  type Item,
+  type CreateVisitData,
+  type UpdateVisitData,
+  type VisitStep,
+  type VisitGeneralInfo,
+  type TargetAudience,
+  type Museum,
+} from '@artaround/shared';
+import { visitService } from '../../services/visit.service';
+import { museumService } from '../../services/museum.service';
+import { artworkService } from '../../services/artwork.service';
+import { itemService } from '../../services/item.service';
+import { MuseumAwareMixin, AppBaseElement } from '../../base';
+import '../ui/ui-input';
+import '../ui/ui-select';
+import '../ui/ui-button';
+import '../ui/ui-icon';
+import '../ui/ui-card';
+import '../ui/ui-textarea';
+import '../ui/ui-badge';
+import '../ui/ui-image-placeholder';
+import '../ui/ui-loading';
+import '../ui/ui-alert';
+import '../ui/ui-tabs';
+import '../ui/ui-checkbox';
+import '../ui/ui-icon-button';
+
+type EditorTab = 'info' | 'steps' | 'audience' | 'settings';
+
+/**
+ * Visit Editor Component
+ *
+ * Creates and edits visits (percorsi di visita).
+ * A visit is an ordered sequence of steps through a museum.
+ */
+@customElement('visit-editor')
+export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
+  @property({ type: String }) visitId = ''; // For edit mode
+
+  @state() private loadingVisit = false;
+  @state() private saving = false;
+  @state() private error = '';
+  @state() private success = '';
+  @state() private museums: Museum[] = [];
+  @state() private loadingMuseums = true;
+  @state() private activeTab: EditorTab = 'info';
+
+  // Basic info
+  @state() private visitTitle = '';
+  @state() private description = '';
+  @state() private coverImage = '';
+  @state() private museumId = '';
+
+  // Steps
+  @state() private steps: VisitStep[] = [];
+  @state() private editingStepIndex: number | null = null;
+  @state() private draggingIndex: number | null = null;
+  @state() private dragOverIndex: number | null = null;
+  @state() private artworks: Artwork[] = [];
+  @state() private loadingArtworks = false;
+  @state() private availableItems: Item[] = [];
+  // General Info
+  @state() private costs = '';
+  @state() private ticketInfo = '';
+  @state() private openingHours = '';
+  @state() private services: string[] = [];
+  @state() private tips: string[] = [];
+  @state() private accessibility = '';
+  @state() private wheelchairAccessible = false;
+
+  // Target Audience
+  @state() private minAge: number | undefined = undefined;
+  @state() private maxAge: number | undefined = undefined;
+  @state() private languageLevels: LanguageLevel[] = [LanguageLevel.MEDIUM];
+  @state() private interests: string[] = [];
+  @state() private estimatedDuration = 60;
+
+  // Metadata
+  @state() private language = 'it';
+  @state() private price = 0;
+  @state() private isFree = true;
+  @state() private license: LicenseType = LicenseType.CC0;
+
+  private serviceInput = '';
+  private tipInput = '';
+  private interestInput = '';
+
+  private readonly languageLevelOptions = LANGUAGE_LEVEL_OPTIONS_EMOJI_IT;
+
+  private logisticIcons = [
+    { value: 'ticket', label: '🎫 Biglietteria' },
+    { value: 'info', label: 'ℹ️ Informazioni' },
+    { value: 'clock', label: '⏰ Orari' },
+    { value: 'accessibility', label: '♿ Accessibilità' },
+    { value: 'food', label: '🍽️ Ristoro' },
+    { value: 'shop', label: '🛍️ Shop' },
+    { value: 'toilet', label: '🚻 Servizi' },
+    { value: 'wifi', label: '📶 WiFi' },
+  ];
+
+  async connectedCallback() {
+    super.connectedCallback();
+    await this.loadMuseums();
+
+    if (!this.visitId && this.selectedMuseumId) {
+      this.museumId = this.selectedMuseumId;
+      await this.loadArtworksForMuseum();
+    }
+
+    if (this.visitId) {
+      await this.loadVisit();
+    }
+  }
+
+  private async loadMuseums() {
+    this.loadingMuseums = true;
+    try {
+      this.museums = await museumService.getMuseums();
+    } catch (e) {
+      console.error('Error loading museums:', e);
+    } finally {
+      this.loadingMuseums = false;
+    }
+  }
+
+  private async loadVisit() {
+    if (!this.visitId) return;
+
+    this.loadingVisit = true;
+    try {
+      const visit = await visitService.getById(this.visitId);
+      if (visit) {
+        // Basic info
+        this.visitTitle = visit.title;
+        this.description = visit.description;
+        this.coverImage = visit.coverImage || '';
+        this.museumId = visit.museumId;
+        this.steps = visit.steps || [];
+
+        // General info
+        if (visit.generalInfo) {
+          this.costs = visit.generalInfo.costs || '';
+          this.ticketInfo = visit.generalInfo.ticketInfo || '';
+          this.openingHours = visit.generalInfo.openingHours || '';
+          this.services = visit.generalInfo.services || [];
+          this.tips = visit.generalInfo.tips || [];
+          this.accessibility = visit.generalInfo.accessibility || '';
+          this.wheelchairAccessible = visit.generalInfo.wheelchairAccessible || false;
+        }
+
+        // Target audience
+        if (visit.targetAudience) {
+          this.minAge = visit.targetAudience.minAge;
+          this.maxAge = visit.targetAudience.maxAge;
+          this.languageLevels = visit.targetAudience.languageLevels || [LanguageLevel.MEDIUM];
+          this.interests = visit.targetAudience.interests || [];
+          this.estimatedDuration = visit.targetAudience.estimatedDuration || 60;
+        }
+
+        // Metadata
+        if (visit.metadata) {
+          this.language = visit.metadata.language || 'it';
+          this.price = visit.metadata.price || 0;
+          this.isFree = visit.metadata.isFree !== false;
+          this.license = (visit.metadata.license as LicenseType) || LicenseType.CC0;
+        }
+
+        // Load artworks for this museum
+        if (this.museumId) {
+          await this.loadArtworksForMuseum();
+        }
+      }
+    } catch (e) {
+      console.error('Error loading visit:', e);
+      this.error = 'Impossibile caricare la visita';
+    } finally {
+      this.loadingVisit = false;
+    }
+  }
+
+  private async loadArtworksForMuseum() {
+    if (!this.museumId) return;
+
+    this.loadingArtworks = true;
+    try {
+      const result = await artworkService.getArtworks({ museumId: this.museumId, limit: 100 });
+      this.artworks = result.artworks;
+    } catch (e) {
+      console.error('Error loading artworks:', e);
+    } finally {
+      this.loadingArtworks = false;
+    }
+  }
+
+  private async loadItemsForArtwork(artworkId: string) {
+    try {
+      const result = await itemService.getItems({ referenceId: artworkId, limit: 100 });
+      this.availableItems = result.items;
+    } catch (e) {
+      console.error('Error loading items:', e);
+    }
+  }
+
+  private async handleMuseumChange(e: CustomEvent) {
+    this.museumId = e.detail.value;
+    // Reload artworks when museum changes
+    if (this.museumId) {
+      await this.loadArtworksForMuseum();
+    } else {
+      this.artworks = [];
+    }
+  }
+
+  private generateStepId(): string {
+    return `step_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  private addStep(type: VisitStepType) {
+    const newStep: VisitStep = {
+      id: this.generateStepId(),
+      order: this.steps.length,
+      type,
+      isOptional: false,
+    };
+
+    // Set defaults based on type
+    if (type === VisitStepType.LOGISTIC) {
+      newStep.logisticTitle = '';
+      newStep.logisticText = '';
+      newStep.logisticIcon = 'info';
+    } else if (type === VisitStepType.NAVIGATION) {
+      newStep.navigationText = '';
+      newStep.fromRoom = '';
+      newStep.toRoom = '';
+    }
+
+    this.steps = [...this.steps, newStep];
+    this.editingStepIndex = this.steps.length - 1;
+    // Scroll to new step after render
+    this.updateComplete.then(() => this.scrollToStep(this.steps.length - 1));
+  }
+
+  private scrollToStep(index: number) {
+    const stepCards = this.querySelectorAll('.step-card');
+    if (stepCards[index]) {
+      stepCards[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  private moveStepUp(index: number) {
+    if (index === 0) return;
+    const newSteps = [...this.steps];
+    [newSteps[index - 1], newSteps[index]] = [newSteps[index], newSteps[index - 1]];
+    this.steps = newSteps.map((step, i) => ({ ...step, order: i }));
+  }
+
+  private moveStepDown(index: number) {
+    if (index === this.steps.length - 1) return;
+    const newSteps = [...this.steps];
+    [newSteps[index], newSteps[index + 1]] = [newSteps[index + 1], newSteps[index]];
+    this.steps = newSteps.map((step, i) => ({ ...step, order: i }));
+  }
+
+  private removeStep(index: number) {
+    this.steps = this.steps.filter((_, i) => i !== index).map((step, i) => ({ ...step, order: i }));
+    if (this.editingStepIndex === index) {
+      this.editingStepIndex = null;
+    }
+  }
+
+  private updateStep(index: number, updates: Partial<VisitStep>) {
+    this.steps = this.steps.map((step, i) => (i === index ? { ...step, ...updates } : step));
+  }
+
+  private handleFormSubmit(e: Event) {
+    e.preventDefault();
+    this.handleSubmit();
+  }
+
+  private async handleSubmit() {
+    if (!this.validateForm()) return;
+
+    this.saving = true;
+    this.error = '';
+    this.success = '';
+
+    try {
+      const generalInfo: VisitGeneralInfo = {
+        costs: this.costs || undefined,
+        ticketInfo: this.ticketInfo || undefined,
+        openingHours: this.openingHours || undefined,
+        services: this.services.length > 0 ? this.services : undefined,
+        tips: this.tips.length > 0 ? this.tips : undefined,
+        accessibility: this.accessibility || undefined,
+        wheelchairAccessible: this.wheelchairAccessible,
+      };
+
+      const targetAudience: TargetAudience = {
+        minAge: this.minAge,
+        maxAge: this.maxAge,
+        languageLevels: this.languageLevels,
+        interests: this.interests.length > 0 ? this.interests : undefined,
+        estimatedDuration: this.estimatedDuration,
+      };
+
+      const visitData: CreateVisitData | UpdateVisitData = {
+        museumId: this.museumId,
+        title: this.visitTitle,
+        description: this.description,
+        coverImage: this.coverImage || undefined,
+        steps: this.steps,
+        generalInfo,
+        targetAudience,
+        metadata: {
+          language: this.language,
+          price: this.isFree ? 0 : this.price,
+          isFree: this.isFree,
+          license: this.license,
+          estimatedDuration: this.estimatedDuration,
+        },
+      };
+
+      if (this.visitId) {
+        await visitService.update(this.visitId, visitData);
+        this.success = 'Visita aggiornata con successo!';
+      } else {
+        const created = await visitService.create(visitData as CreateVisitData);
+        this.success = 'Visita creata con successo!';
+        this.visitId = created._id;
+      }
+
+      // Emit saved event
+      this.dispatchEvent(
+        new CustomEvent('visit-saved', {
+          detail: { visitId: this.visitId },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    } catch (e) {
+      console.error('Error saving visit:', e);
+      this.error = e instanceof Error ? e.message : 'Impossibile salvare la visita';
+    } finally {
+      this.saving = false;
+    }
+  }
+
+  private validateForm(): boolean {
+    if (!this.visitTitle.trim()) {
+      this.error = 'Il titolo è obbligatorio';
+      this.activeTab = 'info';
+      return false;
+    }
+    if (!this.description.trim()) {
+      this.error = 'La descrizione è obbligatoria';
+      this.activeTab = 'info';
+      return false;
+    }
+    if (!this.museumId) {
+      this.error = 'Seleziona un museo';
+      this.activeTab = 'info';
+      return false;
+    }
+    if (this.steps.length === 0) {
+      this.error = 'Aggiungi almeno un passaggio';
+      this.activeTab = 'steps';
+      return false;
+    }
+    if (this.languageLevels.length === 0) {
+      this.error = 'Seleziona almeno un livello di linguaggio';
+      this.activeTab = 'audience';
+      return false;
+    }
+    return true;
+  }
+
+  private handleCancel() {
+    this.dispatchEvent(
+      new CustomEvent('cancel', {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  render() {
+    if (this.loadingVisit) {
+      return html`<ui-loading size="lg" text="Caricamento visita..."></ui-loading>`;
+    }
+
+    return html`
+      <form @submit=${this.handleFormSubmit} class="space-y-8">
+        <!-- Success/Error Messages -->
+        ${!this.museumId
+          ? html`
+              <ui-alert
+                variant="warning"
+                .message=${'Seleziona un museo attivo prima di creare la visita.'}
+              ></ui-alert>
+              <div class="flex justify-end">
+                <ui-button
+                  variant="secondary"
+                  size="sm"
+                  label="Seleziona museo"
+                  @click=${this.emitSelectMuseum}
+                ></ui-button>
+              </div>
+            `
+          : ''}
+        ${this.success
+          ? html`<ui-alert variant="success" .message=${this.success}></ui-alert>`
+          : ''}
+        ${this.error ? html`<ui-alert variant="danger" .message=${this.error}></ui-alert>` : ''}
+
+        <!-- Tabs -->
+        <ui-tabs
+          .tabs=${[
+            { id: 'info', label: 'Informazioni', icon: 'document' },
+            { id: 'steps', label: 'Percorso', icon: 'list', badge: this.steps.length || undefined },
+            { id: 'audience', label: 'Pubblico', icon: 'users' },
+            { id: 'settings', label: 'Impostazioni', icon: 'cog' },
+          ]}
+          .activeTab=${this.activeTab}
+          @tab-change=${(e: CustomEvent) => (this.activeTab = e.detail.id)}
+        ></ui-tabs>
+
+        <!-- Tab Content -->
+        <div class="tab-content">${this.renderActiveTab()}</div>
+
+        <!-- Actions -->
+        <div
+          class="flex items-center justify-end gap-3 pt-6 border-t border-surface-200 dark:border-surface-700"
+        >
+          <ui-button
+            type="button"
+            variant="secondary"
+            label="Annulla"
+            @click=${this.handleCancel}
+          ></ui-button>
+          <ui-button
+            type="submit"
+            variant="primary"
+            label=${this.visitId ? 'Salva Modifiche' : 'Crea Visita'}
+            icon="save"
+            .loading=${this.saving}
+          ></ui-button>
+        </div>
+      </form>
+    `;
+  }
+
+  private renderActiveTab() {
+    switch (this.activeTab) {
+      case 'info':
+        return this.renderInfoTab();
+      case 'steps':
+        return this.renderStepsTab();
+      case 'audience':
+        return this.renderAudienceTab();
+      case 'settings':
+        return this.renderSettingsTab();
+      default:
+        return this.renderInfoTab();
+    }
+  }
+
+  private renderInfoTab() {
+    return html`
+      <div class="space-y-8">
+        <!-- Museum Selection -->
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="location" size="sm" class="text-brand-500"></ui-icon>
+            Museo
+          </h3>
+          <ui-card>
+            <ui-select
+              label="Seleziona il museo"
+              .value=${this.museumId}
+              .options=${this.museums.map((m) => ({ value: m.wikidataId, label: m.name }))}
+              placeholder=${this.loadingMuseums ? 'Caricamento...' : 'Seleziona un museo'}
+              ?disabled=${this.loadingMuseums}
+              @select-change=${this.handleMuseumChange}
+              required
+            ></ui-select>
+          </ui-card>
+        </section>
+
+        <!-- Basic Info -->
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="document" size="sm" class="text-brand-500"></ui-icon>
+            Informazioni di base
+          </h3>
+          <ui-card>
+            <div class="space-y-4">
+              <ui-input
+                label="Titolo della visita"
+                placeholder="Es. Capolavori del Rinascimento"
+                .value=${this.visitTitle}
+                @input=${(e: InputEvent) =>
+                  (this.visitTitle = (e.target as HTMLInputElement).value)}
+                required
+              ></ui-input>
+
+              <ui-textarea
+                label="Descrizione"
+                placeholder="Descrivi il percorso di visita..."
+                .value=${this.description}
+                @input=${(e: InputEvent) =>
+                  (this.description = (e.target as HTMLTextAreaElement).value)}
+                rows="4"
+                required
+              ></ui-textarea>
+
+              <ui-input
+                label="Immagine di copertina (URL)"
+                placeholder="https://example.com/image.jpg"
+                .value=${this.coverImage}
+                @input=${(e: InputEvent) =>
+                  (this.coverImage = (e.target as HTMLInputElement).value)}
+              ></ui-input>
+
+              ${this.coverImage
+                ? html`
+                    <div
+                      class="mt-2 relative max-w-xs h-32 bg-surface-100 dark:bg-surface-800 rounded-lg overflow-hidden"
+                    >
+                      <img
+                        src="${this.coverImage}"
+                        alt="Cover preview"
+                        class="w-full h-full object-cover"
+                        @error=${(e: Event) => {
+                          const img = e.target as HTMLImageElement;
+                          img.style.display = 'none';
+                          img.parentElement
+                            ?.querySelector('ui-image-placeholder')
+                            ?.removeAttribute('hidden');
+                        }}
+                      />
+                      <ui-image-placeholder
+                        type="museum"
+                        size="md"
+                        hidden
+                        class="absolute inset-0"
+                      ></ui-image-placeholder>
+                    </div>
+                  `
+                : nothing}
+            </div>
+          </ui-card>
+        </section>
+
+        <!-- Practical Info -->
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="info" size="sm" class="text-brand-500"></ui-icon>
+            Informazioni pratiche
+          </h3>
+          <ui-card>
+            <div class="space-y-4">
+              <ui-input
+                label="Costi"
+                placeholder="Es. Ingresso €15, ridotto €8"
+                .value=${this.costs}
+                @input=${(e: InputEvent) => (this.costs = (e.target as HTMLInputElement).value)}
+              ></ui-input>
+
+              <ui-input
+                label="Informazioni biglietti"
+                placeholder="Es. Prenotazione obbligatoria online"
+                .value=${this.ticketInfo}
+                @input=${(e: InputEvent) =>
+                  (this.ticketInfo = (e.target as HTMLInputElement).value)}
+              ></ui-input>
+
+              <ui-input
+                label="Orari di apertura"
+                placeholder="Es. Mar-Dom 9:00-19:00"
+                .value=${this.openingHours}
+                @input=${(e: InputEvent) =>
+                  (this.openingHours = (e.target as HTMLInputElement).value)}
+              ></ui-input>
+
+              <ui-textarea
+                label="Accessibilità"
+                placeholder="Es. Accessibile ai disabili, ascensore disponibile"
+                .value=${this.accessibility}
+                @input=${(e: InputEvent) =>
+                  (this.accessibility = (e.target as HTMLTextAreaElement).value)}
+                rows="2"
+              ></ui-textarea>
+
+              <ui-checkbox
+                label="Accessibile in sedia a rotelle"
+                .checked=${this.wheelchairAccessible}
+                @checkbox-change=${(e: CustomEvent) =>
+                  (this.wheelchairAccessible = e.detail.checked)}
+              ></ui-checkbox>
+            </div>
+          </ui-card>
+        </section>
+      </div>
+    `;
+  }
+
+  private renderStepsTab() {
+    return html`
+      <div class="space-y-8">
+        <!-- Add Step Buttons -->
+        <div class="flex flex-wrap gap-2">
+          <ui-button
+            type="button"
+            variant="outline"
+            size="sm"
+            icon="image"
+            label="Aggiungi Opera"
+            @click=${() => this.addStep(VisitStepType.ARTWORK)}
+            ?disabled=${!this.museumId || this.artworks.length === 0}
+          ></ui-button>
+          <ui-button
+            type="button"
+            variant="outline"
+            size="sm"
+            icon="info"
+            label="Info Logistica"
+            @click=${() => this.addStep(VisitStepType.LOGISTIC)}
+          ></ui-button>
+          <ui-button
+            type="button"
+            variant="outline"
+            size="sm"
+            icon="arrowRight"
+            label="Indicazioni"
+            @click=${() => this.addStep(VisitStepType.NAVIGATION)}
+          ></ui-button>
+        </div>
+
+        ${this.renderStepsContent()}
+      </div>
+    `;
+  }
+
+  private renderStepsContent() {
+    if (!this.museumId) {
+      return html`
+        <div class="text-center py-8 text-surface-500 dark:text-surface-400">
+          <ui-icon name="location" size="lg" class="mb-2 opacity-50"></ui-icon>
+          <p>Seleziona prima un museo nella tab Informazioni</p>
+        </div>
+      `;
+    }
+
+    if (this.steps.length === 0) {
+      return html`
+        <div class="text-center py-8 text-surface-500 dark:text-surface-400">
+          <ui-icon name="list" size="lg" class="mb-2 opacity-50"></ui-icon>
+          <p>Aggiungi il primo passaggio del percorso</p>
+        </div>
+      `;
+    }
+
+    return html`
+      <div class="space-y-3">
+        ${repeat(
+          this.steps,
+          (step) => step.id,
+          (step, index) => this.renderStepCard(step, index),
+        )}
+      </div>
+    `;
+  }
+
+  private handleDragStart(e: DragEvent, index: number) {
+    if (this.editingStepIndex !== null) {
+      e.preventDefault();
+      return;
+    }
+    this.draggingIndex = index;
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', index.toString());
+    }
+  }
+
+  private handleDragEnd() {
+    this.draggingIndex = null;
+    this.dragOverIndex = null;
+  }
+
+  private handleDragOver(e: DragEvent, index: number) {
+    e.preventDefault();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'move';
+    }
+    if (this.draggingIndex !== null && this.draggingIndex !== index) {
+      this.dragOverIndex = index;
+    }
+  }
+
+  private handleDragLeave() {
+    this.dragOverIndex = null;
+  }
+
+  private handleDrop(e: DragEvent, targetIndex: number) {
+    e.preventDefault();
+    if (this.draggingIndex === null || this.draggingIndex === targetIndex) {
+      this.draggingIndex = null;
+      this.dragOverIndex = null;
+      return;
+    }
+
+    const newSteps = [...this.steps];
+    const [movedStep] = newSteps.splice(this.draggingIndex, 1);
+    newSteps.splice(targetIndex, 0, movedStep);
+    this.steps = newSteps;
+
+    this.draggingIndex = null;
+    this.dragOverIndex = null;
+  }
+
+  private renderStepCard(step: VisitStep, index: number) {
+    const isEditing = this.editingStepIndex === index;
+    const isDragging = this.draggingIndex === index;
+    const isDragOver = this.dragOverIndex === index;
+    const stepTypeLabel = getVisitStepTypeLabel(step.type);
+
+    return html`
+      <div
+        class="step-card p-5 rounded-xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 shadow-soft transition-all duration-200
+          ${isEditing ? 'ring-2 ring-brand-500' : ''}
+          ${isDragging ? 'opacity-50 scale-95' : ''}
+          ${isDragOver ? 'ring-2 ring-brand-400 ring-dashed' : ''}"
+        draggable=${isEditing ? 'false' : 'true'}
+        @dragstart=${(e: DragEvent) => this.handleDragStart(e, index)}
+        @dragend=${() => this.handleDragEnd()}
+        @dragover=${(e: DragEvent) => this.handleDragOver(e, index)}
+        @dragleave=${() => this.handleDragLeave()}
+        @drop=${(e: DragEvent) => this.handleDrop(e, index)}
+      >
+        <div class="flex items-start gap-4">
+          <!-- Drag handle + Order number + Arrows -->
+          <div class="flex flex-col items-center gap-1">
+            <ui-icon-button
+              icon="chevronUp"
+              size="xs"
+              title="Sposta su"
+              @click=${(e: Event) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.moveStepUp(index);
+              }}
+              .disabled=${index === 0}
+            ></ui-icon-button>
+            <div
+              class="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-surface-100 dark:hover:bg-surface-800 ${isEditing
+                ? 'opacity-30 cursor-not-allowed'
+                : ''}"
+              title="Trascina per riordinare"
+            >
+              <span
+                class="w-8 h-8 flex items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-semibold text-sm"
+              >
+                ${index + 1}
+              </span>
+            </div>
+            <ui-icon-button
+              icon="chevronDown"
+              size="xs"
+              title="Sposta giù"
+              @click=${(e: Event) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.moveStepDown(index);
+              }}
+              .disabled=${index === this.steps.length - 1}
+            ></ui-icon-button>
+          </div>
+
+          <!-- Step content -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-2">
+              <ui-badge variant="outline" .label=${stepTypeLabel}></ui-badge>
+              ${step.isOptional
+                ? html`<ui-badge variant="secondary" label="Opzionale"></ui-badge>`
+                : nothing}
+            </div>
+
+            ${this.renderStepContent(step, index, isEditing)}
+          </div>
+
+          <!-- Actions -->
+          <div class="flex items-center gap-1">${this.renderStepActions(index, isEditing)}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderStepContent(step: VisitStep, index: number, isEditing: boolean) {
+    if (isEditing) {
+      return this.renderStepEditor(step, index);
+    }
+    return this.renderStepPreview(step, index);
+  }
+
+  private renderStepActions(index: number, isEditing: boolean) {
+    if (isEditing) {
+      return html`
+        <ui-icon-button
+          icon="check"
+          variant="brand"
+          title="Chiudi"
+          @click=${() => (this.editingStepIndex = null)}
+        ></ui-icon-button>
+        <ui-icon-button
+          icon="trash"
+          variant="danger"
+          title="Rimuovi"
+          @click=${() => this.removeStep(index)}
+        ></ui-icon-button>
+      `;
+    }
+    return html`
+      <ui-icon-button
+        icon="edit"
+        title="Modifica"
+        @click=${() => (this.editingStepIndex = index)}
+      ></ui-icon-button>
+      <ui-icon-button
+        icon="trash"
+        variant="danger"
+        title="Rimuovi"
+        @click=${() => this.removeStep(index)}
+      ></ui-icon-button>
+    `;
+  }
+
+  private renderStepPreview(step: VisitStep, _index: number) {
+    switch (step.type) {
+      case VisitStepType.ARTWORK: {
+        const artwork = this.artworks.find((a) => a.wikidataId === step.artworkId);
+        return html`
+          <div class="flex items-center gap-3">
+            <div
+              class="relative w-12 h-12 bg-surface-100 dark:bg-surface-800 rounded overflow-hidden flex-shrink-0"
+            >
+              ${artwork?.image
+                ? html`
+                    <img
+                      src="${artwork.image}"
+                      alt=""
+                      class="w-full h-full object-cover"
+                      @error=${(e: Event) => {
+                        const img = e.target as HTMLImageElement;
+                        img.style.display = 'none';
+                        img.parentElement
+                          ?.querySelector('ui-image-placeholder')
+                          ?.removeAttribute('hidden');
+                      }}
+                    />
+                    <ui-image-placeholder
+                      type="artwork"
+                      size="sm"
+                      hidden
+                      class="absolute inset-0"
+                    ></ui-image-placeholder>
+                  `
+                : html`<ui-image-placeholder type="artwork" size="sm"></ui-image-placeholder>`}
+            </div>
+            <div>
+              <p class="font-medium text-surface-900 dark:text-white">
+                ${artwork?.title || "Seleziona un'opera"}
+              </p>
+              ${artwork?.author
+                ? html`<p class="text-sm text-surface-500">${artwork.author}</p>`
+                : nothing}
+            </div>
+          </div>
+        `;
+      }
+      case VisitStepType.LOGISTIC:
+        return html`
+          <div>
+            <p class="font-medium text-surface-900 dark:text-white">
+              ${step.logisticTitle || 'Info logistica'}
+            </p>
+            ${step.logisticText
+              ? html`<p class="text-sm text-surface-500 line-clamp-2">${step.logisticText}</p>`
+              : nothing}
+          </div>
+        `;
+      case VisitStepType.NAVIGATION:
+        return html`
+          <div>
+            <p class="font-medium text-surface-900 dark:text-white">
+              ${step.fromRoom && step.toRoom
+                ? `Da ${step.fromRoom} a ${step.toRoom}`
+                : 'Indicazioni di navigazione'}
+            </p>
+            ${step.navigationText
+              ? html`<p class="text-sm text-surface-500 line-clamp-2">${step.navigationText}</p>`
+              : nothing}
+          </div>
+        `;
+    }
+  }
+
+  private renderStepEditor(step: VisitStep, index: number) {
+    switch (step.type) {
+      case VisitStepType.ARTWORK:
+        return this.renderArtworkStepEditor(step, index);
+      case VisitStepType.LOGISTIC:
+        return this.renderLogisticStepEditor(step, index);
+      case VisitStepType.NAVIGATION:
+        return this.renderNavigationStepEditor(step, index);
+    }
+  }
+
+  private renderArtworkStepEditor(step: VisitStep, index: number) {
+    return html`
+      <div class="space-y-4 mt-3 pt-3 border-t border-surface-200 dark:border-surface-700">
+        <ui-select
+          label="Opera"
+          .value=${step.artworkId || ''}
+          .options=${this.artworks.map((a) => ({
+            value: a.wikidataId,
+            label: `${a.title} - ${a.author || 'Autore sconosciuto'}`,
+          }))}
+          placeholder=${this.loadingArtworks ? 'Caricamento...' : "Seleziona un'opera"}
+          ?disabled=${this.loadingArtworks}
+          @select-change=${async (e: CustomEvent) => {
+            const artworkId = e.detail.value;
+            this.updateStep(index, { artworkId });
+            if (artworkId) {
+              await this.loadItemsForArtwork(artworkId);
+            }
+          }}
+        ></ui-select>
+
+        ${step.artworkId && this.availableItems.length > 0
+          ? html`
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
+                    Contenuti disponibili
+                  </label>
+                  <div class="flex gap-2">
+                    <ui-button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      label="Seleziona tutti"
+                      @click=${() => {
+                        const allIds = this.availableItems.map((item) => item._id);
+                        this.updateStep(index, { itemIds: allIds });
+                      }}
+                    ></ui-button>
+                    <span class="text-surface-300">|</span>
+                    <ui-button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      label="Deseleziona tutti"
+                      @click=${() => this.updateStep(index, { itemIds: [] })}
+                    ></ui-button>
+                  </div>
+                </div>
+                <div class="space-y-2">
+                  ${this.availableItems.map(
+                    (item) => html`
+                      <label
+                        class="flex items-center gap-2 p-2 rounded border border-surface-200 dark:border-surface-700 cursor-pointer hover:bg-surface-50 dark:hover:bg-surface-800"
+                      >
+                        <ui-checkbox
+                          .checked=${step.itemIds?.includes(item._id)}
+                          @checkbox-change=${(e: CustomEvent) => {
+                            const checked = e.detail.checked;
+                            const currentIds = step.itemIds || [];
+                            const newIds = checked
+                              ? [...currentIds, item._id]
+                              : currentIds.filter((id) => id !== item._id);
+                            this.updateStep(index, { itemIds: newIds });
+                          }}
+                        ></ui-checkbox>
+                        <span class="flex-1 text-sm">
+                          ${item.title}
+                          <span class="text-surface-500">
+                            - ${item.duration}, ${item.languageLevel}</span
+                          >
+                        </span>
+                      </label>
+                    `,
+                  )}
+                </div>
+              </div>
+            `
+          : nothing}
+
+        <ui-input
+          type="number"
+          label="Durata stimata (secondi)"
+          placeholder="Es. 180"
+          .value=${String(step.estimatedDuration || '')}
+          @input=${(e: InputEvent) =>
+            this.updateStep(index, {
+              estimatedDuration: parseInt((e.target as HTMLInputElement).value) || undefined,
+            })}
+        ></ui-input>
+
+        <ui-checkbox
+          label="Passaggio opzionale"
+          .checked=${step.isOptional}
+          @checkbox-change=${(e: CustomEvent) =>
+            this.updateStep(index, { isOptional: e.detail.checked })}
+        ></ui-checkbox>
+      </div>
+    `;
+  }
+
+  private renderLogisticStepEditor(step: VisitStep, index: number) {
+    return html`
+      <div class="space-y-4 mt-3 pt-3 border-t border-surface-200 dark:border-surface-700">
+        <ui-input
+          label="Titolo"
+          placeholder="Es. Informazioni utili"
+          .value=${step.logisticTitle || ''}
+          @input=${(e: InputEvent) =>
+            this.updateStep(index, { logisticTitle: (e.target as HTMLInputElement).value })}
+        ></ui-input>
+
+        <ui-textarea
+          label="Testo"
+          placeholder="Descrivi le informazioni logistiche..."
+          .value=${step.logisticText || ''}
+          @input=${(e: InputEvent) =>
+            this.updateStep(index, { logisticText: (e.target as HTMLTextAreaElement).value })}
+          rows="3"
+        ></ui-textarea>
+
+        <ui-select
+          label="Icona"
+          .value=${step.logisticIcon || 'info'}
+          .options=${this.logisticIcons}
+          @select-change=${(e: CustomEvent) =>
+            this.updateStep(index, { logisticIcon: e.detail.value })}
+        ></ui-select>
+
+        <ui-checkbox
+          label="Passaggio opzionale"
+          .checked=${step.isOptional}
+          @checkbox-change=${(e: CustomEvent) =>
+            this.updateStep(index, { isOptional: e.detail.checked })}
+        ></ui-checkbox>
+      </div>
+    `;
+  }
+
+  private renderNavigationStepEditor(step: VisitStep, index: number) {
+    return html`
+      <div class="space-y-4 mt-3 pt-3 border-t border-surface-200 dark:border-surface-700">
+        <div class="grid grid-cols-2 gap-4">
+          <ui-input
+            label="Da (sala/area)"
+            placeholder="Es. Sala 1"
+            .value=${step.fromRoom || ''}
+            @input=${(e: InputEvent) =>
+              this.updateStep(index, { fromRoom: (e.target as HTMLInputElement).value })}
+          ></ui-input>
+
+          <ui-input
+            label="A (sala/area)"
+            placeholder="Es. Sala 3"
+            .value=${step.toRoom || ''}
+            @input=${(e: InputEvent) =>
+              this.updateStep(index, { toRoom: (e.target as HTMLInputElement).value })}
+          ></ui-input>
+        </div>
+
+        <ui-textarea
+          label="Indicazioni"
+          placeholder="Es. Prosegui dritto, alla fine del corridoio gira a sinistra..."
+          .value=${step.navigationText || ''}
+          @input=${(e: InputEvent) =>
+            this.updateStep(index, { navigationText: (e.target as HTMLTextAreaElement).value })}
+          rows="3"
+        ></ui-textarea>
+
+        <ui-input
+          label="Immagine del percorso (URL)"
+          placeholder="https://example.com/path.jpg"
+          .value=${step.navigationImage || ''}
+          @input=${(e: InputEvent) =>
+            this.updateStep(index, { navigationImage: (e.target as HTMLInputElement).value })}
+        ></ui-input>
+
+        <ui-checkbox
+          label="Passaggio opzionale"
+          .checked=${step.isOptional}
+          @checkbox-change=${(e: CustomEvent) =>
+            this.updateStep(index, { isOptional: e.detail.checked })}
+        ></ui-checkbox>
+      </div>
+    `;
+  }
+
+  private renderAudienceTab() {
+    return html`
+      <div class="space-y-8">
+        <!-- Language Levels -->
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="document" size="sm" class="text-brand-500"></ui-icon>
+            Livelli di linguaggio supportati
+          </h3>
+          <ui-card>
+            <p class="text-sm text-surface-500 mb-4">
+              Seleziona i livelli per cui questa visita è adatta
+            </p>
+            <div class="space-y-2">
+              ${this.languageLevelOptions.map(
+                (option) => html`
+                  <label
+                    class="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-surface-50 dark:hover:bg-surface-800"
+                  >
+                    <ui-checkbox
+                      .checked=${this.languageLevels.includes(option.value)}
+                      @checkbox-change=${(e: CustomEvent) => {
+                        const checked = e.detail.checked;
+                        if (checked) {
+                          this.languageLevels = [...this.languageLevels, option.value];
+                        } else {
+                          this.languageLevels = this.languageLevels.filter(
+                            (l) => l !== option.value,
+                          );
+                        }
+                      }}
+                    ></ui-checkbox>
+                    <span class="text-sm text-surface-700 dark:text-surface-300"
+                      >${option.label}</span
+                    >
+                  </label>
+                `,
+              )}
+            </div>
+          </ui-card>
+        </section>
+
+        <!-- Age Range -->
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="users" size="sm" class="text-brand-500"></ui-icon>
+            Fascia d'età
+          </h3>
+          <ui-card>
+            <div class="grid grid-cols-2 gap-4">
+              <ui-input
+                type="number"
+                label="Età minima"
+                placeholder="Es. 8"
+                .value=${String(this.minAge || '')}
+                @input=${(e: InputEvent) =>
+                  (this.minAge = parseInt((e.target as HTMLInputElement).value) || undefined)}
+              ></ui-input>
+              <ui-input
+                type="number"
+                label="Età massima"
+                placeholder="Es. 99"
+                .value=${String(this.maxAge || '')}
+                @input=${(e: InputEvent) =>
+                  (this.maxAge = parseInt((e.target as HTMLInputElement).value) || undefined)}
+              ></ui-input>
+            </div>
+          </ui-card>
+        </section>
+
+        <!-- Duration -->
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="clock" size="sm" class="text-brand-500"></ui-icon>
+            Durata stimata
+          </h3>
+          <ui-card>
+            <ui-input
+              type="number"
+              label="Durata (minuti)"
+              placeholder="Es. 60"
+              .value=${String(this.estimatedDuration)}
+              @input=${(e: InputEvent) =>
+                (this.estimatedDuration = parseInt((e.target as HTMLInputElement).value) || 60)}
+            ></ui-input>
+          </ui-card>
+        </section>
+
+        <!-- Interests -->
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="tag" size="sm" class="text-brand-500"></ui-icon>
+            Interessi correlati
+          </h3>
+          <ui-card>
+            <div class="space-y-3">
+              <div class="flex gap-2">
+                <ui-input
+                  placeholder="Es. Arte barocca"
+                  .value=${this.interestInput}
+                  @input=${(e: InputEvent) =>
+                    (this.interestInput = (e.target as HTMLInputElement).value)}
+                  @keydown=${(e: KeyboardEvent) => {
+                    if (e.key === 'Enter' && this.interestInput.trim()) {
+                      this.interests = [...this.interests, this.interestInput.trim()];
+                      this.interestInput = '';
+                      this.requestUpdate();
+                    }
+                  }}
+                  class="flex-1"
+                ></ui-input>
+                <ui-button
+                  type="button"
+                  variant="outline"
+                  label="Aggiungi"
+                  @click=${() => {
+                    if (this.interestInput.trim()) {
+                      this.interests = [...this.interests, this.interestInput.trim()];
+                      this.interestInput = '';
+                      this.requestUpdate();
+                    }
+                  }}
+                ></ui-button>
+              </div>
+              ${this.interests.length > 0
+                ? html`
+                    <div class="flex flex-wrap gap-2">
+                      ${this.interests.map(
+                        (interest, i) => html`
+                          <span
+                            class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-surface-100 dark:bg-surface-800 text-sm"
+                          >
+                            ${interest}
+                            <ui-icon-button
+                              icon="x"
+                              size="xs"
+                              title="Rimuovi interesse"
+                              @click=${() =>
+                                (this.interests = this.interests.filter((_, idx) => idx !== i))}
+                            ></ui-icon-button>
+                          </span>
+                        `,
+                      )}
+                    </div>
+                  `
+                : nothing}
+            </div>
+          </ui-card>
+        </section>
+      </div>
+    `;
+  }
+
+  private renderSettingsTab() {
+    return html`
+      <div class="space-y-8">
+        <!-- Language -->
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="globe" size="sm" class="text-brand-500"></ui-icon>
+            Lingua
+          </h3>
+          <ui-card>
+            <ui-select
+              label="Lingua principale"
+              .value=${this.language}
+              .options=${[
+                { value: 'it', label: '🇮🇹 Italiano' },
+                { value: 'en', label: '🇬🇧 English' },
+                { value: 'fr', label: '🇫🇷 Français' },
+                { value: 'de', label: '🇩🇪 Deutsch' },
+                { value: 'es', label: '🇪🇸 Español' },
+              ]}
+              @select-change=${(e: CustomEvent) => (this.language = e.detail.value)}
+            ></ui-select>
+          </ui-card>
+        </section>
+
+        <!-- Pricing -->
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="currency" size="sm" class="text-brand-500"></ui-icon>
+            Prezzo
+          </h3>
+          <ui-card>
+            <div class="space-y-4">
+              <ui-checkbox
+                label="Visita gratuita"
+                .checked=${this.isFree}
+                @checkbox-change=${(e: CustomEvent) => (this.isFree = e.detail.checked)}
+              ></ui-checkbox>
+
+              ${!this.isFree
+                ? html`
+                    <ui-input
+                      type="number"
+                      label="Prezzo (€)"
+                      placeholder="Es. 4.99"
+                      .value=${String(this.price)}
+                      @input=${(e: InputEvent) =>
+                        (this.price = parseFloat((e.target as HTMLInputElement).value) || 0)}
+                      step="0.01"
+                      min="0"
+                    ></ui-input>
+                  `
+                : nothing}
+            </div>
+          </ui-card>
+        </section>
+
+        <!-- Services -->
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="cog" size="sm" class="text-brand-500"></ui-icon>
+            Servizi disponibili
+          </h3>
+          <ui-card>
+            <div class="space-y-3">
+              <div class="flex gap-2">
+                <ui-input
+                  placeholder="Es. Bar, Guardaroba, WiFi"
+                  .value=${this.serviceInput}
+                  @input=${(e: InputEvent) =>
+                    (this.serviceInput = (e.target as HTMLInputElement).value)}
+                  @keydown=${(e: KeyboardEvent) => {
+                    if (e.key === 'Enter' && this.serviceInput.trim()) {
+                      this.services = [...this.services, this.serviceInput.trim()];
+                      this.serviceInput = '';
+                      this.requestUpdate();
+                    }
+                  }}
+                  class="flex-1"
+                ></ui-input>
+                <ui-button
+                  type="button"
+                  variant="outline"
+                  label="Aggiungi"
+                  @click=${() => {
+                    if (this.serviceInput.trim()) {
+                      this.services = [...this.services, this.serviceInput.trim()];
+                      this.serviceInput = '';
+                      this.requestUpdate();
+                    }
+                  }}
+                ></ui-button>
+              </div>
+              ${this.services.length > 0
+                ? html`
+                    <div class="flex flex-wrap gap-2">
+                      ${this.services.map(
+                        (service, i) => html`
+                          <span
+                            class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-surface-100 dark:bg-surface-800 text-sm"
+                          >
+                            ${service}
+                            <ui-icon-button
+                              icon="x"
+                              size="xs"
+                              title="Rimuovi servizio"
+                              @click=${() =>
+                                (this.services = this.services.filter((_, idx) => idx !== i))}
+                            ></ui-icon-button>
+                          </span>
+                        `,
+                      )}
+                    </div>
+                  `
+                : nothing}
+            </div>
+          </ui-card>
+        </section>
+
+        <!-- Tips -->
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="info" size="sm" class="text-brand-500"></ui-icon>
+            Consigli per i visitatori
+          </h3>
+          <ui-card>
+            <div class="space-y-3">
+              <div class="flex gap-2">
+                <ui-input
+                  placeholder="Es. Arrivare con 15 minuti di anticipo"
+                  .value=${this.tipInput}
+                  @input=${(e: InputEvent) =>
+                    (this.tipInput = (e.target as HTMLInputElement).value)}
+                  @keydown=${(e: KeyboardEvent) => {
+                    if (e.key === 'Enter' && this.tipInput.trim()) {
+                      this.tips = [...this.tips, this.tipInput.trim()];
+                      this.tipInput = '';
+                      this.requestUpdate();
+                    }
+                  }}
+                  class="flex-1"
+                ></ui-input>
+                <ui-button
+                  type="button"
+                  variant="outline"
+                  label="Aggiungi"
+                  @click=${() => {
+                    if (this.tipInput.trim()) {
+                      this.tips = [...this.tips, this.tipInput.trim()];
+                      this.tipInput = '';
+                      this.requestUpdate();
+                    }
+                  }}
+                ></ui-button>
+              </div>
+              ${this.tips.length > 0
+                ? html`
+                    <div class="space-y-2">
+                      ${this.tips.map(
+                        (tip, i) => html`
+                          <div
+                            class="flex items-center gap-2 p-2 rounded bg-surface-50 dark:bg-surface-800"
+                          >
+                            <span class="text-sm flex-1">${tip}</span>
+                            <ui-icon-button
+                              icon="x"
+                              size="sm"
+                              title="Rimuovi consiglio"
+                              @click=${() => (this.tips = this.tips.filter((_, idx) => idx !== i))}
+                            ></ui-icon-button>
+                          </div>
+                        `,
+                      )}
+                    </div>
+                  `
+                : nothing}
+            </div>
+          </ui-card>
+        </section>
+      </div>
+    `;
+  }
+}

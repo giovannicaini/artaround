@@ -64,9 +64,6 @@ class ModalService {
     });
   }
 
-  /**
-   * Show a success message
-   */
   success(message: string, title = 'Operazione completata'): Promise<void> {
     return this.alert({
       title,
@@ -76,9 +73,6 @@ class ModalService {
     });
   }
 
-  /**
-   * Show an error message
-   */
   error(message: string, title = 'Errore'): Promise<void> {
     return this.alert({
       title,

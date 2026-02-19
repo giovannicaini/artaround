@@ -29,11 +29,12 @@ import { useNavigator } from '../context/NavigatorContext';
 import { speechService, voiceRecognitionService, parseVoiceCommand } from '../services/speech';
 import { api, ApiError } from '../services/api';
 import {
-  CompetenceLevel,
+  LanguageLevel,
   ContentDuration,
   MarkerType,
+  VisitStepType,
+  type Artwork,
   type Item,
-  type MuseumConfig,
   type MuseumMap,
 } from '@artaround/shared';
 import MapView from '../components/MapView';
@@ -42,21 +43,22 @@ export default function VisitPlayerPage() {
   const navigate = useNavigate();
   const { visitId } = useParams();
   const {
-    currentItem,
-    currentItemIndex,
-    items,
+    currentStep,
+    currentStepIndex,
+    steps,
     isSpeaking,
     isListening,
-    contentLevel,
+    languageLevel,
     contentDuration,
-    setItems,
-    goToItem,
-    nextItem,
-    prevItem,
-    setContentLevel,
+    setSteps,
+    goToStep,
+    nextStep,
+    prevStep,
+    setLanguageLevel,
     setContentDuration,
     setSpeaking,
     setListening,
+    getCurrentContent,
   } = useNavigator();
 
   const [showControls, setShowControls] = useState(true);
@@ -67,8 +69,12 @@ export default function VisitPlayerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [museumMap, setMuseumMap] = useState<MuseumMap | null>(null);
+  const [artworksLookup, setArtworksLookup] = useState<Record<string, Artwork>>({});
 
-  // Load visit and items from API
+  // Get current artwork from step
+  const currentArtwork = currentStep?.artwork;
+
+  // Load visit and build steps from API
   useEffect(() => {
     async function loadVisitData() {
       if (!visitId) {
@@ -81,10 +87,10 @@ export default function VisitPlayerPage() {
         setLoading(true);
         setError(null);
 
-        // Get visit details with populated items
+        // Get visit details
         const visit = await api.getVisit(visitId);
 
-        if (!visit.items || visit.items.length === 0) {
+        if (!visit.steps || visit.steps.length === 0) {
           setError('Questa visita non contiene opere');
           setLoading(false);
           return;
@@ -94,44 +100,92 @@ export default function VisitPlayerPage() {
         if (visit.museumId) {
           try {
             const museum = await api.getMuseum(visit.museumId as string);
-            if (museum.configFile) {
-              try {
-                const config: MuseumConfig =
-                  typeof museum.configFile === 'string'
-                    ? JSON.parse(museum.configFile)
-                    : museum.configFile;
-                if (config.map) {
-                  setMuseumMap(config.map);
-                }
-              } catch (parseErr) {
-                console.warn('Failed to parse museum config:', parseErr);
-              }
+            // Use first floor's map if available
+            if (museum.floors && museum.floors.length > 0) {
+              const firstFloor = museum.floors[0];
+              setMuseumMap({
+                type: 'svg',
+                svgContent: firstFloor.svgContent,
+                dimensions: firstFloor.dimensions,
+                markers: firstFloor.markers,
+                floors: museum.floors,
+              });
             }
           } catch (museumErr) {
             console.warn('Failed to load museum:', museumErr);
           }
         }
 
-        // After populate, itemId is the full Item object, not just an ID
-        // Sort items according to visit order and extract the populated items
-        const orderedItems = visit.items
-          .sort((a, b) => a.order - b.order)
-          .map((vi) => {
-            // itemId is populated as full Item object
-            const item = vi.itemId as unknown as Item;
-            return item;
-          })
-          .filter(
-            (item): item is Item => item !== undefined && item !== null && typeof item === 'object',
-          );
+        // Load artworks and items for each step
+        const artworkSteps = visit.steps.filter(
+          (step) => step.type === VisitStepType.ARTWORK && step.artworkId,
+        );
 
-        if (orderedItems.length === 0) {
+        // Fetch all artworks
+        const artworkIds = [...new Set(artworkSteps.map((s) => s.artworkId!))];
+        const artworksData = await Promise.all(
+          artworkIds.map(async (artworkId) => {
+            try {
+              return await api.getArtwork(artworkId);
+            } catch {
+              console.warn(`Failed to load artwork ${artworkId}`);
+              return null;
+            }
+          }),
+        );
+
+        // Build artworks lookup object
+        const artworksById: Record<string, Artwork> = {};
+        artworksData.filter(Boolean).forEach((artwork) => {
+          if (artwork) {
+            artworksById[artwork.wikidataId] = artwork;
+            artworksById[artwork._id] = artwork;
+          }
+        });
+        setArtworksLookup(artworksById);
+
+        // Fetch items for each artwork
+        const itemsByArtworkId: Record<string, Item[]> = {};
+        await Promise.all(
+          artworkIds.map(async (artworkId) => {
+            try {
+              const items = await api.getItemsForArtwork(artworkId);
+              itemsByArtworkId[artworkId] = items;
+            } catch {
+              console.warn(`Failed to load items for artwork ${artworkId}`);
+              itemsByArtworkId[artworkId] = [];
+            }
+          }),
+        );
+
+        // Build navigator steps
+        type NavigatorStep = {
+          artwork: Artwork;
+          items: Item[];
+          selectedItem: Item | null;
+        };
+
+        const navigatorSteps: NavigatorStep[] = visit.steps
+          .filter((step) => step.type === VisitStepType.ARTWORK && step.artworkId)
+          .sort((a, b) => a.order - b.order)
+          .map((step) => {
+            const artwork = artworksById[step.artworkId!];
+            const artworkItems = itemsByArtworkId[step.artworkId!] || [];
+            return {
+              artwork: artwork!,
+              items: artworkItems,
+              selectedItem: artworkItems[0] || null,
+            };
+          })
+          .filter((step) => step.artwork);
+
+        if (navigatorSteps.length === 0) {
           setError('Impossibile caricare le opere della visita');
           setLoading(false);
           return;
         }
 
-        setItems(orderedItems);
+        setSteps(navigatorSteps);
       } catch (err) {
         const message =
           err instanceof ApiError
@@ -145,25 +199,11 @@ export default function VisitPlayerPage() {
     }
 
     loadVisitData();
-  }, [visitId, setItems]);
-
-  // Get current content based on settings
-  const getCurrentText = useCallback(() => {
-    if (!currentItem) return '';
-
-    const content = currentItem.contents.find(
-      (c) => c.language === contentLevel && c.duration === contentDuration,
-    );
-
-    if (content) return content.text;
-
-    const fallback = currentItem.contents.find((c) => c.duration === contentDuration);
-    return fallback?.text || currentItem.contents[0]?.text || '';
-  }, [currentItem, contentLevel, contentDuration]);
+  }, [visitId, setSteps]);
 
   // Speech synthesis
   const handlePlay = useCallback(() => {
-    const text = getCurrentText();
+    const text = getCurrentContent();
     if (!text) return;
 
     if (isSpeaking) {
@@ -174,7 +214,7 @@ export default function VisitPlayerPage() {
       speechService.speak(text);
       setSpeaking(true);
     }
-  }, [getCurrentText, isSpeaking, setSpeaking]);
+  }, [getCurrentContent, isSpeaking, setSpeaking]);
 
   // Voice recognition
 
@@ -182,10 +222,10 @@ export default function VisitPlayerPage() {
     (command: string) => {
       switch (command) {
         case 'next':
-          nextItem();
+          nextStep();
           break;
         case 'prev':
-          prevItem();
+          prevStep();
           break;
         case 'play':
           handlePlay();
@@ -215,7 +255,7 @@ export default function VisitPlayerPage() {
           setShowQuickActions(true);
       }
     },
-    [contentDuration, handlePlay, nextItem, prevItem, setContentDuration, setSpeaking],
+    [contentDuration, handlePlay, nextStep, prevStep, setContentDuration, setSpeaking],
   );
 
   const handleVoice = useCallback(() => {
@@ -246,8 +286,8 @@ export default function VisitPlayerPage() {
   // Keyboard navigation (desktop)
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') nextItem();
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') prevItem();
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') nextStep();
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') prevStep();
       if (e.key === ' ') {
         e.preventDefault();
         handlePlay();
@@ -259,7 +299,7 @@ export default function VisitPlayerPage() {
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nextItem, prevItem, handlePlay, setSpeaking]);
+  }, [nextStep, prevStep, handlePlay, setSpeaking]);
 
   // Loading state
   if (loading) {
@@ -296,8 +336,8 @@ export default function VisitPlayerPage() {
     );
   }
 
-  // No items state
-  if (items.length === 0) {
+  // No steps state
+  if (steps.length === 0) {
     return (
       <div className="h-full flex items-center justify-center bg-surface-50">
         <div className="text-center max-w-md px-6">
@@ -321,17 +361,18 @@ export default function VisitPlayerPage() {
     ContentDuration,
     { emoji: string; label: string; shortLabel: string }
   > = {
-    [ContentDuration.SHORT]: { emoji: '⚡', label: 'Breve', shortLabel: '3s' },
-    [ContentDuration.MEDIUM]: { emoji: '📝', label: 'Medio', shortLabel: '15s' },
-    [ContentDuration.LONG]: { emoji: '📖', label: 'Lungo', shortLabel: '40s' },
-    [ContentDuration.EXTENDED]: { emoji: '📚', label: 'Completo', shortLabel: '2m' },
+    [ContentDuration.FLASH]: { emoji: '⚡', label: 'Flash', shortLabel: '3s' },
+    [ContentDuration.SHORT]: { emoji: '📝', label: 'Breve', shortLabel: '15s' },
+    [ContentDuration.MEDIUM]: { emoji: '📖', label: 'Medio', shortLabel: '1m' },
+    [ContentDuration.LONG]: { emoji: '📚', label: 'Lungo', shortLabel: '4m' },
+    [ContentDuration.EXTENDED]: { emoji: '🎓', label: 'Completo', shortLabel: '10m' },
   };
 
-  const levelLabels: Record<CompetenceLevel, { emoji: string; label: string }> = {
-    [CompetenceLevel.INFANTILE]: { emoji: '👶', label: 'Bambini' },
-    [CompetenceLevel.SEMPLICE]: { emoji: '🌱', label: 'Base' },
-    [CompetenceLevel.MEDIO]: { emoji: '🌿', label: 'Intermedio' },
-    [CompetenceLevel.AVANZATO]: { emoji: '🌳', label: 'Esperto' },
+  const levelLabels: Record<LanguageLevel, { emoji: string; label: string }> = {
+    [LanguageLevel.CHILDREN]: { emoji: '👶', label: 'Bambini' },
+    [LanguageLevel.ELEMENTARY]: { emoji: '🌱', label: 'Base' },
+    [LanguageLevel.MEDIUM]: { emoji: '🌿', label: 'Intermedio' },
+    [LanguageLevel.SPECIALIST]: { emoji: '🌳', label: 'Esperto' },
   };
 
   return (
@@ -368,10 +409,10 @@ export default function VisitPlayerPage() {
         {/* Artwork image */}
         <div className="flex-1 relative" onClick={() => setShowControls(!showControls)}>
           <div className="absolute inset-0">
-            {currentItem?.image ? (
+            {currentArtwork?.image ? (
               <img
-                src={currentItem.image}
-                alt={currentItem.title}
+                src={currentArtwork.image}
+                alt={currentArtwork.title}
                 className="w-full h-full object-cover"
               />
             ) : (
@@ -385,17 +426,17 @@ export default function VisitPlayerPage() {
           {/* Progress indicator */}
           <div className="absolute top-20 left-4 right-4">
             <div className="flex gap-1.5">
-              {items.map((_, idx) => (
+              {steps.map((_, idx) => (
                 <button
                   key={idx}
                   onClick={(e) => {
                     e.stopPropagation();
-                    goToItem(idx);
+                    goToStep(idx);
                   }}
                   className={`h-1 flex-1 rounded-full transition-all ${
-                    idx === currentItemIndex
+                    idx === currentStepIndex
                       ? 'bg-white'
-                      : idx < currentItemIndex
+                      : idx < currentStepIndex
                         ? 'bg-white/50'
                         : 'bg-white/20'
                   }`}
@@ -403,7 +444,7 @@ export default function VisitPlayerPage() {
               ))}
             </div>
             <p className="text-white/60 text-xs mt-2 text-center font-medium">
-              {currentItemIndex + 1} di {items.length}
+              {currentStepIndex + 1} di {steps.length}
             </p>
           </div>
 
@@ -429,10 +470,10 @@ export default function VisitPlayerPage() {
           {/* Artwork info overlay */}
           <div className="px-5 pb-4">
             <h1 className="text-xl font-bold text-white mb-1 drop-shadow-lg">
-              {currentItem?.title}
+              {currentArtwork?.title}
             </h1>
             <p className="text-white/70 text-sm">
-              {currentItem?.metadata?.author} • {currentItem?.metadata?.style}
+              {currentArtwork?.author} • {currentArtwork?.style || currentArtwork?.movement}
             </p>
           </div>
 
@@ -457,14 +498,14 @@ export default function VisitPlayerPage() {
 
             {/* Text content */}
             <div className="bg-surface-50 rounded-2xl p-4 mb-5 max-h-28 overflow-y-auto border border-surface-100">
-              <p className="text-surface-700 text-sm leading-relaxed">{getCurrentText()}</p>
+              <p className="text-surface-700 text-sm leading-relaxed">{getCurrentContent()}</p>
             </div>
 
             {/* Main controls */}
             <div className="flex items-center justify-center gap-5 mb-4">
               <button
-                onClick={prevItem}
-                disabled={currentItemIndex === 0}
+                onClick={prevStep}
+                disabled={currentStepIndex === 0}
                 className="p-3.5 rounded-full bg-surface-100 text-surface-700 hover:bg-surface-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"
               >
                 <SkipBack className="w-6 h-6" />
@@ -482,8 +523,8 @@ export default function VisitPlayerPage() {
               </button>
 
               <button
-                onClick={nextItem}
-                disabled={currentItemIndex === items.length - 1}
+                onClick={nextStep}
+                disabled={currentStepIndex === steps.length - 1}
                 className="p-3.5 rounded-full bg-surface-100 text-surface-700 hover:bg-surface-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"
               >
                 <SkipForward className="w-6 h-6" />
@@ -540,10 +581,10 @@ export default function VisitPlayerPage() {
 
           {/* Image */}
           <div className="h-full flex items-center justify-center p-12">
-            {currentItem?.image ? (
+            {currentArtwork?.image ? (
               <img
-                src={currentItem.image}
-                alt={currentItem.title}
+                src={currentArtwork.image}
+                alt={currentArtwork.title}
                 className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
               />
             ) : (
@@ -556,23 +597,23 @@ export default function VisitPlayerPage() {
           {/* Progress at bottom */}
           <div className="absolute bottom-0 left-0 right-0 p-6">
             <div className="flex gap-2 mb-2">
-              {items.map((item, idx) => (
+              {steps.map((step, idx) => (
                 <button
                   key={idx}
-                  onClick={() => goToItem(idx)}
+                  onClick={() => goToStep(idx)}
                   className={`h-1.5 flex-1 rounded-full transition-all hover:opacity-80 ${
-                    idx === currentItemIndex
+                    idx === currentStepIndex
                       ? 'bg-white'
-                      : idx < currentItemIndex
+                      : idx < currentStepIndex
                         ? 'bg-white/50'
                         : 'bg-white/20'
                   }`}
-                  title={item.title}
+                  title={step.artwork?.title}
                 />
               ))}
             </div>
             <p className="text-white/60 text-sm text-center">
-              Opera {currentItemIndex + 1} di {items.length}
+              Opera {currentStepIndex + 1} di {steps.length}
             </p>
           </div>
         </div>
@@ -584,14 +625,12 @@ export default function VisitPlayerPage() {
             <div className="flex items-start justify-between gap-4 mb-4">
               <div className="flex-1 min-w-0">
                 <h1 className="text-2xl font-bold text-surface-900 mb-2 leading-tight">
-                  {currentItem?.title}
+                  {currentArtwork?.title}
                 </h1>
                 <div className="flex items-center gap-3 text-sm text-surface-500">
-                  <span className="font-medium text-surface-700">
-                    {currentItem?.metadata?.author}
-                  </span>
+                  <span className="font-medium text-surface-700">{currentArtwork?.author}</span>
                   <span>•</span>
-                  <span>{currentItem?.metadata?.style}</span>
+                  <span>{currentArtwork?.style || currentArtwork?.movement}</span>
                 </div>
               </div>
 
@@ -622,12 +661,12 @@ export default function VisitPlayerPage() {
               Livello contenuto
             </p>
             <div className="flex gap-2">
-              {Object.values(CompetenceLevel).map((level) => (
+              {Object.values(LanguageLevel).map((level) => (
                 <button
                   key={level}
-                  onClick={() => setContentLevel(level)}
+                  onClick={() => setLanguageLevel(level)}
                   className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all ${
-                    contentLevel === level
+                    languageLevel === level
                       ? 'bg-brand-600 text-white shadow-md'
                       : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
                   }`}
@@ -662,7 +701,7 @@ export default function VisitPlayerPage() {
 
           {/* Text content */}
           <div className="flex-1 overflow-y-auto p-6">
-            <p className="text-surface-700 text-base leading-relaxed">{getCurrentText()}</p>
+            <p className="text-surface-700 text-base leading-relaxed">{getCurrentContent()}</p>
           </div>
 
           {/* Controls */}
@@ -670,8 +709,8 @@ export default function VisitPlayerPage() {
             {/* Main playback controls */}
             <div className="flex items-center justify-center gap-4 mb-4">
               <button
-                onClick={prevItem}
-                disabled={currentItemIndex === 0}
+                onClick={prevStep}
+                disabled={currentStepIndex === 0}
                 className="p-3 rounded-xl bg-white border border-surface-200 text-surface-700 hover:bg-surface-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
               >
                 <ChevronLeft className="w-6 h-6" />
@@ -689,8 +728,8 @@ export default function VisitPlayerPage() {
               </button>
 
               <button
-                onClick={nextItem}
-                disabled={currentItemIndex === items.length - 1}
+                onClick={nextStep}
+                disabled={currentStepIndex === steps.length - 1}
                 className="p-3 rounded-xl bg-white border border-surface-200 text-surface-700 hover:bg-surface-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
               >
                 <ChevronRight className="w-6 h-6" />
@@ -758,24 +797,24 @@ export default function VisitPlayerPage() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              {items.map((item, idx) => (
+              {steps.map((step, idx) => (
                 <button
-                  key={item._id}
+                  key={step.artwork?._id || idx}
                   onClick={() => {
-                    goToItem(idx);
+                    goToStep(idx);
                     setShowItemList(false);
                   }}
                   className={`w-full flex items-center gap-4 p-4 rounded-xl text-left transition-all ${
-                    idx === currentItemIndex
+                    idx === currentStepIndex
                       ? 'bg-brand-50 border-2 border-brand-300'
                       : 'bg-surface-50 border-2 border-transparent hover:bg-surface-100'
                   }`}
                 >
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
-                      idx === currentItemIndex
+                      idx === currentStepIndex
                         ? 'bg-brand-600 text-white'
-                        : idx < currentItemIndex
+                        : idx < currentStepIndex
                           ? 'bg-surface-300 text-surface-600'
                           : 'bg-surface-200 text-surface-500'
                     }`}
@@ -784,13 +823,13 @@ export default function VisitPlayerPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p
-                      className={`font-medium truncate ${idx === currentItemIndex ? 'text-brand-700' : 'text-surface-800'}`}
+                      className={`font-medium truncate ${idx === currentStepIndex ? 'text-brand-700' : 'text-surface-800'}`}
                     >
-                      {item.title}
+                      {step.artwork?.title}
                     </p>
-                    <p className="text-xs text-surface-500 truncate">{item.metadata?.author}</p>
+                    <p className="text-xs text-surface-500 truncate">{step.artwork?.author}</p>
                   </div>
-                  {idx === currentItemIndex && isSpeaking && (
+                  {idx === currentStepIndex && isSpeaking && (
                     <div className="flex items-center gap-0.5 h-4">
                       {[1, 2, 3].map((i) => (
                         <div
@@ -917,12 +956,12 @@ export default function VisitPlayerPage() {
               <div className="mb-5">
                 <p className="text-sm font-medium text-surface-700 mb-2">Livello contenuto</p>
                 <div className="flex gap-2">
-                  {Object.values(CompetenceLevel).map((level) => (
+                  {Object.values(LanguageLevel).map((level) => (
                     <button
                       key={level}
-                      onClick={() => setContentLevel(level)}
+                      onClick={() => setLanguageLevel(level)}
                       className={`flex-1 py-3 px-3 rounded-xl text-sm font-medium transition-all ${
-                        contentLevel === level
+                        languageLevel === level
                           ? 'bg-brand-600 text-white shadow-md'
                           : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
                       }`}
@@ -976,12 +1015,12 @@ export default function VisitPlayerPage() {
             museumMap
               ? {
                   ...museumMap,
-                  // Ensure markers have labels from items
+                  // Ensure markers have labels from artworks
                   markers:
                     museumMap.markers?.map((marker) => {
-                      if (marker.type === MarkerType.ARTWORK && marker.itemId) {
-                        const item = items.find((i) => i._id === marker.itemId);
-                        return { ...marker, label: item?.title || marker.label };
+                      if (marker.type === MarkerType.ARTWORK && marker.artworkId) {
+                        const artwork = artworksLookup[marker.artworkId];
+                        return { ...marker, label: artwork?.title || marker.label };
                       }
                       return marker;
                     }) || [],
@@ -990,23 +1029,27 @@ export default function VisitPlayerPage() {
                   type: 'image',
                   imageUrl: '/placeholder-map.png',
                   dimensions: { width: 800, height: 600 },
-                  markers: items.map((item, index) => ({
-                    id: item._id,
+                  markers: steps.map((step, index) => ({
+                    id: step.artwork?._id || `step-${index}`,
                     x: 100 + (index % 4) * 150,
                     y: 100 + Math.floor(index / 4) * 150,
                     type: MarkerType.ARTWORK,
-                    label: item.title,
-                    itemId: item._id,
+                    label: step.artwork?.title || '',
+                    artworkId: step.artwork?.wikidataId || step.artwork?._id,
                   })),
                 }
           }
-          currentItemId={currentItem?._id}
-          visitItemIds={items.map((item) => item._id)}
+          currentArtworkId={currentArtwork?.wikidataId || currentArtwork?._id}
+          visitArtworkIds={steps.map((step) => step.artwork?.wikidataId || step.artwork?._id || '')}
           onMarkerClick={(marker) => {
-            if (marker.type === 'artwork' && marker.itemId) {
-              const idx = items.findIndex((item) => item._id === marker.itemId);
+            if (marker.type === 'artwork' && marker.artworkId) {
+              const idx = steps.findIndex(
+                (step) =>
+                  step.artwork?.wikidataId === marker.artworkId ||
+                  step.artwork?._id === marker.artworkId,
+              );
               if (idx >= 0) {
-                goToItem(idx);
+                goToStep(idx);
                 setShowMap(false);
               }
             }

@@ -1,36 +1,67 @@
 import { Request, Response, NextFunction } from 'express';
 import { body, validationResult } from 'express-validator';
-import { Visit } from '../models/index.js';
+import { VisitModel } from '../models/index.js';
 import { AppError } from '../middleware/index.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
+import { VisitStepType, LanguageLevel } from '@artaround/shared';
+
+/**
+ * Visit Controller
+ *
+ * Manages visits - ordered sequences of artworks with items for each step
+ */
 
 export class VisitController {
+  // Validation rules for the new Visit structure
   static createValidation = [
-    body('museumId').notEmpty().withMessage('Museum ID is required'),
+    body('museumId').notEmpty().withMessage('Museum ID (Wikidata) is required'),
     body('title').trim().notEmpty().withMessage('Title is required'),
     body('description').trim().notEmpty().withMessage('Description is required'),
-    body('items').isArray({ min: 1 }).withMessage('At least one item required'),
+    body('steps').isArray({ min: 1 }).withMessage('At least one step required'),
+    body('steps.*.order').isNumeric().withMessage('Step order is required'),
+    body('steps.*.type').isIn(Object.values(VisitStepType)).withMessage('Invalid step type'),
+    body('steps.*.artworkId')
+      .if(body('steps.*.type').equals('artwork'))
+      .notEmpty()
+      .withMessage('Artwork ID is required for artwork steps'),
     body('targetAudience').notEmpty().withMessage('Target audience is required'),
+    body('targetAudience.languageLevels')
+      .isArray({ min: 1 })
+      .withMessage('At least one language level is required'),
+    body('targetAudience.languageLevels.*')
+      .isIn(Object.values(LanguageLevel))
+      .withMessage(
+        `Invalid language level. Allowed values: ${Object.values(LanguageLevel).join(', ')}`,
+      ),
   ];
 
   // Get all visits with filters
   static async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { museumId, authorId, isPublished, isFree, page = '1', limit = '20' } = req.query;
+      const {
+        museumId,
+        authorId,
+        isPublished,
+        isFree,
+        languageLevel,
+        page = '1',
+        limit = '20',
+      } = req.query;
 
       const filter: Record<string, unknown> = {};
       if (museumId) filter.museumId = museumId;
       if (authorId) filter.authorId = authorId;
       if (isPublished !== undefined) filter.isPublished = isPublished === 'true';
       if (isFree !== undefined) filter['metadata.isFree'] = isFree === 'true';
+      if (languageLevel) filter['targetAudience.languageLevels'] = languageLevel;
 
       const pageNum = parseInt(page as string, 10);
       const limitNum = parseInt(limit as string, 10);
       const skip = (pageNum - 1) * limitNum;
 
       const [visits, total] = await Promise.all([
-        Visit.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum),
-        Visit.countDocuments(filter),
+        VisitModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum).lean(),
+        VisitModel.countDocuments(filter),
       ]);
 
       res.json({
@@ -48,12 +79,12 @@ export class VisitController {
     }
   }
 
-  // Get visit by ID with all items populated
+  // Get visit by ID
   static async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
 
-      const visit = await Visit.findById(id).populate('items.itemId');
+      const visit = await VisitModel.findById(id).lean();
 
       if (!visit) {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
@@ -68,6 +99,26 @@ export class VisitController {
     }
   }
 
+  // Get visits by museum (using Wikidata ID)
+  static async getByMuseum(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { museumId } = req.params;
+      const { isPublished } = req.query;
+
+      const filter: Record<string, unknown> = { museumId };
+      if (isPublished !== undefined) filter.isPublished = isPublished === 'true';
+
+      const visits = await VisitModel.find(filter).sort({ createdAt: -1 }).lean();
+
+      res.json({
+        success: true,
+        data: visits,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Get user's own visits
   static async getMyVisits(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -75,7 +126,9 @@ export class VisitController {
         throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
       }
 
-      const visits = await Visit.find({ authorId: req.user.id }).sort({ createdAt: -1 });
+      const visits = await VisitModel.find({ authorId: req.user.id })
+        .sort({ createdAt: -1 })
+        .lean();
 
       res.json({
         success: true,
@@ -98,12 +151,19 @@ export class VisitController {
         throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
       }
 
+      // Sort steps by order
+      const steps = (req.body.steps || []).sort(
+        (a: { order: number }, b: { order: number }) => a.order - b.order,
+      );
+
       const visitData = {
         ...req.body,
+        steps,
         authorId: req.user.id,
+        isPublished: false,
       };
 
-      const visit = new Visit(visitData);
+      const visit = new VisitModel(visitData);
       await visit.save();
 
       res.status(201).json({
@@ -125,13 +185,20 @@ export class VisitController {
         throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
       }
 
-      const visit = await Visit.findById(id);
+      const visit = await VisitModel.findById(id);
       if (!visit) {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
       if (visit.authorId !== req.user.id && req.user.role !== 'admin') {
         throw new AppError(403, 'FORBIDDEN', 'You can only update your own visits');
+      }
+
+      // Sort steps by order if provided
+      if (req.body.steps) {
+        req.body.steps = req.body.steps.sort(
+          (a: { order: number }, b: { order: number }) => a.order - b.order,
+        );
       }
 
       Object.assign(visit, req.body);
@@ -147,6 +214,160 @@ export class VisitController {
     }
   }
 
+  // Add step to visit
+  static async addStep(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      if (!req.user) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      }
+
+      const visit = await VisitModel.findById(id);
+      if (!visit) {
+        throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
+      }
+
+      if (visit.authorId !== req.user.id && req.user.role !== 'admin') {
+        throw new AppError(403, 'FORBIDDEN', 'You can only modify your own visits');
+      }
+
+      const step = req.body;
+
+      // Auto-assign order if not provided
+      if (step.order === undefined) {
+        const maxOrder = Math.max(...visit.steps.map((s) => s.order), 0);
+        step.order = maxOrder + 1;
+      }
+
+      visit.steps.push(step);
+      visit.steps.sort((a, b) => a.order - b.order);
+      await visit.save();
+
+      res.json({
+        success: true,
+        data: visit,
+        message: 'Step added successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Update step in visit
+  static async updateStep(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id, stepOrder } = req.params;
+
+      if (!req.user) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      }
+
+      const visit = await VisitModel.findById(id);
+      if (!visit) {
+        throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
+      }
+
+      if (visit.authorId !== req.user.id && req.user.role !== 'admin') {
+        throw new AppError(403, 'FORBIDDEN', 'You can only modify your own visits');
+      }
+
+      const stepIndex = visit.steps.findIndex((s) => s.order === Number(stepOrder));
+      if (stepIndex === -1) {
+        throw new AppError(404, 'STEP_NOT_FOUND', 'Step not found');
+      }
+
+      visit.steps[stepIndex] = { ...visit.steps[stepIndex], ...req.body };
+      visit.steps.sort((a, b) => a.order - b.order);
+      await visit.save();
+
+      res.json({
+        success: true,
+        data: visit,
+        message: 'Step updated successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Delete step from visit
+  static async deleteStep(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id, stepOrder } = req.params;
+
+      if (!req.user) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      }
+
+      const visit = await VisitModel.findById(id);
+      if (!visit) {
+        throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
+      }
+
+      if (visit.authorId !== req.user.id && req.user.role !== 'admin') {
+        throw new AppError(403, 'FORBIDDEN', 'You can only modify your own visits');
+      }
+
+      visit.steps = visit.steps.filter((s) => s.order !== Number(stepOrder));
+
+      // Re-order remaining steps
+      visit.steps.forEach((step, index) => {
+        step.order = index + 1;
+      });
+
+      await visit.save();
+
+      res.json({
+        success: true,
+        data: visit,
+        message: 'Step deleted successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Reorder steps
+  static async reorderSteps(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { stepOrders } = req.body; // Array of { oldOrder, newOrder }
+
+      if (!req.user) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      }
+
+      const visit = await VisitModel.findById(id);
+      if (!visit) {
+        throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
+      }
+
+      if (visit.authorId !== req.user.id && req.user.role !== 'admin') {
+        throw new AppError(403, 'FORBIDDEN', 'You can only modify your own visits');
+      }
+
+      // Apply new order
+      for (const { oldOrder, newOrder } of stepOrders) {
+        const step = visit.steps.find((s) => s.order === oldOrder);
+        if (step) {
+          step.order = newOrder;
+        }
+      }
+
+      visit.steps.sort((a, b) => a.order - b.order);
+      await visit.save();
+
+      res.json({
+        success: true,
+        data: visit,
+        message: 'Steps reordered successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Publish visit
   static async publish(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -156,13 +377,23 @@ export class VisitController {
         throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
       }
 
-      const visit = await Visit.findById(id);
+      const visit = await VisitModel.findById(id);
       if (!visit) {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
       if (visit.authorId !== req.user.id && req.user.role !== 'admin') {
         throw new AppError(403, 'FORBIDDEN', 'You can only publish your own visits');
+      }
+
+      // Validate visit has required content
+      if (!visit.steps || visit.steps.length === 0) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Visit must have at least one step');
+      }
+
+      const artworkSteps = visit.steps.filter((s) => s.type === 'artwork');
+      if (artworkSteps.length === 0) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Visit must have at least one artwork step');
       }
 
       visit.isPublished = true;
@@ -179,6 +410,37 @@ export class VisitController {
     }
   }
 
+  // Unpublish visit
+  static async unpublish(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      if (!req.user) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      }
+
+      const visit = await VisitModel.findById(id);
+      if (!visit) {
+        throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
+      }
+
+      if (visit.authorId !== req.user.id && req.user.role !== 'admin') {
+        throw new AppError(403, 'FORBIDDEN', 'You can only unpublish your own visits');
+      }
+
+      visit.isPublished = false;
+      await visit.save();
+
+      res.json({
+        success: true,
+        data: visit,
+        message: 'Visit unpublished successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Delete visit
   static async delete(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -188,7 +450,7 @@ export class VisitController {
         throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
       }
 
-      const visit = await Visit.findById(id);
+      const visit = await VisitModel.findById(id);
       if (!visit) {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }

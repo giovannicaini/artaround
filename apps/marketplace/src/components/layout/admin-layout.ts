@@ -60,10 +60,10 @@ export class AdminLayout extends LitElement {
 
   render() {
     const marginClass = this.sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64';
-
     return html`
       <admin-sidebar
         .currentRoute=${this.currentRoute}
+        .user=${this.user}
         ?collapsed=${this.sidebarCollapsed}
         @navigate=${this.handleNavigate}
       ></admin-sidebar>

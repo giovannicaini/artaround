@@ -4,6 +4,10 @@ import { museumService } from '../../services/museum.service';
 import type { Museum } from '@artaround/shared';
 import '../ui/ui-card';
 import '../ui/ui-icon';
+import '../ui/ui-image-placeholder';
+import '../ui/ui-loading';
+import '../ui/ui-alert';
+import '../ui/ui-empty';
 
 @customElement('museum-selector')
 export class MuseumSelector extends LitElement {
@@ -67,17 +71,22 @@ export class MuseumSelector extends LitElement {
                     src="${museum.images[0]}"
                     alt="${museum.name}"
                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    @error=${(e: Event) => {
+                      const img = e.target as HTMLImageElement;
+                      img.style.display = 'none';
+                      img.parentElement
+                        ?.querySelector('ui-image-placeholder')
+                        ?.removeAttribute('hidden');
+                    }}
                   />
+                  <ui-image-placeholder
+                    type="museum"
+                    size="lg"
+                    hidden
+                    class="absolute inset-0"
+                  ></ui-image-placeholder>
                 `
-              : html`
-                  <div class="w-full h-full flex items-center justify-center">
-                    <ui-icon
-                      name="image"
-                      size="lg"
-                      class="text-surface-300 dark:text-surface-600"
-                    ></ui-icon>
-                  </div>
-                `}
+              : html` <ui-image-placeholder type="museum" size="lg"></ui-image-placeholder> `}
             ${isSelected
               ? html`
                   <div
@@ -116,55 +125,28 @@ export class MuseumSelector extends LitElement {
 
   render() {
     if (this.loading) {
-      return html`
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          ${[1, 2, 3].map(
-            () => html`
-              <div class="animate-pulse">
-                <div class="aspect-video bg-surface-200 dark:bg-surface-800 rounded-t-xl"></div>
-                <div
-                  class="p-4 bg-white dark:bg-surface-900 rounded-b-xl border border-t-0 border-surface-200 dark:border-surface-800"
-                >
-                  <div class="h-5 bg-surface-200 dark:bg-surface-700 rounded w-3/4 mb-2"></div>
-                  <div class="h-4 bg-surface-200 dark:bg-surface-700 rounded w-full mb-1"></div>
-                  <div class="h-4 bg-surface-200 dark:bg-surface-700 rounded w-2/3"></div>
-                </div>
-              </div>
-            `,
-          )}
-        </div>
-      `;
+      return html`<ui-loading size="lg" text="Caricamento musei..."></ui-loading>`;
     }
 
     if (this.error) {
       return html`
-        <div class="text-center py-12">
-          <ui-icon name="warning" size="lg" class="text-danger-500 mx-auto mb-4"></ui-icon>
-          <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-2">Errore</h3>
-          <p class="text-sm text-surface-500 dark:text-surface-400 mb-4">${this.error}</p>
-          <button
-            @click=${this.loadMuseums}
-            class="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors"
-          >
-            Riprova
-          </button>
-        </div>
+        <ui-alert
+          variant="danger"
+          title="Errore"
+          .message=${this.error}
+          showRetry
+          @retry=${this.loadMuseums}
+        ></ui-alert>
       `;
     }
 
     if (this.museums.length === 0) {
       return html`
-        <div class="text-center py-12">
-          <ui-icon
-            name="folder"
-            size="lg"
-            class="text-surface-300 dark:text-surface-600 mx-auto mb-4"
-          ></ui-icon>
-          <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-2">Nessun museo</h3>
-          <p class="text-sm text-surface-500 dark:text-surface-400">
-            Non ci sono musei disponibili al momento.
-          </p>
-        </div>
+        <ui-empty
+          icon="folder"
+          title="Nessun museo"
+          description="Non ci sono musei disponibili al momento."
+        ></ui-empty>
       `;
     }
 

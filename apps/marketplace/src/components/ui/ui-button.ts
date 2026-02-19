@@ -4,8 +4,10 @@ import './ui-icon';
 
 @customElement('ui-button')
 export class UiButton extends LitElement {
-  @property({ type: String }) variant: 'primary' | 'secondary' | 'ghost' | 'danger' = 'primary';
+  @property({ type: String }) variant: 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline' =
+    'primary';
   @property({ type: String }) size: 'xs' | 'sm' | 'md' | 'lg' = 'md';
+  @property({ type: String }) type: 'button' | 'submit' | 'reset' = 'button';
   @property({ type: Boolean }) loading = false;
   @property({ type: Boolean }) disabled = false;
   @property({ type: Boolean }) block = false;
@@ -14,6 +16,17 @@ export class UiButton extends LitElement {
 
   createRenderRoot() {
     return this;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.style.display = this.block ? 'block' : 'inline-block';
+  }
+
+  updated(changedProperties: Map<string, unknown>) {
+    if (changedProperties.has('block')) {
+      this.style.display = this.block ? 'block' : 'inline-block';
+    }
   }
 
   private get baseClasses() {
@@ -30,6 +43,8 @@ export class UiButton extends LitElement {
         'text-surface-600 hover:bg-surface-100 focus:ring-brand-500 dark:text-surface-300 dark:hover:bg-surface-800',
       danger:
         'bg-danger-600 text-white hover:bg-danger-700 focus:ring-danger-500 active:bg-danger-800',
+      outline:
+        'bg-transparent text-brand-600 border border-brand-300 hover:bg-brand-50 focus:ring-brand-500 dark:text-brand-400 dark:border-brand-600 dark:hover:bg-brand-900/20',
     };
     return variants[this.variant];
   }
@@ -50,6 +65,7 @@ export class UiButton extends LitElement {
 
     return html`
       <button
+        type="${this.type}"
         class="${classes}"
         ?disabled=${this.disabled || this.loading}
         aria-busy=${this.loading}

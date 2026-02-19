@@ -1,26 +1,26 @@
 import { apiService } from './api.service';
-import type { WikidataEntity } from '@artaround/shared';
-
-export interface WikidataSearchResult {
-  id: string;
-  label: string;
-  description?: string;
-  imageUrl?: string;
-  author?: string;
-  authorId?: string;
-  style?: string;
-  styleId?: string;
-  epoch?: string;
-}
+import type { WikidataEntity, WikidataSearchResult } from '@artaround/shared';
 
 export class WikidataService {
-  async search(query: string, limit: number = 10): Promise<WikidataSearchResult[]> {
+  async search(
+    query: string,
+    limit: number = 10,
+    type: 'artwork' | 'museum' | 'author' | 'movement' = 'artwork',
+    museumId?: string | null | undefined,
+  ): Promise<WikidataSearchResult[]> {
     if (!query || query.length < 2) {
       return [];
     }
 
+    const params = new URLSearchParams({
+      q: query,
+      limit: String(limit),
+      type,
+    });
+    if (museumId && typeof museumId === 'string') params.append('museumId', museumId);
+
     const response = await apiService.get<WikidataSearchResult[]>(
-      `/utils/wikidata-search?q=${encodeURIComponent(query)}&limit=${limit}`,
+      `/utils/wikidata-search?${params.toString()}`,
     );
 
     if (response.success && response.data) {

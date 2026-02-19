@@ -1,7 +1,8 @@
 import { LitElement, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
-import type { MuseumFloor, MapMarker, Item } from '@artaround/shared';
+import type { MuseumFloor, MapMarker, Artwork } from '@artaround/shared';
+import '../ui/ui-image-placeholder';
 
 export interface MarkerDragEvent {
   markerId: string;
@@ -38,7 +39,7 @@ export class SvgMapEditor extends LitElement {
   selectedMarkerId: string | null = null;
 
   @property({ type: Array })
-  artworks: Item[] = [];
+  artworks: Artwork[] = [];
 
   @state()
   private zoom = 1;
@@ -207,13 +208,15 @@ export class SvgMapEditor extends LitElement {
     const isSelected = this.selectedMarkerId === marker.id;
 
     // Find artwork image if this is an artwork marker
-    const artwork = marker.itemId ? this.artworks.find((a) => a._id === marker.itemId) : null;
+    const artwork = marker.artworkId
+      ? this.artworks.find((a) => a.wikidataId === marker.artworkId)
+      : null;
     const hasImage = artwork?.image;
 
     // Get focal point and zoom settings
-    const focalX = (marker as any).focalPoint?.x ?? 50;
-    const focalY = (marker as any).focalPoint?.y ?? 50;
-    const focalZoom = (marker as any).focalZoom ?? 1;
+    const focalX = marker.focalPoint?.x ?? 50;
+    const focalY = marker.focalPoint?.y ?? 50;
+    const focalZoom = marker.focalZoom ?? 1;
 
     // Calculate image transform (same formula as editor)
     const offsetX = (50 - focalX) * focalZoom;
