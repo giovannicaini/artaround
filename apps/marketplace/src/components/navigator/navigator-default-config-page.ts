@@ -390,7 +390,6 @@ export class NavigatorDefaultConfigPage extends LitElement {
           </div>
         </ui-page-header>
         ${this.loading ? html`<ui-loading></ui-loading>` : nothing}
-
         ${!this.loading && this.configs.length > 0
           ? html`
               <div class="space-y-4">

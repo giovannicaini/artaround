@@ -1,9 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    './index.html',
-    './src/**/*.{js,ts,jsx,tsx}',
-  ],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   darkMode: 'class',
   theme: {
     extend: {
@@ -64,19 +61,19 @@ export default {
         '2xs': ['0.625rem', { lineHeight: '0.875rem' }],
       },
       spacing: {
-        '18': '4.5rem',
-        '22': '5.5rem',
-        '72': '18rem',
-        '84': '21rem',
-        '88': '22rem',
+        18: '4.5rem',
+        22: '5.5rem',
+        72: '18rem',
+        84: '21rem',
+        88: '22rem',
       },
       boxShadow: {
-        'soft': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-        'medium': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-        'strong': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+        soft: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+        medium: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+        strong: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
       },
       borderRadius: {
-        'xl': '0.75rem',
+        xl: '0.75rem',
         '2xl': '1rem',
       },
       animation: {

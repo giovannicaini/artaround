@@ -120,9 +120,11 @@ export class UiCombobox extends LitElement {
       focus:outline-none focus:ring-2 focus:ring-offset-0
       disabled:bg-surface-50 disabled:text-surface-500 disabled:cursor-not-allowed
       dark:disabled:bg-surface-800
-      ${this.error
-        ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500/20'
-        : 'border-surface-300 dark:border-surface-600 focus:border-brand-500 focus:ring-brand-500/20'}
+      ${
+        this.error
+          ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500/20'
+          : 'border-surface-300 dark:border-surface-600 focus:border-brand-500 focus:ring-brand-500/20'
+      }
     `;
 
     return html`
@@ -153,7 +155,10 @@ export class UiCombobox extends LitElement {
             : html`
                 <button
                   type="button"
-                  class="${inputClasses} flex items-center justify-between w-full text-left ${this.disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}"
+                  class="${inputClasses} flex items-center justify-between w-full text-left ${this
+                    .disabled
+                    ? 'cursor-not-allowed opacity-60'
+                    : 'cursor-pointer'}"
                   @click=${this.openDropdown}
                   ?disabled=${this.disabled}
                 >
@@ -176,7 +181,11 @@ export class UiCombobox extends LitElement {
                     <ui-icon name="x" size="xs"></ui-icon>
                   </button>
                 `
-              : html`<ui-icon name="${this.open ? 'chevronUp' : 'chevronDown'}" size="xs" class="text-surface-400"></ui-icon>`}
+              : html`<ui-icon
+                  name="${this.open ? 'chevronUp' : 'chevronDown'}"
+                  size="xs"
+                  class="text-surface-400"
+                ></ui-icon>`}
           </div>
         </div>
 
@@ -187,10 +196,23 @@ export class UiCombobox extends LitElement {
                 class="absolute z-50 w-full mt-1 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-lg shadow-lg overflow-hidden"
               >
                 ${this.loading
-                  ? html`<p class="px-3 py-4 text-sm text-surface-400 text-center flex items-center justify-center gap-2">
+                  ? html`<p
+                      class="px-3 py-4 text-sm text-surface-400 text-center flex items-center justify-center gap-2"
+                    >
                       <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        <circle
+                          class="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          stroke-width="4"
+                        ></circle>
+                        <path
+                          class="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        ></path>
                       </svg>
                       Caricamento...
                     </p>`
@@ -199,7 +221,9 @@ export class UiCombobox extends LitElement {
                         Nessun risultato
                       </p>`
                     : html`
-                        <ul class="max-h-52 overflow-y-auto divide-y divide-surface-100 dark:divide-surface-800">
+                        <ul
+                          class="max-h-52 overflow-y-auto divide-y divide-surface-100 dark:divide-surface-800"
+                        >
                           ${items.map(
                             (opt, i) => html`
                               <li
@@ -221,7 +245,6 @@ export class UiCombobox extends LitElement {
               </div>
             `
           : nothing}
-
         ${this.hint && !this.error
           ? html`<p class="text-xs text-surface-500">${this.hint}</p>`
           : nothing}

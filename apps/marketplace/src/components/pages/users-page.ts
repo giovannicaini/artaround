@@ -923,7 +923,9 @@ export class UsersPage extends LitElement {
           }
         }}
       >
-        <div class="bg-white dark:bg-surface-900 rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+        <div
+          class="bg-white dark:bg-surface-900 rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col"
+        >
           <div class="p-6 border-b border-surface-200 dark:border-surface-700 flex-shrink-0">
             <h3 class="text-lg font-semibold text-surface-900 dark:text-white">
               Ruoli Contestuali — ${this.selectedUser?.username}
@@ -935,7 +937,9 @@ export class UsersPage extends LitElement {
             ${existingRoles.length > 0
               ? html`
                   <div class="p-6 pb-0 space-y-2">
-                    <p class="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">Ruoli assegnati</p>
+                    <p class="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">
+                      Ruoli assegnati
+                    </p>
                     ${existingRoles.map(
                       (ra) => html`
                         <div
@@ -967,7 +971,9 @@ export class UsersPage extends LitElement {
             <!-- Add new role assignment -->
             <div class="p-6 space-y-4">
               ${existingRoles.length > 0
-                ? html`<p class="text-xs font-semibold text-surface-500 uppercase tracking-wider">Aggiungi ruolo</p>`
+                ? html`<p class="text-xs font-semibold text-surface-500 uppercase tracking-wider">
+                    Aggiungi ruolo
+                  </p>`
                 : nothing}
 
               <ui-select

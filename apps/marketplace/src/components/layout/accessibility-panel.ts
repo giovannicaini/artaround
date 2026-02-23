@@ -96,10 +96,18 @@ export class AccessibilityPanel extends LitElement {
   ) {
     const value = this.settings[key] as boolean;
     return html`
-      <div class="flex items-center justify-between py-3 border-b border-surface-100 dark:border-surface-700 last:border-0">
+      <div
+        class="flex items-center justify-between py-3 border-b border-surface-100 dark:border-surface-700 last:border-0"
+      >
         <div class="flex items-start gap-3">
-          <div class="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-100 dark:bg-surface-800 flex-shrink-0 mt-0.5">
-            <ui-icon name="${icon}" size="sm" class="text-surface-500 dark:text-surface-400"></ui-icon>
+          <div
+            class="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-100 dark:bg-surface-800 flex-shrink-0 mt-0.5"
+          >
+            <ui-icon
+              name="${icon}"
+              size="sm"
+              class="text-surface-500 dark:text-surface-400"
+            ></ui-icon>
           </div>
           <div>
             <p class="text-sm font-medium text-surface-900 dark:text-white">${label}</p>
@@ -143,7 +151,9 @@ export class AccessibilityPanel extends LitElement {
         class="fixed right-0 top-0 bottom-0 z-50 w-full max-w-sm bg-white dark:bg-surface-900 shadow-2xl flex flex-col animate-slide-left"
       >
         <!-- Header -->
-        <div class="flex items-center justify-between px-5 py-4 border-b border-surface-200 dark:border-surface-700">
+        <div
+          class="flex items-center justify-between px-5 py-4 border-b border-surface-200 dark:border-surface-700"
+        >
           <div class="flex items-center gap-2">
             <ui-icon name="accessibility" size="sm" class="text-brand-500"></ui-icon>
             <h2 class="text-base font-semibold text-surface-900 dark:text-white">Accessibilità</h2>
@@ -153,16 +163,25 @@ export class AccessibilityPanel extends LitElement {
 
         <!-- Content -->
         <div class="flex-1 overflow-y-auto p-5 space-y-6">
-
           <!-- TEMA -->
           <section>
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-3">
+            <h3
+              class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-3"
+            >
               Tema
             </h3>
             <div class="grid grid-cols-3 gap-2">
               ${(['light', 'auto', 'dark'] as Theme[]).map((t) => {
-                const labels: Record<Theme, string> = { light: 'Chiaro', auto: 'Auto', dark: 'Scuro' };
-                const icons: Record<Theme, string> = { light: 'sun', auto: 'monitor', dark: 'moon' };
+                const labels: Record<Theme, string> = {
+                  light: 'Chiaro',
+                  auto: 'Auto',
+                  dark: 'Scuro',
+                };
+                const icons: Record<Theme, string> = {
+                  light: 'sun',
+                  auto: 'monitor',
+                  dark: 'moon',
+                };
                 const active = this.theme === t;
                 return html`
                   <button
@@ -170,8 +189,8 @@ export class AccessibilityPanel extends LitElement {
                     @click=${() => this.setTheme(t)}
                     class="flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-xl border-2 transition-all text-sm font-medium
                       ${active
-                        ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300'
-                        : 'border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-400 hover:border-surface-300 dark:hover:border-surface-600'}"
+                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300'
+                      : 'border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-400 hover:border-surface-300 dark:hover:border-surface-600'}"
                   >
                     <ui-icon name="${icons[t]}" size="sm"></ui-icon>
                     ${labels[t]}
@@ -183,69 +202,89 @@ export class AccessibilityPanel extends LitElement {
 
           <!-- DIMENSIONE FONT -->
           <section>
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-3">
+            <h3
+              class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-3"
+            >
               Dimensione testo
             </h3>
             <div class="grid grid-cols-3 gap-2">
-              ${([['normal', 'Aa', 'Normal'], ['large', 'Aa', 'Grande'], ['xlarge', 'Aa', 'Extra']] as [AccessibilitySettings['fontSize'], string, string][]).map(
-                ([size, sample, label]) => {
-                  const active = this.settings.fontSize === size;
-                  const textSizes: Record<string, string> = {
-                    normal: 'text-sm',
-                    large: 'text-base',
-                    xlarge: 'text-lg',
-                  };
-                  return html`
-                    <button
-                      type="button"
-                      @click=${() => this.setFontSize(size)}
-                      class="flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl border-2 transition-all font-medium
+              ${(
+                [
+                  ['normal', 'Aa', 'Normal'],
+                  ['large', 'Aa', 'Grande'],
+                  ['xlarge', 'Aa', 'Extra'],
+                ] as [AccessibilitySettings['fontSize'], string, string][]
+              ).map(([size, sample, label]) => {
+                const active = this.settings.fontSize === size;
+                const textSizes: Record<string, string> = {
+                  normal: 'text-sm',
+                  large: 'text-base',
+                  xlarge: 'text-lg',
+                };
+                return html`
+                  <button
+                    type="button"
+                    @click=${() => this.setFontSize(size)}
+                    class="flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl border-2 transition-all font-medium
                         ${active
-                          ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300'
-                          : 'border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-400 hover:border-surface-300 dark:hover:border-surface-600'}"
-                    >
-                      <span class="${textSizes[size]} font-bold">${sample}</span>
-                      <span class="text-xs">${label}</span>
-                    </button>
-                  `;
-                },
-              )}
+                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300'
+                      : 'border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-400 hover:border-surface-300 dark:hover:border-surface-600'}"
+                  >
+                    <span class="${textSizes[size]} font-bold">${sample}</span>
+                    <span class="text-xs">${label}</span>
+                  </button>
+                `;
+              })}
             </div>
           </section>
 
           <!-- SPAZIATURA TESTO -->
           <section>
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-3">
+            <h3
+              class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-3"
+            >
               Spaziature testo
             </h3>
             <div class="grid grid-cols-2 gap-2">
-              ${([['normal', 'Normale'], ['wide', 'Spaziata']] as [AccessibilitySettings['letterSpacing'], string][]).map(
-                ([spacing, label]) => {
-                  const active = this.settings.letterSpacing === spacing;
-                  return html`
-                    <button
-                      type="button"
-                      @click=${() => this.setLetterSpacing(spacing)}
-                      class="flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl border-2 transition-all text-sm font-medium
+              ${(
+                [
+                  ['normal', 'Normale'],
+                  ['wide', 'Spaziata'],
+                ] as [AccessibilitySettings['letterSpacing'], string][]
+              ).map(([spacing, label]) => {
+                const active = this.settings.letterSpacing === spacing;
+                return html`
+                  <button
+                    type="button"
+                    @click=${() => this.setLetterSpacing(spacing)}
+                    class="flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl border-2 transition-all text-sm font-medium
                         ${active
-                          ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300'
-                          : 'border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-400 hover:border-surface-300 dark:hover:border-surface-600'}"
+                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300'
+                      : 'border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-400 hover:border-surface-300 dark:hover:border-surface-600'}"
+                  >
+                    <span
+                      class="${spacing === 'wide'
+                        ? 'tracking-widest'
+                        : 'tracking-normal'} font-semibold"
+                      >A B C</span
                     >
-                      <span class="${spacing === 'wide' ? 'tracking-widest' : 'tracking-normal'} font-semibold">A B C</span>
-                      <span class="text-xs">${label}</span>
-                    </button>
-                  `;
-                },
-              )}
+                    <span class="text-xs">${label}</span>
+                  </button>
+                `;
+              })}
             </div>
           </section>
 
           <!-- TOGGLE SETTINGS -->
           <section>
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-3">
+            <h3
+              class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-3"
+            >
               Opzioni visive
             </h3>
-            <div class="rounded-xl border border-surface-200 dark:border-surface-700 px-4 divide-y divide-surface-100 dark:divide-surface-700">
+            <div
+              class="rounded-xl border border-surface-200 dark:border-surface-700 px-4 divide-y divide-surface-100 dark:divide-surface-700"
+            >
               ${this.renderToggleRow(
                 'Alto contrasto',
                 'Aumenta il contrasto tra testo e sfondo',
@@ -278,7 +317,6 @@ export class AccessibilityPanel extends LitElement {
               )}
             </div>
           </section>
-
         </div>
 
         <!-- Footer -->

@@ -169,41 +169,37 @@ export class UiTable extends LitElement {
             </tr>
           </thead>
           <tbody class="divide-y divide-surface-200 dark:divide-surface-700">
-            ${this.sortedData.map(
-              (row, index) => {
-                const rowId = row[this.rowKeyField] as string;
-                const isSelected = this.selectedRowId && rowId === this.selectedRowId;
-                
-                // Build row classes
-                let rowClasses = 'transition-colors border-l-4 ';
-                
-                if (isSelected) {
-                  // Selected row - strong highlighting
-                  rowClasses += 'bg-brand-100 dark:bg-brand-900/40 border-l-brand-500 ';
+            ${this.sortedData.map((row, index) => {
+              const rowId = row[this.rowKeyField] as string;
+              const isSelected = this.selectedRowId && rowId === this.selectedRowId;
+
+              // Build row classes
+              let rowClasses = 'transition-colors border-l-4 ';
+
+              if (isSelected) {
+                // Selected row - strong highlighting
+                rowClasses += 'bg-brand-100 dark:bg-brand-900/40 border-l-brand-500 ';
+              } else {
+                // Non-selected rows
+                rowClasses += 'border-l-transparent ';
+                if (this.striped && index % 2 === 1) {
+                  rowClasses += 'bg-surface-50/50 dark:bg-surface-800/25 ';
                 } else {
-                  // Non-selected rows
-                  rowClasses += 'border-l-transparent ';
-                  if (this.striped && index % 2 === 1) {
-                    rowClasses += 'bg-surface-50/50 dark:bg-surface-800/25 ';
-                  } else {
-                    rowClasses += 'bg-white dark:bg-surface-900 ';
-                  }
+                  rowClasses += 'bg-white dark:bg-surface-900 ';
                 }
-                
-                // Hover effect for non-selected
-                if (!isSelected) {
-                  rowClasses += 'hover:bg-surface-100 dark:hover:bg-surface-800/60 ';
-                }
-                
-                if (this.clickable) {
-                  rowClasses += 'cursor-pointer ';
-                }
-                
-                return html`
-                <tr
-                  class="${rowClasses}"
-                  @click=${() => this.handleRowClick(row)}
-                >
+              }
+
+              // Hover effect for non-selected
+              if (!isSelected) {
+                rowClasses += 'hover:bg-surface-100 dark:hover:bg-surface-800/60 ';
+              }
+
+              if (this.clickable) {
+                rowClasses += 'cursor-pointer ';
+              }
+
+              return html`
+                <tr class="${rowClasses}" @click=${() => this.handleRowClick(row)}>
                   ${this.columns.map((col) => {
                     const alignClass =
                       col.align === 'center'
@@ -245,8 +241,8 @@ export class UiTable extends LitElement {
                       `
                     : nothing}
                 </tr>
-              `}
-            )}
+              `;
+            })}
           </tbody>
         </table>
       </div>

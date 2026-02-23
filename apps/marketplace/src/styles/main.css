@@ -146,7 +146,6 @@
   border-color: #6b7280 !important;
 }
 
-
 /* DARK HIGH CONTRAST */
 :root[data-theme='dark'][data-contrast='high'] {
   --primary: #818cf8;
@@ -223,7 +222,8 @@
 /* Dyslexic Font */
 @font-face {
   font-family: 'OpenDyslexic';
-  src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic-regular.otf') format('opentype');
+  src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic-regular.otf')
+    format('opentype');
   font-weight: normal;
   font-display: swap;
 }

@@ -39,7 +39,7 @@ class HistoryService {
         const data: HistoryData = JSON.parse(stored);
         this.history = data.stack || [];
         this.currentIndex = data.currentIndex ?? -1;
-        
+
         // Valida l'indice
         if (this.currentIndex >= this.history.length) {
           this.currentIndex = this.history.length - 1;
@@ -62,7 +62,7 @@ class HistoryService {
         currentIndex: this.currentIndex,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      
+
       // Salva anche lo stato corrente separatamente per un accesso rapido
       const currentState = this.getCurrentState();
       if (currentState) {
@@ -129,9 +129,9 @@ class HistoryService {
     this.currentIndex--;
     this.saveToStorage();
     this.dispatchChangeEvent();
-    
+
     const state = this.getCurrentState();
-    
+
     // Reset del flag dopo un tick per permettere la navigazione
     setTimeout(() => {
       this.isNavigating = false;
@@ -153,9 +153,9 @@ class HistoryService {
     this.currentIndex++;
     this.saveToStorage();
     this.dispatchChangeEvent();
-    
+
     const state = this.getCurrentState();
-    
+
     // Reset del flag dopo un tick per permettere la navigazione
     setTimeout(() => {
       this.isNavigating = false;
@@ -235,20 +235,20 @@ class HistoryService {
     if (state1.route !== state2.route) {
       return false;
     }
-    
+
     const params1 = Object.keys(state1.params).sort();
     const params2 = Object.keys(state2.params).sort();
-    
+
     if (params1.length !== params2.length) {
       return false;
     }
-    
+
     for (const key of params1) {
       if (state1.params[key] !== state2.params[key]) {
         return false;
       }
     }
-    
+
     return true;
   }
 
@@ -265,7 +265,7 @@ class HistoryService {
           backCount: this.getBackCount(),
           forwardCount: this.getForwardCount(),
         },
-      })
+      }),
     );
   }
 }
