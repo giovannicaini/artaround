@@ -84,20 +84,124 @@
 }
 
 /* High Contrast Mode */
+/* We must override Tailwind's hardcoded color utilities via attribute selectors */
+
+/* LIGHT HIGH CONTRAST */
 :root[data-contrast='high'] {
-  --primary: #4f46e5;
+  --primary: #3730a3;
   --text-primary: #000000;
-  --text-secondary: #1f2937;
-  --border: #374151;
 }
 
+/* Force dark text on muted/subtle colors */
+:root[data-contrast='high'] .text-surface-400,
+:root[data-contrast='high'] .text-surface-500 {
+  color: #1f2937 !important;
+}
+
+:root[data-contrast='high'] .text-surface-600,
+:root[data-contrast='high'] .text-surface-700 {
+  color: #111827 !important;
+}
+
+:root[data-contrast='high'] .text-surface-300 {
+  color: #374151 !important;
+}
+
+/* Force strong borders */
+:root[data-contrast='high'] .border-surface-200,
+:root[data-contrast='high'] .border-surface-100 {
+  border-color: #6b7280 !important;
+}
+
+:root[data-contrast='high'] .border-surface-300 {
+  border-color: #374151 !important;
+}
+
+/* Force backgrounds to be more distinct */
+:root[data-contrast='high'] .bg-surface-50 {
+  background-color: #f3f4f6 !important;
+}
+
+:root[data-contrast='high'] .bg-surface-100 {
+  background-color: #e5e7eb !important;
+}
+
+:root[data-contrast='high'] .bg-surface-200 {
+  background-color: #d1d5db !important;
+}
+
+/* Brand colors - higher contrast */
+:root[data-contrast='high'] .text-brand-400,
+:root[data-contrast='high'] .text-brand-500 {
+  color: #1d4ed8 !important;
+}
+
+:root[data-contrast='high'] .text-brand-600 {
+  color: #1e40af !important;
+}
+
+/* Dividers */
+:root[data-contrast='high'] .divide-surface-200 > * + *,
+:root[data-contrast='high'] .divide-surface-100 > * + * {
+  border-color: #6b7280 !important;
+}
+
+
+/* DARK HIGH CONTRAST */
 :root[data-theme='dark'][data-contrast='high'] {
   --primary: #818cf8;
-  --text-primary: #ffffff;
-  --text-secondary: #f1f5f9;
-  --border: #64748b;
-  --surface: #0f172a;
-  --background: #020617;
+  --surface: #0a0a0a;
+  --background: #000000;
+}
+
+:root[data-theme='dark'][data-contrast='high'] .dark\:text-surface-400,
+:root[data-theme='dark'][data-contrast='high'] .dark\:text-surface-500 {
+  color: #e5e7eb !important;
+}
+
+:root[data-theme='dark'][data-contrast='high'] .dark\:text-surface-300 {
+  color: #f3f4f6 !important;
+}
+
+:root[data-theme='dark'][data-contrast='high'] .dark\:border-surface-700,
+:root[data-theme='dark'][data-contrast='high'] .dark\:border-surface-800 {
+  border-color: #9ca3af !important;
+}
+
+:root[data-theme='dark'][data-contrast='high'] .dark\:bg-surface-800 {
+  background-color: #111827 !important;
+}
+
+:root[data-theme='dark'][data-contrast='high'] .dark\:bg-surface-900 {
+  background-color: #000000 !important;
+}
+
+:root[data-theme='dark'][data-contrast='high'] .dark\:bg-surface-950 {
+  background-color: #000000 !important;
+}
+
+:root[data-theme='dark'][data-contrast='high'] .dark\:text-white {
+  color: #ffffff !important;
+}
+
+:root[data-theme='dark'][data-contrast='high'] .dark\:divide-surface-700 > * + *,
+:root[data-theme='dark'][data-contrast='high'] .dark\:divide-surface-800 > * + * {
+  border-color: #9ca3af !important;
+}
+
+/* Shared: force outline on interactive elements */
+:root[data-contrast='high'] button:focus-visible,
+:root[data-contrast='high'] a:focus-visible,
+:root[data-contrast='high'] input:focus-visible,
+:root[data-contrast='high'] select:focus-visible,
+:root[data-contrast='high'] textarea:focus-visible {
+  outline: 3px solid #1d4ed8 !important;
+  outline-offset: 2px !important;
+}
+
+:root[data-theme='dark'][data-contrast='high'] button:focus-visible,
+:root[data-theme='dark'][data-contrast='high'] a:focus-visible {
+  outline-color: #818cf8 !important;
 }
 
 /* Font Size Options */
@@ -107,6 +211,52 @@
 
 :root[data-font-size='xlarge'] {
   font-size: 20px;
+}
+
+/* Letter Spacing */
+:root[data-letter-spacing='wide'] {
+  letter-spacing: 0.06em;
+  word-spacing: 0.16em;
+  line-height: 1.8;
+}
+
+/* Dyslexic Font */
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic-regular.otf') format('opentype');
+  font-weight: normal;
+  font-display: swap;
+}
+
+:root[data-font='dyslexic'] {
+  font-family: 'OpenDyslexic', 'Comic Sans MS', cursive, sans-serif !important;
+}
+
+:root[data-font='dyslexic'] * {
+  font-family: inherit !important;
+}
+
+/* Underline Links */
+:root[data-underline-links='true'] a {
+  text-decoration: underline !important;
+  text-underline-offset: 3px;
+}
+
+/* Enhanced Focus Visible */
+:root[data-focus-visible='true'] *:focus {
+  outline: 3px solid var(--primary) !important;
+  outline-offset: 3px !important;
+  border-radius: 4px;
+}
+
+:root[data-focus-visible='true'] *:focus:not(:focus-visible) {
+  outline: none !important;
+}
+
+:root[data-focus-visible='true'] *:focus-visible {
+  outline: 3px solid var(--primary) !important;
+  outline-offset: 3px !important;
+  border-radius: 4px;
 }
 
 * {
@@ -161,6 +311,17 @@ h6 {
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes slideLeft {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 

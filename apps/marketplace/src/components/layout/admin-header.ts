@@ -2,11 +2,13 @@ import { LitElement, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { User } from '@artaround/shared';
 import { preferencesService } from '../../services/preferences.service';
+import { historyService } from '../../services/history.service';
 import '../ui/ui-icon';
 import '../ui/ui-avatar';
 import '../ui/ui-button';
 import '../ui/ui-icon-button';
 import '../ui/ui-search-bar';
+import './accessibility-panel';
 
 @customElement('admin-header')
 export class AdminHeader extends LitElement {
@@ -16,6 +18,9 @@ export class AdminHeader extends LitElement {
   @state() private darkMode = false;
   @state() private userMenuOpen = false;
   @state() private selectedMuseum: { _id: string; name: string } | null = null;
+  @state() private canGoBack = false;
+  @state() private canGoForward = false;
+  @state() private a11yPanelOpen = false;
 
   createRenderRoot() {
     return this;
@@ -26,6 +31,12 @@ export class AdminHeader extends LitElement {
     this.darkMode = document.documentElement.classList.contains('dark');
     this.selectedMuseum = preferencesService.getSelectedMuseum();
     window.addEventListener('museum-changed', this.handleMuseumChanged as EventListener);
+    window.addEventListener('history-state-changed', this.handleHistoryChanged as EventListener);
+    window.addEventListener('theme-changed', this.handleThemeChanged as EventListener);
+
+    // Initialize history state
+    this.canGoBack = historyService.canGoBack();
+    this.canGoForward = historyService.canGoForward();
 
     // Close menu on outside click
     document.addEventListener('click', (e) => {
@@ -37,6 +48,8 @@ export class AdminHeader extends LitElement {
 
   disconnectedCallback() {
     window.removeEventListener('museum-changed', this.handleMuseumChanged as EventListener);
+    window.removeEventListener('history-state-changed', this.handleHistoryChanged as EventListener);
+    window.removeEventListener('theme-changed', this.handleThemeChanged as EventListener);
     super.disconnectedCallback();
   }
 
@@ -44,16 +57,26 @@ export class AdminHeader extends LitElement {
     this.selectedMuseum = event.detail || null;
   };
 
+  private handleHistoryChanged = (event: CustomEvent) => {
+    this.canGoBack = event.detail.canGoBack;
+    this.canGoForward = event.detail.canGoForward;
+  };
+
+  private handleThemeChanged = (_event: CustomEvent) => {
+    this.darkMode = document.documentElement.classList.contains('dark');
+  };
+
+  private handleHistoryBack() {
+    this.dispatchEvent(new CustomEvent('history-back', { bubbles: true, composed: true }));
+  }
+
+  private handleHistoryForward() {
+    this.dispatchEvent(new CustomEvent('history-forward', { bubbles: true, composed: true }));
+  }
+
   private toggleDarkMode() {
-    this.darkMode = !this.darkMode;
-    document.documentElement.classList.toggle('dark');
-    this.dispatchEvent(
-      new CustomEvent('theme-change', {
-        detail: { dark: this.darkMode },
-        bubbles: true,
-        composed: true,
-      }),
-    );
+    const newTheme = this.darkMode ? 'light' : 'dark';
+    preferencesService.setTheme(newTheme);
   }
 
   private handleMenuToggle() {
@@ -98,6 +121,24 @@ export class AdminHeader extends LitElement {
               title="Toggle sidebar"
             ></ui-icon-button>
 
+            <!-- History Navigation -->
+            <div class="flex items-center gap-1">
+              <ui-icon-button
+                @click=${this.handleHistoryBack}
+                icon="arrowLeft"
+                title="Indietro"
+                ?disabled=${!this.canGoBack}
+                class="${!this.canGoBack ? 'opacity-40 cursor-not-allowed' : ''}"
+              ></ui-icon-button>
+              <ui-icon-button
+                @click=${this.handleHistoryForward}
+                icon="arrowRight"
+                title="Avanti"
+                ?disabled=${!this.canGoForward}
+                class="${!this.canGoForward ? 'opacity-40 cursor-not-allowed' : ''}"
+              ></ui-icon-button>
+            </div>
+
             <!-- Page Title -->
             <h1 class="text-lg font-semibold text-surface-900 dark:text-white">${this.title}</h1>
           </div>
@@ -123,21 +164,18 @@ export class AdminHeader extends LitElement {
                 : ''}
             </div>
 
-            <!-- Search (Desktop) -->
-            <div class="hidden md:flex items-center gap-2 w-64">
-              <ui-search-bar placeholder="Cerca..." .showButton=${false}></ui-search-bar>
-              <kbd
-                class="hidden lg:inline-flex items-center px-1.5 py-0.5 text-2xs font-mono text-surface-400 bg-surface-200 dark:bg-surface-700 rounded"
-              >
-                ⌘K
-              </kbd>
-            </div>
-
             <!-- Theme Toggle -->
             <ui-icon-button
               @click=${this.toggleDarkMode}
               icon="${this.darkMode ? 'sun' : 'moon'}"
               title="Toggle theme"
+            ></ui-icon-button>
+
+            <!-- Accessibility -->
+            <ui-icon-button
+              @click=${() => (this.a11yPanelOpen = true)}
+              icon="accessibility"
+              title="Impostazioni accessibilità"
             ></ui-icon-button>
 
             <!-- Notifications -->
@@ -210,6 +248,12 @@ export class AdminHeader extends LitElement {
           </div>
         </div>
       </header>
+
+      <!-- Accessibility Panel (rendered outside header for z-index stacking) -->
+      <accessibility-panel
+        .open=${this.a11yPanelOpen}
+        @panel-close=${() => (this.a11yPanelOpen = false)}
+      ></accessibility-panel>
     `;
   }
 }

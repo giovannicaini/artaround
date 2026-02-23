@@ -52,6 +52,12 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     this.loadVisits();
   }
 
+  updated(changedProps: Map<string, unknown>) {
+    if (changedProps.has('viewMode')) {
+      this.scrollToTop();
+    }
+  }
+
   onMuseumChanged(): void {
     this.loadVisits();
   }

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Background circle -->
+  <rect width="32" height="32" rx="8" fill="#3b82f6"/>
+  <!-- Stylized "A" for ArtAround -->
+  <path d="M16 5 L25 26 H21 L19 21 H13 L11 26 H7 Z M14.5 17.5 H17.5 L16 13 Z" fill="white"/>
+</svg>

@@ -55,8 +55,8 @@ export class MuseumSelector extends LitElement {
 
     return html`
       <div
-        class="group cursor-pointer transition-all duration-200 ${isSelected
-          ? 'ring-2 ring-brand-500 ring-offset-2'
+        class="group cursor-pointer transition-all duration-200 rounded-xl ${isSelected
+          ? 'ring-2 ring-brand-500 ring-offset-2 ring-offset-white dark:ring-offset-surface-950'
           : ''}"
         @click=${() => this.selectMuseum(museum)}
       >

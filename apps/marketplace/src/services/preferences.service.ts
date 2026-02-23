@@ -4,6 +4,10 @@ export interface AccessibilitySettings {
   reduceMotion: boolean;
   highContrast: boolean;
   fontSize: 'normal' | 'large' | 'xlarge';
+  letterSpacing: 'normal' | 'wide';
+  dyslexicFont: boolean;
+  underlineLinks: boolean;
+  focusVisible: boolean;
 }
 
 class PreferencesService {
@@ -12,6 +16,10 @@ class PreferencesService {
     reduceMotion: false,
     highContrast: false,
     fontSize: 'normal',
+    letterSpacing: 'normal',
+    dyslexicFont: false,
+    underlineLinks: false,
+    focusVisible: false,
   };
 
   constructor() {
@@ -29,7 +37,8 @@ class PreferencesService {
 
     const savedAccessibility = localStorage.getItem('accessibility');
     if (savedAccessibility) {
-      this.accessibility = JSON.parse(savedAccessibility);
+      // Merge with defaults so new fields are always present
+      this.accessibility = { ...this.accessibility, ...JSON.parse(savedAccessibility) };
     }
   }
 
@@ -63,6 +72,12 @@ class PreferencesService {
     }
 
     root.setAttribute('data-theme', effectiveTheme);
+    // Sync the Tailwind 'dark' class
+    if (effectiveTheme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
   }
 
   getAccessibility(): AccessibilitySettings {
@@ -94,6 +109,34 @@ class PreferencesService {
 
     // Font size
     root.setAttribute('data-font-size', this.accessibility.fontSize);
+
+    // Letter spacing
+    if (this.accessibility.letterSpacing === 'wide') {
+      root.setAttribute('data-letter-spacing', 'wide');
+    } else {
+      root.removeAttribute('data-letter-spacing');
+    }
+
+    // Dyslexic font
+    if (this.accessibility.dyslexicFont) {
+      root.setAttribute('data-font', 'dyslexic');
+    } else {
+      root.removeAttribute('data-font');
+    }
+
+    // Underline links
+    if (this.accessibility.underlineLinks) {
+      root.setAttribute('data-underline-links', 'true');
+    } else {
+      root.removeAttribute('data-underline-links');
+    }
+
+    // Focus visible
+    if (this.accessibility.focusVisible) {
+      root.setAttribute('data-focus-visible', 'true');
+    } else {
+      root.removeAttribute('data-focus-visible');
+    }
   }
 
   private notifyThemeChange() {
@@ -110,7 +153,7 @@ class PreferencesService {
     if (saved) {
       try {
         const museum = JSON.parse(saved);
-        return museum.wikidataId || museum._id || null;
+        return museum._id || null;
       } catch {
         return null;
       }

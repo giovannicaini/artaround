@@ -191,6 +191,9 @@ export class MuseumsManagementPage extends LitElement {
   }
 
   updated(changedProps: Map<string, unknown>) {
+    if (changedProps.has('viewMode')) {
+      window.scrollTo(0, 0);
+    }
     if (
       (changedProps.has('selectedMuseumId') || changedProps.has('configMode')) &&
       this.configMode !== 'full'
@@ -1108,7 +1111,7 @@ export class MuseumsManagementPage extends LitElement {
 
       <ui-list-controls
         title="Filtri e visualizzazione"
-        description="Compatto di default: espandi per cercare, ordinare e cambiare layout"
+        description="Espandi per cercare, ordinare e cambiare layout"
         .collapsed=${this.controlsCollapsed}
         .renderSummary=${() => this.renderListControlsSummary()}
         .renderContent=${() => this.renderListControlsContent()}

@@ -64,6 +64,12 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     this.loadItems();
   }
 
+  updated(changedProps: Map<string, unknown>) {
+    if (changedProps.has('viewMode')) {
+      this.scrollToTop();
+    }
+  }
+
   onMuseumChanged(): void {
     this.pagination.page = 1;
     this.loadItems();

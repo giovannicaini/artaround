@@ -2,10 +2,8 @@ import { LitElement, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { authService } from './services/auth.service';
 import { preferencesService } from './services/preferences.service';
+import { historyService, type HistoryState } from './services/history.service';
 import { ContextualRole, ResourceType, UserRole, type User } from '@artaround/shared';
-
-// Check if we're in development mode (Vite built-in)
-const isDev = import.meta.env.DEV;
 
 // Import components
 import './components/auth/login-page';
@@ -20,6 +18,7 @@ import './components/visits/visits-page';
 import './components/museums/museum-map-page';
 import './components/museums/museums-management-page';
 import './components/navigator/navigator-default-config-page';
+import './components/ui/ui-scroll-top';
 
 @customElement('app-root')
 export class AppRoot extends LitElement {
@@ -45,28 +44,13 @@ export class AppRoot extends LitElement {
   @state()
   private loading = true;
 
-  private renderDevBadge() {
-    if (!isDev) return null;
-    return html`
-      <div
-        class="fixed bottom-4 right-4 z-[9999] flex items-center gap-2 px-3 py-1.5 bg-amber-500 text-amber-950 text-xs font-bold uppercase rounded-full shadow-lg animate-pulse"
-      >
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-          />
-        </svg>
-        DEV
-      </div>
-    `;
-  }
+  // Flag per evitare cicli durante la navigazione dalla history
+  private isNavigatingFromHistory = false;
 
   connectedCallback() {
     super.connectedCallback();
     this.checkAuth();
+    this.restoreHistoryState();
     window.addEventListener('museum-changed', this.handleMuseumChanged as EventListener);
   }
 
@@ -112,16 +96,21 @@ export class AppRoot extends LitElement {
     if (this.requiresMuseumConfigAccess(route) && !this.canAccessMuseumConfigArea()) {
       this.currentRoute = 'dashboard';
       this.pageTitle = 'Dashboard';
+      this.pushToHistory('dashboard', {}, 'Dashboard');
       return;
     }
 
     if (route === 'navigator-default-config' && this.currentUser?.role !== UserRole.ADMIN) {
       this.currentRoute = 'dashboard';
       this.pageTitle = 'Dashboard';
+      this.pushToHistory('dashboard', {}, 'Dashboard');
       return;
     }
 
     this.currentRoute = route;
+
+    // Scroll to top on navigation
+    window.scrollTo(0, 0);
 
     // Update page title based on route
     const titles: Record<string, string> = {
@@ -141,7 +130,12 @@ export class AppRoot extends LitElement {
       analytics: 'Analytics',
       settings: 'Impostazioni',
     };
-    this.pageTitle = titles[route] || 'Dashboard';
+    this.pageTitle = titles[route] || 'Homepage';
+
+    // Push to history (only if not navigating from history)
+    if (!this.isNavigatingFromHistory) {
+      this.pushToHistory(route, this.routeParams, this.pageTitle);
+    }
   }
 
   renderPage() {
@@ -184,6 +178,8 @@ export class AppRoot extends LitElement {
         return html`<artworks-page
           .user=${this.currentUser}
           .openingArtworkId=${this.routeParams.artworkId || ''}
+          .openingViewMode=${this.routeParams.viewMode || 'list'}
+          @page-state-changed=${this.handlePageStateChanged}
         ></artworks-page>`;
       case 'contents':
         return html`<contents-page .user=${this.currentUser}></contents-page>`;
@@ -265,6 +261,8 @@ export class AppRoot extends LitElement {
           @menu-toggle=${this.handleMenuToggle}
           @sidebar-toggle=${this.handleSidebarToggle}
           @select-museum=${this.handleSelectMuseum}
+          @history-back=${this.handleHistoryBack}
+          @history-forward=${this.handleHistoryForward}
           @logout=${this.handleLogout}
         ></admin-header>
 
@@ -273,12 +271,13 @@ export class AppRoot extends LitElement {
             class="p-4 lg:p-6"
             @select-museum=${this.handleSelectMuseum}
             @open-artwork-detail=${this.handleOpenArtworkDetail}
+            @page-state-changed=${this.handlePageStateChanged}
           >
             ${this.renderPage()}
           </div>
         </main>
 
-        ${this.renderDevBadge()}
+        <ui-scroll-top></ui-scroll-top>
       </div>
     `;
   }
@@ -298,11 +297,13 @@ export class AppRoot extends LitElement {
     preferencesService.setSelectedMuseum(e.detail);
     this.currentRoute = 'artworks';
     this.pageTitle = 'Gestione Opere';
+    this.pushToHistory('artworks', {}, 'Gestione Opere');
   }
 
   private handleSelectMuseum() {
     this.currentRoute = 'museums';
     this.pageTitle = 'Seleziona Museo';
+    this.pushToHistory('museums', {}, 'Seleziona Museo');
   }
 
   private handleMuseumChanged = (event: CustomEvent) => {
@@ -310,12 +311,14 @@ export class AppRoot extends LitElement {
       this.currentRoute = 'dashboard';
       this.pageTitle = 'Dashboard';
       this.routeParams = {};
+      this.pushToHistory('dashboard', {}, 'Dashboard');
       return;
     }
 
     if (this.requiresMuseumConfigAccess(this.currentRoute) && !this.canAccessMuseumConfigArea()) {
       this.currentRoute = 'dashboard';
       this.pageTitle = 'Dashboard';
+      this.pushToHistory('dashboard', {}, 'Dashboard');
     }
   };
 
@@ -323,6 +326,7 @@ export class AppRoot extends LitElement {
     this.routeParams = { museumId: e.detail.museumId };
     this.currentRoute = 'museum-maps';
     this.pageTitle = 'Gestione Mappe';
+    this.pushToHistory('museum-maps', { museumId: e.detail.museumId }, 'Gestione Mappe');
   }
 
   private handleOpenArtworkDetail(e: CustomEvent) {
@@ -332,6 +336,38 @@ export class AppRoot extends LitElement {
     this.routeParams = { ...this.routeParams, artworkId: String(artworkId) };
     this.currentRoute = 'artworks';
     this.pageTitle = 'Gestione Opere';
+    this.pushToHistory('artworks', { artworkId: String(artworkId) }, 'Gestione Opere');
+  }
+
+  /**
+   * Handles state changes from child pages (e.g., viewMode changes in artworks-page)
+   * Updates the history with the new state
+   */
+  private handlePageStateChanged(e: CustomEvent) {
+    // Don't update history when navigating from history
+    if (this.isNavigatingFromHistory) return;
+
+    const { viewMode, artworkId } = e.detail;
+
+    // Build params based on the page state
+    const params: Record<string, string> = { ...this.routeParams };
+
+    if (viewMode) {
+      params.viewMode = viewMode;
+    }
+
+    if (artworkId) {
+      params.artworkId = artworkId;
+    } else {
+      // Clear artworkId if going back to list
+      delete params.artworkId;
+    }
+
+    // Update routeParams to keep them in sync
+    this.routeParams = params;
+
+    // Push to history with the updated state
+    this.pushToHistory(this.currentRoute, params, this.pageTitle);
   }
 
   private requiresMuseumConfigAccess(route: string): boolean {
@@ -357,5 +393,78 @@ export class AppRoot extends LitElement {
           assignment.role === ContextualRole.MANAGER,
       ) ?? false
     );
+  }
+
+  /**
+   * Ripristina lo stato della navigazione dal localStorage all'avvio
+   */
+  private restoreHistoryState(): void {
+    const savedState = historyService.getSavedState();
+    if (savedState) {
+      this.isNavigatingFromHistory = true;
+      this.navigateToState(savedState);
+      this.isNavigatingFromHistory = false;
+    } else {
+      // Prima visita: aggiungi dashboard alla history
+      this.pushToHistory('dashboard', {}, 'Dashboard');
+    }
+  }
+
+  /**
+   * Naviga indietro nella history
+   */
+  private handleHistoryBack(): void {
+    const state = historyService.back();
+    if (state) {
+      this.isNavigatingFromHistory = true;
+      this.navigateToState(state);
+      this.isNavigatingFromHistory = false;
+    }
+  }
+
+  /**
+   * Naviga avanti nella history
+   */
+  private handleHistoryForward(): void {
+    const state = historyService.forward();
+    if (state) {
+      this.isNavigatingFromHistory = true;
+      this.navigateToState(state);
+      this.isNavigatingFromHistory = false;
+    }
+  }
+
+  /**
+   * Naviga verso uno stato specifico
+   */
+  private navigateToState(state: HistoryState): void {
+    // Verifica i permessi prima di navigare
+    if (this.requiresMuseumConfigAccess(state.route) && !this.canAccessMuseumConfigArea()) {
+      this.currentRoute = 'dashboard';
+      this.pageTitle = 'Dashboard';
+      this.routeParams = {};
+      return;
+    }
+
+    if (state.route === 'navigator-default-config' && this.currentUser?.role !== UserRole.ADMIN) {
+      this.currentRoute = 'dashboard';
+      this.pageTitle = 'Dashboard';
+      this.routeParams = {};
+      return;
+    }
+
+    this.currentRoute = state.route;
+    this.routeParams = { ...state.params };
+    this.pageTitle = state.title;
+
+    // Scroll to top on navigation
+    window.scrollTo(0, 0);
+  }
+
+  /**
+   * Aggiunge lo stato corrente alla history
+   */
+  private pushToHistory(route: string, params: Record<string, string>, title: string): void {
+    historyService.push(route, params, title);
   }
 }

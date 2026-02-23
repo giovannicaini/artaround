@@ -8,10 +8,7 @@ import '../ui/ui-button';
 import '../ui/ui-input';
 import '../ui/ui-textarea';
 import '../ui/ui-select';
-import '../ui/ui-icon';
-import '../ui/ui-icon-button';
 import '../ui/ui-alert';
-import '../ui/ui-empty';
 import '../ui/ui-loading';
 
 interface NavigatorConfigFormData {
@@ -96,12 +93,19 @@ export class NavigatorDefaultConfigPage extends LitElement {
     const result = await navigatorDefaultConfigService.getConfigs();
     if (result.error) {
       this.error = result.error;
-      this.configs = [];
+      this.configs = [this.getEmptyConfig(1)];
       this.loading = false;
       return;
     }
 
-    this.configs = (result.data || []).map((config) => ({
+    const raw = result.data || [];
+    if (raw.length === 0) {
+      this.configs = [this.getEmptyConfig(1)];
+      this.loading = false;
+      return;
+    }
+
+    this.configs = raw.slice(0, 1).map((config) => ({
       id: config.id,
       name: config.name,
       slug: config.slug,
@@ -128,15 +132,6 @@ export class NavigatorDefaultConfigPage extends LitElement {
       appleTouchIcon: config.pwa.appleTouchIcon || '',
     }));
     this.loading = false;
-  }
-
-  private addConfig() {
-    const nextIndex = this.configs.length + 1;
-    this.configs = [...this.configs, this.getEmptyConfig(nextIndex)];
-  }
-
-  private removeConfig(id: string) {
-    this.configs = this.configs.filter((config) => config.id !== id);
   }
 
   private updateConfig(id: string, patch: Partial<NavigatorConfigFormData>) {
@@ -170,7 +165,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
 
   private validateBeforeSave(): string | null {
     if (!this.configs.length) {
-      return null;
+      return 'La configurazione default è obbligatoria';
     }
 
     const slugSet = new Set<string>();
@@ -382,15 +377,9 @@ export class NavigatorDefaultConfigPage extends LitElement {
 
         <ui-page-header
           title="Configurazione default app navigator"
-          description="Gestisci le configurazioni globali di default per l'app navigator"
+          description="Definisci la configurazione globale di default per l'app navigator"
         >
-          <div slot="actions" class="flex items-center gap-2">
-            <ui-button
-              variant="secondary"
-              icon="plus"
-              label="Aggiungi Config"
-              @click=${this.addConfig}
-            ></ui-button>
+          <div slot="actions">
             <ui-button
               variant="primary"
               icon="check"
@@ -401,40 +390,23 @@ export class NavigatorDefaultConfigPage extends LitElement {
           </div>
         </ui-page-header>
         ${this.loading ? html`<ui-loading></ui-loading>` : nothing}
-        ${!this.loading && this.configs.length === 0
-          ? html`<ui-empty
-              title="Nessuna configurazione default"
-              description="Aggiungi una configurazione per definire i default globali del navigator"
-              icon="cog"
-            ></ui-empty>`
-          : nothing}
+
         ${!this.loading && this.configs.length > 0
           ? html`
               <div class="space-y-4">
                 ${this.configs.map(
-                  (config, index) => html`
+                  (config) => html`
                     <ui-card>
                       <div class="p-6 space-y-5">
-                        <div class="flex items-center justify-between">
-                          <h4 class="font-semibold text-surface-900 dark:text-white">
-                            Configurazione ${index + 1}
-                          </h4>
-                          <div class="flex items-center gap-2">
-                            <ui-button
-                              type="button"
-                              variant="secondary"
-                              size="sm"
-                              icon="download"
-                              label="Export Manifest"
-                              @click=${() => this.exportManifest(config)}
-                            ></ui-button>
-                            <ui-icon-button
-                              icon="trash"
-                              variant="danger"
-                              title="Rimuovi configurazione"
-                              @click=${() => this.removeConfig(config.id)}
-                            ></ui-icon-button>
-                          </div>
+                        <div class="flex items-center justify-end">
+                          <ui-button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            icon="download"
+                            label="Export Manifest"
+                            @click=${() => this.exportManifest(config)}
+                          ></ui-button>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">

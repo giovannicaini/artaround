@@ -1,6 +1,10 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state, property } from 'lit/decorators.js';
 import { userService } from '../../services/user.service';
+import { museumService } from '../../services/museum.service';
+import { artworkService } from '../../services/artwork.service';
+import { itemService } from '../../services/item.service';
+import { visitService } from '../../services/visit.service';
 import {
   type User,
   UserRole,
@@ -29,6 +33,7 @@ import '../ui/ui-section';
 import '../ui/ui-icon-button';
 import '../ui/ui-checkbox';
 import '../ui/ui-filter-tabs';
+import '../ui/ui-combobox';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'view';
 
@@ -76,6 +81,13 @@ export class UsersPage extends LitElement {
     isActive: true,
   };
 
+  // Resource name lookup (id → name)
+  @state() private resourceNames: Map<string, string> = new Map();
+
+  // Resource options for combobox in role modal
+  @state() private resourceOptions: { value: string; label: string }[] = [];
+  @state() private resourceOptionsLoading = false;
+
   // Delete modal
   @state() private deleteModalOpen = false;
   @state() private userToDelete: User | null = null;
@@ -96,6 +108,32 @@ export class UsersPage extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.loadUsers();
+    this.loadResourceNames();
+  }
+
+  private async loadResourceNames() {
+    const museums = await museumService.getMuseums();
+    const map = new Map<string, string>();
+    for (const m of museums) {
+      map.set(m._id, m.name);
+      if (m.wikidataId) map.set(m.wikidataId, m.name);
+    }
+    this.resourceNames = map;
+  }
+
+  private getRoleAssignmentLabel(ra: RoleAssignment): string {
+    const roleLabel = userService.getContextualRoleLabel(ra.role);
+    const typeLabel = userService.getResourceTypeLabel(ra.resourceType);
+    const resourceName = this.resourceNames.get(ra.resourceId);
+    return resourceName
+      ? `${roleLabel} — ${typeLabel} "${resourceName}"`
+      : `${roleLabel} — ${typeLabel} (${ra.resourceId.slice(-6)})`;
+  }
+
+  updated(changedProps: Map<string, unknown>) {
+    if (changedProps.has('viewMode')) {
+      window.scrollTo(0, 0);
+    }
   }
 
   private async loadUsers() {
@@ -267,10 +305,37 @@ export class UsersPage extends LitElement {
     this.selectedUser = user;
     this.roleAssignmentData = {
       role: ContextualRole.VIEWER,
-      resourceType: ResourceType.ITEM,
+      resourceType: ResourceType.MUSEUM,
       resourceId: '',
     };
     this.roleAssignmentModalOpen = true;
+    this.loadResourceOptions(ResourceType.MUSEUM);
+  }
+
+  private async loadResourceOptions(type: ResourceType) {
+    this.resourceOptionsLoading = true;
+    this.resourceOptions = [];
+    try {
+      if (type === ResourceType.MUSEUM) {
+        const museums = await museumService.getMuseums();
+        this.resourceOptions = museums.map((m) => ({ value: m._id, label: m.name }));
+      } else if (type === ResourceType.ITEM) {
+        const res = await itemService.getItems({ limit: 200 });
+        this.resourceOptions = res.items.map((i) => ({ value: i._id, label: i.title }));
+      } else if (type === ResourceType.ARTWORK) {
+        const res = await artworkService.getArtworks({ limit: 200 });
+        this.resourceOptions = res.artworks.map((a) => ({ value: a._id, label: a.title }));
+      } else if (type === ResourceType.VISIT) {
+        const res = await visitService.getVisits({ limit: 200 });
+        this.resourceOptions = res.visits.map((v) => ({ value: v._id, label: v.title }));
+      }
+    } catch (e) {
+      console.error('Error loading resource options:', e);
+      this.resourceOptions = [];
+    } finally {
+      this.resourceOptionsLoading = false;
+      this.requestUpdate();
+    }
   }
 
   private async handleAddRoleAssignment() {
@@ -509,7 +574,7 @@ export class UsersPage extends LitElement {
                         <ui-badge
                           variant="outline"
                           size="sm"
-                          .label=${`${userService.getContextualRoleLabel(ra.role)} - ${userService.getResourceTypeLabel(ra.resourceType)}`}
+                          .label=${this.getRoleAssignmentLabel(ra)}
                         ></ui-badge>
                       `,
                     )}
@@ -782,7 +847,8 @@ export class UsersPage extends LitElement {
                               ${userService.getContextualRoleLabel(ra.role)}
                             </p>
                             <p class="text-sm text-surface-500">
-                              ${userService.getResourceTypeLabel(ra.resourceType)}: ${ra.resourceId}
+                              ${userService.getResourceTypeLabel(ra.resourceType)}:
+                              ${this.resourceNames.get(ra.resourceId) ?? ra.resourceId}
                             </p>
                           </div>
                         </div>
@@ -846,6 +912,8 @@ export class UsersPage extends LitElement {
   private renderRoleAssignmentModal() {
     if (!this.roleAssignmentModalOpen) return nothing;
 
+    const existingRoles = this.selectedUser?.roleAssignments ?? [];
+
     return html`
       <div
         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
@@ -855,64 +923,106 @@ export class UsersPage extends LitElement {
           }
         }}
       >
-        <div class="bg-white dark:bg-surface-900 rounded-xl shadow-2xl w-full max-w-md">
-          <div class="p-6 border-b border-surface-200 dark:border-surface-700">
+        <div class="bg-white dark:bg-surface-900 rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+          <div class="p-6 border-b border-surface-200 dark:border-surface-700 flex-shrink-0">
             <h3 class="text-lg font-semibold text-surface-900 dark:text-white">
-              Assegna Ruolo Contestuale
+              Ruoli Contestuali — ${this.selectedUser?.username}
             </h3>
-            <p class="text-sm text-surface-500 mt-1">
-              Assegna un ruolo specifico per una risorsa a ${this.selectedUser?.username}
-            </p>
           </div>
 
-          <div class="p-6 space-y-4">
-            <ui-select
-              label="Tipo di Ruolo"
-              .value=${this.roleAssignmentData.role}
-              .options=${Object.values(ContextualRole).map((role) => ({
-                value: role,
-                label: userService.getContextualRoleLabel(role),
-              }))}
-              @select-change=${(e: CustomEvent) =>
-                (this.roleAssignmentData = {
-                  ...this.roleAssignmentData,
-                  role: e.detail.value as ContextualRole,
-                })}
-            ></ui-select>
+          <div class="overflow-y-auto flex-1">
+            <!-- Existing role assignments -->
+            ${existingRoles.length > 0
+              ? html`
+                  <div class="p-6 pb-0 space-y-2">
+                    <p class="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">Ruoli assegnati</p>
+                    ${existingRoles.map(
+                      (ra) => html`
+                        <div
+                          class="flex items-center justify-between p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50"
+                        >
+                          <div>
+                            <p class="text-sm font-medium text-surface-900 dark:text-white">
+                              ${userService.getContextualRoleLabel(ra.role)}
+                            </p>
+                            <p class="text-xs text-surface-500">
+                              ${userService.getResourceTypeLabel(ra.resourceType)}:
+                              ${this.resourceNames.get(ra.resourceId) ?? ra.resourceId}
+                            </p>
+                          </div>
+                          <ui-icon-button
+                            icon="trash"
+                            size="sm"
+                            variant="danger"
+                            title="Rimuovi ruolo"
+                            @click=${() => this.handleRemoveRoleAssignment(ra)}
+                          ></ui-icon-button>
+                        </div>
+                      `,
+                    )}
+                  </div>
+                `
+              : nothing}
 
-            <ui-select
-              label="Tipo di Risorsa"
-              .value=${this.roleAssignmentData.resourceType}
-              .options=${Object.values(ResourceType).map((type) => ({
-                value: type,
-                label: userService.getResourceTypeLabel(type),
-              }))}
-              @select-change=${(e: CustomEvent) =>
-                (this.roleAssignmentData = {
-                  ...this.roleAssignmentData,
-                  resourceType: e.detail.value as ResourceType,
-                })}
-            ></ui-select>
+            <!-- Add new role assignment -->
+            <div class="p-6 space-y-4">
+              ${existingRoles.length > 0
+                ? html`<p class="text-xs font-semibold text-surface-500 uppercase tracking-wider">Aggiungi ruolo</p>`
+                : nothing}
 
-            <ui-input
-              label="ID Risorsa"
-              placeholder="Es. 507f1f77bcf86cd799439011"
-              .value=${this.roleAssignmentData.resourceId}
-              @input=${(e: InputEvent) =>
-                (this.roleAssignmentData = {
-                  ...this.roleAssignmentData,
-                  resourceId: (e.target as HTMLInputElement).value,
-                })}
-              hint="L'ID della risorsa (opera, visita, contenuto o museo)"
-            ></ui-input>
+              <ui-select
+                label="Tipo di Ruolo"
+                .value=${this.roleAssignmentData.role}
+                .options=${Object.values(ContextualRole).map((role) => ({
+                  value: role,
+                  label: userService.getContextualRoleLabel(role),
+                }))}
+                @select-change=${(e: CustomEvent) =>
+                  (this.roleAssignmentData = {
+                    ...this.roleAssignmentData,
+                    role: e.detail.value as ContextualRole,
+                  })}
+              ></ui-select>
+
+              <ui-select
+                label="Tipo di Risorsa"
+                .value=${this.roleAssignmentData.resourceType}
+                .options=${Object.values(ResourceType).map((type) => ({
+                  value: type,
+                  label: userService.getResourceTypeLabel(type),
+                }))}
+                @select-change=${(e: CustomEvent) => {
+                  const newType = e.detail.value as ResourceType;
+                  this.roleAssignmentData = {
+                    ...this.roleAssignmentData,
+                    resourceType: newType,
+                    resourceId: '',
+                  };
+                  this.loadResourceOptions(newType);
+                }}
+              ></ui-select>
+
+              <ui-combobox
+                label="Risorsa"
+                .value=${this.roleAssignmentData.resourceId}
+                .options=${this.resourceOptions}
+                .loading=${this.resourceOptionsLoading}
+                placeholder="Cerca e seleziona una risorsa..."
+                @combobox-change=${(e: CustomEvent) =>
+                  (this.roleAssignmentData = {
+                    ...this.roleAssignmentData,
+                    resourceId: e.detail.value,
+                  })}
+              ></ui-combobox>
+            </div>
           </div>
 
           <div
-            class="flex items-center justify-end gap-3 p-6 border-t border-surface-200 dark:border-surface-700"
+            class="flex items-center justify-end gap-3 p-6 border-t border-surface-200 dark:border-surface-700 flex-shrink-0"
           >
             <ui-button
               variant="ghost"
-              label="Annulla"
+              label="Chiudi"
               @click=${() => (this.roleAssignmentModalOpen = false)}
             ></ui-button>
             <ui-button
