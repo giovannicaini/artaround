@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import swaggerUi from 'swagger-ui-express';
 import { config } from './config/config.js';
 import { connectDB } from './config/database.js';
+import { User } from './models/index.js';
 import { errorHandler } from './middleware/index.js';
 import routes from './routes/index.js';
 import { swaggerSpec } from './config/swagger.js';
@@ -81,6 +82,20 @@ const startServer = async () => {
   try {
     // Connect to MongoDB
     await connectDB();
+
+    // Optional bootstrap seed for environments without shell access
+    if (config.seed.onStart) {
+      const usersCount = await User.countDocuments();
+      const shouldSeed = !config.seed.onlyIfEmpty || usersCount === 0;
+
+      if (shouldSeed) {
+        console.log('🌱 Startup seed enabled: running seed...');
+        const { seedDatabase } = await import('./scripts/seed.js');
+        await seedDatabase({ connect: false, exitOnComplete: false });
+      } else {
+        console.log('🌱 Startup seed enabled, skipped because database is not empty.');
+      }
+    }
 
     // Start listening
     app.listen(config.port, () => {

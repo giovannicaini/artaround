@@ -7,6 +7,12 @@ import path from 'path';
 const envFile = process.env.NODE_ENV === 'development' ? '.env.development' : '.env.production';
 dotenv.config({ path: path.resolve(process.cwd(), '../../', envFile) });
 
+const toBoolean = (value: string | undefined, defaultValue = false): boolean => {
+  if (value === undefined) return defaultValue;
+  const normalized = value.trim().toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
+};
+
 export const config = {
   env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '8000', 10),
@@ -39,5 +45,10 @@ export const config = {
 
   upload: {
     maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760', 10), // 10MB default
+  },
+
+  seed: {
+    onStart: toBoolean(process.env.SEED_ON_START, true),
+    onlyIfEmpty: toBoolean(process.env.SEED_ONLY_IF_EMPTY, true),
   },
 };

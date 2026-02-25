@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { fileURLToPath } from 'url';
 import { connectDB } from '../config/database.js';
 import { User, MuseumModel, ArtworkModel, ItemModel, VisitModel } from '../models/index.js';
 import {
@@ -487,11 +488,20 @@ function pickFeatured(arts: ImportedArtwork[], wantedQids: string[]): ImportedAr
   return wantedQids.map((q) => byId.get(q)).filter(Boolean) as ImportedArtwork[];
 }
 
-async function seed() {
+type SeedOptions = {
+  connect?: boolean;
+  exitOnComplete?: boolean;
+};
+
+export async function seedDatabase(options: SeedOptions = {}): Promise<void> {
+  const { connect = true, exitOnComplete = true } = options;
+
   try {
     console.log('🌱 Starting database seeding...\n');
 
-    await connectDB();
+    if (connect) {
+      await connectDB();
+    }
 
     // Clear existing data
     console.log('🗑️ Clearing existing data...');
@@ -868,11 +878,21 @@ async function seed() {
     console.log(`✅ Created visits: ${visits.length}\n`);
 
     console.log('🎉 Seeding completed successfully!');
-    process.exit(0);
+    if (exitOnComplete) {
+      process.exit(0);
+    }
   } catch (error) {
     console.error('❌ Seeding failed:', error);
-    process.exit(1);
+    if (exitOnComplete) {
+      process.exit(1);
+    }
+    throw error;
   }
 }
 
-seed();
+const currentFile = fileURLToPath(import.meta.url);
+const entrypointFile = process.argv[1];
+
+if (entrypointFile && currentFile === entrypointFile) {
+  void seedDatabase();
+}
