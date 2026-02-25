@@ -89,8 +89,10 @@ const parseTechnicalYearRange = (yearValue: unknown): YearRange => {
   return {};
 };
 
-const resolveMuseumIdCandidates = async (museumId: string): Promise<string[]> => {
-  const normalized = museumId.trim();
+const resolveMuseumIdCandidates = async (
+  museumId: string | string[] | undefined | null,
+): Promise<string[]> => {
+  const normalized = (Array.isArray(museumId) ? museumId[0] : museumId)?.trim() || '';
   if (!normalized) return [];
 
   const candidates = new Set<string>([normalized]);
