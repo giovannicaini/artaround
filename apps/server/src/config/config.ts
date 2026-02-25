@@ -1,11 +1,38 @@
 import dotenv from 'dotenv';
+import fs from 'fs';
 import path from 'path';
 
 // Load environment variables based on NODE_ENV
 // npm run dev -> .env.development
 // npm run start (production) -> .env.production
 const envFile = process.env.NODE_ENV === 'development' ? '.env.development' : '.env.production';
-dotenv.config({ path: path.resolve(process.cwd(), '../../', envFile) });
+
+const resolveEnvPath = (): string | undefined => {
+  const envCandidates = [envFile, '.env'];
+  let currentDir = process.cwd();
+
+  for (let depth = 0; depth < 8; depth += 1) {
+    for (const candidate of envCandidates) {
+      const candidatePath = path.join(currentDir, candidate);
+      if (fs.existsSync(candidatePath)) {
+        return candidatePath;
+      }
+    }
+
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) break;
+    currentDir = parentDir;
+  }
+
+  return undefined;
+};
+
+const envPath = resolveEnvPath();
+if (envPath) {
+  dotenv.config({ path: envPath });
+} else {
+  dotenv.config();
+}
 
 const toBoolean = (value: string | undefined, defaultValue = false): boolean => {
   if (value === undefined) return defaultValue;

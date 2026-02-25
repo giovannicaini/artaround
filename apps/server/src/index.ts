@@ -46,6 +46,12 @@ app.get('/api-docs.json', (req, res) => {
 // API Routes
 app.use('/api', routes);
 
+// Root landing page
+const landingPagePath = path.resolve(__dirname, '../../../index.html');
+app.get('/', (req, res) => {
+  res.sendFile(landingPagePath);
+});
+
 // Serve uploaded images (static files)
 const uploadsPath = UploadService.getUploadsDir();
 app.use(
