@@ -28,10 +28,14 @@ const resolveEnvPath = (): string | undefined => {
 };
 
 const envPath = resolveEnvPath();
-if (envPath) {
-  dotenv.config({ path: envPath });
-} else {
-  dotenv.config();
+const dotenvResult = envPath ? dotenv.config({ path: envPath }) : dotenv.config();
+
+console.log(
+  `[config] dotenv: NODE_ENV=${process.env.NODE_ENV || 'undefined'} cwd=${process.cwd()} envFile=${envPath || '(default)'} envDir=${envPath ? path.dirname(envPath) : process.cwd()}`,
+);
+
+if (dotenvResult.error) {
+  console.warn(`[config] dotenv load error: ${dotenvResult.error.message}`);
 }
 
 const toBoolean = (value: string | undefined, defaultValue = false): boolean => {
