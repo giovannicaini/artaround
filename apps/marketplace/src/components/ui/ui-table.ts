@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import './ui-icon';
 import './ui-button';
 
@@ -55,10 +55,11 @@ export class UiTable extends LitElement {
   @property({ type: Boolean }) compact = false;
   @property({ type: String }) selectedRowId = '';
   @property({ type: String }) rowKeyField = '_id';
+  @property({ type: String }) sortKey = '';
+  @property({ type: String }) sortDir: 'asc' | 'desc' = 'asc';
+  @property({ type: Boolean }) externalSort = false;
 
-  @state() private sortKey = '';
-  @state() private sortDir: 'asc' | 'desc' = 'asc';
-
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -68,15 +69,35 @@ export class UiTable extends LitElement {
     this.style.display = 'block';
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private handleSort(column: TableColumn) {
     if (!column.sortable) return;
 
-    if (this.sortKey === column.key) {
-      this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
-    } else {
-      this.sortKey = column.key;
-      this.sortDir = 'asc';
+    const nextSortKey = column.key;
+    const nextSortDir =
+      this.sortKey === column.key && this.sortDir === 'asc' ? 'desc' : ('asc' as const);
+
+    if (this.externalSort) {
+      this.dispatchEvent(
+        new CustomEvent('sort-change', {
+          detail: { key: nextSortKey, direction: nextSortDir },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      return;
     }
+
+    this.sortKey = nextSortKey;
+    this.sortDir = nextSortDir;
+
+    this.dispatchEvent(
+      new CustomEvent('sort-change', {
+        detail: { key: nextSortKey, direction: nextSortDir },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   private handleRowClick(row: Record<string, unknown>) {
@@ -101,7 +122,9 @@ export class UiTable extends LitElement {
     );
   }
 
+  // ─── Helpers ──────────────────────────────────────────────
   private get sortedData() {
+    if (this.externalSort) return this.data;
     if (!this.sortKey) return this.data;
 
     return [...this.data].sort((a, b) => {
@@ -119,6 +142,7 @@ export class UiTable extends LitElement {
     return row[column.key];
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     const cellPadding = this.compact ? 'px-4 py-2' : 'px-6 py-4';
     const headerPadding = this.compact ? 'px-4 py-2' : 'px-6 py-3';

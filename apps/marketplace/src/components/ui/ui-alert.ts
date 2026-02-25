@@ -27,6 +27,7 @@ export class UiAlert extends LitElement {
 
   @state() private visible = true;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -36,6 +37,7 @@ export class UiAlert extends LitElement {
     this.style.display = 'block';
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private get variantConfig() {
     const configs = {
       success: {
@@ -83,6 +85,7 @@ export class UiAlert extends LitElement {
     this.dispatchEvent(new CustomEvent('retry', { bubbles: true, composed: true }));
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     if (!this.visible || !this.message) return nothing;
 

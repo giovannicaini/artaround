@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
 @customElement('ui-textarea')
@@ -14,6 +14,7 @@ export class UiTextarea extends LitElement {
   @property({ type: Boolean }) disabled = false;
   @property({ type: Boolean }) showCount = false;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -23,6 +24,7 @@ export class UiTextarea extends LitElement {
     this.style.display = 'block';
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private handleInput(e: Event) {
     const target = e.target as HTMLTextAreaElement;
     this.value = target.value;
@@ -35,6 +37,7 @@ export class UiTextarea extends LitElement {
     );
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     const textareaClasses = `
       block w-full px-3 py-2.5 text-sm rounded-lg border transition-colors duration-150
@@ -61,10 +64,10 @@ export class UiTextarea extends LitElement {
           ? html`
               <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
                 ${this.label}
-                ${this.required ? html`<span class="text-danger-500 ml-0.5">*</span>` : ''}
+                ${this.required ? html`<span class="text-danger-500 ml-0.5">*</span>` : nothing}
               </label>
             `
-          : ''}
+          : nothing}
 
         <textarea
           class="${textareaClasses}"
@@ -82,7 +85,7 @@ export class UiTextarea extends LitElement {
           <div>
             ${this.hint && !this.error
               ? html` <p class="text-xs text-surface-500 dark:text-surface-400">${this.hint}</p> `
-              : ''}
+              : nothing}
             ${this.error
               ? html`
                   <p
@@ -99,7 +102,7 @@ export class UiTextarea extends LitElement {
                     ${this.error}
                   </p>
                 `
-              : ''}
+              : nothing}
           </div>
 
           ${this.showCount || this.maxLength > 0
@@ -108,7 +111,7 @@ export class UiTextarea extends LitElement {
                   ${charCount}${this.maxLength > 0 ? `/${this.maxLength}` : ''}
                 </p>
               `
-            : ''}
+            : nothing}
         </div>
       </div>
     `;

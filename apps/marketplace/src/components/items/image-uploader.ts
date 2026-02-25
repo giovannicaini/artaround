@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import '../ui/ui-icon';
 import '../ui/ui-button';
@@ -15,10 +15,12 @@ export class ImageUploader extends LitElement {
   @state() private dragOver = false;
   @state() private uploading = false;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
+  // ─── Actions (Drag & Upload) ─────────────────────────────
   private handleDragOver(e: DragEvent) {
     e.preventDefault();
     this.dragOver = true;
@@ -81,6 +83,7 @@ export class ImageUploader extends LitElement {
     }
   }
 
+  // ─── File Helpers ────────────────────────────────────────
   private fileToBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -101,11 +104,13 @@ export class ImageUploader extends LitElement {
     );
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     return html`
       <div class="space-y-1.5">
         <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
-          ${this.label} ${this.required ? html`<span class="text-danger-500 ml-0.5">*</span>` : ''}
+          ${this.label}
+          ${this.required ? html`<span class="text-danger-500 ml-0.5">*</span>` : nothing}
         </label>
 
         ${this.value
@@ -223,7 +228,7 @@ export class ImageUploader extends LitElement {
                 ${this.error}
               </p>
             `
-          : ''}
+          : nothing}
       </div>
     `;
   }

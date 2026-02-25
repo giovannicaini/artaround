@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import type { MuseumFloor, MapMarker, Artwork } from '@artaround/shared';
@@ -22,6 +22,7 @@ export interface MapClickEvent {
  */
 @customElement('svg-map-editor')
 export class SvgMapEditor extends LitElement {
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -90,6 +91,7 @@ export class SvgMapEditor extends LitElement {
     return this.floors.find((f) => f.id === this.selectedFloorId) || this.floors[0] || null;
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     const floor = this.currentFloor;
 
@@ -204,6 +206,7 @@ export class SvgMapEditor extends LitElement {
     `;
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderMarker(marker: MapMarker) {
     const isSelected = this.selectedMarkerId === marker.id;
 
@@ -270,7 +273,7 @@ export class SvgMapEditor extends LitElement {
                   ${marker.label || artwork?.title}
                 </div>
               `
-            : ''}
+            : nothing}
 
           <!-- Selection ring for non-image markers -->
           ${isSelected && !hasImage
@@ -279,12 +282,13 @@ export class SvgMapEditor extends LitElement {
                   class="absolute inset-0 -m-2 border-2 border-brand-500 rounded-full animate-ping"
                 ></div>
               `
-            : ''}
+            : nothing}
         </div>
       </div>
     `;
   }
 
+  // ─── Actions (Viewport / Interaction) ────────────────────
   private selectFloor(floorId: string) {
     this.dispatchEvent(
       new CustomEvent('floor-select', {

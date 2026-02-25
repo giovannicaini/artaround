@@ -22,6 +22,8 @@ import '../ui/ui-textarea';
 import '../ui/ui-alert';
 import '../ui/ui-loading';
 import '../ui/image-editor';
+import '../ui/ui-tag-input';
+import '../ui/ui-museum-required-notice';
 
 /**
  * Artwork Creator/Editor Component
@@ -65,7 +67,6 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
 
   // Physical properties
   @state() private materials: string[] = [];
-  @state() private materialInput = '';
   @state() private dimensionHeight: number | undefined = undefined;
   @state() private dimensionWidth: number | undefined = undefined;
   @state() private dimensionDepth: number | undefined = undefined;
@@ -85,6 +86,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     { value: 'm', label: 'Metri (m)' },
   ];
 
+  // ─── Lifecycle ───────────────────────────────────────────
   async connectedCallback() {
     super.connectedCallback();
     await this.loadMuseums();
@@ -104,6 +106,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
+  // ─── Data Loading ────────────────────────────────────────
   private async loadMuseums() {
     try {
       this.museums = await museumService.getMuseums();
@@ -150,6 +153,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
+  // ─── Wikidata Helpers ────────────────────────────────────
   private clearWikidataAutocomplete() {
     const autocomplete = this.querySelector('wikidata-autocomplete') as {
       clearSelection?: () => void;
@@ -167,8 +171,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
 
       if (!this.artworkId) return true;
 
-      const isCurrentArtwork =
-        artwork._id === this.artworkId || artwork.wikidataId === this.wikidataId;
+      const isCurrentArtwork = artwork._id === this.artworkId;
       return !isCurrentArtwork;
     });
   }
@@ -446,27 +449,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     this.clearPendingWikidataField('movement');
   }
 
-  private handleAddMaterial() {
-    const material = this.materialInput.trim();
-    if (material && !this.materials.includes(material)) {
-      this.materials = [...this.materials, material];
-      this.materialInput = '';
-      this.clearPendingWikidataField('materials');
-    }
-  }
-
-  private handleRemoveMaterial(material: string) {
-    this.materials = this.materials.filter((m) => m !== material);
-    this.clearPendingWikidataField('materials');
-  }
-
-  private handleMaterialKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      this.handleAddMaterial();
-    }
-  }
-
+  // ─── Validation & Submit ─────────────────────────────────
   private getDimensionsDisplayText(): string {
     const parts: string[] = [];
     if (this.dimensionHeight) parts.push(`${this.dimensionHeight}`);
@@ -565,6 +548,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
+  // ─── Form State Helpers ──────────────────────────────────
   private resetForm() {
     this.wikidataId = '';
     this.artworkTitle = '';
@@ -578,7 +562,6 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     this.movementWikidataId = '';
     this.technique = '';
     this.materials = [];
-    this.materialInput = '';
     this.dimensionHeight = undefined;
     this.dimensionWidth = undefined;
     this.dimensionDepth = undefined;
@@ -600,6 +583,28 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     );
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
+  private renderFormSection(
+    title: string,
+    icon: string,
+    iconClass: string,
+    renderContent: () => unknown,
+  ) {
+    return html`
+      <section>
+        <h3
+          class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+        >
+          <ui-icon name=${icon} size="sm" class=${iconClass}></ui-icon>
+          ${title}
+        </h3>
+
+        <ui-card>${renderContent()}</ui-card>
+      </section>
+    `;
+  }
+
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     if (this.loadingArtwork) {
       return html`<ui-loading size="lg" text="Caricamento opera..."></ui-loading>`;
@@ -614,21 +619,11 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
       <form @submit=${this.handleSubmit} class="space-y-8">
         <!-- Success/Error Messages -->
         ${!this.museumId
-          ? html`
-              <ui-alert
-                variant="warning"
-                .message=${"Seleziona un museo attivo prima di creare l'opera."}
-              ></ui-alert>
-              <div class="flex justify-end">
-                <ui-button
-                  variant="secondary"
-                  size="sm"
-                  label="Seleziona museo"
-                  @click=${this.emitSelectMuseum}
-                ></ui-button>
-              </div>
-            `
-          : ''}
+          ? html`<ui-museum-required-notice
+              subject="opere"
+              @select-museum=${this.emitSelectMuseum}
+            ></ui-museum-required-notice>`
+          : nothing}
         ${this.success
           ? html`<ui-alert variant="success" .message=${this.success}></ui-alert>`
           : nothing}
@@ -637,15 +632,11 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
           : nothing}
 
         <!-- Section: Wikidata Reference -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="link" size="sm" class="text-blue-500"></ui-icon>
-            Riferimento Wikidata
-          </h3>
-
-          <ui-card>
+        ${this.renderFormSection(
+          'Riferimento Wikidata',
+          'link',
+          'text-blue-500',
+          () => html`
             <div class="space-y-4">
               ${this.artworkId
                 ? html`
@@ -689,19 +680,15 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                   `
                 : nothing}
             </div>
-          </ui-card>
-        </section>
+          `,
+        )}
 
         <!-- Section: Basic Info -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="image" size="sm" class="text-brand-500"></ui-icon>
-            Informazioni Base
-          </h3>
-
-          <ui-card>
+        ${this.renderFormSection(
+          'Informazioni Base',
+          'image',
+          'text-brand-500',
+          () => html`
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
               ${this.renderFieldWithBanner(
                 'artworkTitle',
@@ -752,19 +739,15 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                 @select-change=${(e: CustomEvent) => (this.artworkType = e.detail.value)}
               ></ui-select>
             </div>
-          </ui-card>
-        </section>
+          `,
+        )}
 
         <!-- Section: Authorship -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="user" size="sm" class="text-amber-500"></ui-icon>
-            Autore
-          </h3>
-
-          <ui-card>
+        ${this.renderFormSection(
+          'Autore',
+          'user',
+          'text-amber-500',
+          () => html`
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <wikidata-autocomplete
                 label="Cerca Autore su Wikidata"
@@ -823,19 +806,15 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                 `,
               )}
             </div>
-          </ui-card>
-        </section>
+          `,
+        )}
 
         <!-- Section: Classification -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="tag" size="sm" class="text-purple-500"></ui-icon>
-            Classificazione
-          </h3>
-
-          <ui-card>
+        ${this.renderFormSection(
+          'Classificazione',
+          'tag',
+          'text-purple-500',
+          () => html`
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <wikidata-autocomplete
                 label="Movimento Artistico"
@@ -896,61 +875,33 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
 
               <!-- Materials -->
               <div class="lg:col-span-2">
-                <label class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-2"
-                  >Materiali</label
-                >
-                <div class="flex gap-2 mb-2">
-                  <ui-input
-                    class="flex-1"
-                    placeholder="Es: Marmo di Carrara"
-                    .value=${this.materialInput}
-                    @input-change=${(e: CustomEvent) => (this.materialInput = e.detail.value)}
-                    @keydown=${this.handleMaterialKeydown}
-                  ></ui-input>
-                  <ui-button
-                    variant="secondary"
-                    icon="plus"
-                    @click=${this.handleAddMaterial}
-                  ></ui-button>
-                </div>
-                ${this.materials.length > 0
-                  ? html`
-                      <div class="flex flex-wrap gap-2">
-                        ${this.materials.map(
-                          (material) => html`
-                            <span
-                              class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300"
-                            >
-                              ${material}
-                              <button
-                                type="button"
-                                class="ml-1 text-surface-400 hover:text-danger-500"
-                                @click=${() => this.handleRemoveMaterial(material)}
-                              >
-                                ×
-                              </button>
-                            </span>
-                          `,
-                        )}
-                      </div>
-                    `
-                  : nothing}
-                ${this.renderAutofillBanner('materials')}
+                ${this.renderFieldWithBanner(
+                  'materials',
+                  html`
+                    <ui-tag-input
+                      label="Materiali"
+                      placeholder="Es: Marmo di Carrara"
+                      .tags=${this.materials}
+                      .lowercase=${false}
+                      emptyText="Nessun materiale aggiunto"
+                      @tags-change=${(e: CustomEvent<{ tags: string[] }>) => {
+                        this.materials = e.detail.tags;
+                        this.clearPendingWikidataField('materials');
+                      }}
+                    ></ui-tag-input>
+                  `,
+                )}
               </div>
             </div>
-          </ui-card>
-        </section>
+          `,
+        )}
 
         <!-- Section: Dimensions -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="chart" size="sm" class="text-teal-500"></ui-icon>
-            Dimensioni
-          </h3>
-
-          <ui-card>
+        ${this.renderFormSection(
+          'Dimensioni',
+          'chart',
+          'text-teal-500',
+          () => html`
             <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
               ${this.renderFieldWithBanner(
                 'dimensionHeight',
@@ -1022,19 +973,15 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                   : nothing}
               </div>
             </div>
-          </ui-card>
-        </section>
+          `,
+        )}
 
         <!-- Section: Location -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="location" size="sm" class="text-emerald-500"></ui-icon>
-            Posizione nel Museo
-          </h3>
-
-          <ui-card>
+        ${this.renderFormSection(
+          'Posizione nel Museo',
+          'location',
+          'text-emerald-500',
+          () => html`
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
               ${this.renderFieldWithBanner(
                 'room',
@@ -1065,39 +1012,30 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                 `,
               )}
             </div>
-          </ui-card>
-        </section>
+          `,
+        )}
 
         <!-- Section: Image -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="image" size="sm" class="text-pink-500"></ui-icon>
-            Immagine *
-          </h3>
-
-          <ui-card>
-            ${this.renderFieldWithBanner(
-              'image',
-              html`
-                <image-editor
-                  label="Immagine dell'opera"
-                  category="artworks"
-                  .value=${this.image}
-                  maxWidth=${1200}
-                  maxHeight=${1200}
-                  .maxOutputSizeMb=${0.5}
-                  defaultFormat="webp"
-                  @image-saved=${(e: CustomEvent) => {
-                    this.image = e.detail.path || '';
-                    this.clearPendingWikidataField('image');
-                  }}
-                ></image-editor>
-              `,
-            )}
-          </ui-card>
-        </section>
+        ${this.renderFormSection('Immagine *', 'image', 'text-pink-500', () =>
+          this.renderFieldWithBanner(
+            'image',
+            html`
+              <image-editor
+                label="Immagine dell'opera"
+                category="artworks"
+                .value=${this.image}
+                maxWidth=${1200}
+                maxHeight=${1200}
+                .maxOutputSizeMb=${0.5}
+                defaultFormat="webp"
+                @image-saved=${(e: CustomEvent) => {
+                  this.image = e.detail.path || '';
+                  this.clearPendingWikidataField('image');
+                }}
+              ></image-editor>
+            `,
+          ),
+        )}
 
         <!-- Actions -->
         <div

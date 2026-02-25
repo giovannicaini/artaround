@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { User } from '@artaround/shared';
 import { preferencesService } from '../../services/preferences.service';
@@ -22,6 +22,7 @@ export class AdminHeader extends LitElement {
   @state() private canGoForward = false;
   @state() private a11yPanelOpen = false;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -53,6 +54,7 @@ export class AdminHeader extends LitElement {
     super.disconnectedCallback();
   }
 
+  // ─── Actions & Event Handlers ───────────────────────────
   private handleMuseumChanged = (event: CustomEvent) => {
     this.selectedMuseum = event.detail || null;
   };
@@ -95,6 +97,7 @@ export class AdminHeader extends LitElement {
     preferencesService.clearSelectedMuseum();
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     const marginLeft = this.sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64';
 
@@ -125,14 +128,14 @@ export class AdminHeader extends LitElement {
             <div class="flex items-center gap-1">
               <ui-icon-button
                 @click=${this.handleHistoryBack}
-                icon="arrowLeft"
+                icon="arrow-left"
                 title="Indietro"
                 ?disabled=${!this.canGoBack}
                 class="${!this.canGoBack ? 'opacity-40 cursor-not-allowed' : ''}"
               ></ui-icon-button>
               <ui-icon-button
                 @click=${this.handleHistoryForward}
-                icon="arrowRight"
+                icon="arrow-right"
                 title="Avanti"
                 ?disabled=${!this.canGoForward}
                 class="${!this.canGoForward ? 'opacity-40 cursor-not-allowed' : ''}"
@@ -161,7 +164,7 @@ export class AdminHeader extends LitElement {
                       @click=${this.handleClearMuseum}
                     ></ui-icon-button>
                   `
-                : ''}
+                : nothing}
             </div>
 
             <!-- Theme Toggle -->
@@ -208,7 +211,7 @@ export class AdminHeader extends LitElement {
                 >
                   ${this.user?.username || 'Utente'}
                 </span>
-                <ui-icon name="chevronDown" size="xs" class="text-surface-400"></ui-icon>
+                <ui-icon name="chevron-down" size="xs" class="text-surface-400"></ui-icon>
               </button>
 
               <!-- Dropdown -->
@@ -243,7 +246,7 @@ export class AdminHeader extends LitElement {
                       </div>
                     </div>
                   `
-                : ''}
+                : nothing}
             </div>
           </div>
         </div>

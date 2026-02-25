@@ -11,10 +11,12 @@ export class UiListControls extends LitElement {
   @property({ attribute: false }) renderSummary: (() => unknown) | null = null;
   @property({ attribute: false }) renderContent: (() => unknown) | null = null;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private toggle() {
     this.collapsed = !this.collapsed;
     this.dispatchEvent(
@@ -26,6 +28,7 @@ export class UiListControls extends LitElement {
     );
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <ui-card padding="none">
@@ -44,7 +47,7 @@ export class UiListControls extends LitElement {
           <div class="flex items-center gap-2">
             ${this.renderSummary ? this.renderSummary() : nothing}
             <ui-icon-button
-              icon=${this.collapsed ? 'chevronDown' : 'chevronUp'}
+              icon=${this.collapsed ? 'chevron-down' : 'chevron-up'}
               title=${this.collapsed ? 'Espandi controlli' : 'Comprimi controlli'}
               @click=${this.toggle}
             ></ui-icon-button>

@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { museumService } from '../../services/museum.service';
 import { artworkService } from '../../services/artwork.service';
@@ -18,6 +18,7 @@ import '../ui/ui-image-placeholder';
  */
 @customElement('museum-map-page')
 export class MuseumMapPage extends LitElement {
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -63,6 +64,7 @@ export class MuseumMapPage extends LitElement {
     await this.loadData();
   }
 
+  // ─── Data Loading ────────────────────────────────────────
   private async loadData() {
     if (!this.museumId) {
       this.error = 'ID museo non specificato';
@@ -105,6 +107,7 @@ export class MuseumMapPage extends LitElement {
     return this.currentFloor?.markers || [];
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     if (this.loading) {
       return html`
@@ -151,7 +154,7 @@ export class MuseumMapPage extends LitElement {
           <div class="flex items-center gap-3">
             ${this.hasChanges
               ? html` <span class="text-yellow-400 text-sm">● Modifiche non salvate</span> `
-              : ''}
+              : nothing}
             <ui-button
               variant="secondary"
               .label=${this.isFullscreen ? '⬜ Riduci' : '⛶ Schermo intero'}
@@ -236,6 +239,7 @@ export class MuseumMapPage extends LitElement {
     `;
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderArtworkItem(artwork: Artwork) {
     const hasPosition = this.floors.some((f) =>
       f.markers?.some((m) => m.artworkId === artwork.wikidataId),
@@ -282,6 +286,7 @@ export class MuseumMapPage extends LitElement {
     `;
   }
 
+  // ─── Actions (Floors / Markers / Save) ──────────────────
   private async goBack() {
     if (this.hasChanges) {
       const confirmed = await modalService.confirm({

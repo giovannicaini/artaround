@@ -33,6 +33,9 @@ import '../ui/ui-checkbox';
 import '../ui/ui-data-grid';
 import '../ui/ui-table';
 import '../ui/ui-list-controls';
+import '../ui/ui-media-card';
+import '../ui/ui-museum-required-notice';
+import '../ui/ui-panel-section';
 import '../items/artwork-creator';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'view';
@@ -118,6 +121,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     return getPermissions(this.user);
   }
 
+  // ─── Lifecycle ───────────────────────────────────────────
   connectedCallback() {
     super.connectedCallback();
     this.loadFilterOptions();
@@ -160,6 +164,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     this.loadArtworks();
   }
 
+  // ─── Data Helpers ────────────────────────────────────────
   private parseYearFromText(yearValue?: string): number | null {
     if (!yearValue) return null;
     const match = yearValue.match(/-?\d{1,4}/);
@@ -187,6 +192,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     return candidates;
   }
 
+  // ─── Data Loading ────────────────────────────────────────
   private async loadFilterOptions() {
     if (!this.selectedMuseumId) {
       this.availableRooms = [];
@@ -320,6 +326,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
+  // ─── Actions (Filters / CRUD / View) ────────────────────
   private async openArtworkDetail(artworkId: string) {
     if (!artworkId) return;
 
@@ -407,6 +414,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     this.loadArtworks();
   }
 
+  // ─── Computed State & Table Helpers ─────────────────────
   private getArtworkImageAttrs(imagePath: string, sizes: string) {
     return uploadService.getResponsiveImageAttrs(imagePath, {
       widths: [480, 768, 1200],
@@ -519,6 +527,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
       columns.push({
         key: 'title',
         label: 'Titolo',
+        sortable: true,
         render: (_value, row) => {
           const artwork = row.__artwork as Artwork;
           return html`<span class="font-medium">${artwork.title}</span>`;
@@ -527,15 +536,16 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     }
 
     if (this.hasVisibleColumn('author')) {
-      columns.push({ key: 'author', label: 'Autore' });
+      columns.push({ key: 'author', label: 'Autore', sortable: true });
     }
     if (this.hasVisibleColumn('year')) {
-      columns.push({ key: 'year', label: 'Anno', width: '120px' });
+      columns.push({ key: 'year', label: 'Anno', width: '120px', sortable: true });
     }
     if (this.hasVisibleColumn('artworkType')) {
       columns.push({
         key: 'artworkType',
         label: 'Tipo',
+        sortable: true,
         render: (_value, row) => {
           const artwork = row.__artwork as Artwork;
           return html`
@@ -558,7 +568,12 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
       columns.push({ key: 'floor', label: 'Piano', width: '90px' });
     }
     if (this.hasVisibleColumn('updatedAt')) {
-      columns.push({ key: 'updatedAtLabel', label: 'Aggiornato il', width: '180px' });
+      columns.push({
+        key: 'updatedAtLabel',
+        label: 'Aggiornato il',
+        width: '180px',
+        sortable: true,
+      });
     }
 
     return columns;
@@ -591,6 +606,30 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     return actions;
   }
 
+  private get tableSortKey(): string {
+    if (this.sortField === 'updatedAt') return 'updatedAtLabel';
+    return this.sortField;
+  }
+
+  private mapTableSortKeyToSortField(key: string): ArtworkSortField | null {
+    const map: Record<string, ArtworkSortField> = {
+      title: 'title',
+      author: 'author',
+      year: 'year',
+      artworkType: 'artworkType',
+      updatedAtLabel: 'updatedAt',
+    };
+    return map[key] ?? null;
+  }
+
+  private handleTableSortChange(e: CustomEvent<{ key: string; direction: 'asc' | 'desc' }>): void {
+    const sortField = this.mapTableSortKeyToSortField(e.detail.key);
+    if (!sortField) return;
+
+    this.sortField = sortField;
+    this.sortDirection = e.detail.direction;
+  }
+
   private handleArtworkTableAction(
     e: CustomEvent<{ action: string; row: Record<string, unknown> }>,
   ) {
@@ -606,15 +645,20 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderTable(items: Artwork[]) {
     return html`
       <ui-table
         .columns=${this.buildArtworkTableColumns()}
         .data=${this.buildArtworkTableRows(items)}
         .actions=${this.buildArtworkTableActions()}
+        .sortKey=${this.tableSortKey}
+        .sortDir=${this.sortDirection}
+        .externalSort=${true}
         clickable
         compact
         striped
+        @sort-change=${this.handleTableSortChange}
         @row-click=${(e: CustomEvent<{ row: Record<string, unknown> }>) => {
           const artwork = e.detail.row.__artwork as Artwork | undefined;
           if (artwork) {
@@ -899,27 +943,16 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
                     @click=${this.handleGoToCreate}
                   ></ui-button>
                 `
-              : ''}
+              : nothing}
           </div>
         </ui-page-header>
 
         ${!this.selectedMuseumId
-          ? html`
-              <ui-alert
-                variant="warning"
-                title="Museo non selezionato"
-                message="Seleziona un museo per lavorare sulle opere."
-              ></ui-alert>
-              <div class="flex justify-end">
-                <ui-button
-                  variant="secondary"
-                  size="sm"
-                  label="Seleziona museo"
-                  @click=${this.emitSelectMuseum}
-                ></ui-button>
-              </div>
-            `
-          : ''}
+          ? html`<ui-museum-required-notice
+              subject="opere"
+              @select-museum=${this.emitSelectMuseum}
+            ></ui-museum-required-notice>`
+          : nothing}
 
         <!-- Controls -->
         <ui-list-controls
@@ -955,7 +988,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
                 : this.renderTable(this.normalizedArtworks)}
 
         <!-- Pagination -->
-        ${this.pagination.totalPages > 1 ? this.renderPagination() : ''}
+        ${this.pagination.totalPages > 1 ? this.renderPagination() : nothing}
       </div>
     `;
   }
@@ -1018,7 +1051,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
                 @click=${this.handleGoToCreate}
               ></ui-button>
             `
-          : ''}
+          : nothing}
       </ui-empty>
     `;
   }
@@ -1049,62 +1082,30 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
       : null;
 
     return html`
-      <ui-card padding="none" hover class="w-full">
-        <!-- Image -->
-        <div
-          class="aspect-[4/3] bg-surface-100 dark:bg-surface-800 relative overflow-hidden rounded-t-xl"
-        >
-          ${artwork.image
-            ? html`
-                <img
-                  src="${imageAttrs?.src}"
-                  srcset="${ifDefined(imageAttrs?.srcset)}"
-                  sizes="${ifDefined(imageAttrs?.sizes)}"
-                  alt="${artwork.title}"
-                  class="w-full h-full object-cover"
-                  @error=${(e: Event) => {
-                    const img = e.target as HTMLImageElement;
-                    img.style.display = 'none';
-                    img.parentElement
-                      ?.querySelector('ui-image-placeholder')
-                      ?.removeAttribute('hidden');
-                  }}
-                />
-                <ui-image-placeholder
-                  type="artwork"
-                  size="lg"
-                  hidden
-                  class="absolute inset-0"
-                ></ui-image-placeholder>
-              `
-            : html` <ui-image-placeholder type="artwork" size="lg"></ui-image-placeholder> `}
-
-          <!-- Wikidata badge -->
-          ${artwork.wikidataId
-            ? html`
-                <div class="absolute top-3 left-3">
-                  <ui-badge variant="primary" size="sm" .label=${artwork.wikidataId}></ui-badge>
-                </div>
-              `
-            : ''}
-
-          <!-- Type badge -->
-          <div class="absolute top-3 right-3">
-            <ui-badge
-              variant="secondary"
-              size="sm"
-              .label=${`${getArtworkTypeIcon(artwork.artworkType)} ${getArtworkTypeLabel(artwork.artworkType)}`}
-            ></ui-badge>
-          </div>
-        </div>
-
-        <!-- Content -->
-        <div class="p-3">
+      <ui-media-card
+        .imageSrc=${imageAttrs?.src || ''}
+        .imageSrcset=${imageAttrs?.srcset || ''}
+        .imageSizes=${imageAttrs?.sizes || ''}
+        .imageAlt=${artwork.title}
+        aspectClass="aspect-[4/3]"
+        placeholderType="artwork"
+        placeholderSize="lg"
+        bodyClass="p-3"
+        .renderTopLeft=${artwork.wikidataId
+          ? () =>
+              html`<ui-badge variant="primary" size="sm" .label=${artwork.wikidataId}></ui-badge>`
+          : null}
+        .renderTopRight=${() =>
+          html`<ui-badge
+            variant="secondary"
+            size="sm"
+            .label=${`${getArtworkTypeIcon(artwork.artworkType)} ${getArtworkTypeLabel(artwork.artworkType)}`}
+          ></ui-badge>`}
+        .renderContent=${() => html`
           <h3 class="font-semibold text-surface-900 dark:text-white mb-1 line-clamp-2">
             ${artwork.title}
           </h3>
 
-          <!-- Author & Year -->
           ${this.hasVisibleColumn('author') || this.hasVisibleColumn('year')
             ? html`
                 <p class="text-sm text-surface-500 dark:text-surface-400 mb-2">
@@ -1118,13 +1119,12 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
               `
             : nothing}
 
-          <!-- Movement & Room -->
           <div class="flex flex-wrap gap-1 mb-2">
             ${this.hasVisibleColumn('movement') && artwork.movement
               ? html`
                   <ui-badge variant="secondary" size="sm" .label=${artwork.movement}></ui-badge>
                 `
-              : ''}
+              : nothing}
             ${this.hasVisibleColumn('room') && artwork.room
               ? html`
                   <ui-badge
@@ -1134,7 +1134,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
                     .label=${artwork.room}
                   ></ui-badge>
                 `
-              : ''}
+              : nothing}
             ${this.hasVisibleColumn('floor') && artwork.floor
               ? html`
                   <ui-badge
@@ -1144,23 +1144,20 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
                     .label=${artwork.floor}
                   ></ui-badge>
                 `
-              : ''}
+              : nothing}
           </div>
 
-          <!-- Materials -->
           ${artwork.materials && artwork.materials.length > 0
             ? html`
                 <p class="text-xs text-surface-500 dark:text-surface-400 mb-2 line-clamp-1">
                   ${artwork.materials.join(', ')}
                 </p>
               `
-            : ''}
+            : nothing}
 
-          <!-- Actions -->
           <div
             class="flex items-center justify-between pt-3 border-t border-surface-100 dark:border-surface-800"
           >
-            <!-- View contents link -->
             <ui-button
               variant="ghost"
               size="xs"
@@ -1182,7 +1179,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
                       @click=${() => this.handleEditArtwork(artwork)}
                     ></ui-icon-button>
                   `
-                : ''}
+                : nothing}
               ${this.permissions.canDeleteArtwork
                 ? html`
                     <ui-icon-button
@@ -1192,11 +1189,11 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
                       @click=${() => this.handleDeleteArtwork(artwork)}
                     ></ui-icon-button>
                   `
-                : ''}
+                : nothing}
             </div>
           </div>
-        </div>
-      </ui-card>
+        `}
+      ></ui-media-card>
     `;
   }
 
@@ -1240,7 +1237,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
                   @click=${() => (this.viewMode = 'edit')}
                 ></ui-button>
               `
-            : ''}
+            : nothing}
         </ui-page-header>
 
         <!-- Content -->
@@ -1292,71 +1289,74 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
                       Vedi su Wikidata (${this.selectedArtwork.wikidataId})
                     </a>
                   `
-                : ''}
+                : nothing}
             </ui-card>
           </div>
 
           <!-- Details -->
           <div class="lg:col-span-2 space-y-6">
             <!-- Overview -->
-            <ui-card>
-              <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-4">
-                Panoramica
-              </h3>
-              <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                ${this.renderDetailField('Titolo', this.selectedArtwork.title, true)}
-                ${this.renderDetailField('Autore', this.selectedArtwork.author)}
-                ${this.renderDetailField('Anno / Periodo', this.selectedArtwork.year)}
-                ${this.renderDetailField(
-                  'Tipo',
-                  `${getArtworkTypeIcon(this.selectedArtwork.artworkType)} ${getArtworkTypeLabel(this.selectedArtwork.artworkType)}`,
-                )}
-                ${this.renderDetailField('Sala', this.selectedArtwork.room)}
-                ${this.renderDetailField('Piano', this.selectedArtwork.floor)}
-              </dl>
-            </ui-card>
+            <ui-panel-section
+              title="Panoramica"
+              icon="grid"
+              .renderContent=${() => html`
+                <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  ${this.renderDetailField('Titolo', this.selectedArtwork!.title, true)}
+                  ${this.renderDetailField('Autore', this.selectedArtwork!.author)}
+                  ${this.renderDetailField('Anno / Periodo', this.selectedArtwork!.year)}
+                  ${this.renderDetailField(
+                    'Tipo',
+                    `${getArtworkTypeIcon(this.selectedArtwork!.artworkType)} ${getArtworkTypeLabel(this.selectedArtwork!.artworkType)}`,
+                  )}
+                  ${this.renderDetailField('Sala', this.selectedArtwork!.room)}
+                  ${this.renderDetailField('Piano', this.selectedArtwork!.floor)}
+                </dl>
+              `}
+            ></ui-panel-section>
 
-            <ui-card>
-              <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-4">
-                Identificativi
-              </h3>
-              <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                ${this.renderWikidataField('ID Wikidata', this.selectedArtwork.wikidataId)}
-                ${this.renderWikidataField('ID Museo', this.selectedArtwork.museumId)}
-                ${this.renderWikidataField(
-                  'ID Autore Wikidata',
-                  this.selectedArtwork.authorWikidataId,
-                )}
-                ${this.renderWikidataField(
-                  'ID Movimento Wikidata',
-                  this.selectedArtwork.movementWikidataId,
-                )}
-                ${this.renderWikidataField(
-                  'ID Stile Wikidata',
-                  this.selectedArtwork.styleWikidataId,
-                )}
-                ${this.renderWikidataField(
-                  'ID Periodo Wikidata',
-                  this.selectedArtwork.periodWikidataId,
-                )}
-              </dl>
-            </ui-card>
+            <ui-panel-section
+              title="Identificativi"
+              icon="hash"
+              .renderContent=${() => html`
+                <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  ${this.renderWikidataField('ID Wikidata', this.selectedArtwork!.wikidataId)}
+                  ${this.renderWikidataField('ID Museo', this.selectedArtwork!.museumId)}
+                  ${this.renderWikidataField(
+                    'ID Autore Wikidata',
+                    this.selectedArtwork!.authorWikidataId,
+                  )}
+                  ${this.renderWikidataField(
+                    'ID Movimento Wikidata',
+                    this.selectedArtwork!.movementWikidataId,
+                  )}
+                  ${this.renderWikidataField(
+                    'ID Stile Wikidata',
+                    this.selectedArtwork!.styleWikidataId,
+                  )}
+                  ${this.renderWikidataField(
+                    'ID Periodo Wikidata',
+                    this.selectedArtwork!.periodWikidataId,
+                  )}
+                </dl>
+              `}
+            ></ui-panel-section>
 
-            <ui-card>
-              <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-4">
-                Classificazione e Tecnica
-              </h3>
-              <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                ${this.renderDetailField('Movimento', this.selectedArtwork.movement)}
-                ${this.renderDetailField('Stile', this.selectedArtwork.style)}
-                ${this.renderDetailField('Periodo', this.selectedArtwork.period)}
-                ${this.renderDetailField('Tecnica', this.selectedArtwork.technique)}
-                ${this.renderDetailField(
-                  'Dimensioni',
-                  this.selectedArtwork.dimensions?.displayText,
-                )}
-              </dl>
-            </ui-card>
+            <ui-panel-section
+              title="Classificazione e Tecnica"
+              icon="tag"
+              .renderContent=${() => html`
+                <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  ${this.renderDetailField('Movimento', this.selectedArtwork!.movement)}
+                  ${this.renderDetailField('Stile', this.selectedArtwork!.style)}
+                  ${this.renderDetailField('Periodo', this.selectedArtwork!.period)}
+                  ${this.renderDetailField('Tecnica', this.selectedArtwork!.technique)}
+                  ${this.renderDetailField(
+                    'Dimensioni',
+                    this.selectedArtwork!.dimensions?.displayText,
+                  )}
+                </dl>
+              `}
+            ></ui-panel-section>
 
             <!-- Materials -->
             ${(this.selectedArtwork.materials && this.selectedArtwork.materials.length > 0) ||
@@ -1365,179 +1365,120 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
               this.selectedArtwork.historicalEvents.length > 0) ||
             this.selectedArtwork.artworkCollection
               ? html`
-                  <ui-card>
-                    <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-4">
-                      Contesto
-                    </h3>
-                    ${this.renderTagList('Materiali', this.selectedArtwork.materials)}
-                    ${this.renderTagList('Soggetti', this.selectedArtwork.subjects)}
-                    ${this.renderTagList('Eventi storici', this.selectedArtwork.historicalEvents)}
-                    ${this.selectedArtwork.artworkCollection
-                      ? html`
-                          <p class="text-sm text-surface-600 dark:text-surface-400">
-                            <span class="font-medium">Collezione:</span>
-                            ${this.selectedArtwork.artworkCollection}
-                          </p>
-                        `
-                      : ''}
-                  </ui-card>
+                  <ui-panel-section
+                    title="Contesto"
+                    icon="layers"
+                    .renderContent=${() => html`
+                      ${this.renderTagList('Materiali', this.selectedArtwork!.materials)}
+                      ${this.renderTagList('Soggetti', this.selectedArtwork!.subjects)}
+                      ${this.renderTagList(
+                        'Eventi storici',
+                        this.selectedArtwork!.historicalEvents,
+                      )}
+                      ${this.selectedArtwork!.artworkCollection
+                        ? html`
+                            <p class="text-sm text-surface-600 dark:text-surface-400">
+                              <span class="font-medium">Collezione:</span>
+                              ${this.selectedArtwork!.artworkCollection}
+                            </p>
+                          `
+                        : nothing}
+                    `}
+                  ></ui-panel-section>
                 `
-              : ''}
+              : nothing}
 
             <!-- Additional Images -->
             ${this.selectedArtwork.images && this.selectedArtwork.images.length > 0
               ? html`
-                  <ui-card>
-                    <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-4">
-                      Immagini aggiuntive
-                    </h3>
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      ${this.selectedArtwork.images.map((imagePath) => {
-                        const imageAttrs = this.getArtworkImageAttrs(
-                          imagePath,
-                          '(max-width: 768px) 50vw, 33vw',
-                        );
+                  <ui-panel-section
+                    title="Immagini aggiuntive"
+                    icon="image"
+                    .renderContent=${() => html`
+                      <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        ${this.selectedArtwork!.images!.map((imagePath) => {
+                          const imageAttrs = this.getArtworkImageAttrs(
+                            imagePath,
+                            '(max-width: 768px) 50vw, 33vw',
+                          );
 
-                        return html`
-                          <div
-                            class="aspect-square rounded-lg overflow-hidden bg-surface-100 dark:bg-surface-800"
-                          >
-                            <img
-                              src="${imageAttrs.src}"
-                              srcset="${ifDefined(imageAttrs.srcset)}"
-                              sizes="${ifDefined(imageAttrs.sizes)}"
-                              alt="Immagine aggiuntiva"
-                              class="w-full h-full object-cover"
-                            />
-                          </div>
-                        `;
-                      })}
-                    </div>
-                  </ui-card>
+                          return html`
+                            <div
+                              class="aspect-square rounded-lg overflow-hidden bg-surface-100 dark:bg-surface-800"
+                            >
+                              <img
+                                src="${imageAttrs.src}"
+                                srcset="${ifDefined(imageAttrs.srcset)}"
+                                sizes="${ifDefined(imageAttrs.sizes)}"
+                                alt="Immagine aggiuntiva"
+                                class="w-full h-full object-cover"
+                              />
+                            </div>
+                          `;
+                        })}
+                      </div>
+                    `}
+                  ></ui-panel-section>
                 `
-              : ''}
+              : nothing}
 
             <!-- Map Position -->
             ${this.selectedArtwork.mapPosition
               ? html`
-                  <ui-card>
-                    <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-4">
-                      Posizione Mappa
-                    </h3>
-                    <dl class="grid grid-cols-2 gap-4">
-                      <div>
-                        <dt
-                          class="text-xs text-surface-500 dark:text-surface-400 uppercase tracking-wider"
-                        >
-                          Floor ID
-                        </dt>
-                        <dd class="text-sm font-medium text-surface-900 dark:text-white mt-1">
-                          ${this.selectedArtwork.mapPosition.floorId}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt
-                          class="text-xs text-surface-500 dark:text-surface-400 uppercase tracking-wider"
-                        >
-                          X
-                        </dt>
-                        <dd class="text-sm font-medium text-surface-900 dark:text-white mt-1">
-                          ${this.selectedArtwork.mapPosition.x}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt
-                          class="text-xs text-surface-500 dark:text-surface-400 uppercase tracking-wider"
-                        >
-                          Y
-                        </dt>
-                        <dd class="text-sm font-medium text-surface-900 dark:text-white mt-1">
-                          ${this.selectedArtwork.mapPosition.y}
-                        </dd>
-                      </div>
-                      ${this.selectedArtwork.mapPosition.rotation !== undefined
-                        ? html`
-                            <div>
-                              <dt
-                                class="text-xs text-surface-500 dark:text-surface-400 uppercase tracking-wider"
-                              >
-                                Rotazione
-                              </dt>
-                              <dd class="text-sm font-medium text-surface-900 dark:text-white mt-1">
-                                ${this.selectedArtwork.mapPosition.rotation}°
-                              </dd>
-                            </div>
-                          `
-                        : ''}
-                    </dl>
-                  </ui-card>
+                  <ui-panel-section
+                    title="Posizione Mappa"
+                    icon="location"
+                    .renderContent=${() => html`
+                      <dl class="grid grid-cols-2 gap-4">
+                        ${this.renderDetailField(
+                          'Floor ID',
+                          this.selectedArtwork!.mapPosition!.floorId,
+                        )}
+                        ${this.renderDetailField('X', this.selectedArtwork!.mapPosition!.x)}
+                        ${this.renderDetailField('Y', this.selectedArtwork!.mapPosition!.y)}
+                        ${this.selectedArtwork!.mapPosition!.rotation !== undefined
+                          ? this.renderDetailField(
+                              'Rotazione',
+                              `${this.selectedArtwork!.mapPosition!.rotation}°`,
+                            )
+                          : nothing}
+                      </dl>
+                    `}
+                  ></ui-panel-section>
                 `
-              : ''}
+              : nothing}
 
             <!-- Metadata -->
             ${createdAt || updatedAt || this.selectedArtwork._id
               ? html`
-                  <ui-card>
-                    <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-4">
-                      Metadati
-                    </h3>
-                    <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <dt
-                          class="text-xs text-surface-500 dark:text-surface-400 uppercase tracking-wider"
-                        >
-                          ID interno
-                        </dt>
-                        <dd class="text-sm font-medium text-surface-900 dark:text-white mt-1">
-                          ${this.selectedArtwork._id}
-                        </dd>
-                      </div>
-                      ${createdAt
-                        ? html`
-                            <div>
-                              <dt
-                                class="text-xs text-surface-500 dark:text-surface-400 uppercase tracking-wider"
-                              >
-                                Creato il
-                              </dt>
-                              <dd class="text-sm font-medium text-surface-900 dark:text-white mt-1">
-                                ${createdAt}
-                              </dd>
-                            </div>
-                          `
-                        : ''}
-                      ${updatedAt
-                        ? html`
-                            <div>
-                              <dt
-                                class="text-xs text-surface-500 dark:text-surface-400 uppercase tracking-wider"
-                              >
-                                Aggiornato il
-                              </dt>
-                              <dd class="text-sm font-medium text-surface-900 dark:text-white mt-1">
-                                ${updatedAt}
-                              </dd>
-                            </div>
-                          `
-                        : ''}
-                    </dl>
-                  </ui-card>
+                  <ui-panel-section
+                    title="Metadati"
+                    icon="clock"
+                    .renderContent=${() => html`
+                      <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${this.renderDetailField('ID interno', this.selectedArtwork!._id)}
+                        ${this.renderDetailField('Creato il', createdAt)}
+                        ${this.renderDetailField('Aggiornato il', updatedAt)}
+                      </dl>
+                    `}
+                  ></ui-panel-section>
                 `
-              : ''}
+              : nothing}
 
             <!-- Description -->
             ${this.selectedArtwork.description
               ? html`
-                  <ui-card>
-                    <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-4">
-                      Descrizione
-                    </h3>
-                    <p class="text-surface-700 dark:text-surface-300 whitespace-pre-wrap">
-                      ${this.selectedArtwork.description}
-                    </p>
-                  </ui-card>
+                  <ui-panel-section
+                    title="Descrizione"
+                    icon="document"
+                    .renderContent=${() => html`
+                      <p class="text-surface-700 dark:text-surface-300 whitespace-pre-wrap">
+                        ${this.selectedArtwork!.description}
+                      </p>
+                    `}
+                  ></ui-panel-section>
                 `
-              : ''}
+              : nothing}
           </div>
         </div>
       </div>
@@ -1570,6 +1511,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     return html`
       ${this.viewMode === 'create'
@@ -1595,6 +1537,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
+  // ─── Navigation State Sync ───────────────────────────────
   /**
    * Emits an event to notify the parent about state changes (viewMode, selected artwork)
    * Used for history management

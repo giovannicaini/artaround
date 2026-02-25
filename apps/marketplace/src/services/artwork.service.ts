@@ -62,8 +62,8 @@ export class ArtworkService {
     return { artworks: [], pagination: { page: 1, limit: 50, total: 0, totalPages: 0 } };
   }
 
-  async getArtworksByMuseum(museumWikidataId: string): Promise<Artwork[]> {
-    const url = `/artworks/museum/${museumWikidataId}`;
+  async getArtworksByMuseum(museumId: string): Promise<Artwork[]> {
+    const url = `/artworks/museum/${museumId}`;
     const response = await apiService.get<Artwork[]>(url);
 
     if (response.success && response.data) {
@@ -75,16 +75,6 @@ export class ArtworkService {
 
   async getArtwork(id: string): Promise<Artwork | null> {
     const response = await apiService.get<Artwork>(`/artworks/${id}`);
-
-    if (response.success && response.data) {
-      return response.data;
-    }
-
-    return null;
-  }
-
-  async getArtworkByWikidataId(wikidataId: string): Promise<Artwork | null> {
-    const response = await apiService.get<Artwork>(`/artworks/wikidata/${wikidataId}`);
 
     if (response.success && response.data) {
       return response.data;

@@ -213,7 +213,7 @@ export class ImageEditor extends LitElement {
     }
   }
 
-  // ─── Source Step ───────────────────────────────────────────
+  // ─── Actions ──────────────────────────────────────────────
 
   private handleFileSelect(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -349,7 +349,7 @@ export class ImageEditor extends LitElement {
     });
   }
 
-  // ─── Edit Controls ────────────────────────────────────────
+  // ─── Helpers ──────────────────────────────────────────────
 
   private handleWidthChange(e: CustomEvent) {
     const w = parseInt(e.detail.value, 10) || 0;
@@ -401,7 +401,7 @@ export class ImageEditor extends LitElement {
     this.crop = { x: 0, y: 0, width: this.originalWidth, height: this.originalHeight };
   }
 
-  // ─── Crop Drag Handlers ────────────────────────────────────
+  // ─── Actions ──────────────────────────────────────────────
 
   private getImageElement(): HTMLImageElement | null {
     return this.querySelector('.image-editor-preview') as HTMLImageElement;
@@ -500,7 +500,7 @@ export class ImageEditor extends LitElement {
     document.removeEventListener('mouseup', this._onMouseUp);
   }
 
-  // ─── Save / Upload ────────────────────────────────────────
+  // ─── Actions ──────────────────────────────────────────────
 
   private async handleSave() {
     this.uploading = true;
@@ -626,7 +626,8 @@ export class ImageEditor extends LitElement {
     return html`
       <div class="space-y-1.5">
         <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
-          ${this.label} ${this.required ? html`<span class="text-danger-500 ml-0.5">*</span>` : ''}
+          ${this.label}
+          ${this.required ? html`<span class="text-danger-500 ml-0.5">*</span>` : nothing}
         </label>
 
         ${this.value && this.step === 'source' && !this.showSourcePicker
@@ -832,7 +833,7 @@ export class ImageEditor extends LitElement {
     `;
   }
 
-  // ─── Editor Step ──────────────────────────────────────────
+  // ─── Render Helpers ──────────────────────────────────────
 
   private renderEditor() {
     //const scaleFactor = this.originalWidth > 0 ? 100 / this.originalWidth : 1;

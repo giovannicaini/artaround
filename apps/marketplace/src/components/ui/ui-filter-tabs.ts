@@ -32,6 +32,7 @@ export class UiFilterTabs extends LitElement {
   @property({ type: String }) value = '';
   @property({ type: String }) size: 'sm' | 'md' = 'md';
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -41,6 +42,7 @@ export class UiFilterTabs extends LitElement {
     this.style.display = 'block';
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private handleClick(tabValue: string) {
     if (tabValue === this.value) return;
     this.dispatchEvent(
@@ -52,6 +54,7 @@ export class UiFilterTabs extends LitElement {
     );
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     const sizeClasses = {
       sm: 'px-2 py-1 text-xs',

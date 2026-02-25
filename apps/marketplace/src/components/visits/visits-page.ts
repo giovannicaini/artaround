@@ -18,6 +18,8 @@ import '../ui/ui-alert';
 import '../ui/ui-search-bar';
 import '../ui/ui-filter-tabs';
 import '../ui/ui-icon-button';
+import '../ui/ui-media-card';
+import '../ui/ui-museum-required-notice';
 import './visit-editor';
 
 type ViewMode = 'list' | 'create' | 'edit';
@@ -43,10 +45,12 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
   @state() private filterPublished: 'all' | 'published' | 'draft' = 'all';
   @state() private publishing = false;
 
+  // ─── Computed State ──────────────────────────────────────
   private get permissions(): PermissionSet {
     return getPermissions(this.user);
   }
 
+  // ─── Lifecycle ───────────────────────────────────────────
   connectedCallback() {
     super.connectedCallback();
     this.loadVisits();
@@ -62,6 +66,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     this.loadVisits();
   }
 
+  // ─── Data Loading / Filters ──────────────────────────────
   private async loadVisits() {
     this.loading = true;
     this.error = '';
@@ -109,9 +114,15 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     return filtered;
   }
 
+  // ─── List / Form Actions ─────────────────────────────────
   private handleCreateVisit() {
     this.selectedVisit = null;
     this.viewMode = 'create';
+  }
+
+  private backToListView() {
+    this.viewMode = 'list';
+    this.selectedVisit = null;
   }
 
   private handleEditVisit(visit: Visit) {
@@ -161,16 +172,118 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
   }
 
   private handleVisitSaved() {
-    this.viewMode = 'list';
-    this.selectedVisit = null;
+    this.backToListView();
     this.loadVisits();
   }
 
   private handleCancel() {
-    this.viewMode = 'list';
-    this.selectedVisit = null;
+    this.backToListView();
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
+  private renderVisitsList() {
+    return html`
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        ${this.filteredVisits.map((visit) => this.renderVisitCard(visit))}
+      </div>
+    `;
+  }
+
+  private renderVisitCard(visit: Visit) {
+    const artworksCount =
+      visit.metadata?.artworksCount || visit.steps?.filter((s) => s.type === 'artwork').length || 0;
+    const duration =
+      visit.targetAudience?.estimatedDuration || visit.metadata?.estimatedDuration || 0;
+
+    return html`
+      <ui-media-card
+        .imageSrc=${visit.coverImage || ''}
+        .imageAlt=${visit.title}
+        placeholderType="museum"
+        placeholderSize="md"
+        aspectClass="aspect-video"
+        bodyClass="p-4"
+        .renderTopRight=${() =>
+          visit.isPublished
+            ? html`<ui-badge variant="success" label="Pubblicata"></ui-badge>`
+            : html`<ui-badge variant="secondary" label="Bozza"></ui-badge>`}
+        .renderContent=${() => html`
+          <h3 class="font-semibold text-surface-900 dark:text-white mb-1 line-clamp-1">
+            ${visit.title}
+          </h3>
+          <p class="text-sm text-surface-500 dark:text-surface-400 line-clamp-2 mb-3">
+            ${visit.description}
+          </p>
+
+          <div class="flex items-center gap-4 text-sm text-surface-500 dark:text-surface-400 mb-3">
+            <span class="flex items-center gap-1">
+              <ui-icon name="image" size="xs"></ui-icon>
+              ${artworksCount} ${artworksCount === 1 ? 'opera' : 'opere'}
+            </span>
+            <span class="flex items-center gap-1">
+              <ui-icon name="clock" size="xs"></ui-icon>
+              ${duration} min
+            </span>
+            ${visit.metadata?.isFree
+              ? html`<span class="text-success-600 dark:text-success-400">Gratuita</span>`
+              : html`<span>€${visit.metadata?.price?.toFixed(2) || '0.00'}</span>`}
+          </div>
+
+          ${visit.targetAudience?.languageLevels?.length
+            ? html`
+                <div class="flex flex-wrap gap-1 mb-3">
+                  ${visit.targetAudience.languageLevels
+                    .slice(0, 3)
+                    .map(
+                      (level) =>
+                        html`<ui-badge variant="outline" size="sm" .label=${level}></ui-badge>`,
+                    )}
+                  ${visit.targetAudience.languageLevels.length > 3
+                    ? html`<ui-badge
+                        variant="outline"
+                        size="sm"
+                        .label=${`+${visit.targetAudience.languageLevels.length - 3}`}
+                      ></ui-badge>`
+                    : nothing}
+                </div>
+              `
+            : nothing}
+
+          <div
+            class="flex items-center justify-end gap-2 pt-3 border-t border-surface-100 dark:border-surface-800"
+          >
+            ${this.permissions.canEditVisit
+              ? html`
+                  <ui-icon-button
+                    icon=${visit.isPublished ? 'eye-off' : 'eye'}
+                    title=${visit.isPublished ? 'Rimuovi pubblicazione' : 'Pubblica'}
+                    ?disabled=${this.publishing}
+                    @click=${() => this.handleTogglePublish(visit)}
+                  ></ui-icon-button>
+                  <ui-icon-button
+                    icon="edit"
+                    title="Modifica"
+                    @click=${() => this.handleEditVisit(visit)}
+                  ></ui-icon-button>
+                `
+              : nothing}
+            ${this.permissions.canDeleteVisit
+              ? html`
+                  <ui-icon-button
+                    icon="trash"
+                    variant="danger"
+                    title="Elimina"
+                    @click=${() => this.handleDeleteClick(visit)}
+                  ></ui-icon-button>
+                `
+              : nothing}
+          </div>
+        `}
+      ></ui-media-card>
+    `;
+  }
+
+  // ─── Render ──────────────────────────────────────────────
   render() {
     if (this.viewMode === 'create' || this.viewMode === 'edit') {
       return html`
@@ -221,22 +334,11 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
             ></ui-alert>`
           : nothing}
         ${!this.selectedMuseumId
-          ? html`
-              <ui-alert
-                variant="warning"
-                title="Museo non selezionato"
-                message="Seleziona un museo per lavorare sulle visite."
-              ></ui-alert>
-              <div class="flex justify-end">
-                <ui-button
-                  variant="secondary"
-                  size="sm"
-                  label="Seleziona museo"
-                  @click=${this.emitSelectMuseum}
-                ></ui-button>
-              </div>
-            `
-          : ''}
+          ? html`<ui-museum-required-notice
+              subject="visite"
+              @select-museum=${this.emitSelectMuseum}
+            ></ui-museum-required-notice>`
+          : nothing}
 
         <!-- Filters -->
         <ui-filter-tabs
@@ -292,137 +394,6 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
           this.visitToDelete = null;
         }}
       ></ui-modal>
-    `;
-  }
-
-  private renderVisitsList() {
-    return html`
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        ${this.filteredVisits.map((visit) => this.renderVisitCard(visit))}
-      </div>
-    `;
-  }
-
-  private renderVisitCard(visit: Visit) {
-    const artworksCount =
-      visit.metadata?.artworksCount || visit.steps?.filter((s) => s.type === 'artwork').length || 0;
-    const duration =
-      visit.targetAudience?.estimatedDuration || visit.metadata?.estimatedDuration || 0;
-
-    return html`
-      <ui-card padding="none" hover>
-        <!-- Image -->
-        <div
-          class="aspect-video bg-surface-100 dark:bg-surface-800 relative overflow-hidden rounded-t-xl"
-        >
-          ${visit.coverImage
-            ? html`
-                <img
-                  src="${visit.coverImage}"
-                  alt="${visit.title}"
-                  class="w-full h-full object-cover"
-                  @error=${(e: Event) => {
-                    const img = e.target as HTMLImageElement;
-                    img.style.display = 'none';
-                    img.parentElement
-                      ?.querySelector('ui-image-placeholder')
-                      ?.removeAttribute('hidden');
-                  }}
-                />
-                <ui-image-placeholder
-                  type="museum"
-                  size="md"
-                  hidden
-                  class="absolute inset-0"
-                ></ui-image-placeholder>
-              `
-            : html` <ui-image-placeholder type="museum" size="md"></ui-image-placeholder> `}
-
-          <!-- Status Badge -->
-          <div class="absolute top-3 right-3">
-            ${visit.isPublished
-              ? html`<ui-badge variant="success" label="Pubblicata"></ui-badge>`
-              : html`<ui-badge variant="secondary" label="Bozza"></ui-badge>`}
-          </div>
-        </div>
-
-        <!-- Content -->
-        <div class="p-4">
-          <h3 class="font-semibold text-surface-900 dark:text-white mb-1 line-clamp-1">
-            ${visit.title}
-          </h3>
-          <p class="text-sm text-surface-500 dark:text-surface-400 line-clamp-2 mb-3">
-            ${visit.description}
-          </p>
-
-          <!-- Stats -->
-          <div class="flex items-center gap-4 text-sm text-surface-500 dark:text-surface-400 mb-3">
-            <span class="flex items-center gap-1">
-              <ui-icon name="image" size="xs"></ui-icon>
-              ${artworksCount} ${artworksCount === 1 ? 'opera' : 'opere'}
-            </span>
-            <span class="flex items-center gap-1">
-              <ui-icon name="clock" size="xs"></ui-icon>
-              ${duration} min
-            </span>
-            ${visit.metadata?.isFree
-              ? html`<span class="text-success-600 dark:text-success-400">Gratuita</span>`
-              : html`<span>€${visit.metadata?.price?.toFixed(2) || '0.00'}</span>`}
-          </div>
-
-          <!-- Language Levels -->
-          ${visit.targetAudience?.languageLevels?.length
-            ? html`
-                <div class="flex flex-wrap gap-1 mb-3">
-                  ${visit.targetAudience.languageLevels
-                    .slice(0, 3)
-                    .map(
-                      (level) =>
-                        html`<ui-badge variant="outline" size="sm" .label=${level}></ui-badge>`,
-                    )}
-                  ${visit.targetAudience.languageLevels.length > 3
-                    ? html`<ui-badge
-                        variant="outline"
-                        size="sm"
-                        .label=${`+${visit.targetAudience.languageLevels.length - 3}`}
-                      ></ui-badge>`
-                    : nothing}
-                </div>
-              `
-            : nothing}
-
-          <!-- Actions -->
-          <div
-            class="flex items-center justify-end gap-2 pt-3 border-t border-surface-100 dark:border-surface-800"
-          >
-            ${this.permissions.canEditVisit
-              ? html`
-                  <ui-icon-button
-                    icon=${visit.isPublished ? 'eye-off' : 'eye'}
-                    title=${visit.isPublished ? 'Rimuovi pubblicazione' : 'Pubblica'}
-                    ?disabled=${this.publishing}
-                    @click=${() => this.handleTogglePublish(visit)}
-                  ></ui-icon-button>
-                  <ui-icon-button
-                    icon="edit"
-                    title="Modifica"
-                    @click=${() => this.handleEditVisit(visit)}
-                  ></ui-icon-button>
-                `
-              : nothing}
-            ${this.permissions.canDeleteVisit
-              ? html`
-                  <ui-icon-button
-                    icon="trash"
-                    variant="danger"
-                    title="Elimina"
-                    @click=${() => this.handleDeleteClick(visit)}
-                  ></ui-icon-button>
-                `
-              : nothing}
-          </div>
-        </div>
-      </ui-card>
     `;
   }
 }

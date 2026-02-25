@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
   MARKER_TYPE_EDITOR_OPTIONS_IT,
@@ -21,6 +21,7 @@ import '../ui/ui-image-placeholder';
  */
 @customElement('marker-editor')
 export class MarkerEditor extends LitElement {
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -64,6 +65,7 @@ export class MarkerEditor extends LitElement {
     }
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     return html`
       <div class="bg-surface-800 rounded-lg overflow-hidden border border-surface-700">
@@ -103,6 +105,7 @@ export class MarkerEditor extends LitElement {
     `;
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderAddForm() {
     const isArtworkType = [MarkerType.ARTWORK, MarkerType.SCULPTURE, MarkerType.PAINTING].includes(
       this.selectedType,
@@ -170,7 +173,7 @@ export class MarkerEditor extends LitElement {
               ></ui-select>
             </div>
           `
-        : ''}
+        : nothing}
 
       <!-- Label -->
       <div class="mb-4">
@@ -225,15 +228,15 @@ export class MarkerEditor extends LitElement {
       </div>
 
       <!-- Edit Form (when marker is selected) -->
-      ${this.selectedMarker ? this.renderEditForm() : ''}
+      ${this.selectedMarker ? this.renderEditForm() : nothing}
 
       <!-- Focal Point Editor (when artwork marker is selected) -->
-      ${selectedArtwork?.image ? this.renderFocalPointEditor(selectedArtwork) : ''}
+      ${selectedArtwork?.image ? this.renderFocalPointEditor(selectedArtwork) : nothing}
     `;
   }
 
   private renderEditForm() {
-    if (!this.selectedMarker) return '';
+    if (!this.selectedMarker) return nothing;
 
     const isArtworkType = [MarkerType.ARTWORK, MarkerType.SCULPTURE, MarkerType.PAINTING].includes(
       this.selectedMarker.type,
@@ -280,7 +283,7 @@ export class MarkerEditor extends LitElement {
                 ></ui-select>
               </div>
             `
-          : ''}
+          : nothing}
 
         <!-- Label -->
         <div class="mb-3">
@@ -320,6 +323,7 @@ export class MarkerEditor extends LitElement {
     `;
   }
 
+  // ─── Actions (Marker CRUD) ───────────────────────────────
   private updateMarkerType(type: MarkerType) {
     if (!this.selectedMarker) return;
     this.dispatchEvent(

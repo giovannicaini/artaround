@@ -24,11 +24,14 @@ import './ui-badge';
 export class UiTagInput extends LitElement {
   @property({ type: String }) label = '';
   @property({ type: String }) placeholder = 'Aggiungi...';
+  @property({ type: String }) emptyText = 'Nessun tag aggiunto';
   @property({ type: Array }) tags: string[] = [];
   @property({ type: Boolean }) disabled = false;
+  @property({ type: Boolean }) lowercase = true;
 
   @state() private inputValue = '';
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -38,6 +41,7 @@ export class UiTagInput extends LitElement {
     this.style.display = 'block';
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter' && this.inputValue.trim()) {
       e.preventDefault();
@@ -50,7 +54,8 @@ export class UiTagInput extends LitElement {
   }
 
   private addTag() {
-    const tag = this.inputValue.trim().toLowerCase();
+    const rawTag = this.inputValue.trim();
+    const tag = this.lowercase ? rawTag.toLowerCase() : rawTag;
     if (tag && !this.tags.includes(tag)) {
       const newTags = [...this.tags, tag];
       this.inputValue = '';
@@ -75,6 +80,7 @@ export class UiTagInput extends LitElement {
     );
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <div class="space-y-2">
@@ -130,9 +136,7 @@ export class UiTagInput extends LitElement {
                 )}
               </div>
             `
-          : html`
-              <p class="text-sm text-surface-500 dark:text-surface-400">Nessun tag aggiunto</p>
-            `}
+          : html` <p class="text-sm text-surface-500 dark:text-surface-400">${this.emptyText}</p> `}
       </div>
     `;
   }

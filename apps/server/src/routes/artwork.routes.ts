@@ -177,7 +177,7 @@ router.get('/wikidata/:wikidataId', getArtworkByWikidataId);
  * @swagger
  * /api/artworks/{id}:
  *   get:
- *     summary: Get artwork by ID (MongoDB _id or Wikidata ID)
+ *     summary: Get artwork by ID (MongoDB _id)
  *     tags: [Artworks]
  *     parameters:
  *       - in: path

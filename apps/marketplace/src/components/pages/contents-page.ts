@@ -1,4 +1,4 @@
-import { html } from 'lit';
+import { html, nothing } from 'lit';
 import { customElement, state, property } from 'lit/decorators.js';
 import { AppBaseElement, MuseumAwareMixin } from '../../base';
 import { itemService } from '../../services/item.service';
@@ -25,10 +25,12 @@ import '../ui/ui-pagination';
 import '../ui/ui-search-bar';
 import '../ui/ui-icon-button';
 import '../ui/ui-data-grid';
+import '../ui/ui-media-card';
+import '../ui/ui-museum-required-notice';
+import '../ui/ui-panel-section';
 import '../items/item-creator';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'view';
-
 /**
  * Contents Page
  *
@@ -55,10 +57,12 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
   @state() private itemToDelete: Item | null = null;
   @state() private deleting = false;
 
+  // ─── Computed State ──────────────────────────────────────
   private get permissions(): PermissionSet {
     return getPermissions(this.user);
   }
 
+  // ─── Lifecycle ───────────────────────────────────────────
   connectedCallback() {
     super.connectedCallback();
     this.loadItems();
@@ -75,6 +79,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     this.loadItems();
   }
 
+  // ─── Data Loading ────────────────────────────────────────
   private async loadItems() {
     this.loading = true;
     this.error = '';
@@ -120,6 +125,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
+  // ─── List / Form Actions ─────────────────────────────────
   private handleViewItem(item: Item) {
     this.selectedItem = item;
     this.viewMode = 'view';
@@ -169,6 +175,57 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     this.loadItems();
   }
 
+  private backToListView() {
+    this.viewMode = 'list';
+    this.selectedItem = null;
+  }
+
+  // ─── Render Helpers ──────────────────────────────────────
+  private renderSelectedItemImage() {
+    const item = this.selectedItem;
+    if (!item) return nothing;
+
+    return html`
+      <div class="aspect-square bg-surface-100 dark:bg-surface-800 rounded-lg overflow-hidden">
+        ${item.image
+          ? html`
+              <img
+                src="${item.image}"
+                alt="${item.title}"
+                class="w-full h-full object-cover"
+                @error=${(e: Event) => {
+                  const img = e.target as HTMLImageElement;
+                  img.style.display = 'none';
+                  img.parentElement
+                    ?.querySelector('ui-image-placeholder')
+                    ?.removeAttribute('hidden');
+                }}
+              />
+              <ui-image-placeholder
+                type="content"
+                size="full"
+                hidden
+                class="absolute inset-0"
+              ></ui-image-placeholder>
+            `
+          : html`<ui-image-placeholder type="content" size="full"></ui-image-placeholder>`}
+      </div>
+    `;
+  }
+
+  private renderDetailRow(label: string, value: unknown) {
+    if (value === undefined || value === null || value === '') return nothing;
+
+    return html`
+      <div>
+        <dt class="text-xs text-surface-500 dark:text-surface-400 uppercase tracking-wider">
+          ${label}
+        </dt>
+        <dd class="text-sm font-medium text-surface-900 dark:text-white mt-1">${value}</dd>
+      </div>
+    `;
+  }
+
   private renderListView() {
     return html`
       <div class="space-y-6">
@@ -195,27 +252,16 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
                     @click=${() => (this.viewMode = 'create')}
                   ></ui-button>
                 `
-              : ''}
+              : nothing}
           </div>
         </ui-page-header>
 
         ${!this.selectedMuseumId
-          ? html`
-              <ui-alert
-                variant="warning"
-                title="Museo non selezionato"
-                message="Seleziona un museo per lavorare sui contenuti."
-              ></ui-alert>
-              <div class="flex justify-end">
-                <ui-button
-                  variant="secondary"
-                  size="sm"
-                  label="Seleziona museo"
-                  @click=${this.emitSelectMuseum}
-                ></ui-button>
-              </div>
-            `
-          : ''}
+          ? html`<ui-museum-required-notice
+              subject="contenuti"
+              @select-museum=${this.emitSelectMuseum}
+            ></ui-museum-required-notice>`
+          : nothing}
 
         <!-- Content -->
         ${this.loading
@@ -249,16 +295,16 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
           title="Nuovo Contenuto"
           description="Crea un nuovo contenuto descrittivo"
           showBack
-          @back=${() => (this.viewMode = 'list')}
+          @back=${this.backToListView}
         ></ui-page-header>
 
         <!-- Form -->
         <item-creator
           @item-created=${() => {
-            this.viewMode = 'list';
+            this.backToListView();
             this.loadItems();
           }}
-          @cancel=${() => (this.viewMode = 'list')}
+          @cancel=${this.backToListView}
         ></item-creator>
       </div>
     `;
@@ -282,7 +328,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
                 @click=${() => (this.viewMode = 'create')}
               ></ui-button>
             `
-          : ''}
+          : nothing}
       </ui-empty>
     `;
   }
@@ -299,51 +345,26 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
 
   private renderItemCard(item: Item) {
     return html`
-      <ui-card padding="none" hover>
-        <!-- Image -->
-        <div
-          class="aspect-video bg-surface-100 dark:bg-surface-800 relative overflow-hidden rounded-t-xl"
-        >
-          ${item.image
-            ? html`
-                <img
-                  src="${item.image}"
-                  alt="${item.title}"
-                  class="w-full h-full object-cover"
-                  @error=${(e: Event) => {
-                    const img = e.target as HTMLImageElement;
-                    img.style.display = 'none';
-                    img.parentElement
-                      ?.querySelector('ui-image-placeholder')
-                      ?.removeAttribute('hidden');
-                  }}
-                />
-                <ui-image-placeholder
-                  type="content"
-                  size="md"
-                  hidden
-                  class="absolute inset-0"
-                ></ui-image-placeholder>
-              `
-            : html` <ui-image-placeholder type="content" size="md"></ui-image-placeholder> `}
-
-          <!-- Price badge -->
-          <div class="absolute top-3 right-3">
-            ${item.isFree
-              ? html` <ui-badge variant="success" size="sm" label="Gratuito"></ui-badge> `
-              : html`
-                  <ui-badge variant="warning" size="sm" .label=${`€${item.price || 0}`}></ui-badge>
-                `}
-          </div>
-        </div>
-
-        <!-- Content -->
-        <div class="p-4">
+      <ui-media-card
+        .imageSrc=${item.image || ''}
+        .imageAlt=${item.title}
+        placeholderType="content"
+        placeholderSize="md"
+        aspectClass="aspect-video"
+        bodyClass="p-4"
+        .renderTopRight=${() =>
+          item.isFree
+            ? html`<ui-badge variant="success" size="sm" label="Gratuito"></ui-badge>`
+            : html`<ui-badge
+                variant="warning"
+                size="sm"
+                .label=${`€${item.price || 0}`}
+              ></ui-badge>`}
+        .renderContent=${() => html`
           <h3 class="font-semibold text-surface-900 dark:text-white mb-1 line-clamp-1">
             ${item.title}
           </h3>
 
-          <!-- Reference -->
           ${item.referenceTitle
             ? html`
                 <p
@@ -353,9 +374,8 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
                   ${item.referenceTitle}
                 </p>
               `
-            : ''}
+            : nothing}
 
-          <!-- Badges -->
           <div class="flex flex-wrap gap-1 mb-3">
             <ui-badge
               variant="primary"
@@ -374,12 +394,10 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
             ></ui-badge>
           </div>
 
-          <!-- Preview text -->
           <p class="text-sm text-surface-600 dark:text-surface-400 line-clamp-2 mb-3">
             ${item.text}
           </p>
 
-          <!-- Tags -->
           ${item.tags && item.tags.length > 0
             ? html`
                 <div class="flex flex-wrap gap-1 mb-3">
@@ -398,12 +416,11 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
                           .label=${`+${item.tags.length - 3}`}
                         ></ui-badge>
                       `
-                    : ''}
+                    : nothing}
                 </div>
               `
-            : ''}
+            : nothing}
 
-          <!-- Actions -->
           <div
             class="flex items-center justify-end gap-2 pt-3 border-t border-surface-100 dark:border-surface-800"
           >
@@ -420,7 +437,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
                     @click=${() => this.handleEditItem(item)}
                   ></ui-icon-button>
                 `
-              : ''}
+              : nothing}
             ${this.permissions.canDeleteItem
               ? html`
                   <ui-icon-button
@@ -430,10 +447,10 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
                     @click=${() => this.handleDeleteItem(item)}
                   ></ui-icon-button>
                 `
-              : ''}
+              : nothing}
           </div>
-        </div>
-      </ui-card>
+        `}
+      ></ui-media-card>
     `;
   }
 
@@ -447,10 +464,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
           title=${this.selectedItem.title}
           description=${this.selectedItem.referenceTitle || 'Contenuto'}
           showBack
-          @back=${() => {
-            this.viewMode = 'list';
-            this.selectedItem = null;
-          }}
+          @back=${this.backToListView}
         >
           ${this.permissions.canEditItem
             ? html`
@@ -462,142 +476,77 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
                   @click=${() => (this.viewMode = 'edit')}
                 ></ui-button>
               `
-            : ''}
+            : nothing}
         </ui-page-header>
 
         <!-- Content -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <!-- Image -->
           <div class="lg:col-span-1">
-            <ui-card>
-              <div
-                class="aspect-square bg-surface-100 dark:bg-surface-800 rounded-lg overflow-hidden"
-              >
-                ${this.selectedItem.image
-                  ? html`
-                      <img
-                        src="${this.selectedItem.image}"
-                        alt="${this.selectedItem.title}"
-                        class="w-full h-full object-cover"
-                        @error=${(e: Event) => {
-                          const img = e.target as HTMLImageElement;
-                          img.style.display = 'none';
-                          img.parentElement
-                            ?.querySelector('ui-image-placeholder')
-                            ?.removeAttribute('hidden');
-                        }}
-                      />
-                      <ui-image-placeholder
-                        type="content"
-                        size="full"
-                        hidden
-                        class="absolute inset-0"
-                      ></ui-image-placeholder>
-                    `
-                  : html`
-                      <ui-image-placeholder type="content" size="full"></ui-image-placeholder>
-                    `}
-              </div>
-            </ui-card>
+            <ui-card>${this.renderSelectedItemImage()}</ui-card>
           </div>
 
           <!-- Details -->
           <div class="lg:col-span-2 space-y-6">
             <!-- Characteristics -->
-            <ui-card>
-              <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-4">
-                Caratteristiche
-              </h3>
-              <div class="flex flex-wrap gap-2 mb-4">
-                <ui-badge
-                  variant="primary"
-                  .label=${getReferenceTypeLabel(this.selectedItem.referenceType)}
-                ></ui-badge>
-                <ui-badge
-                  variant="secondary"
-                  .label=${getContentDurationLabel(this.selectedItem.duration)}
-                ></ui-badge>
-                <ui-badge
-                  variant="secondary"
-                  .label=${getLanguageLevelLabel(this.selectedItem.languageLevel)}
-                ></ui-badge>
-              </div>
+            <ui-panel-section
+              title="Caratteristiche"
+              icon="list"
+              .renderContent=${() => html`
+                <div class="flex flex-wrap gap-2 mb-4">
+                  <ui-badge
+                    variant="primary"
+                    .label=${getReferenceTypeLabel(this.selectedItem!.referenceType)}
+                  ></ui-badge>
+                  <ui-badge
+                    variant="secondary"
+                    .label=${getContentDurationLabel(this.selectedItem!.duration)}
+                  ></ui-badge>
+                  <ui-badge
+                    variant="secondary"
+                    .label=${getLanguageLevelLabel(this.selectedItem!.languageLevel)}
+                  ></ui-badge>
+                </div>
 
-              <dl class="grid grid-cols-2 gap-4">
-                ${this.selectedItem.referenceId
-                  ? html`
-                      <div>
-                        <dt
-                          class="text-xs text-surface-500 dark:text-surface-400 uppercase tracking-wider"
-                        >
-                          Riferimento Wikidata
-                        </dt>
-                        <dd class="text-sm font-medium text-surface-900 dark:text-white mt-1">
-                          ${this.selectedItem.referenceId}
-                        </dd>
-                      </div>
-                    `
-                  : ''}
-                <div>
-                  <dt
-                    class="text-xs text-surface-500 dark:text-surface-400 uppercase tracking-wider"
-                  >
-                    Licenza
-                  </dt>
-                  <dd class="text-sm font-medium text-surface-900 dark:text-white mt-1">
-                    ${this.selectedItem.license || 'N/A'}
-                  </dd>
-                </div>
-                <div>
-                  <dt
-                    class="text-xs text-surface-500 dark:text-surface-400 uppercase tracking-wider"
-                  >
-                    Prezzo
-                  </dt>
-                  <dd class="text-sm font-medium text-surface-900 dark:text-white mt-1">
-                    ${this.selectedItem.isFree ? 'Gratuito' : `€${this.selectedItem.price || 0}`}
-                  </dd>
-                </div>
-                ${this.selectedItem.authorName
-                  ? html`
-                      <div>
-                        <dt
-                          class="text-xs text-surface-500 dark:text-surface-400 uppercase tracking-wider"
-                        >
-                          Autore
-                        </dt>
-                        <dd class="text-sm font-medium text-surface-900 dark:text-white mt-1">
-                          ${this.selectedItem.authorName}
-                        </dd>
-                      </div>
-                    `
-                  : ''}
-              </dl>
-            </ui-card>
+                <dl class="grid grid-cols-2 gap-4">
+                  ${this.renderDetailRow('Riferimento Wikidata', this.selectedItem!.referenceId)}
+                  ${this.renderDetailRow('Licenza', this.selectedItem!.license || 'N/A')}
+                  ${this.renderDetailRow(
+                    'Prezzo',
+                    this.selectedItem!.isFree ? 'Gratuito' : `€${this.selectedItem!.price || 0}`,
+                  )}
+                  ${this.renderDetailRow('Autore', this.selectedItem!.authorName)}
+                </dl>
+              `}
+            ></ui-panel-section>
 
             <!-- Text Content -->
-            <ui-card>
-              <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-4">Testo</h3>
-              <p class="text-surface-700 dark:text-surface-300 whitespace-pre-wrap">
-                ${this.selectedItem.text}
-              </p>
-            </ui-card>
+            <ui-panel-section
+              title="Testo"
+              icon="document"
+              .renderContent=${() => html`
+                <p class="text-surface-700 dark:text-surface-300 whitespace-pre-wrap">
+                  ${this.selectedItem!.text}
+                </p>
+              `}
+            ></ui-panel-section>
 
             <!-- Tags -->
             ${this.selectedItem.tags && this.selectedItem.tags.length > 0
               ? html`
-                  <ui-card>
-                    <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-4">
-                      Tags
-                    </h3>
-                    <div class="flex flex-wrap gap-2">
-                      ${this.selectedItem.tags.map(
-                        (tag) => html`<ui-badge variant="secondary" .label=${tag}></ui-badge>`,
-                      )}
-                    </div>
-                  </ui-card>
+                  <ui-panel-section
+                    title="Tags"
+                    icon="tag"
+                    .renderContent=${() => html`
+                      <div class="flex flex-wrap gap-2">
+                        ${this.selectedItem!.tags?.map(
+                          (tag) => html`<ui-badge variant="secondary" .label=${tag}></ui-badge>`,
+                        )}
+                      </div>
+                    `}
+                  ></ui-panel-section>
                 `
-              : ''}
+              : nothing}
           </div>
         </div>
       </div>
@@ -614,29 +563,23 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
           title="Modifica Contenuto"
           description=${this.selectedItem.title}
           showBack
-          @back=${() => {
-            this.viewMode = 'list';
-            this.selectedItem = null;
-          }}
+          @back=${this.backToListView}
         ></ui-page-header>
 
         <!-- Edit Form -->
         <item-creator
           itemId="${this.selectedItem._id}"
           @item-created=${() => {
-            this.viewMode = 'list';
-            this.selectedItem = null;
+            this.backToListView();
             this.loadItems();
           }}
-          @cancel=${() => {
-            this.viewMode = 'list';
-            this.selectedItem = null;
-          }}
+          @cancel=${this.backToListView}
         ></item-creator>
       </div>
     `;
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       ${this.viewMode === 'create'

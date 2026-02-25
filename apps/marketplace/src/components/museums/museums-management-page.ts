@@ -33,6 +33,15 @@ import '../items/wikidata-autocomplete';
 type ViewMode = 'list' | 'create' | 'edit' | 'view' | 'curators';
 type MuseumListLayout = 'grid' | 'table';
 type MuseumSortField = 'name' | 'city' | 'country' | 'status';
+type NavigatorColorFieldKey = 'primaryColor' | 'secondaryColor' | 'themeColor' | 'backgroundColor';
+type NavigatorImageFieldKey =
+  | 'logo'
+  | 'splashImage'
+  | 'openingImage'
+  | 'icon192'
+  | 'icon512'
+  | 'iconMaskable'
+  | 'appleTouchIcon';
 
 interface MuseumFormData {
   wikidataId: string;
@@ -112,6 +121,14 @@ interface NavigatorConfigRaw {
   };
 }
 
+interface NavigatorImageEditorDefinition {
+  key: NavigatorImageFieldKey;
+  label: string;
+  maxWidth: number;
+  maxHeight: number;
+  defaultFormat: 'png' | 'webp';
+}
+
 /**
  * Museum Management Page
  *
@@ -123,6 +140,51 @@ interface NavigatorConfigRaw {
 export class MuseumsManagementPage extends LitElement {
   private static readonly HEX_COLOR_REGEX = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
   private static readonly SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  private readonly navigatorImageEditors: NavigatorImageEditorDefinition[] = [
+    { key: 'logo', label: 'Logo', maxWidth: 512, maxHeight: 512, defaultFormat: 'png' },
+    {
+      key: 'splashImage',
+      label: 'Immagine apertura',
+      maxWidth: 1440,
+      maxHeight: 2560,
+      defaultFormat: 'webp',
+    },
+    {
+      key: 'openingImage',
+      label: 'Opening image',
+      maxWidth: 1440,
+      maxHeight: 2560,
+      defaultFormat: 'webp',
+    },
+    {
+      key: 'icon192',
+      label: 'Icon 192x192',
+      maxWidth: 192,
+      maxHeight: 192,
+      defaultFormat: 'png',
+    },
+    {
+      key: 'icon512',
+      label: 'Icon 512x512',
+      maxWidth: 512,
+      maxHeight: 512,
+      defaultFormat: 'png',
+    },
+    {
+      key: 'iconMaskable',
+      label: 'Icon maskable',
+      maxWidth: 512,
+      maxHeight: 512,
+      defaultFormat: 'png',
+    },
+    {
+      key: 'appleTouchIcon',
+      label: 'Apple touch icon',
+      maxWidth: 180,
+      maxHeight: 180,
+      defaultFormat: 'png',
+    },
+  ];
 
   @property({ type: Object }) currentUser: User | null = null;
   @property({ type: String }) selectedMuseumId = '';
@@ -177,6 +239,7 @@ export class MuseumsManagementPage extends LitElement {
 
   private readonly defaultVisibleColumns = ['name', 'city', 'country', 'status'];
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -202,6 +265,7 @@ export class MuseumsManagementPage extends LitElement {
     }
   }
 
+  // ─── Form & Navigator Helpers ────────────────────────────
   private getEmptyFormData(): MuseumFormData {
     return {
       wikidataId: '',
@@ -488,6 +552,7 @@ export class MuseumsManagementPage extends LitElement {
     );
   }
 
+  // ─── Data Loading ────────────────────────────────────────
   private async loadMuseums() {
     this.loading = true;
     this.error = '';
@@ -745,6 +810,7 @@ export class MuseumsManagementPage extends LitElement {
     `;
   }
 
+  // ─── Actions (Modes / Curators / CRUD) ───────────────────
   private openCreateForm() {
     this.formData = this.getEmptyFormData();
     this.viewMode = 'create';
@@ -1050,6 +1116,64 @@ export class MuseumsManagementPage extends LitElement {
     }
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
+  private renderNavigatorColorField(
+    config: NavigatorConfigFormData,
+    key: NavigatorColorFieldKey,
+    label: string,
+    fallback: string,
+  ) {
+    return html`
+      <div class="space-y-1.5">
+        <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
+          ${label}
+        </label>
+        <div class="flex items-center gap-2">
+          <ui-color-input
+            .value=${this.normalizeHexColor(config[key], fallback)}
+            @input-change=${(e: CustomEvent) =>
+              this.updateNavigatorColor(config.id, key, e.detail.value)}
+          ></ui-color-input>
+          <div class="flex-1">
+            <ui-input
+              .value=${config[key]}
+              @input-change=${(e: CustomEvent) =>
+                this.updateNavigatorColor(config.id, key, e.detail.value)}
+            ></ui-input>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private updateNavigatorImageField(
+    configId: string,
+    key: NavigatorImageFieldKey,
+    path: string | undefined,
+  ) {
+    this.updateNavigatorConfig(configId, {
+      [key]: path || '',
+    } as Partial<NavigatorConfigFormData>);
+  }
+
+  private renderNavigatorImageEditors(config: NavigatorConfigFormData) {
+    return this.navigatorImageEditors.map(
+      (definition) => html`
+        <image-editor
+          label=${definition.label}
+          category="misc"
+          .value=${config[definition.key]}
+          maxWidth=${definition.maxWidth}
+          maxHeight=${definition.maxHeight}
+          defaultFormat=${definition.defaultFormat}
+          @image-saved=${(e: CustomEvent) =>
+            this.updateNavigatorImageField(config.id, definition.key, e.detail.path)}
+        ></image-editor>
+      `,
+    );
+  }
+
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     const isFocusedConfigMode = this.configMode !== 'full';
 
@@ -1091,6 +1215,7 @@ export class MuseumsManagementPage extends LitElement {
     `;
   }
 
+  // ─── View Renderers ──────────────────────────────────────
   private renderList() {
     const museums = this.sortedMuseums;
 
@@ -1273,7 +1398,7 @@ export class MuseumsManagementPage extends LitElement {
       <ui-page-header
         title=${formTitle}
         description=${formDescription}
-        showBack
+        ?showBack=${this.configMode === 'full'}
         @back=${this.backToList}
       ></ui-page-header>
 
@@ -1585,110 +1710,30 @@ export class MuseumsManagementPage extends LitElement {
                           this.updateNavigatorConfig(config.id, { shortName: e.detail.value })}
                         required
                       ></ui-input>
-                      <div class="space-y-1.5">
-                        <label
-                          class="block text-sm font-medium text-surface-700 dark:text-surface-300"
-                        >
-                          Primary Color
-                        </label>
-                        <div class="flex items-center gap-2">
-                          <ui-color-input
-                            .value=${this.normalizeHexColor(config.primaryColor, '#0ea5e9')}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateNavigatorColor(config.id, 'primaryColor', e.detail.value)}
-                          ></ui-color-input>
-                          <div class="flex-1">
-                            <ui-input
-                              .value=${config.primaryColor}
-                              @input-change=${(e: CustomEvent) =>
-                                this.updateNavigatorColor(
-                                  config.id,
-                                  'primaryColor',
-                                  e.detail.value,
-                                )}
-                            ></ui-input>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="space-y-1.5">
-                        <label
-                          class="block text-sm font-medium text-surface-700 dark:text-surface-300"
-                        >
-                          Secondary Color
-                        </label>
-                        <div class="flex items-center gap-2">
-                          <ui-color-input
-                            .value=${this.normalizeHexColor(config.secondaryColor, '#1f2937')}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateNavigatorColor(
-                                config.id,
-                                'secondaryColor',
-                                e.detail.value,
-                              )}
-                          ></ui-color-input>
-                          <div class="flex-1">
-                            <ui-input
-                              .value=${config.secondaryColor}
-                              @input-change=${(e: CustomEvent) =>
-                                this.updateNavigatorColor(
-                                  config.id,
-                                  'secondaryColor',
-                                  e.detail.value,
-                                )}
-                            ></ui-input>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="space-y-1.5">
-                        <label
-                          class="block text-sm font-medium text-surface-700 dark:text-surface-300"
-                        >
-                          Theme Color
-                        </label>
-                        <div class="flex items-center gap-2">
-                          <ui-color-input
-                            .value=${this.normalizeHexColor(config.themeColor, '#0ea5e9')}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateNavigatorColor(config.id, 'themeColor', e.detail.value)}
-                          ></ui-color-input>
-                          <div class="flex-1">
-                            <ui-input
-                              .value=${config.themeColor}
-                              @input-change=${(e: CustomEvent) =>
-                                this.updateNavigatorColor(config.id, 'themeColor', e.detail.value)}
-                            ></ui-input>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="space-y-1.5">
-                        <label
-                          class="block text-sm font-medium text-surface-700 dark:text-surface-300"
-                        >
-                          Background Color
-                        </label>
-                        <div class="flex items-center gap-2">
-                          <ui-color-input
-                            .value=${this.normalizeHexColor(config.backgroundColor, '#ffffff')}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateNavigatorColor(
-                                config.id,
-                                'backgroundColor',
-                                e.detail.value,
-                              )}
-                          ></ui-color-input>
-                          <div class="flex-1">
-                            <ui-input
-                              .value=${config.backgroundColor}
-                              @input-change=${(e: CustomEvent) =>
-                                this.updateNavigatorColor(
-                                  config.id,
-                                  'backgroundColor',
-                                  e.detail.value,
-                                )}
-                            ></ui-input>
-                          </div>
-                        </div>
-                      </div>
+                      ${this.renderNavigatorColorField(
+                        config,
+                        'primaryColor',
+                        'Primary Color',
+                        '#0ea5e9',
+                      )}
+                      ${this.renderNavigatorColorField(
+                        config,
+                        'secondaryColor',
+                        'Secondary Color',
+                        '#1f2937',
+                      )}
+                      ${this.renderNavigatorColorField(
+                        config,
+                        'themeColor',
+                        'Theme Color',
+                        '#0ea5e9',
+                      )}
+                      ${this.renderNavigatorColorField(
+                        config,
+                        'backgroundColor',
+                        'Background Color',
+                        '#ffffff',
+                      )}
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1745,90 +1790,7 @@ export class MuseumsManagementPage extends LitElement {
                     ></ui-textarea>
 
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <image-editor
-                        label="Logo"
-                        category="misc"
-                        .value=${config.logo}
-                        maxWidth=${512}
-                        maxHeight=${512}
-                        defaultFormat="png"
-                        @image-saved=${(e: CustomEvent) =>
-                          this.updateNavigatorConfig(config.id, { logo: e.detail.path || '' })}
-                      ></image-editor>
-
-                      <image-editor
-                        label="Immagine apertura"
-                        category="misc"
-                        .value=${config.splashImage}
-                        maxWidth=${1440}
-                        maxHeight=${2560}
-                        defaultFormat="webp"
-                        @image-saved=${(e: CustomEvent) =>
-                          this.updateNavigatorConfig(config.id, {
-                            splashImage: e.detail.path || '',
-                          })}
-                      ></image-editor>
-
-                      <image-editor
-                        label="Opening image"
-                        category="misc"
-                        .value=${config.openingImage}
-                        maxWidth=${1440}
-                        maxHeight=${2560}
-                        defaultFormat="webp"
-                        @image-saved=${(e: CustomEvent) =>
-                          this.updateNavigatorConfig(config.id, {
-                            openingImage: e.detail.path || '',
-                          })}
-                      ></image-editor>
-
-                      <image-editor
-                        label="Icon 192x192"
-                        category="misc"
-                        .value=${config.icon192}
-                        maxWidth=${192}
-                        maxHeight=${192}
-                        defaultFormat="png"
-                        @image-saved=${(e: CustomEvent) =>
-                          this.updateNavigatorConfig(config.id, { icon192: e.detail.path || '' })}
-                      ></image-editor>
-
-                      <image-editor
-                        label="Icon 512x512"
-                        category="misc"
-                        .value=${config.icon512}
-                        maxWidth=${512}
-                        maxHeight=${512}
-                        defaultFormat="png"
-                        @image-saved=${(e: CustomEvent) =>
-                          this.updateNavigatorConfig(config.id, { icon512: e.detail.path || '' })}
-                      ></image-editor>
-
-                      <image-editor
-                        label="Icon maskable"
-                        category="misc"
-                        .value=${config.iconMaskable}
-                        maxWidth=${512}
-                        maxHeight=${512}
-                        defaultFormat="png"
-                        @image-saved=${(e: CustomEvent) =>
-                          this.updateNavigatorConfig(config.id, {
-                            iconMaskable: e.detail.path || '',
-                          })}
-                      ></image-editor>
-
-                      <image-editor
-                        label="Apple touch icon"
-                        category="misc"
-                        .value=${config.appleTouchIcon}
-                        maxWidth=${180}
-                        maxHeight=${180}
-                        defaultFormat="png"
-                        @image-saved=${(e: CustomEvent) =>
-                          this.updateNavigatorConfig(config.id, {
-                            appleTouchIcon: e.detail.path || '',
-                          })}
-                      ></image-editor>
+                      ${this.renderNavigatorImageEditors(config)}
                     </div>
                   </div>
                 </ui-card>

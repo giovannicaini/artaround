@@ -33,7 +33,8 @@ import '../ui/ui-section';
 import '../ui/ui-icon-button';
 import '../ui/ui-checkbox';
 import '../ui/ui-filter-tabs';
-import '../ui/ui-combobox';
+import '../ui/ui-search-list-picker';
+import '../ui/ui-panel-section';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'view';
 
@@ -84,7 +85,7 @@ export class UsersPage extends LitElement {
   // Resource name lookup (id → name)
   @state() private resourceNames: Map<string, string> = new Map();
 
-  // Resource options for combobox in role modal
+  // Resource options for resource picker in role modal
   @state() private resourceOptions: { value: string; label: string }[] = [];
   @state() private resourceOptionsLoading = false;
 
@@ -101,6 +102,7 @@ export class UsersPage extends LitElement {
     resourceId: '',
   };
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -136,6 +138,7 @@ export class UsersPage extends LitElement {
     }
   }
 
+  // ─── Data Loading ────────────────────────────────────────
   private async loadUsers() {
     this.loading = true;
     this.error = '';
@@ -164,6 +167,7 @@ export class UsersPage extends LitElement {
     }
   }
 
+  // ─── Actions (Filters / CRUD / Roles) ───────────────────
   private handleFilterRole(role: UserRole | '') {
     this.filterRole = role;
     this.page = 1;
@@ -383,6 +387,7 @@ export class UsersPage extends LitElement {
     }
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     return html`
       <div class="users-page">
@@ -394,6 +399,7 @@ export class UsersPage extends LitElement {
     `;
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderList() {
     return html`
       <!-- Header -->
@@ -534,7 +540,7 @@ export class UsersPage extends LitElement {
     `;
   }
 
-  private renderUserRow(user: User) {
+  private getRoleBadgeVariant(role: UserRole): string {
     const roleColors: Record<UserRole, string> = {
       admin: 'danger',
       curator: 'primary',
@@ -542,6 +548,34 @@ export class UsersPage extends LitElement {
       visitor: 'secondary',
     };
 
+    return roleColors[role] || 'secondary';
+  }
+
+  private renderRoleBadge(role: UserRole, variant?: string) {
+    return html`
+      <ui-badge
+        variant="${variant || this.getRoleBadgeVariant(role)}"
+        .label=${userService.getRoleLabel(role)}
+      ></ui-badge>
+    `;
+  }
+
+  private renderStatusBadge(isActive: boolean) {
+    return isActive
+      ? html`<ui-badge variant="success" dot label="Attivo"></ui-badge>`
+      : html`<ui-badge variant="secondary" dot label="Inattivo"></ui-badge>`;
+  }
+
+  private formatUserDate(
+    value?: string | Date,
+    options?: Intl.DateTimeFormatOptions,
+    fallback = '-',
+  ) {
+    if (!value) return fallback;
+    return new Date(value).toLocaleDateString('it-IT', options);
+  }
+
+  private renderUserRow(user: User) {
     return html`
       <tr class="hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
         <td class="px-4 py-3">
@@ -557,12 +591,7 @@ export class UsersPage extends LitElement {
             </div>
           </div>
         </td>
-        <td class="px-4 py-3">
-          <ui-badge
-            variant="${roleColors[user.role] || 'secondary'}"
-            .label=${userService.getRoleLabel(user.role)}
-          ></ui-badge>
-        </td>
+        <td class="px-4 py-3">${this.renderRoleBadge(user.role)}</td>
         <td class="px-4 py-3">
           ${user.roleAssignments && user.roleAssignments.length > 0
             ? html`
@@ -589,14 +618,8 @@ export class UsersPage extends LitElement {
               `
             : html`<span class="text-sm text-surface-400">—</span>`}
         </td>
-        <td class="px-4 py-3">
-          ${user.isActive
-            ? html`<ui-badge variant="success" dot label="Attivo"></ui-badge>`
-            : html`<ui-badge variant="secondary" dot label="Inattivo"></ui-badge>`}
-        </td>
-        <td class="px-4 py-3 text-sm text-surface-500">
-          ${new Date(user.createdAt).toLocaleDateString('it-IT')}
-        </td>
+        <td class="px-4 py-3">${this.renderStatusBadge(user.isActive)}</td>
+        <td class="px-4 py-3 text-sm text-surface-500">${this.formatUserDate(user.createdAt)}</td>
         <td class="px-4 py-3">
           <div class="flex items-center justify-end gap-1">
             <ui-icon-button
@@ -764,52 +787,47 @@ export class UsersPage extends LitElement {
         </div>
 
         <!-- User info card -->
-        <ui-card class="mb-6">
-          <h3 class="font-semibold text-surface-900 dark:text-white mb-4">Informazioni Generali</h3>
-          <dl class="grid grid-cols-2 gap-4">
-            <div>
-              <dt class="text-sm text-surface-500">Ruolo Globale</dt>
-              <dd class="mt-1">
-                <ui-badge
-                  variant="primary"
-                  .label=${userService.getRoleLabel(user.role)}
-                ></ui-badge>
-              </dd>
-            </div>
-            <div>
-              <dt class="text-sm text-surface-500">Stato</dt>
-              <dd class="mt-1">
-                ${user.isActive
-                  ? html`<ui-badge variant="success" dot label="Attivo"></ui-badge>`
-                  : html`<ui-badge variant="secondary" dot label="Inattivo"></ui-badge>`}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-sm text-surface-500">Registrato il</dt>
-              <dd class="mt-1 text-surface-900 dark:text-white">
-                ${new Date(user.createdAt).toLocaleDateString('it-IT', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-sm text-surface-500">Ultimo accesso</dt>
-              <dd class="mt-1 text-surface-900 dark:text-white">
-                ${user.lastLogin
-                  ? new Date(user.lastLogin).toLocaleDateString('it-IT', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
-                  : 'Mai'}
-              </dd>
-            </div>
-          </dl>
-        </ui-card>
+        <ui-panel-section
+          title="Informazioni Generali"
+          icon="user"
+          class="mb-6"
+          .renderContent=${() => html`
+            <dl class="grid grid-cols-2 gap-4">
+              <div>
+                <dt class="text-sm text-surface-500">Ruolo Globale</dt>
+                <dd class="mt-1">${this.renderRoleBadge(user.role, 'primary')}</dd>
+              </div>
+              <div>
+                <dt class="text-sm text-surface-500">Stato</dt>
+                <dd class="mt-1">${this.renderStatusBadge(user.isActive)}</dd>
+              </div>
+              <div>
+                <dt class="text-sm text-surface-500">Registrato il</dt>
+                <dd class="mt-1 text-surface-900 dark:text-white">
+                  ${this.formatUserDate(user.createdAt, {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-sm text-surface-500">Ultimo accesso</dt>
+                <dd class="mt-1 text-surface-900 dark:text-white">
+                  ${user.lastLogin
+                    ? this.formatUserDate(user.lastLogin, {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : 'Mai'}
+                </dd>
+              </div>
+            </dl>
+          `}
+        ></ui-panel-section>
 
         <!-- Role assignments card -->
         <ui-card>
@@ -827,40 +845,12 @@ export class UsersPage extends LitElement {
           ${user.roleAssignments && user.roleAssignments.length > 0
             ? html`
                 <div class="space-y-2">
-                  ${user.roleAssignments.map(
-                    (ra) => html`
-                      <div
-                        class="flex items-center justify-between p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50"
-                      >
-                        <div class="flex items-center gap-3">
-                          <div
-                            class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center"
-                          >
-                            <ui-icon
-                              name=${this.getResourceIcon(ra.resourceType)}
-                              size="sm"
-                              class="text-brand-600 dark:text-brand-400"
-                            ></ui-icon>
-                          </div>
-                          <div>
-                            <p class="font-medium text-surface-900 dark:text-white">
-                              ${userService.getContextualRoleLabel(ra.role)}
-                            </p>
-                            <p class="text-sm text-surface-500">
-                              ${userService.getResourceTypeLabel(ra.resourceType)}:
-                              ${this.resourceNames.get(ra.resourceId) ?? ra.resourceId}
-                            </p>
-                          </div>
-                        </div>
-                        <ui-icon-button
-                          icon="x"
-                          size="sm"
-                          variant="danger"
-                          title="Rimuovi"
-                          @click=${() => this.handleRemoveRoleAssignment(ra)}
-                        ></ui-icon-button>
-                      </div>
-                    `,
+                  ${user.roleAssignments.map((ra) =>
+                    this.renderRoleAssignmentItem(ra, {
+                      showIcon: true,
+                      removeIcon: 'x',
+                      removeTitle: 'Rimuovi',
+                    }),
                   )}
                 </div>
               `
@@ -886,6 +876,65 @@ export class UsersPage extends LitElement {
       museum: 'building',
     };
     return icons[type] || 'file';
+  }
+
+  private renderRoleAssignmentItem(
+    ra: RoleAssignment,
+    options: {
+      compact?: boolean;
+      showIcon?: boolean;
+      removeIcon?: 'x' | 'trash';
+      removeTitle?: string;
+    } = {},
+  ) {
+    const {
+      compact = false,
+      showIcon = false,
+      removeIcon = 'x',
+      removeTitle = 'Rimuovi',
+    } = options;
+
+    return html`
+      <div
+        class="flex items-center justify-between p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50"
+      >
+        <div class="flex items-center gap-3">
+          ${showIcon
+            ? html`
+                <div
+                  class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center"
+                >
+                  <ui-icon
+                    name=${this.getResourceIcon(ra.resourceType)}
+                    size="sm"
+                    class="text-brand-600 dark:text-brand-400"
+                  ></ui-icon>
+                </div>
+              `
+            : nothing}
+          <div>
+            <p
+              class=${compact
+                ? 'text-sm font-medium text-surface-900 dark:text-white'
+                : 'font-medium text-surface-900 dark:text-white'}
+            >
+              ${userService.getContextualRoleLabel(ra.role)}
+            </p>
+            <p class=${compact ? 'text-xs text-surface-500' : 'text-sm text-surface-500'}>
+              ${userService.getResourceTypeLabel(ra.resourceType)}:
+              ${this.resourceNames.get(ra.resourceId) ?? ra.resourceId}
+            </p>
+          </div>
+        </div>
+        <ui-icon-button
+          icon=${removeIcon}
+          size="sm"
+          variant="danger"
+          title=${removeTitle}
+          @click=${() => this.handleRemoveRoleAssignment(ra)}
+        ></ui-icon-button>
+      </div>
+    `;
   }
 
   private renderDeleteModal() {
@@ -940,29 +989,12 @@ export class UsersPage extends LitElement {
                     <p class="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">
                       Ruoli assegnati
                     </p>
-                    ${existingRoles.map(
-                      (ra) => html`
-                        <div
-                          class="flex items-center justify-between p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50"
-                        >
-                          <div>
-                            <p class="text-sm font-medium text-surface-900 dark:text-white">
-                              ${userService.getContextualRoleLabel(ra.role)}
-                            </p>
-                            <p class="text-xs text-surface-500">
-                              ${userService.getResourceTypeLabel(ra.resourceType)}:
-                              ${this.resourceNames.get(ra.resourceId) ?? ra.resourceId}
-                            </p>
-                          </div>
-                          <ui-icon-button
-                            icon="trash"
-                            size="sm"
-                            variant="danger"
-                            title="Rimuovi ruolo"
-                            @click=${() => this.handleRemoveRoleAssignment(ra)}
-                          ></ui-icon-button>
-                        </div>
-                      `,
+                    ${existingRoles.map((ra) =>
+                      this.renderRoleAssignmentItem(ra, {
+                        compact: true,
+                        removeIcon: 'trash',
+                        removeTitle: 'Rimuovi ruolo',
+                      }),
                     )}
                   </div>
                 `
@@ -1008,35 +1040,39 @@ export class UsersPage extends LitElement {
                 }}
               ></ui-select>
 
-              <ui-combobox
+              <ui-search-list-picker
                 label="Risorsa"
-                .value=${this.roleAssignmentData.resourceId}
-                .options=${this.resourceOptions}
+                placeholder="Cerca per nome..."
+                loadingText="Caricamento risorse..."
+                emptyText="Nessuna risorsa disponibile"
+                noResultsText="Nessun risultato"
                 .loading=${this.resourceOptionsLoading}
-                placeholder="Cerca e seleziona una risorsa..."
-                @combobox-change=${(e: CustomEvent) =>
-                  (this.roleAssignmentData = {
+                .options=${this.resourceOptions}
+                .value=${this.roleAssignmentData.resourceId}
+                @value-change=${(e: CustomEvent<{ value: string }>) => {
+                  this.roleAssignmentData = {
                     ...this.roleAssignmentData,
                     resourceId: e.detail.value,
-                  })}
-              ></ui-combobox>
+                  };
+                }}
+              ></ui-search-list-picker>
             </div>
-          </div>
 
-          <div
-            class="flex items-center justify-end gap-3 p-6 border-t border-surface-200 dark:border-surface-700 flex-shrink-0"
-          >
-            <ui-button
-              variant="ghost"
-              label="Chiudi"
-              @click=${() => (this.roleAssignmentModalOpen = false)}
-            ></ui-button>
-            <ui-button
-              variant="primary"
-              label="Assegna Ruolo"
-              @click=${this.handleAddRoleAssignment}
-              ?loading=${this.saving}
-            ></ui-button>
+            <div
+              class="flex items-center justify-end gap-3 p-6 border-t border-surface-200 dark:border-surface-700 flex-shrink-0"
+            >
+              <ui-button
+                variant="ghost"
+                label="Chiudi"
+                @click=${() => (this.roleAssignmentModalOpen = false)}
+              ></ui-button>
+              <ui-button
+                variant="primary"
+                label="Assegna Ruolo"
+                @click=${this.handleAddRoleAssignment}
+                ?loading=${this.saving}
+              ></ui-button>
+            </div>
           </div>
         </div>
       </div>

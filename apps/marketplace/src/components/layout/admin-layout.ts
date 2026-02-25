@@ -11,6 +11,7 @@ export class AdminLayout extends LitElement {
   @property({ type: Object }) user: User | null = null;
   @state() private sidebarCollapsed = false;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -24,6 +25,7 @@ export class AdminLayout extends LitElement {
     this.updateLayoutClasses();
   }
 
+  // ─── Actions & Helpers ───────────────────────────────────
   private updateLayoutClasses() {
     // Apply layout classes to the host element and update main content margin
     this.classList.add('block', 'min-h-screen', 'bg-surface-50', 'dark:bg-surface-950');
@@ -58,6 +60,7 @@ export class AdminLayout extends LitElement {
     );
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     const marginClass = this.sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64';
     return html`

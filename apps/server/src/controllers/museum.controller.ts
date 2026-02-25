@@ -197,11 +197,7 @@ export class MuseumController {
     try {
       const { id } = req.params;
 
-      // Try MongoDB ID first, then Wikidata ID
-      let museum = await MuseumModel.findById(id);
-      if (!museum) {
-        museum = await MuseumModel.findOne({ wikidataId: id });
-      }
+      const museum = await MuseumModel.findById(id);
 
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');

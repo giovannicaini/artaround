@@ -1,4 +1,4 @@
-import { html } from 'lit';
+import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
   CONTENT_DURATION_OPTIONS_IT,
@@ -18,10 +18,11 @@ import './image-uploader';
 import '../ui/ui-input';
 import '../ui/ui-select';
 import '../ui/ui-button';
-import '../ui/ui-icon';
-import '../ui/ui-card';
 import '../ui/ui-textarea';
 import '../ui/ui-alert';
+import '../ui/ui-panel-section';
+import '../ui/ui-tag-input';
+import '../ui/ui-museum-required-notice';
 
 @customElement('item-creator')
 export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
@@ -48,7 +49,6 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
   @state() private license: LicenseType = LicenseType.CC_BY;
   @state() private price = 0;
   @state() private tags: string[] = [];
-  @state() private tagInput = '';
   @state() private image = '';
 
   private readonly referenceTypeOptions = ITEM_REFERENCE_TYPE_OPTIONS_IT;
@@ -59,6 +59,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
 
   private readonly licenseOptions = LICENSE_TYPE_OPTIONS_IT;
 
+  // ─── Actions (Field Updates) ─────────────────────────────
   private handleWikidataSelect(e: CustomEvent) {
     this.referenceId = e.detail.id;
     this.referenceTitle = e.detail.label;
@@ -74,29 +75,11 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     this.image = e.detail.value;
   }
 
-  private handleAddTag() {
-    const tag = this.tagInput.trim().toLowerCase();
-    if (tag && !this.tags.includes(tag)) {
-      this.tags = [...this.tags, tag];
-      this.tagInput = '';
-    }
-  }
-
-  private handleRemoveTag(tag: string) {
-    this.tags = this.tags.filter((t) => t !== tag);
-  }
-
-  private handleTagKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      this.handleAddTag();
-    }
-  }
-
   private handlePriceChange(e: CustomEvent) {
     this.price = parseFloat(e.detail.value) || 0;
   }
 
+  // ─── Computed & Validation ───────────────────────────────
   private getWordCount(): number {
     return this.text.trim().split(/\s+/).filter(Boolean).length;
   }
@@ -135,6 +118,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     return null;
   }
 
+  // ─── Submit Flow ─────────────────────────────────────────
   private async handleSubmit(e: Event) {
     e.preventDefault();
 
@@ -194,6 +178,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
+  // ─── Form State Helpers ──────────────────────────────────
   private resetForm() {
     this.referenceType = ItemReferenceType.ARTWORK;
     this.referenceId = '';
@@ -205,7 +190,6 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     this.license = LicenseType.CC_BY;
     this.price = 0;
     this.tags = [];
-    this.tagInput = '';
     this.image = '';
     this.success = '';
     this.error = '';
@@ -235,6 +219,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     const needsWikidataRef = [
       ItemReferenceType.ARTWORK,
@@ -247,36 +232,22 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
       <form @submit=${this.handleSubmit} class="space-y-8">
         <!-- Success/Error Messages -->
         ${!this.selectedMuseumId
-          ? html`
-              <ui-alert
-                variant="warning"
-                .message=${'Seleziona un museo attivo prima di creare il contenuto.'}
-              ></ui-alert>
-              <div class="flex justify-end">
-                <ui-button
-                  variant="secondary"
-                  size="sm"
-                  label="Seleziona museo"
-                  @click=${this.emitSelectMuseum}
-                ></ui-button>
-              </div>
-            `
-          : ''}
+          ? html`<ui-museum-required-notice
+              subject="contenuti"
+              @select-museum=${this.emitSelectMuseum}
+            ></ui-museum-required-notice>`
+          : nothing}
         ${this.success
           ? html`<ui-alert variant="success" .message=${this.success}></ui-alert>`
-          : ''}
-        ${this.error ? html`<ui-alert variant="danger" .message=${this.error}></ui-alert>` : ''}
+          : nothing}
+        ${this.error
+          ? html`<ui-alert variant="danger" .message=${this.error}></ui-alert>`
+          : nothing}
 
-        <!-- Section: Reference -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="link" size="sm" class="text-brand-500"></ui-icon>
-            Tipo di Contenuto
-          </h3>
-
-          <ui-card>
+        <ui-panel-section
+          title="Tipo di Contenuto"
+          icon="link"
+          .renderContent=${() => html`
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ui-select
                 label="Tipo di riferimento"
@@ -306,19 +277,13 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
                     ></ui-input>
                   `}
             </div>
-          </ui-card>
-        </section>
+          `}
+        ></ui-panel-section>
 
-        <!-- Section: Content Characteristics -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="settings" size="sm" class="text-brand-500"></ui-icon>
-            Caratteristiche del Contenuto
-          </h3>
-
-          <ui-card>
+        <ui-panel-section
+          title="Caratteristiche del Contenuto"
+          icon="settings"
+          .renderContent=${() => html`
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ui-select
                 label="Durata"
@@ -340,19 +305,13 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
                   (this.languageLevel = e.detail.value as LanguageLevel)}
               ></ui-select>
             </div>
-          </ui-card>
-        </section>
+          `}
+        ></ui-panel-section>
 
-        <!-- Section: Content -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="document" size="sm" class="text-brand-500"></ui-icon>
-            Contenuto
-          </h3>
-
-          <ui-card>
+        <ui-panel-section
+          title="Contenuto"
+          icon="document"
+          .renderContent=${() => html`
             <div class="space-y-6">
               <ui-input
                 label="Titolo"
@@ -382,38 +341,26 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
                 </div>
               </div>
             </div>
-          </ui-card>
-        </section>
+          `}
+        ></ui-panel-section>
 
-        <!-- Section: Image -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="image" size="sm" class="text-brand-500"></ui-icon>
-            Immagine (opzionale)
-          </h3>
-
-          <ui-card>
+        <ui-panel-section
+          title="Immagine (opzionale)"
+          icon="image"
+          .renderContent=${() => html`
             <image-uploader
               label="Immagine di copertina"
               hint="PNG, JPG fino a 5MB. Se non specificata, verrà usata quella del riferimento"
               .value=${this.image}
               @image-change=${this.handleImageChange}
             ></image-uploader>
-          </ui-card>
-        </section>
+          `}
+        ></ui-panel-section>
 
-        <!-- Section: License & Price -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="currency" size="sm" class="text-brand-500"></ui-icon>
-            Licenza e Prezzo
-          </h3>
-
-          <ui-card>
+        <ui-panel-section
+          title="Licenza e Prezzo"
+          icon="currency"
+          .renderContent=${() => html`
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ui-select
                 label="Tipo di Licenza"
@@ -432,67 +379,23 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
                 @input-change=${this.handlePriceChange}
               ></ui-input>
             </div>
-          </ui-card>
-        </section>
+          `}
+        ></ui-panel-section>
 
-        <!-- Section: Tags -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="tag" size="sm" class="text-brand-500"></ui-icon>
-            Tag
-          </h3>
-
-          <ui-card>
-            <div class="space-y-3">
-              <div class="flex gap-2">
-                <div class="flex-1">
-                  <ui-input
-                    placeholder="Aggiungi un tag..."
-                    .value=${this.tagInput}
-                    @input-change=${(e: CustomEvent) => (this.tagInput = e.detail.value)}
-                    @keydown=${this.handleTagKeydown}
-                  ></ui-input>
-                </div>
-                <ui-button
-                  type="button"
-                  variant="secondary"
-                  icon="plus"
-                  label="Aggiungi"
-                  @click=${this.handleAddTag}
-                ></ui-button>
-              </div>
-
-              ${this.tags.length > 0
-                ? html`
-                    <div class="flex flex-wrap gap-2">
-                      ${this.tags.map(
-                        (tag) => html`
-                          <span
-                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-sm bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300"
-                          >
-                            ${tag}
-                            <button
-                              type="button"
-                              class="p-0.5 hover:bg-surface-200 dark:hover:bg-surface-700 rounded-full transition-colors"
-                              @click=${() => this.handleRemoveTag(tag)}
-                            >
-                              <ui-icon name="x" size="xs"></ui-icon>
-                            </button>
-                          </span>
-                        `,
-                      )}
-                    </div>
-                  `
-                : html`
-                    <p class="text-sm text-surface-500 dark:text-surface-400">
-                      Nessun tag aggiunto
-                    </p>
-                  `}
-            </div>
-          </ui-card>
-        </section>
+        <ui-panel-section
+          title="Tag"
+          icon="tag"
+          .renderContent=${() => html`
+            <ui-tag-input
+              placeholder="Aggiungi un tag..."
+              .tags=${this.tags}
+              emptyText="Nessun tag aggiunto"
+              @tags-change=${(e: CustomEvent<{ tags: string[] }>) => {
+                this.tags = e.detail.tags;
+              }}
+            ></ui-tag-input>
+          `}
+        ></ui-panel-section>
 
         <!-- Actions -->
         <div

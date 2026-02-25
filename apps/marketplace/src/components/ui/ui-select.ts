@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './ui-icon';
 
@@ -20,6 +20,7 @@ export class UiSelect extends LitElement {
   @property({ type: Boolean }) clearable = false;
   @property({ type: Array }) options: SelectOption[] = [];
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -29,6 +30,7 @@ export class UiSelect extends LitElement {
     this.style.display = 'block';
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private handleChange(e: Event) {
     const target = e.target as HTMLSelectElement;
     this.value = target.value;
@@ -56,6 +58,7 @@ export class UiSelect extends LitElement {
     );
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     const selectClasses = `
       block w-full px-3 py-2.5 text-sm rounded-lg border transition-colors duration-150
@@ -78,10 +81,10 @@ export class UiSelect extends LitElement {
           ? html`
               <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
                 ${this.label}
-                ${this.required ? html`<span class="text-danger-500 ml-0.5">*</span>` : ''}
+                ${this.required ? html`<span class="text-danger-500 ml-0.5">*</span>` : nothing}
               </label>
             `
-          : ''}
+          : nothing}
 
         <div class="relative">
           <select
@@ -98,7 +101,7 @@ export class UiSelect extends LitElement {
                     ${this.placeholder}
                   </option>
                 `
-              : ''}
+              : nothing}
             ${this.options.map(
               (opt) => html`
                 <option
@@ -125,17 +128,17 @@ export class UiSelect extends LitElement {
                   <ui-icon name="x" size="xs"></ui-icon>
                 </button>
               `
-            : ''}
+            : nothing}
 
           <!-- Dropdown arrow -->
           <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-            <ui-icon name="chevronDown" size="xs" class="text-surface-400"></ui-icon>
+            <ui-icon name="chevron-down" size="xs" class="text-surface-400"></ui-icon>
           </div>
         </div>
 
         ${this.hint && !this.error
           ? html` <p class="text-xs text-surface-500 dark:text-surface-400">${this.hint}</p> `
-          : ''}
+          : nothing}
         ${this.error
           ? html`
               <p
@@ -152,7 +155,7 @@ export class UiSelect extends LitElement {
                 ${this.error}
               </p>
             `
-          : ''}
+          : nothing}
       </div>
     `;
   }

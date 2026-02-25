@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { authService } from '../../services/auth.service';
 import '../ui/ui-button';
@@ -6,6 +6,7 @@ import '../ui/ui-input';
 import '../ui/ui-card';
 import '../ui/ui-alert';
 import '../ui/ui-checkbox';
+import '../ui/ui-brand-mark';
 
 @customElement('login-page')
 export class LoginPage extends LitElement {
@@ -14,10 +15,12 @@ export class LoginPage extends LitElement {
   @state() private loading = false;
   @state() private error = '';
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private async handleSubmit(e: Event) {
     e.preventDefault();
 
@@ -54,6 +57,7 @@ export class LoginPage extends LitElement {
     }
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     return html`
       <div
@@ -72,12 +76,13 @@ export class LoginPage extends LitElement {
         <div class="relative w-full max-w-sm animate-slide-up">
           <!-- Logo -->
           <div class="text-center mb-8">
-            <div
-              class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-600 mb-4"
-            >
-              <span class="text-white font-bold text-xl">A</span>
+            <div class="inline-flex mb-4">
+              <ui-brand-mark
+                iconSizeClass="w-12 h-12"
+                text="ArtAround Admin"
+                textClass="text-2xl font-semibold text-surface-900 dark:text-white"
+              ></ui-brand-mark>
             </div>
-            <h1 class="text-2xl font-semibold text-surface-900 dark:text-white">ArtAround Admin</h1>
             <p class="text-sm text-surface-500 dark:text-surface-400 mt-1">
               Accedi al pannello di amministrazione
             </p>
@@ -88,7 +93,7 @@ export class LoginPage extends LitElement {
             <form @submit=${this.handleSubmit} class="space-y-5">
               ${this.error
                 ? html`<ui-alert variant="danger" .message=${this.error}></ui-alert>`
-                : ''}
+                : nothing}
 
               <ui-input
                 type="text"

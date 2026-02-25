@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './ui-button';
 import './ui-icon';
@@ -14,6 +14,7 @@ export class UiModal extends LitElement {
   @property({ type: Boolean }) loading = false;
   @property({ type: Boolean }) hideCancel = false;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -29,6 +30,7 @@ export class UiModal extends LitElement {
     document.removeEventListener('keydown', this.handleKeydown.bind(this));
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private handleConfirm() {
     this.dispatchEvent(
       new CustomEvent('confirm', {
@@ -59,6 +61,7 @@ export class UiModal extends LitElement {
     }
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     if (!this.open) return null;
 
@@ -121,7 +124,7 @@ export class UiModal extends LitElement {
                     @click=${this.handleCancel}
                   ></ui-button>
                 `
-              : ''}
+              : nothing}
             <ui-button
               variant="${this.variant === 'danger' ? 'danger' : 'primary'}"
               label="${this.confirmLabel}"

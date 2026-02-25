@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
   CONTENT_DURATION_MATRIX_OPTIONS_IT,
@@ -47,6 +47,7 @@ export class ContentMatrixEditor extends LitElement {
 
   private readonly languageLevels = LANGUAGE_LEVEL_SHORT_OPTIONS_IT;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -56,6 +57,7 @@ export class ContentMatrixEditor extends LitElement {
     this.initializeMatrix();
   }
 
+  // ─── Matrix State Helpers ────────────────────────────────
   private initializeMatrix() {
     // Create a 4x4 matrix (4 durations x 4 language levels)
     this.matrix = this.durations.map((duration) =>
@@ -95,6 +97,7 @@ export class ContentMatrixEditor extends LitElement {
     this.closeEditor();
   }
 
+  // ─── Events ───────────────────────────────────────────────
   private emitChange() {
     const entries: ContentEntry[] = this.matrix
       .flat()
@@ -114,6 +117,7 @@ export class ContentMatrixEditor extends LitElement {
     );
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     return html`
       <div class="content-matrix-editor">
@@ -195,7 +199,7 @@ export class ContentMatrixEditor extends LitElement {
                 </div>
               </div>
             `
-          : ''}
+          : nothing}
 
         <!-- Summary -->
         <div class="mt-4 text-sm text-gray-600">

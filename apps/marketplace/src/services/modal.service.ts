@@ -18,6 +18,8 @@ interface ModalOptions {
 class ModalService {
   private modalElement: HTMLElement | null = null;
 
+  private static readonly CLOSE_ANIMATION_MS = 150;
+
   private createModal(): HTMLElement {
     // Remove existing modal if any
     if (this.modalElement) {
@@ -28,6 +30,22 @@ class ModalService {
     document.body.appendChild(modal);
     this.modalElement = modal;
     return modal;
+  }
+
+  private setModalAttributes(modal: HTMLElement, attrs: Record<string, string>) {
+    Object.entries(attrs).forEach(([key, value]) => {
+      modal.setAttribute(key, value);
+    });
+  }
+
+  private removeModal(modal: HTMLElement) {
+    modal.setAttribute('open', 'false');
+    setTimeout(() => {
+      modal.remove();
+      if (this.modalElement === modal) {
+        this.modalElement = null;
+      }
+    }, ModalService.CLOSE_ANIMATION_MS);
   }
 
   /**
@@ -41,21 +59,19 @@ class ModalService {
       const opts: ModalOptions =
         typeof options === 'string' ? { title: 'Avviso', message: options } : options;
 
-      modal.setAttribute('open', 'true');
-      modal.setAttribute('title', opts.title);
-      modal.setAttribute('message', opts.message);
-      modal.setAttribute('variant', opts.variant || 'info');
-      modal.setAttribute('confirm-label', opts.confirmLabel || 'OK');
-      modal.setAttribute('hide-cancel', 'true');
+      this.setModalAttributes(modal, {
+        open: 'true',
+        title: opts.title,
+        message: opts.message,
+        variant: opts.variant || 'info',
+        'confirm-label': opts.confirmLabel || 'OK',
+        'hide-cancel': 'true',
+      });
 
       const handleClose = () => {
-        modal.setAttribute('open', 'false');
         modal.removeEventListener('confirm', handleClose);
         modal.removeEventListener('cancel', handleClose);
-        setTimeout(() => {
-          modal.remove();
-          this.modalElement = null;
-        }, 150);
+        this.removeModal(modal);
         resolve();
       };
 
@@ -95,21 +111,19 @@ class ModalService {
           ? { title: 'Conferma', message: options, variant: 'danger' }
           : options;
 
-      modal.setAttribute('open', 'true');
-      modal.setAttribute('title', opts.title);
-      modal.setAttribute('message', opts.message);
-      modal.setAttribute('variant', opts.variant || 'danger');
-      modal.setAttribute('confirm-label', opts.confirmLabel || 'Conferma');
-      modal.setAttribute('cancel-label', opts.cancelLabel || 'Annulla');
+      this.setModalAttributes(modal, {
+        open: 'true',
+        title: opts.title,
+        message: opts.message,
+        variant: opts.variant || 'danger',
+        'confirm-label': opts.confirmLabel || 'Conferma',
+        'cancel-label': opts.cancelLabel || 'Annulla',
+      });
 
       const cleanup = () => {
-        modal.setAttribute('open', 'false');
         modal.removeEventListener('confirm', handleConfirm);
         modal.removeEventListener('cancel', handleCancel);
-        setTimeout(() => {
-          modal.remove();
-          this.modalElement = null;
-        }, 150);
+        this.removeModal(modal);
       };
 
       const handleConfirm = () => {

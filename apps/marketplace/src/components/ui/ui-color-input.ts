@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
 @customElement('ui-color-input')
@@ -7,6 +7,7 @@ export class UiColorInput extends LitElement {
   @property({ type: String }) label = '';
   @property({ type: Boolean }) disabled = false;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -16,6 +17,7 @@ export class UiColorInput extends LitElement {
     this.style.display = 'block';
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private handleInput(event: Event) {
     const target = event.target as HTMLInputElement;
     this.value = target.value;
@@ -28,6 +30,7 @@ export class UiColorInput extends LitElement {
     );
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <div class="space-y-1.5">
@@ -37,7 +40,7 @@ export class UiColorInput extends LitElement {
                 ${this.label}
               </label>
             `
-          : ''}
+          : nothing}
         <input
           type="color"
           class="h-10 w-14 rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 p-1 cursor-pointer"

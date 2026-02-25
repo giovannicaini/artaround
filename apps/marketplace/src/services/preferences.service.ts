@@ -11,6 +11,12 @@ export interface AccessibilitySettings {
 }
 
 class PreferencesService {
+  private static readonly STORAGE_KEYS = {
+    theme: 'theme',
+    accessibility: 'accessibility',
+    selectedMuseum: 'selectedMuseum',
+  } as const;
+
   private theme: Theme = 'auto';
   private accessibility: AccessibilitySettings = {
     reduceMotion: false,
@@ -30,15 +36,43 @@ class PreferencesService {
   }
 
   private loadPreferences() {
-    const savedTheme = localStorage.getItem('theme') as Theme;
+    const savedTheme = this.safeGetItem(PreferencesService.STORAGE_KEYS.theme) as Theme | null;
     if (savedTheme) {
       this.theme = savedTheme;
     }
 
-    const savedAccessibility = localStorage.getItem('accessibility');
+    const savedAccessibility = this.safeGetItem(PreferencesService.STORAGE_KEYS.accessibility);
     if (savedAccessibility) {
       // Merge with defaults so new fields are always present
-      this.accessibility = { ...this.accessibility, ...JSON.parse(savedAccessibility) };
+      try {
+        this.accessibility = { ...this.accessibility, ...JSON.parse(savedAccessibility) };
+      } catch {
+        // Ignore corrupted localStorage value
+      }
+    }
+  }
+
+  private safeGetItem(key: string): string | null {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  }
+
+  private safeSetItem(key: string, value: string): void {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // Ignore storage write failures (quota/private mode)
+    }
+  }
+
+  private safeRemoveItem(key: string): void {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Ignore storage remove failures
     }
   }
 
@@ -58,7 +92,7 @@ class PreferencesService {
 
   setTheme(theme: Theme) {
     this.theme = theme;
-    localStorage.setItem('theme', theme);
+    this.safeSetItem(PreferencesService.STORAGE_KEYS.theme, theme);
     this.applyTheme();
     this.notifyThemeChange();
   }
@@ -86,7 +120,10 @@ class PreferencesService {
 
   setAccessibility(settings: Partial<AccessibilitySettings>) {
     this.accessibility = { ...this.accessibility, ...settings };
-    localStorage.setItem('accessibility', JSON.stringify(this.accessibility));
+    this.safeSetItem(
+      PreferencesService.STORAGE_KEYS.accessibility,
+      JSON.stringify(this.accessibility),
+    );
     this.applyAccessibility();
     this.notifyAccessibilityChange();
   }
@@ -148,38 +185,36 @@ class PreferencesService {
   }
 
   // Museum selection
-  getSelectedMuseumId(): string | null {
-    const saved = localStorage.getItem('selectedMuseum');
-    if (saved) {
-      try {
-        const museum = JSON.parse(saved);
-        return museum._id || null;
-      } catch {
-        return null;
-      }
+  private readSelectedMuseumFromStorage(): {
+    _id: string;
+    wikidataId?: string;
+    name: string;
+  } | null {
+    const saved = this.safeGetItem(PreferencesService.STORAGE_KEYS.selectedMuseum);
+    if (!saved) return null;
+    try {
+      return JSON.parse(saved);
+    } catch {
+      return null;
     }
-    return null;
+  }
+
+  getSelectedMuseumId(): string | null {
+    const museum = this.readSelectedMuseumFromStorage();
+    return museum?._id || null;
   }
 
   getSelectedMuseum(): { _id: string; wikidataId?: string; name: string } | null {
-    const saved = localStorage.getItem('selectedMuseum');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return null;
-      }
-    }
-    return null;
+    return this.readSelectedMuseumFromStorage();
   }
 
   setSelectedMuseum(museum: { _id: string; wikidataId?: string; name: string }) {
-    localStorage.setItem('selectedMuseum', JSON.stringify(museum));
+    this.safeSetItem(PreferencesService.STORAGE_KEYS.selectedMuseum, JSON.stringify(museum));
     window.dispatchEvent(new CustomEvent('museum-changed', { detail: museum }));
   }
 
   clearSelectedMuseum() {
-    localStorage.removeItem('selectedMuseum');
+    this.safeRemoveItem(PreferencesService.STORAGE_KEYS.selectedMuseum);
     window.dispatchEvent(new CustomEvent('museum-changed', { detail: null }));
   }
 }

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { ArtworkModel } from '../models/index.js';
+import mongoose from 'mongoose';
+import { ArtworkModel, MuseumModel } from '../models/index.js';
 import type { ArtworkFilters as SharedArtworkFilters } from '@artaround/shared';
 
 /**
@@ -88,6 +89,36 @@ const parseTechnicalYearRange = (yearValue: unknown): YearRange => {
   return {};
 };
 
+const resolveMuseumIdCandidates = async (museumId: string): Promise<string[]> => {
+  const normalized = museumId.trim();
+  if (!normalized) return [];
+
+  const candidates = new Set<string>([normalized]);
+
+  if (mongoose.Types.ObjectId.isValid(normalized)) {
+    const museum = await MuseumModel.findById(normalized).select('_id wikidataId').lean();
+    if (museum?._id) {
+      candidates.add(String(museum._id));
+    }
+    if (museum?.wikidataId) {
+      candidates.add(museum.wikidataId);
+    }
+    return Array.from(candidates);
+  }
+
+  const museum = await MuseumModel.findOne({ wikidataId: normalized })
+    .select('_id wikidataId')
+    .lean();
+  if (museum?._id) {
+    candidates.add(String(museum._id));
+  }
+  if (museum?.wikidataId) {
+    candidates.add(museum.wikidataId);
+  }
+
+  return Array.from(candidates);
+};
+
 // GET /api/artworks
 export const getArtworks = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -110,7 +141,11 @@ export const getArtworks = async (req: Request, res: Response, next: NextFunctio
 
     const query: Record<string, unknown> = {};
 
-    if (filters.museumId) query.museumId = filters.museumId;
+    if (filters.museumId) {
+      const museumIdCandidates = await resolveMuseumIdCandidates(filters.museumId);
+      query.museumId =
+        museumIdCandidates.length <= 1 ? museumIdCandidates[0] : { $in: museumIdCandidates };
+    }
     if (filters.author) query.author = filters.author;
     if (filters.authorWikidataId) query.authorWikidataId = filters.authorWikidataId;
     if (filters.artworkType) query.artworkType = filters.artworkType;
@@ -170,12 +205,7 @@ export const getArtwork = async (req: Request, res: Response, next: NextFunction
   try {
     const { id } = req.params;
 
-    // Try to find by MongoDB _id first, then by wikidataId
-    let artwork = await ArtworkModel.findById(id).lean();
-
-    if (!artwork) {
-      artwork = await ArtworkModel.findOne({ wikidataId: id }).lean();
-    }
+    const artwork = await ArtworkModel.findById(id).lean();
 
     if (!artwork) {
       return res.status(404).json({ success: false, error: 'Artwork not found' });
@@ -248,12 +278,7 @@ export const updateArtwork = async (req: Request, res: Response, next: NextFunct
       updateData.endYear = yearRange.endYear;
     }
 
-    // Try to find by MongoDB _id first, then by wikidataId
-    let artwork = await ArtworkModel.findByIdAndUpdate(id, updateData, { new: true });
-
-    if (!artwork) {
-      artwork = await ArtworkModel.findOneAndUpdate({ wikidataId: id }, updateData, { new: true });
-    }
+    const artwork = await ArtworkModel.findByIdAndUpdate(id, updateData, { new: true });
 
     if (!artwork) {
       return res.status(404).json({ success: false, error: 'Artwork not found' });
@@ -270,12 +295,7 @@ export const deleteArtwork = async (req: Request, res: Response, next: NextFunct
   try {
     const { id } = req.params;
 
-    // Try to find by MongoDB _id first, then by wikidataId
-    let artwork = await ArtworkModel.findByIdAndDelete(id);
-
-    if (!artwork) {
-      artwork = await ArtworkModel.findOneAndDelete({ wikidataId: id });
-    }
+    const artwork = await ArtworkModel.findByIdAndDelete(id);
 
     if (!artwork) {
       return res.status(404).json({ success: false, error: 'Artwork not found' });
@@ -291,8 +311,14 @@ export const deleteArtwork = async (req: Request, res: Response, next: NextFunct
 export const getArtworksByMuseum = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { museumId } = req.params;
+    const museumIdCandidates = await resolveMuseumIdCandidates(museumId);
 
-    const artworks = await ArtworkModel.find({ museumId }).sort({ room: 1, title: 1 }).lean();
+    const artworks = await ArtworkModel.find({
+      museumId:
+        museumIdCandidates.length <= 1 ? museumIdCandidates[0] : { $in: museumIdCandidates },
+    })
+      .sort({ room: 1, title: 1 })
+      .lean();
 
     res.json({ success: true, data: artworks });
   } catch (error) {
@@ -308,15 +334,7 @@ export const updateArtworkMapPosition = async (req: Request, res: Response, next
 
     const mapPosition = { floorId, x, y, rotation };
 
-    let artwork = await ArtworkModel.findByIdAndUpdate(id, { mapPosition }, { new: true });
-
-    if (!artwork) {
-      artwork = await ArtworkModel.findOneAndUpdate(
-        { wikidataId: id },
-        { mapPosition },
-        { new: true },
-      );
-    }
+    const artwork = await ArtworkModel.findByIdAndUpdate(id, { mapPosition }, { new: true });
 
     if (!artwork) {
       return res.status(404).json({ success: false, error: 'Artwork not found' });

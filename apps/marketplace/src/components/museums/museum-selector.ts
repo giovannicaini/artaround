@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { museumService } from '../../services/museum.service';
 import type { Museum } from '@artaround/shared';
@@ -16,6 +16,7 @@ export class MuseumSelector extends LitElement {
   @state() private error = '';
   @state() private selectedMuseumId: string | null = null;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -25,6 +26,7 @@ export class MuseumSelector extends LitElement {
     this.loadMuseums();
   }
 
+  // ─── Data Loading ────────────────────────────────────────
   private async loadMuseums() {
     this.loading = true;
     this.error = '';
@@ -39,6 +41,7 @@ export class MuseumSelector extends LitElement {
     }
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private selectMuseum(museum: Museum) {
     this.selectedMuseumId = museum._id;
     this.dispatchEvent(
@@ -50,6 +53,7 @@ export class MuseumSelector extends LitElement {
     );
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderMuseumCard(museum: Museum) {
     const isSelected = this.selectedMuseumId === museum._id;
 
@@ -95,7 +99,7 @@ export class MuseumSelector extends LitElement {
                     <ui-icon name="check" size="sm" class="text-white"></ui-icon>
                   </div>
                 `
-              : ''}
+              : nothing}
           </div>
 
           <!-- Content -->
@@ -123,6 +127,7 @@ export class MuseumSelector extends LitElement {
     `;
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     if (this.loading) {
       return html`<ui-loading size="lg" text="Caricamento musei..."></ui-loading>`;

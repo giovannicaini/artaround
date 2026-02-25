@@ -34,6 +34,8 @@ import '../ui/ui-alert';
 import '../ui/ui-tabs';
 import '../ui/ui-checkbox';
 import '../ui/ui-icon-button';
+import '../ui/ui-tag-input';
+import '../ui/ui-panel-section';
 
 type EditorTab = 'info' | 'steps' | 'audience' | 'settings';
 
@@ -91,10 +93,6 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
   @state() private isFree = true;
   @state() private license: LicenseType = LicenseType.CC0;
 
-  private serviceInput = '';
-  private tipInput = '';
-  private interestInput = '';
-
   private readonly languageLevelOptions = LANGUAGE_LEVEL_OPTIONS_EMOJI_IT;
 
   private logisticIcons = [
@@ -108,6 +106,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     { value: 'wifi', label: '📶 WiFi' },
   ];
 
+  // ─── Lifecycle ───────────────────────────────────────────
   async connectedCallback() {
     super.connectedCallback();
     await this.loadMuseums();
@@ -122,6 +121,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
+  // ─── Data Loading ────────────────────────────────────────
   private async loadMuseums() {
     this.loadingMuseums = true;
     try {
@@ -211,6 +211,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
+  // ─── Actions (Museum / Steps / Save) ────────────────────
   private async handleMuseumChange(e: CustomEvent) {
     this.museumId = e.detail.value;
     // Reload artworks when museum changes
@@ -393,6 +394,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     );
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     if (this.loadingVisit) {
       return html`<ui-loading size="lg" text="Caricamento visita..."></ui-loading>`;
@@ -416,11 +418,13 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
                 ></ui-button>
               </div>
             `
-          : ''}
+          : nothing}
         ${this.success
           ? html`<ui-alert variant="success" .message=${this.success}></ui-alert>`
-          : ''}
-        ${this.error ? html`<ui-alert variant="danger" .message=${this.error}></ui-alert>` : ''}
+          : nothing}
+        ${this.error
+          ? html`<ui-alert variant="danger" .message=${this.error}></ui-alert>`
+          : nothing}
 
         <!-- Tabs -->
         <ui-tabs
@@ -459,6 +463,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderActiveTab() {
     switch (this.activeTab) {
       case 'info':
@@ -478,14 +483,10 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     return html`
       <div class="space-y-8">
         <!-- Museum Selection -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="location" size="sm" class="text-brand-500"></ui-icon>
-            Museo
-          </h3>
-          <ui-card>
+        <ui-panel-section
+          title="Museo"
+          icon="location"
+          .renderContent=${() => html`
             <ui-select
               label="Seleziona il museo"
               .value=${this.museumId}
@@ -495,18 +496,14 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
               @select-change=${this.handleMuseumChange}
               required
             ></ui-select>
-          </ui-card>
-        </section>
+          `}
+        ></ui-panel-section>
 
         <!-- Basic Info -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="document" size="sm" class="text-brand-500"></ui-icon>
-            Informazioni di base
-          </h3>
-          <ui-card>
+        <ui-panel-section
+          title="Informazioni di base"
+          icon="document"
+          .renderContent=${() => html`
             <div class="space-y-4">
               <ui-input
                 label="Titolo della visita"
@@ -562,18 +559,14 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
                   `
                 : nothing}
             </div>
-          </ui-card>
-        </section>
+          `}
+        ></ui-panel-section>
 
         <!-- Practical Info -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="info" size="sm" class="text-brand-500"></ui-icon>
-            Informazioni pratiche
-          </h3>
-          <ui-card>
+        <ui-panel-section
+          title="Informazioni pratiche"
+          icon="info"
+          .renderContent=${() => html`
             <div class="space-y-4">
               <ui-input
                 label="Costi"
@@ -614,8 +607,8 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
                   (this.wheelchairAccessible = e.detail.checked)}
               ></ui-checkbox>
             </div>
-          </ui-card>
-        </section>
+          `}
+        ></ui-panel-section>
       </div>
     `;
   }
@@ -646,7 +639,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
             type="button"
             variant="outline"
             size="sm"
-            icon="arrowRight"
+            icon="arrow-right"
             label="Indicazioni"
             @click=${() => this.addStep(VisitStepType.NAVIGATION)}
           ></ui-button>
@@ -758,7 +751,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
           <!-- Drag handle + Order number + Arrows -->
           <div class="flex flex-col items-center gap-1">
             <ui-icon-button
-              icon="chevronUp"
+              icon="chevron-up"
               size="xs"
               title="Sposta su"
               @click=${(e: Event) => {
@@ -781,7 +774,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
               </span>
             </div>
             <ui-icon-button
-              icon="chevronDown"
+              icon="chevron-down"
               size="xs"
               title="Sposta giù"
               @click=${(e: Event) => {
@@ -1122,18 +1115,11 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
   private renderAudienceTab() {
     return html`
       <div class="space-y-8">
-        <!-- Language Levels -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="document" size="sm" class="text-brand-500"></ui-icon>
-            Livelli di linguaggio supportati
-          </h3>
-          <ui-card>
-            <p class="text-sm text-surface-500 mb-4">
-              Seleziona i livelli per cui questa visita è adatta
-            </p>
+        <ui-panel-section
+          title="Livelli di linguaggio supportati"
+          icon="document"
+          description="Seleziona i livelli per cui questa visita è adatta"
+          .renderContent=${() => html`
             <div class="space-y-2">
               ${this.languageLevelOptions.map(
                 (option) => html`
@@ -1160,18 +1146,13 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
                 `,
               )}
             </div>
-          </ui-card>
-        </section>
+          `}
+        ></ui-panel-section>
 
-        <!-- Age Range -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="users" size="sm" class="text-brand-500"></ui-icon>
-            Fascia d'età
-          </h3>
-          <ui-card>
+        <ui-panel-section
+          title="Fascia d'età"
+          icon="users"
+          .renderContent=${() => html`
             <div class="grid grid-cols-2 gap-4">
               <ui-input
                 type="number"
@@ -1190,18 +1171,13 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
                   (this.maxAge = parseInt((e.target as HTMLInputElement).value) || undefined)}
               ></ui-input>
             </div>
-          </ui-card>
-        </section>
+          `}
+        ></ui-panel-section>
 
-        <!-- Duration -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="clock" size="sm" class="text-brand-500"></ui-icon>
-            Durata stimata
-          </h3>
-          <ui-card>
+        <ui-panel-section
+          title="Durata stimata"
+          icon="clock"
+          .renderContent=${() => html`
             <ui-input
               type="number"
               label="Durata (minuti)"
@@ -1210,72 +1186,24 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
               @input=${(e: InputEvent) =>
                 (this.estimatedDuration = parseInt((e.target as HTMLInputElement).value) || 60)}
             ></ui-input>
-          </ui-card>
-        </section>
+          `}
+        ></ui-panel-section>
 
-        <!-- Interests -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="tag" size="sm" class="text-brand-500"></ui-icon>
-            Interessi correlati
-          </h3>
-          <ui-card>
-            <div class="space-y-3">
-              <div class="flex gap-2">
-                <ui-input
-                  placeholder="Es. Arte barocca"
-                  .value=${this.interestInput}
-                  @input=${(e: InputEvent) =>
-                    (this.interestInput = (e.target as HTMLInputElement).value)}
-                  @keydown=${(e: KeyboardEvent) => {
-                    if (e.key === 'Enter' && this.interestInput.trim()) {
-                      this.interests = [...this.interests, this.interestInput.trim()];
-                      this.interestInput = '';
-                      this.requestUpdate();
-                    }
-                  }}
-                  class="flex-1"
-                ></ui-input>
-                <ui-button
-                  type="button"
-                  variant="outline"
-                  label="Aggiungi"
-                  @click=${() => {
-                    if (this.interestInput.trim()) {
-                      this.interests = [...this.interests, this.interestInput.trim()];
-                      this.interestInput = '';
-                      this.requestUpdate();
-                    }
-                  }}
-                ></ui-button>
-              </div>
-              ${this.interests.length > 0
-                ? html`
-                    <div class="flex flex-wrap gap-2">
-                      ${this.interests.map(
-                        (interest, i) => html`
-                          <span
-                            class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-surface-100 dark:bg-surface-800 text-sm"
-                          >
-                            ${interest}
-                            <ui-icon-button
-                              icon="x"
-                              size="xs"
-                              title="Rimuovi interesse"
-                              @click=${() =>
-                                (this.interests = this.interests.filter((_, idx) => idx !== i))}
-                            ></ui-icon-button>
-                          </span>
-                        `,
-                      )}
-                    </div>
-                  `
-                : nothing}
-            </div>
-          </ui-card>
-        </section>
+        <ui-panel-section
+          title="Interessi correlati"
+          icon="tag"
+          .renderContent=${() => html`
+            <ui-tag-input
+              placeholder="Es. Arte barocca"
+              .tags=${this.interests}
+              .lowercase=${false}
+              emptyText="Nessun interesse aggiunto"
+              @tags-change=${(e: CustomEvent<{ tags: string[] }>) => {
+                this.interests = e.detail.tags;
+              }}
+            ></ui-tag-input>
+          `}
+        ></ui-panel-section>
       </div>
     `;
   }
@@ -1283,15 +1211,10 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
   private renderSettingsTab() {
     return html`
       <div class="space-y-8">
-        <!-- Language -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="globe" size="sm" class="text-brand-500"></ui-icon>
-            Lingua
-          </h3>
-          <ui-card>
+        <ui-panel-section
+          title="Lingua"
+          icon="globe"
+          .renderContent=${() => html`
             <ui-select
               label="Lingua principale"
               .value=${this.language}
@@ -1304,18 +1227,13 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
               ]}
               @select-change=${(e: CustomEvent) => (this.language = e.detail.value)}
             ></ui-select>
-          </ui-card>
-        </section>
+          `}
+        ></ui-panel-section>
 
-        <!-- Pricing -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="currency" size="sm" class="text-brand-500"></ui-icon>
-            Prezzo
-          </h3>
-          <ui-card>
+        <ui-panel-section
+          title="Prezzo"
+          icon="currency"
+          .renderContent=${() => html`
             <div class="space-y-4">
               <ui-checkbox
                 label="Visita gratuita"
@@ -1338,135 +1256,40 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
                   `
                 : nothing}
             </div>
-          </ui-card>
-        </section>
+          `}
+        ></ui-panel-section>
 
-        <!-- Services -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="cog" size="sm" class="text-brand-500"></ui-icon>
-            Servizi disponibili
-          </h3>
-          <ui-card>
-            <div class="space-y-3">
-              <div class="flex gap-2">
-                <ui-input
-                  placeholder="Es. Bar, Guardaroba, WiFi"
-                  .value=${this.serviceInput}
-                  @input=${(e: InputEvent) =>
-                    (this.serviceInput = (e.target as HTMLInputElement).value)}
-                  @keydown=${(e: KeyboardEvent) => {
-                    if (e.key === 'Enter' && this.serviceInput.trim()) {
-                      this.services = [...this.services, this.serviceInput.trim()];
-                      this.serviceInput = '';
-                      this.requestUpdate();
-                    }
-                  }}
-                  class="flex-1"
-                ></ui-input>
-                <ui-button
-                  type="button"
-                  variant="outline"
-                  label="Aggiungi"
-                  @click=${() => {
-                    if (this.serviceInput.trim()) {
-                      this.services = [...this.services, this.serviceInput.trim()];
-                      this.serviceInput = '';
-                      this.requestUpdate();
-                    }
-                  }}
-                ></ui-button>
-              </div>
-              ${this.services.length > 0
-                ? html`
-                    <div class="flex flex-wrap gap-2">
-                      ${this.services.map(
-                        (service, i) => html`
-                          <span
-                            class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-surface-100 dark:bg-surface-800 text-sm"
-                          >
-                            ${service}
-                            <ui-icon-button
-                              icon="x"
-                              size="xs"
-                              title="Rimuovi servizio"
-                              @click=${() =>
-                                (this.services = this.services.filter((_, idx) => idx !== i))}
-                            ></ui-icon-button>
-                          </span>
-                        `,
-                      )}
-                    </div>
-                  `
-                : nothing}
-            </div>
-          </ui-card>
-        </section>
+        <ui-panel-section
+          title="Servizi disponibili"
+          icon="cog"
+          .renderContent=${() => html`
+            <ui-tag-input
+              placeholder="Es. Bar, Guardaroba, WiFi"
+              .tags=${this.services}
+              .lowercase=${false}
+              emptyText="Nessun servizio aggiunto"
+              @tags-change=${(e: CustomEvent<{ tags: string[] }>) => {
+                this.services = e.detail.tags;
+              }}
+            ></ui-tag-input>
+          `}
+        ></ui-panel-section>
 
-        <!-- Tips -->
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="info" size="sm" class="text-brand-500"></ui-icon>
-            Consigli per i visitatori
-          </h3>
-          <ui-card>
-            <div class="space-y-3">
-              <div class="flex gap-2">
-                <ui-input
-                  placeholder="Es. Arrivare con 15 minuti di anticipo"
-                  .value=${this.tipInput}
-                  @input=${(e: InputEvent) =>
-                    (this.tipInput = (e.target as HTMLInputElement).value)}
-                  @keydown=${(e: KeyboardEvent) => {
-                    if (e.key === 'Enter' && this.tipInput.trim()) {
-                      this.tips = [...this.tips, this.tipInput.trim()];
-                      this.tipInput = '';
-                      this.requestUpdate();
-                    }
-                  }}
-                  class="flex-1"
-                ></ui-input>
-                <ui-button
-                  type="button"
-                  variant="outline"
-                  label="Aggiungi"
-                  @click=${() => {
-                    if (this.tipInput.trim()) {
-                      this.tips = [...this.tips, this.tipInput.trim()];
-                      this.tipInput = '';
-                      this.requestUpdate();
-                    }
-                  }}
-                ></ui-button>
-              </div>
-              ${this.tips.length > 0
-                ? html`
-                    <div class="space-y-2">
-                      ${this.tips.map(
-                        (tip, i) => html`
-                          <div
-                            class="flex items-center gap-2 p-2 rounded bg-surface-50 dark:bg-surface-800"
-                          >
-                            <span class="text-sm flex-1">${tip}</span>
-                            <ui-icon-button
-                              icon="x"
-                              size="sm"
-                              title="Rimuovi consiglio"
-                              @click=${() => (this.tips = this.tips.filter((_, idx) => idx !== i))}
-                            ></ui-icon-button>
-                          </div>
-                        `,
-                      )}
-                    </div>
-                  `
-                : nothing}
-            </div>
-          </ui-card>
-        </section>
+        <ui-panel-section
+          title="Consigli per i visitatori"
+          icon="info"
+          .renderContent=${() => html`
+            <ui-tag-input
+              placeholder="Es. Arrivare con 15 minuti di anticipo"
+              .tags=${this.tips}
+              .lowercase=${false}
+              emptyText="Nessun consiglio aggiunto"
+              @tags-change=${(e: CustomEvent<{ tags: string[] }>) => {
+                this.tips = e.detail.tags;
+              }}
+            ></ui-tag-input>
+          `}
+        ></ui-panel-section>
       </div>
     `;
   }

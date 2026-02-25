@@ -33,6 +33,7 @@ export class UiPageHeader extends LitElement {
   @state() private actionsContent: Element[] = [];
   private actionsInitialized = false;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -49,6 +50,7 @@ export class UiPageHeader extends LitElement {
     });
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private captureSlotContent() {
     // Capture children with slot="actions" attribute - keep original elements (not clones!)
     const actionsSlotted = Array.from(this.querySelectorAll('[slot="actions"]')) as Element[];
@@ -80,6 +82,7 @@ export class UiPageHeader extends LitElement {
     }
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     const countText =
       this.count !== undefined ? `${this.count} ${this.countLabel}` : this.countLabel;
@@ -95,7 +98,7 @@ export class UiPageHeader extends LitElement {
                   class="p-2 text-surface-500 hover:text-surface-700 dark:text-surface-400 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-colors"
                   @click=${this.handleBack}
                 >
-                  <ui-icon name="arrowLeft" size="sm"></ui-icon>
+                  <ui-icon name="arrow-left" size="sm"></ui-icon>
                 </button>
               `
             : nothing}

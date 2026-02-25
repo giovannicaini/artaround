@@ -38,6 +38,25 @@ interface NavigatorConfigFormData {
   appleTouchIcon: string;
 }
 
+type NavigatorColorFieldKey = 'primaryColor' | 'secondaryColor' | 'themeColor' | 'backgroundColor';
+type NavigatorTextFieldKey =
+  | 'logo'
+  | 'splashImage'
+  | 'openingImage'
+  | 'icon192'
+  | 'icon512'
+  | 'iconMaskable'
+  | 'appleTouchIcon'
+  | 'startUrl'
+  | 'scope';
+type NavigatorGeneralFieldKey =
+  | 'name'
+  | 'slug'
+  | 'homeTitle'
+  | 'homeSubtitle'
+  | 'manifestName'
+  | 'shortName';
+
 @customElement('navigator-default-config-page')
 export class NavigatorDefaultConfigPage extends LitElement {
   private static readonly HEX_COLOR_REGEX = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
@@ -49,6 +68,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
   @state() private error = '';
   @state() private success = '';
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -58,6 +78,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
     this.loadConfigs();
   }
 
+  // ─── Data Loading & State ────────────────────────────────
   private getEmptyConfig(index: number): NavigatorConfigFormData {
     return {
       id: `default-cfg-${Date.now()}-${index}`,
@@ -163,6 +184,97 @@ export class NavigatorDefaultConfigPage extends LitElement {
     return fallback;
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
+  private renderColorField(
+    config: NavigatorConfigFormData,
+    fieldKey: NavigatorColorFieldKey,
+    label: string,
+    fallback: string,
+  ) {
+    return html`
+      <div class="space-y-1.5">
+        <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
+          ${label}
+        </label>
+        <div class="flex items-center gap-2">
+          <input
+            type="color"
+            class="h-10 w-14 rounded border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 p-1"
+            .value=${this.normalizeHexColor(config[fieldKey], fallback)}
+            @input=${(e: Event) =>
+              this.updateConfig(config.id, {
+                [fieldKey]: (e.target as HTMLInputElement).value,
+              } as Partial<NavigatorConfigFormData>)}
+          />
+          <div class="flex-1">
+            <ui-input
+              .value=${config[fieldKey]}
+              @input-change=${(e: CustomEvent) =>
+                this.updateConfig(config.id, {
+                  [fieldKey]: e.detail.value,
+                } as Partial<NavigatorConfigFormData>)}
+            ></ui-input>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderTextField(
+    config: NavigatorConfigFormData,
+    fieldKey: NavigatorTextFieldKey,
+    label: string,
+    fallback = '',
+  ) {
+    return html`
+      <ui-input
+        label=${label}
+        .value=${config[fieldKey]}
+        @input-change=${(e: CustomEvent) =>
+          this.updateConfig(config.id, {
+            [fieldKey]: e.detail.value || fallback,
+          } as Partial<NavigatorConfigFormData>)}
+      ></ui-input>
+    `;
+  }
+
+  private renderGeneralField(
+    config: NavigatorConfigFormData,
+    fieldKey: NavigatorGeneralFieldKey,
+    label: string,
+    options: {
+      required?: boolean;
+      transform?: (value: string) => string;
+    } = {},
+  ) {
+    const { required = false, transform } = options;
+
+    return html`
+      <ui-input
+        label=${label}
+        .value=${config[fieldKey]}
+        @input-change=${(e: CustomEvent) =>
+          this.updateConfig(config.id, {
+            [fieldKey]: transform ? transform(e.detail.value) : e.detail.value,
+          } as Partial<NavigatorConfigFormData>)}
+        ?required=${required}
+      ></ui-input>
+    `;
+  }
+
+  private renderFeedbackAlert(
+    variant: 'error' | 'success',
+    message: string,
+    onDismiss: () => void,
+  ) {
+    if (!message) return nothing;
+
+    return html`
+      <ui-alert variant=${variant} message=${message} dismissible @dismiss=${onDismiss}></ui-alert>
+    `;
+  }
+
+  // ─── Validation & Save ───────────────────────────────────
   private validateBeforeSave(): string | null {
     if (!this.configs.length) {
       return 'La configurazione default è obbligatoria';
@@ -341,6 +453,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
     URL.revokeObjectURL(downloadUrl);
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     const displayOptions = [
       { value: 'standalone', label: 'Standalone' },
@@ -358,22 +471,8 @@ export class NavigatorDefaultConfigPage extends LitElement {
 
     return html`
       <div class="space-y-6 animate-fade-in">
-        ${this.error
-          ? html`<ui-alert
-              variant="error"
-              message=${this.error}
-              dismissible
-              @dismiss=${() => (this.error = '')}
-            ></ui-alert>`
-          : nothing}
-        ${this.success
-          ? html`<ui-alert
-              variant="success"
-              message=${this.success}
-              dismissible
-              @dismiss=${() => (this.success = '')}
-            ></ui-alert>`
-          : nothing}
+        ${this.renderFeedbackAlert('error', this.error, () => (this.error = ''))}
+        ${this.renderFeedbackAlert('success', this.success, () => (this.success = ''))}
 
         <ui-page-header
           title="Configurazione default app navigator"
@@ -409,159 +508,43 @@ export class NavigatorDefaultConfigPage extends LitElement {
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <ui-input
-                            label="Nome Config *"
-                            .value=${config.name}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateConfig(config.id, { name: e.detail.value })}
-                            required
-                          ></ui-input>
-                          <ui-input
-                            label="Slug *"
-                            .value=${config.slug}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateConfig(config.id, {
-                                slug: this.sanitizeSlug(e.detail.value),
-                              })}
-                            required
-                          ></ui-input>
-                          <ui-input
-                            label="Titolo Home"
-                            .value=${config.homeTitle}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateConfig(config.id, { homeTitle: e.detail.value })}
-                          ></ui-input>
+                          ${this.renderGeneralField(config, 'name', 'Nome Config *', {
+                            required: true,
+                          })}
+                          ${this.renderGeneralField(config, 'slug', 'Slug *', {
+                            required: true,
+                            transform: (value) => this.sanitizeSlug(value),
+                          })}
+                          ${this.renderGeneralField(config, 'homeTitle', 'Titolo Home')}
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <ui-input
-                            label="Sottotitolo Home"
-                            .value=${config.homeSubtitle}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateConfig(config.id, { homeSubtitle: e.detail.value })}
-                          ></ui-input>
-                          <ui-input
-                            label="Manifest Name *"
-                            .value=${config.manifestName}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateConfig(config.id, { manifestName: e.detail.value })}
-                            required
-                          ></ui-input>
-                          <ui-input
-                            label="Manifest Short Name *"
-                            .value=${config.shortName}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateConfig(config.id, { shortName: e.detail.value })}
-                            required
-                          ></ui-input>
-
-                          <div class="space-y-1.5">
-                            <label
-                              class="block text-sm font-medium text-surface-700 dark:text-surface-300"
-                            >
-                              Primary Color
-                            </label>
-                            <div class="flex items-center gap-2">
-                              <input
-                                type="color"
-                                class="h-10 w-14 rounded border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 p-1"
-                                .value=${this.normalizeHexColor(config.primaryColor, '#0ea5e9')}
-                                @input=${(e: Event) =>
-                                  this.updateConfig(config.id, {
-                                    primaryColor: (e.target as HTMLInputElement).value,
-                                  })}
-                              />
-                              <div class="flex-1">
-                                <ui-input
-                                  .value=${config.primaryColor}
-                                  @input-change=${(e: CustomEvent) =>
-                                    this.updateConfig(config.id, { primaryColor: e.detail.value })}
-                                ></ui-input>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div class="space-y-1.5">
-                            <label
-                              class="block text-sm font-medium text-surface-700 dark:text-surface-300"
-                            >
-                              Secondary Color
-                            </label>
-                            <div class="flex items-center gap-2">
-                              <input
-                                type="color"
-                                class="h-10 w-14 rounded border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 p-1"
-                                .value=${this.normalizeHexColor(config.secondaryColor, '#1f2937')}
-                                @input=${(e: Event) =>
-                                  this.updateConfig(config.id, {
-                                    secondaryColor: (e.target as HTMLInputElement).value,
-                                  })}
-                              />
-                              <div class="flex-1">
-                                <ui-input
-                                  .value=${config.secondaryColor}
-                                  @input-change=${(e: CustomEvent) =>
-                                    this.updateConfig(config.id, {
-                                      secondaryColor: e.detail.value,
-                                    })}
-                                ></ui-input>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div class="space-y-1.5">
-                            <label
-                              class="block text-sm font-medium text-surface-700 dark:text-surface-300"
-                            >
-                              Theme Color
-                            </label>
-                            <div class="flex items-center gap-2">
-                              <input
-                                type="color"
-                                class="h-10 w-14 rounded border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 p-1"
-                                .value=${this.normalizeHexColor(config.themeColor, '#0ea5e9')}
-                                @input=${(e: Event) =>
-                                  this.updateConfig(config.id, {
-                                    themeColor: (e.target as HTMLInputElement).value,
-                                  })}
-                              />
-                              <div class="flex-1">
-                                <ui-input
-                                  .value=${config.themeColor}
-                                  @input-change=${(e: CustomEvent) =>
-                                    this.updateConfig(config.id, { themeColor: e.detail.value })}
-                                ></ui-input>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div class="space-y-1.5">
-                            <label
-                              class="block text-sm font-medium text-surface-700 dark:text-surface-300"
-                            >
-                              Background Color
-                            </label>
-                            <div class="flex items-center gap-2">
-                              <input
-                                type="color"
-                                class="h-10 w-14 rounded border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 p-1"
-                                .value=${this.normalizeHexColor(config.backgroundColor, '#ffffff')}
-                                @input=${(e: Event) =>
-                                  this.updateConfig(config.id, {
-                                    backgroundColor: (e.target as HTMLInputElement).value,
-                                  })}
-                              />
-                              <div class="flex-1">
-                                <ui-input
-                                  .value=${config.backgroundColor}
-                                  @input-change=${(e: CustomEvent) =>
-                                    this.updateConfig(config.id, {
-                                      backgroundColor: e.detail.value,
-                                    })}
-                                ></ui-input>
-                              </div>
-                            </div>
-                          </div>
+                          ${this.renderGeneralField(config, 'homeSubtitle', 'Sottotitolo Home')}
+                          ${this.renderGeneralField(config, 'manifestName', 'Manifest Name *', {
+                            required: true,
+                          })}
+                          ${this.renderGeneralField(config, 'shortName', 'Manifest Short Name *', {
+                            required: true,
+                          })}
+                          ${this.renderColorField(
+                            config,
+                            'primaryColor',
+                            'Primary Color',
+                            '#0ea5e9',
+                          )}
+                          ${this.renderColorField(
+                            config,
+                            'secondaryColor',
+                            'Secondary Color',
+                            '#1f2937',
+                          )}
+                          ${this.renderColorField(config, 'themeColor', 'Theme Color', '#0ea5e9')}
+                          ${this.renderColorField(
+                            config,
+                            'backgroundColor',
+                            'Background Color',
+                            '#ffffff',
+                          )}
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -584,18 +567,8 @@ export class NavigatorDefaultConfigPage extends LitElement {
                                   .value as NavigatorConfigFormData['orientation'],
                               })}
                           ></ui-select>
-                          <ui-input
-                            label="Start URL"
-                            .value=${config.startUrl}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateConfig(config.id, { startUrl: e.detail.value || '/' })}
-                          ></ui-input>
-                          <ui-input
-                            label="Scope"
-                            .value=${config.scope}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateConfig(config.id, { scope: e.detail.value || '/' })}
-                          ></ui-input>
+                          ${this.renderTextField(config, 'startUrl', 'Start URL', '/')}
+                          ${this.renderTextField(config, 'scope', 'Scope', '/')}
                         </div>
 
                         <ui-textarea
@@ -617,48 +590,13 @@ export class NavigatorDefaultConfigPage extends LitElement {
                         ></ui-textarea>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <ui-input
-                            label="Logo URL"
-                            .value=${config.logo}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateConfig(config.id, { logo: e.detail.value })}
-                          ></ui-input>
-                          <ui-input
-                            label="Splash URL"
-                            .value=${config.splashImage}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateConfig(config.id, { splashImage: e.detail.value })}
-                          ></ui-input>
-                          <ui-input
-                            label="Opening Image URL"
-                            .value=${config.openingImage}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateConfig(config.id, { openingImage: e.detail.value })}
-                          ></ui-input>
-                          <ui-input
-                            label="Icon 192x192 URL"
-                            .value=${config.icon192}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateConfig(config.id, { icon192: e.detail.value })}
-                          ></ui-input>
-                          <ui-input
-                            label="Icon 512x512 URL"
-                            .value=${config.icon512}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateConfig(config.id, { icon512: e.detail.value })}
-                          ></ui-input>
-                          <ui-input
-                            label="Icon Maskable URL"
-                            .value=${config.iconMaskable}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateConfig(config.id, { iconMaskable: e.detail.value })}
-                          ></ui-input>
-                          <ui-input
-                            label="Apple Touch Icon URL"
-                            .value=${config.appleTouchIcon}
-                            @input-change=${(e: CustomEvent) =>
-                              this.updateConfig(config.id, { appleTouchIcon: e.detail.value })}
-                          ></ui-input>
+                          ${this.renderTextField(config, 'logo', 'Logo URL')}
+                          ${this.renderTextField(config, 'splashImage', 'Splash URL')}
+                          ${this.renderTextField(config, 'openingImage', 'Opening Image URL')}
+                          ${this.renderTextField(config, 'icon192', 'Icon 192x192 URL')}
+                          ${this.renderTextField(config, 'icon512', 'Icon 512x512 URL')}
+                          ${this.renderTextField(config, 'iconMaskable', 'Icon Maskable URL')}
+                          ${this.renderTextField(config, 'appleTouchIcon', 'Apple Touch Icon URL')}
                         </div>
                       </div>
                     </ui-card>

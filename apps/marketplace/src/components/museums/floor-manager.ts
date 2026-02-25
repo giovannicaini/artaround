@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { MuseumFloor } from '@artaround/shared';
 import { modalService } from '../../services/modal.service';
@@ -12,6 +12,7 @@ import '../ui/ui-input';
  */
 @customElement('floor-manager')
 export class FloorManager extends LitElement {
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -40,6 +41,7 @@ export class FloorManager extends LitElement {
     dimensions: { width: 800, height: 600 },
   };
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     return html`
       <div
@@ -58,7 +60,7 @@ export class FloorManager extends LitElement {
           ></ui-button>
         </div>
 
-        ${this.showAddForm ? this.renderAddForm() : ''}
+        ${this.showAddForm ? this.renderAddForm() : nothing}
 
         <!-- Floor List -->
         <div class="max-h-96 overflow-y-auto">
@@ -70,6 +72,7 @@ export class FloorManager extends LitElement {
     `;
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderFloorItem(floor: MuseumFloor) {
     const markerCount = floor.markers?.length || 0;
     const connectionCount = floor.connections?.length || 0;
@@ -177,7 +180,7 @@ export class FloorManager extends LitElement {
                 <div class="svg-preview-container" .innerHTML=${this.newFloor.svgContent}></div>
               </div>
             `
-          : ''}
+          : nothing}
 
         <!-- Dimensions -->
         <div class="grid grid-cols-2 gap-3 mb-3">
@@ -222,6 +225,7 @@ export class FloorManager extends LitElement {
     `;
   }
 
+  // ─── Actions (Upload / CRUD) ─────────────────────────────
   private triggerFileUpload() {
     const input = this.querySelector('input[type="file"]') as HTMLInputElement;
     input?.click();

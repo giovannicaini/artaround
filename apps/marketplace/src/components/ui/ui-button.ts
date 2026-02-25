@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './ui-icon';
 
@@ -14,6 +14,7 @@ export class UiButton extends LitElement {
   @property({ type: String }) label = '';
   @property({ type: String }) icon = '';
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -29,6 +30,7 @@ export class UiButton extends LitElement {
     }
   }
 
+  // ─── Helpers ──────────────────────────────────────────────
   private get baseClasses() {
     return 'inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
   }
@@ -59,6 +61,7 @@ export class UiButton extends LitElement {
     return sizes[this.size];
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     const classes = `${this.baseClasses} ${this.variantClasses} ${this.sizeClasses} ${this.block ? 'w-full' : ''}`;
     const iconSize = this.size === 'xs' || this.size === 'sm' ? 'xs' : 'sm';
@@ -90,7 +93,7 @@ export class UiButton extends LitElement {
             `
           : this.icon
             ? html` <ui-icon name="${this.icon}" size="${iconSize}"></ui-icon> `
-            : ''}
+            : nothing}
         ${this.label}
       </button>
     `;

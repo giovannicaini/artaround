@@ -32,6 +32,7 @@ export class UiFormActions extends LitElement {
   @property({ type: String }) submitVariant: 'primary' | 'danger' = 'primary';
   @property({ type: String }) align: 'left' | 'center' | 'right' | 'between' = 'right';
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -41,6 +42,7 @@ export class UiFormActions extends LitElement {
     this.style.display = 'block';
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private handleCancel() {
     this.dispatchEvent(new CustomEvent('cancel', { bubbles: true, composed: true }));
   }
@@ -49,6 +51,7 @@ export class UiFormActions extends LitElement {
     this.dispatchEvent(new CustomEvent('submit', { bubbles: true, composed: true }));
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     const alignClasses = {
       left: 'justify-start',

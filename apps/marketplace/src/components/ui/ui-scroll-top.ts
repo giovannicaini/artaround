@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import './ui-icon';
 
@@ -14,6 +14,7 @@ export class UiScrollTop extends LitElement {
 
   private scrollThreshold = 300;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -29,6 +30,7 @@ export class UiScrollTop extends LitElement {
     super.disconnectedCallback();
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private handleScroll = () => {
     this.visible = window.scrollY > this.scrollThreshold;
   };
@@ -40,8 +42,9 @@ export class UiScrollTop extends LitElement {
     });
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
-    if (!this.visible) return null;
+    if (!this.visible) return nothing;
 
     return html`
       <button
@@ -50,7 +53,7 @@ export class UiScrollTop extends LitElement {
         title="Torna su"
         aria-label="Torna all'inizio della pagina"
       >
-        <ui-icon name="chevronUp" size="md"></ui-icon>
+        <ui-icon name="chevron-up" size="md"></ui-icon>
       </button>
     `;
   }

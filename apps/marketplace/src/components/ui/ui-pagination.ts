@@ -24,6 +24,7 @@ export class UiPagination extends LitElement {
   @property({ type: Number }) totalPages = 1;
   @property({ type: Number }) maxVisible = 5;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -33,6 +34,7 @@ export class UiPagination extends LitElement {
     this.style.display = 'block';
   }
 
+  // ─── Helpers ──────────────────────────────────────────────
   private handlePageChange(newPage: number) {
     if (newPage < 1 || newPage > this.totalPages || newPage === this.page) return;
     this.dispatchEvent(
@@ -82,6 +84,7 @@ export class UiPagination extends LitElement {
     return pages;
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     if (this.totalPages <= 1) return nothing;
 
@@ -91,7 +94,7 @@ export class UiPagination extends LitElement {
       <div class="flex justify-center items-center gap-1 mt-6">
         <ui-button
           variant="ghost"
-          icon="arrowLeft"
+          icon="arrow-left"
           size="sm"
           ?disabled=${this.page === 1}
           @click=${() => this.handlePageChange(this.page - 1)}
@@ -112,7 +115,7 @@ export class UiPagination extends LitElement {
 
         <ui-button
           variant="ghost"
-          icon="arrowRight"
+          icon="arrow-right"
           size="sm"
           ?disabled=${this.page === this.totalPages}
           @click=${() => this.handlePageChange(this.page + 1)}

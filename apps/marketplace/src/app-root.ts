@@ -22,6 +22,7 @@ import './components/ui/ui-scroll-top';
 
 @customElement('app-root')
 export class AppRoot extends LitElement {
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -35,6 +36,7 @@ export class AppRoot extends LitElement {
   @state()
   private routeParams: Record<string, string> = {};
 
+  // ─── Lifecycle ───────────────────────────────────────────
   @state()
   private pageTitle = 'Dashboard';
 
@@ -59,6 +61,7 @@ export class AppRoot extends LitElement {
     super.disconnectedCallback();
   }
 
+  // ─── Auth & Navigation ───────────────────────────────────
   async checkAuth() {
     // Check if there's a token first - avoid unnecessary API calls
     const token = localStorage.getItem('authToken');
@@ -138,6 +141,7 @@ export class AppRoot extends LitElement {
     }
   }
 
+  // ─── Route Renderers ─────────────────────────────────────
   renderPage() {
     switch (this.currentRoute) {
       case 'dashboard':
@@ -220,6 +224,7 @@ export class AppRoot extends LitElement {
     }
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     // Show loading spinner while checking auth
     if (this.loading) {
@@ -282,6 +287,7 @@ export class AppRoot extends LitElement {
     `;
   }
 
+  // ─── UI Actions & Events ─────────────────────────────────
   private handleSidebarToggle() {
     this.sidebarCollapsed = !this.sidebarCollapsed;
   }
@@ -370,6 +376,7 @@ export class AppRoot extends LitElement {
     this.pushToHistory(this.currentRoute, params, this.pageTitle);
   }
 
+  // ─── Permissions ──────────────────────────────────────────
   private requiresMuseumConfigAccess(route: string): boolean {
     return route === 'museum-edit' || route === 'artworks' || route === 'navigator-customizations';
   }
@@ -395,6 +402,7 @@ export class AppRoot extends LitElement {
     );
   }
 
+  // ─── History Management ──────────────────────────────────
   /**
    * Ripristina lo stato della navigazione dal localStorage all'avvio
    */

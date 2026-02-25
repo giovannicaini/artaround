@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
 @customElement('ui-avatar')
@@ -11,10 +11,12 @@ export class UiAvatar extends LitElement {
 
   @state() private imageError = false;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
+  // ─── Helpers ──────────────────────────────────────────────
   private get sizeClasses() {
     const sizes: Record<string, string> = {
       xs: 'w-6 h-6 text-2xs',
@@ -37,6 +39,7 @@ export class UiAvatar extends LitElement {
     return sizes[this.size];
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <div class="relative inline-flex">
@@ -62,7 +65,7 @@ export class UiAvatar extends LitElement {
                   .statusSizeClasses} bg-success-500 border-2 border-white dark:border-surface-900 rounded-full"
               ></span>
             `
-          : ''}
+          : nothing}
       </div>
     `;
   }

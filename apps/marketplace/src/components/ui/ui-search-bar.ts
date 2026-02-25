@@ -32,6 +32,7 @@ export class UiSearchBar extends LitElement {
   @state() private internalValue = '';
   private debounceTimeout: ReturnType<typeof setTimeout> | null = null;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -48,6 +49,7 @@ export class UiSearchBar extends LitElement {
     }
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private handleInput(e: CustomEvent) {
     this.internalValue = e.detail.value;
 
@@ -89,6 +91,7 @@ export class UiSearchBar extends LitElement {
     );
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <div class="flex gap-2">

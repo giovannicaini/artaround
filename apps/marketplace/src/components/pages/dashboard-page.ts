@@ -1,20 +1,33 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { UserRole, type User, type Museum, type Artwork, type Visit } from '@artaround/shared';
+import {
+  ContextualRole,
+  ResourceType,
+  UserRole,
+  type User,
+  type Museum,
+  type Artwork,
+  type Visit,
+  type Item,
+} from '@artaround/shared';
 import { preferencesService } from '../../services/preferences.service';
 import { artworkService } from '../../services/artwork.service';
+import { itemService } from '../../services/item.service';
 import { visitService } from '../../services/visit.service';
 import { userService } from '../../services/user.service';
-import '../museums/museum-selector';
+import { museumService } from '../../services/museum.service';
+import './museums-page';
 import '../ui/ui-card';
 import '../ui/ui-badge';
 import '../ui/ui-button';
-import '../ui/ui-icon';
+import '../ui/ui-icon-button';
 import '../ui/ui-page-header';
 import '../ui/ui-alert';
 import '../ui/ui-loading';
 import '../ui/ui-stat-card';
 import '../ui/ui-list-row';
+import '../ui/ui-section-header';
+import '../ui/ui-resource-list-card';
 
 @customElement('dashboard-page')
 export class DashboardPage extends LitElement {
@@ -25,11 +38,36 @@ export class DashboardPage extends LitElement {
   @state() private loadError = '';
   @state() private totalArtworks = 0;
   @state() private totalVisits = 0;
-  @state() private totalPublishedVisits = 0;
+  @state() private totalContents = 0;
   @state() private totalActiveUsers = 0;
+  @state() private totalActiveMuseums = 0;
+  @state() private totalInsertedArtworks = 0;
+  @state() private totalPublishedContents = 0;
+  @state() private totalCreatedVisits = 0;
   @state() private recentArtworks: Artwork[] = [];
   @state() private recentVisits: Visit[] = [];
+  @state() private curatorMuseums: Museum[] = [];
+  @state() private authoredArtworks: Artwork[] = [];
+  @state() private myItems: Item[] = [];
+  @state() private myVisits: Visit[] = [];
 
+  // ─── Internal State ──────────────────────────────────────
+  private museumIndexById = new Map<string, Museum>();
+  private museumsCache: Museum[] | null = null;
+
+  // ─── Helpers ──────────────────────────────────────────────
+  private async getMuseumsCached(): Promise<Museum[]> {
+    if (this.museumsCache) {
+      return this.museumsCache;
+    }
+
+    const museums = await museumService.getMuseums();
+    this.museumsCache = museums;
+    this.buildMuseumIndex(museums);
+    return museums;
+  }
+
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -46,53 +84,63 @@ export class DashboardPage extends LitElement {
     super.disconnectedCallback();
   }
 
+  // ─── UI Actions ──────────────────────────────────────────
   private handleMuseumChanged = (event: CustomEvent) => {
     this.selectedMuseum = event.detail || null;
     this.showMuseumSelector = false;
     this.loadDashboardData();
   };
 
-  private handleMuseumSelected(e: CustomEvent) {
-    this.selectedMuseum = e.detail;
+  private handleSelectMuseum() {
+    this.showMuseumSelector = !this.showMuseumSelector;
   }
 
-  private confirmMuseumSelection() {
-    if (this.selectedMuseum) {
-      preferencesService.setSelectedMuseum({
-        _id: this.selectedMuseum._id,
-        wikidataId: this.selectedMuseum.wikidataId,
-        name: this.selectedMuseum.name,
-      });
-    }
+  private handleMuseumConfirmed(e: CustomEvent) {
+    const museum = e.detail as Museum;
+    if (!museum) return;
+
+    preferencesService.setSelectedMuseum({
+      _id: museum._id,
+      wikidataId: museum.wikidataId,
+      name: museum.name,
+    });
   }
 
   private clearMuseumSelection() {
     preferencesService.clearSelectedMuseum();
   }
 
+  // ─── Data Loading ────────────────────────────────────────
   private async loadDashboardData() {
     this.loading = true;
     this.loadError = '';
 
     this.totalArtworks = 0;
     this.totalVisits = 0;
-    this.totalPublishedVisits = 0;
     this.recentArtworks = [];
     this.recentVisits = [];
+    this.totalActiveMuseums = 0;
+    this.totalInsertedArtworks = 0;
+    this.totalPublishedContents = 0;
+    this.totalCreatedVisits = 0;
+    this.curatorMuseums = [];
+    this.authoredArtworks = [];
+    this.myItems = [];
+    this.myVisits = [];
 
     try {
-      const museumId = this.selectedMuseum?.wikidataId || this.selectedMuseum?._id;
+      const museumId = this.selectedMuseum?._id;
 
       if (museumId) {
-        const [artworksResponse, visitsResponse, publishedVisitsResponse] = await Promise.all([
+        const [artworksResponse, visitsResponse, contentsResponse] = await Promise.all([
           artworkService.getArtworks({ museumId, page: 1, limit: 100 }),
           visitService.getVisits({ museumId, page: 1, limit: 100 }),
-          visitService.getVisits({ museumId, isPublished: true, page: 1, limit: 1 }),
+          itemService.getItems({ museumId, page: 1, limit: 100 }),
         ]);
 
         this.totalArtworks = artworksResponse.pagination.total;
         this.totalVisits = visitsResponse.pagination.total;
-        this.totalPublishedVisits = publishedVisitsResponse.pagination.total;
+        this.totalContents = contentsResponse.pagination.total;
         this.recentArtworks = [...artworksResponse.artworks]
           .sort(
             (a, b) =>
@@ -110,9 +158,22 @@ export class DashboardPage extends LitElement {
       }
 
       if (this.user?.role === UserRole.ADMIN) {
-        const users = await userService.getUsers({ page: 1, limit: 1, isActive: true });
+        const [users, museums, artworks, items, visits] = await Promise.all([
+          userService.getUsers({ page: 1, limit: 1, isActive: true }),
+          this.getMuseumsCached(),
+          artworkService.getArtworks({ page: 1, limit: 1 }),
+          itemService.getItems({ page: 1, limit: 1 }),
+          visitService.getVisits({ page: 1, limit: 1 }),
+        ]);
+
         this.totalActiveUsers = users.pagination.total;
+        this.totalActiveMuseums = museums.length;
+        this.totalInsertedArtworks = artworks.pagination.total;
+        this.totalPublishedContents = items.pagination.total;
+        this.totalCreatedVisits = visits.pagination.total;
       }
+
+      await this.loadUserScopedLists();
     } catch (error) {
       console.error('Error loading dashboard data:', error);
       this.loadError = 'Errore nel caricamento dei dati reali della dashboard';
@@ -121,6 +182,100 @@ export class DashboardPage extends LitElement {
     }
   }
 
+  private buildMuseumIndex(museums: Museum[]): void {
+    this.museumIndexById = new Map<string, Museum>();
+    for (const museum of museums) {
+      this.museumIndexById.set(museum._id, museum);
+    }
+  }
+
+  private setSelectedMuseumById(museumId?: string): void {
+    if (!museumId) return;
+    const museum = this.museumIndexById.get(museumId);
+    if (!museum) return;
+
+    preferencesService.setSelectedMuseum({
+      _id: museum._id,
+      wikidataId: museum.wikidataId,
+      name: museum.name,
+    });
+  }
+
+  private getMuseumNameById(museumId?: string): string {
+    if (!museumId) return 'Museo non specificato';
+    return this.museumIndexById.get(museumId)?.name || museumId;
+  }
+
+  // ─── User Scoped Data ────────────────────────────────────
+  private async loadUserScopedLists(): Promise<void> {
+    if (!this.user?._id) return;
+
+    const roleAssignments = this.user.roleAssignments || [];
+    const curatorMuseumIds = roleAssignments
+      .filter(
+        (assignment) =>
+          assignment.resourceType === ResourceType.MUSEUM &&
+          assignment.role === ContextualRole.MANAGER,
+      )
+      .map((assignment) => assignment.resourceId);
+
+    const authoredArtworkIds = roleAssignments
+      .filter(
+        (assignment) =>
+          assignment.resourceType === ResourceType.ARTWORK &&
+          assignment.role === ContextualRole.AUTHOR,
+      )
+      .map((assignment) => assignment.resourceId);
+
+    const [allMuseums, myItems, myVisits] = await Promise.all([
+      this.getMuseumsCached(),
+      itemService.getMyItems(),
+      visitService.getMyVisits(),
+    ]);
+
+    const curatorMuseumSet = new Set(curatorMuseumIds);
+    this.curatorMuseums = allMuseums
+      .filter((museum) => curatorMuseumSet.has(museum._id))
+      .slice(0, 5);
+
+    const authoredArtworks = await Promise.all(
+      authoredArtworkIds.slice(0, 8).map(async (artworkId) => {
+        return artworkService.getArtwork(artworkId);
+      }),
+    );
+
+    const uniqueArtworks = new Map<string, Artwork>();
+    for (const artwork of authoredArtworks) {
+      if (!artwork) continue;
+      uniqueArtworks.set(artwork._id, artwork);
+    }
+
+    this.authoredArtworks = Array.from(uniqueArtworks.values())
+      .sort(
+        (a, b) =>
+          new Date(String(b.updatedAt || b.createdAt || 0)).getTime() -
+          new Date(String(a.updatedAt || a.createdAt || 0)).getTime(),
+      )
+      .slice(0, 5);
+
+    this.myItems = [...myItems]
+      .sort(
+        (a, b) =>
+          new Date(String(b.updatedAt || b.createdAt || 0)).getTime() -
+          new Date(String(a.updatedAt || a.createdAt || 0)).getTime(),
+      )
+      .slice(0, 5);
+
+    this.myVisits = [...myVisits]
+      .sort(
+        (a, b) =>
+          new Date(String(b.updatedAt || b.createdAt || 0)).getTime() -
+          new Date(String(a.updatedAt || a.createdAt || 0)).getTime(),
+      )
+      .slice(0, 5);
+  }
+
+  // ─── Navigation Actions ──────────────────────────────────
   private formatDate(value?: string | Date): string {
     if (!value) return '-';
     try {
@@ -147,7 +302,7 @@ export class DashboardPage extends LitElement {
   private handleRecentArtworkClick(artwork: Artwork) {
     this.dispatchEvent(
       new CustomEvent('open-artwork-detail', {
-        detail: { artworkId: artwork._id || artwork.wikidataId },
+        detail: { artworkId: artwork._id },
         bubbles: true,
         composed: true,
       }),
@@ -158,18 +313,188 @@ export class DashboardPage extends LitElement {
     this.goToRoute('visits');
   }
 
+  private handleCuratorMuseumClick(museum: Museum) {
+    preferencesService.setSelectedMuseum({
+      _id: museum._id,
+      wikidataId: museum.wikidataId,
+      name: museum.name,
+    });
+    this.goToRoute('museum-edit');
+  }
+
+  private handleAuthoredArtworkClick(artwork: Artwork) {
+    this.setSelectedMuseumById(artwork.museumId);
+    this.handleRecentArtworkClick(artwork);
+  }
+
+  private handleMyItemClick(item: Item) {
+    this.setSelectedMuseumById(item.museumId);
+    this.goToRoute('contents');
+  }
+
+  private handleMyVisitRowClick(visit: Visit) {
+    this.setSelectedMuseumById(visit.museumId);
+    this.goToRoute('visits');
+  }
+
+  // ─── Render Helpers ──────────────────────────────────────
   private getVisitStatusBadge(visit: Visit) {
     return visit.isPublished
       ? html`<ui-badge variant="success" size="sm" label="Pubblicata"></ui-badge>`
       : html`<ui-badge variant="warning" size="sm" label="Bozza"></ui-badge>`;
   }
 
+  private renderSecondaryBadge(label: string) {
+    return html`<ui-badge variant="secondary" size="sm" .label=${label}></ui-badge>`;
+  }
+
+  private formatMuseumDateSubtitle(
+    museumId: string | undefined,
+    updatedAt: string | Date | undefined,
+    createdAt: string | Date | undefined,
+  ) {
+    return `${this.getMuseumNameById(museumId)} • ${this.formatDate(updatedAt || createdAt)}`;
+  }
+
+  private renderVisitListRow(visit: Visit, subtitle: string, onClick: () => void) {
+    return html`
+      <ui-list-row
+        .title=${visit.title || visit._id}
+        .subtitle=${subtitle}
+        .renderTrailing=${() => html`${this.getVisitStatusBadge(visit)}`}
+        @click=${onClick}
+      ></ui-list-row>
+    `;
+  }
+
+  private renderSecondaryResourceListRow(
+    title: string,
+    subtitle: string,
+    badgeLabel: string,
+    onClick: () => void,
+  ) {
+    return html`
+      <ui-list-row
+        .title=${title}
+        .subtitle=${subtitle}
+        .renderTrailing=${() => this.renderSecondaryBadge(badgeLabel)}
+        @click=${onClick}
+      ></ui-list-row>
+    `;
+  }
+
+  private renderCuratorMuseumsRows() {
+    return this.curatorMuseums.map(
+      (museum) => html`
+        <ui-list-row
+          .title=${museum.name}
+          .subtitle=${`${museum.location?.city || '-'} • ${museum.location?.country || '-'}`}
+          .renderTrailing=${() =>
+            html`<ui-badge variant="success" size="sm" label="Curatore"></ui-badge>`}
+          @click=${() => this.handleCuratorMuseumClick(museum)}
+        ></ui-list-row>
+      `,
+    );
+  }
+
+  private renderAuthoredArtworksRows() {
+    return this.authoredArtworks.map((artwork) =>
+      this.renderSecondaryResourceListRow(
+        artwork.title || artwork._id,
+        this.formatMuseumDateSubtitle(artwork.museumId, artwork.updatedAt, artwork.createdAt),
+        artwork.artworkType,
+        () => this.handleAuthoredArtworkClick(artwork),
+      ),
+    );
+  }
+
+  private renderMyItemsRows() {
+    return this.myItems.map((item) =>
+      this.renderSecondaryResourceListRow(
+        item.title,
+        this.formatMuseumDateSubtitle(item.museumId, item.updatedAt, item.createdAt),
+        item.referenceType,
+        () => this.handleMyItemClick(item),
+      ),
+    );
+  }
+
+  private renderMyVisitsRows() {
+    return this.myVisits.map((visit) =>
+      this.renderVisitListRow(
+        visit,
+        this.formatMuseumDateSubtitle(visit.museumId, visit.updatedAt, visit.createdAt),
+        () => this.handleMyVisitRowClick(visit),
+      ),
+    );
+  }
+
+  private renderRecentArtworksRows() {
+    return this.recentArtworks.map((artwork) =>
+      this.renderSecondaryResourceListRow(
+        artwork.title || artwork._id,
+        `${artwork.author || 'Autore non specificato'} • ${this.formatDate(artwork.updatedAt || artwork.createdAt)}`,
+        artwork.artworkType,
+        () => this.handleRecentArtworkClick(artwork),
+      ),
+    );
+  }
+
+  private renderRecentVisitsRows() {
+    return this.recentVisits.map((visit) =>
+      this.renderVisitListRow(
+        visit,
+        `${visit.steps?.length || 0} step • ${this.formatDate(visit.updatedAt || visit.createdAt)}`,
+        this.handleRecentVisitClick,
+      ),
+    );
+  }
+
+  private renderOpenRouteAction(route: string, label: string) {
+    return html`
+      <ui-button
+        variant="ghost"
+        size="xs"
+        .label=${label}
+        @click=${() => this.goToRoute(route)}
+      ></ui-button>
+    `;
+  }
+
+  private renderResourceListCard(options: {
+    title: string;
+    emptyText: string;
+    count: number;
+    renderItems: () => unknown;
+    renderActions?: () => unknown;
+  }) {
+    return html`
+      <ui-resource-list-card
+        title=${options.title}
+        emptyText=${options.emptyText}
+        .count=${options.count}
+        .renderItems=${options.renderItems}
+        .renderActions=${options.renderActions || null}
+      ></ui-resource-list-card>
+    `;
+  }
+
+  private renderDashboardSection(title: string, description: string, content: () => unknown) {
+    return html`
+      <section class="space-y-4 pt-2 border-t border-surface-200 dark:border-surface-800">
+        <ui-section-header .title=${title} .description=${description}></ui-section-header>
+        ${content()}
+      </section>
+    `;
+  }
+
+  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <div class="space-y-6 animate-fade-in">
         <ui-page-header
           .title=${'Buongiorno, ' + (this.user?.username?.split(' ')[0] || 'Admin')}
-          description="Panoramica operativa del marketplace"
+          description="Benvenuto nella dashboard del marketplace. Qui puoi avere una panoramica delle attività recenti e gestire le tue opere e visite."
         >
         </ui-page-header>
 
@@ -183,149 +508,163 @@ export class DashboardPage extends LitElement {
           : nothing}
 
         <ui-card padding="md">
-          <div class="flex flex-col gap-4">
-            <div class="flex items-start justify-between gap-3">
-              <div>
+          <div class="space-y-4">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div class="min-w-0">
                 <p class="text-sm font-medium text-surface-700 dark:text-surface-300">
                   Museo attivo
                 </p>
-                <p class="text-lg font-semibold text-surface-900 dark:text-white">
+                <p class="mt-1 text-lg font-semibold text-surface-900 dark:text-white truncate">
                   ${this.selectedMuseum?.name || 'Nessun museo selezionato'}
                 </p>
-                ${this.selectedMuseum
-                  ? html`
-                      <p class="text-xs text-surface-500 mt-1">ID: ${this.selectedMuseum._id}</p>
-                    `
-                  : ''}
               </div>
-              <div class="flex items-center gap-2">
-                ${this.selectedMuseum
-                  ? html`
-                      <ui-button
-                        variant="secondary"
-                        size="sm"
-                        label="Deseleziona"
-                        @click=${this.clearMuseumSelection}
-                      ></ui-button>
-                    `
-                  : ''}
-                <ui-button
-                  variant="secondary"
-                  size="sm"
-                  label=${this.showMuseumSelector ? 'Chiudi' : 'Cambia'}
-                  @click=${() => (this.showMuseumSelector = !this.showMuseumSelector)}
-                ></ui-button>
-              </div>
+
+              <ui-badge
+                variant=${this.selectedMuseum ? 'success' : 'warning'}
+                size="sm"
+                .label=${this.selectedMuseum ? 'Selezionato' : 'Non selezionato'}
+              ></ui-badge>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-1">
+              <ui-button
+                variant="secondary"
+                size="sm"
+                icon="location"
+                .label=${this.showMuseumSelector ? 'Chiudi selettore' : 'Cambia museo'}
+                @click=${this.handleSelectMuseum}
+              ></ui-button>
+              ${this.selectedMuseum
+                ? html`
+                    <ui-icon-button
+                      icon="x"
+                      title="Deseleziona museo"
+                      @click=${this.clearMuseumSelection}
+                    ></ui-icon-button>
+                  `
+                : nothing}
             </div>
 
             ${this.showMuseumSelector
               ? html`
-                  <div class="space-y-3">
-                    <museum-selector
-                      @museum-selected=${this.handleMuseumSelected}
-                    ></museum-selector>
-                    <div class="flex justify-end">
-                      <ui-button
-                        variant="primary"
-                        size="sm"
-                        label="Conferma museo"
-                        @click=${this.confirmMuseumSelection}
-                      ></ui-button>
-                    </div>
+                  <div
+                    class="border border-surface-200 dark:border-surface-800 rounded-xl p-3 bg-surface-50/50 dark:bg-surface-900/40"
+                  >
+                    <museums-page
+                      .user=${this.user}
+                      .embedded=${true}
+                      @museum-confirmed=${this.handleMuseumConfirmed}
+                    ></museums-page>
                   </div>
                 `
-              : ''}
+              : nothing}
           </div>
         </ui-card>
 
         ${this.loading
           ? html`<ui-loading></ui-loading>`
           : html`
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                ${this.renderStatCard('Opere nel museo', this.totalArtworks, 'image')}
-                ${this.renderStatCard('Visite nel museo', this.totalVisits, 'document')}
-                ${this.renderStatCard('Visite pubblicate', this.totalPublishedVisits, 'check')}
-                ${this.user?.role === UserRole.ADMIN
-                  ? this.renderStatCard('Utenti attivi', this.totalActiveUsers, 'users')
-                  : this.renderStatCard('Museo selezionato', this.selectedMuseum ? 1 : 0, 'folder')}
-              </div>
-
-              <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <ui-card padding="none">
-                  <div
-                    class="px-5 py-4 border-b border-surface-200 dark:border-surface-800 flex items-center justify-between"
-                  >
-                    <h3 class="font-semibold text-surface-900 dark:text-white">
-                      Ultime opere create
-                    </h3>
-                    <ui-button
-                      variant="ghost"
-                      size="xs"
-                      label="Apri opere"
-                      @click=${() => this.goToRoute('artworks')}
-                    ></ui-button>
-                  </div>
-                  <div class="divide-y divide-surface-200 dark:divide-surface-800">
-                    ${this.recentArtworks.length === 0
-                      ? html`<p class="px-5 py-4 text-sm text-surface-500">
-                          Nessuna opera disponibile
-                        </p>`
-                      : this.recentArtworks.map(
-                          (artwork) => html`
-                            <ui-list-row
-                              .title=${artwork.title || artwork.wikidataId}
-                              .subtitle=${`${artwork.author || 'Autore non specificato'} • ${this.formatDate(artwork.updatedAt || artwork.createdAt)}`}
-                              .renderTrailing=${() =>
-                                html`<ui-badge
-                                  variant="secondary"
-                                  size="sm"
-                                  .label=${artwork.artworkType}
-                                ></ui-badge>`}
-                              @click=${() => this.handleRecentArtworkClick(artwork)}
-                            ></ui-list-row>
-                          `,
+              ${this.user?.role === UserRole.ADMIN
+                ? html`
+                    <section class="space-y-3">
+                      <ui-section-header
+                        title="Dati generali"
+                        description="Panoramica complessiva della piattaforma"
+                      ></ui-section-header>
+                      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                        ${this.renderStatCard('Utenti registrati', this.totalActiveUsers, 'users')}
+                        ${this.renderStatCard('Musei attivi', this.totalActiveMuseums, 'location')}
+                        ${this.renderStatCard(
+                          'Opere inserite',
+                          this.totalInsertedArtworks,
+                          'image',
                         )}
-                  </div>
-                </ui-card>
-
-                <ui-card padding="none">
-                  <div
-                    class="px-5 py-4 border-b border-surface-200 dark:border-surface-800 flex items-center justify-between"
-                  >
-                    <h3 class="font-semibold text-surface-900 dark:text-white">Ultime visite</h3>
-                    <ui-button
-                      variant="ghost"
-                      size="xs"
-                      label="Apri visite"
-                      @click=${() => this.goToRoute('visits')}
-                    ></ui-button>
-                  </div>
-                  <div class="divide-y divide-surface-200 dark:divide-surface-800">
-                    ${this.recentVisits.length === 0
-                      ? html`<p class="px-5 py-4 text-sm text-surface-500">
-                          Nessuna visita disponibile
-                        </p>`
-                      : this.recentVisits.map(
-                          (visit) => html`
-                            <ui-list-row
-                              .title=${visit.title || visit._id}
-                              .subtitle=${`${visit.steps?.length || 0} step • ${this.formatDate(visit.updatedAt || visit.createdAt)}`}
-                              .renderTrailing=${() => html`${this.getVisitStatusBadge(visit)}`}
-                              @click=${this.handleRecentVisitClick}
-                            ></ui-list-row>
-                          `,
+                        ${this.renderStatCard(
+                          'Contenuti pubblicati',
+                          this.totalPublishedContents,
+                          'document',
                         )}
+                        ${this.renderStatCard('Visite create', this.totalCreatedVisits, 'visit')}
+                      </div>
+                    </section>
+                  `
+                : nothing}
+              ${this.renderDashboardSection(
+                'Le mie risorse',
+                'Elementi legati al tuo utente, indipendenti dal museo attivo',
+                () => html`
+                  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    ${this.renderResourceListCard({
+                      title: 'I musei di cui sono curatore',
+                      emptyText: 'Nessun museo assegnato',
+                      count: this.curatorMuseums.length,
+                      renderItems: () => this.renderCuratorMuseumsRows(),
+                    })}
+                    ${this.renderResourceListCard({
+                      title: 'Le opere di cui sono autore',
+                      emptyText: 'Nessuna opera assegnata',
+                      count: this.authoredArtworks.length,
+                      renderItems: () => this.renderAuthoredArtworksRows(),
+                    })}
+                    ${this.renderResourceListCard({
+                      title: 'I miei contenuti',
+                      emptyText: 'Nessun contenuto creato',
+                      count: this.myItems.length,
+                      renderItems: () => this.renderMyItemsRows(),
+                    })}
+                    ${this.renderResourceListCard({
+                      title: 'Le mie visite',
+                      emptyText: 'Nessuna visita creata',
+                      count: this.myVisits.length,
+                      renderItems: () => this.renderMyVisitsRows(),
+                    })}
                   </div>
-                </ui-card>
-              </div>
+                `,
+              )}
+              ${this.renderDashboardSection(
+                'Museo selezionato',
+                this.selectedMuseum
+                  ? `Statistiche e attività di ${this.selectedMuseum.name}`
+                  : 'Seleziona un museo per visualizzare statistiche e attività dedicate',
+                () =>
+                  !this.selectedMuseum
+                    ? html`<ui-alert
+                        variant="info"
+                        title="Nessun museo attivo"
+                        message="Per lavorare su opere e configurazioni devi prima selezionare un museo."
+                      ></ui-alert>`
+                    : html`
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          ${this.renderStatCard('Opere nel museo', this.totalArtworks, 'image')}
+                          ${this.renderStatCard(
+                            'Contenuti pubblicati',
+                            this.totalContents,
+                            'visit',
+                          )}
+                          ${this.renderStatCard('Visite nel museo', this.totalVisits, 'document')}
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          ${this.renderResourceListCard({
+                            title: 'Ultime opere create',
+                            emptyText: 'Nessuna opera disponibile',
+                            count: this.recentArtworks.length,
+                            renderActions: () =>
+                              this.renderOpenRouteAction('artworks', 'Apri opere'),
+                            renderItems: () => this.renderRecentArtworksRows(),
+                          })}
+                          ${this.renderResourceListCard({
+                            title: 'Ultime visite',
+                            emptyText: 'Nessuna visita disponibile',
+                            count: this.recentVisits.length,
+                            renderActions: () =>
+                              this.renderOpenRouteAction('visits', 'Apri visite'),
+                            renderItems: () => this.renderRecentVisitsRows(),
+                          })}
+                        </div>
+                      `,
+              )}
             `}
-        ${!this.selectedMuseum
-          ? html`<ui-alert
-              variant="info"
-              title="Nessun museo attivo"
-              message="Per lavorare su opere e configurazioni devi prima selezionare un museo."
-            ></ui-alert>`
-          : nothing}
       </div>
     `;
   }

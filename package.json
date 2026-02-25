@@ -18,7 +18,7 @@
     "seed": "npm run seed --workspace=apps/server"
   },
   "devDependencies": {
-    "turbo": "^2.3.3",
+    "turbo": "^2.8.10",
     "typescript": "^5.7.2"
   },
   "engines": {

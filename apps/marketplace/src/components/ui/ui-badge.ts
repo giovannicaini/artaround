@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './ui-icon';
 
@@ -17,6 +17,7 @@ export class UiBadge extends LitElement {
   @property({ type: String }) icon = '';
   @property({ type: String }) label = '';
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -31,6 +32,7 @@ export class UiBadge extends LitElement {
     }
   }
 
+  // ─── Helpers ──────────────────────────────────────────────
   private get variantClasses() {
     const variants: Record<string, string> = {
       default: 'bg-surface-100 text-surface-700 dark:bg-surface-800 dark:text-surface-300',
@@ -66,13 +68,16 @@ export class UiBadge extends LitElement {
     return dots[this.variant];
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     const classes = `inline-flex items-center gap-1.5 font-medium rounded-full whitespace-nowrap ${this.variantClasses} ${this.sizeClasses}`;
 
     return html`
       <span class="${classes}">
-        ${this.dot ? html`<span class="w-1.5 h-1.5 rounded-full ${this.dotClasses}"></span>` : ''}
-        ${this.icon ? html`<ui-icon name="${this.icon}" size="xs"></ui-icon>` : ''}
+        ${this.dot
+          ? html`<span class="w-1.5 h-1.5 rounded-full ${this.dotClasses}"></span>`
+          : nothing}
+        ${this.icon ? html`<ui-icon name="${this.icon}" size="xs"></ui-icon>` : nothing}
         <span class="leading-none whitespace-nowrap">${this.label}</span>
       </span>
     `;

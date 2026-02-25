@@ -10,6 +10,7 @@ export * from './ui-checkbox';
 export * from './ui-card';
 export * from './ui-badge';
 export * from './ui-avatar';
+export * from './ui-brand-mark';
 
 // UI Components - Feedback
 export * from './ui-alert';
@@ -29,6 +30,11 @@ export * from './ui-form-actions';
 export * from './ui-stat-card';
 export * from './ui-list-row';
 export * from './ui-list-controls';
+export * from './ui-section-header';
+export * from './ui-resource-list-card';
+export * from './ui-media-card';
+export * from './ui-museum-required-notice';
+export * from './ui-panel-section';
 
 // UI Components - Data Display
 export * from './ui-table';
@@ -37,5 +43,6 @@ export * from './ui-image-placeholder';
 
 // UI Components - Inputs
 export * from './ui-search-bar';
+export * from './ui-search-list-picker';
 export * from './ui-tag-input';
 export * from './ui-color-input';

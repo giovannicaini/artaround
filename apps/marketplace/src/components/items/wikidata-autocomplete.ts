@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { wikidataService } from '../../services/wikidata.service';
 import { preferencesService } from '../../services/preferences.service';
@@ -27,10 +27,12 @@ export class WikidataAutocomplete extends LitElement {
 
   private searchTimeout: number | null = null;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
+  // ─── Actions (Search & Selection) ────────────────────────
   private handleInput(e: CustomEvent) {
     this.query = e.detail.value;
     this.selectedId = '';
@@ -139,11 +141,13 @@ export class WikidataAutocomplete extends LitElement {
     this.showDropdown = false;
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     return html`
       <div class="relative">
         <label class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-          ${this.label} ${this.required ? html`<span class="text-danger-500 ml-0.5">*</span>` : ''}
+          ${this.label}
+          ${this.required ? html`<span class="text-danger-500 ml-0.5">*</span>` : nothing}
         </label>
 
         ${this.searchType === 'artwork'
@@ -167,7 +171,7 @@ export class WikidataAutocomplete extends LitElement {
                 </p>
               </div>
             `
-          : ''}
+          : nothing}
 
         <div class="relative">
           <input
@@ -224,7 +228,7 @@ export class WikidataAutocomplete extends LitElement {
                 `
               : this.selectedId
                 ? html` <ui-icon name="check" size="xs" class="text-success-500"></ui-icon> `
-                : ''}
+                : nothing}
           </div>
         </div>
 
@@ -240,7 +244,7 @@ export class WikidataAutocomplete extends LitElement {
                 </span>
               </div>
             `
-          : ''}
+          : nothing}
 
         <!-- Dropdown results -->
         ${this.showDropdown && (this.results.length > 0 || this.loading)
@@ -336,7 +340,7 @@ export class WikidataAutocomplete extends LitElement {
                                         ${result.description}
                                       </p>
                                     `
-                                  : ''}
+                                  : nothing}
                                 <!-- Metadata row: author, style, epoch -->
                                 <div class="flex flex-wrap items-center gap-2 mt-1">
                                   ${result.author
@@ -352,7 +356,7 @@ export class WikidataAutocomplete extends LitElement {
                                           ${result.author}
                                         </span>
                                       `
-                                    : ''}
+                                    : nothing}
                                   ${result.style
                                     ? html`
                                         <span
@@ -366,7 +370,7 @@ export class WikidataAutocomplete extends LitElement {
                                           ${result.style}
                                         </span>
                                       `
-                                    : ''}
+                                    : nothing}
                                   ${result.epoch
                                     ? html`
                                         <span
@@ -380,7 +384,7 @@ export class WikidataAutocomplete extends LitElement {
                                           ${result.epoch}
                                         </span>
                                       `
-                                    : ''}
+                                    : nothing}
                                 </div>
                                 <p class="text-xs text-brand-600 dark:text-brand-400 mt-0.5">
                                   ${result.id}
@@ -392,7 +396,7 @@ export class WikidataAutocomplete extends LitElement {
                       )}
               </div>
             `
-          : ''}
+          : nothing}
         ${this.error
           ? html`
               <p
@@ -409,7 +413,7 @@ export class WikidataAutocomplete extends LitElement {
                 ${this.error}
               </p>
             `
-          : ''}
+          : nothing}
       </div>
     `;
   }

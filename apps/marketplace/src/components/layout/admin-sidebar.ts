@@ -1,10 +1,11 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ContextualRole, ResourceType, UserRole, type User } from '@artaround/shared';
 import { preferencesService } from '../../services/preferences.service';
 import '../ui/ui-icon';
 import '../ui/ui-avatar';
 import '../ui/ui-icon-button';
+import '../ui/ui-brand-mark';
 
 interface MenuItem {
   id: string;
@@ -22,6 +23,7 @@ export class AdminSidebar extends LitElement {
   @state() private mobileOpen = false;
   @state() private selectedMuseum: { _id: string; name: string } | null = null;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -61,6 +63,7 @@ export class AdminSidebar extends LitElement {
   ];
 
   private bottomItems: MenuItem[] = [{ id: 'settings', label: 'Impostazioni', icon: 'cog' }];
+
   connectedCallback() {
     super.connectedCallback();
     this.selectedMuseum = preferencesService.getSelectedMuseum();
@@ -72,6 +75,7 @@ export class AdminSidebar extends LitElement {
     super.disconnectedCallback();
   }
 
+  // ─── Actions & Computed ──────────────────────────────────
   private handleMuseumChanged = (event: CustomEvent) => {
     this.selectedMuseum = event.detail || null;
   };
@@ -105,7 +109,8 @@ export class AdminSidebar extends LitElement {
     );
   }
 
-  private renderMenuItem(item: MenuItem) {
+  // ─── Render Helpers ──────────────────────────────────────
+  private renderMenuItem(item: MenuItem, collapsed = this.collapsed) {
     const isActive = this.currentRoute === item.id;
     const baseClasses =
       'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150';
@@ -116,16 +121,16 @@ export class AdminSidebar extends LitElement {
     return html`
       <button
         @click=${() => this.handleNavigate(item.id)}
-        class="${baseClasses} ${activeClasses} ${this.collapsed ? 'justify-center' : 'w-full'}"
+        class="${baseClasses} ${activeClasses} ${collapsed ? 'justify-center' : 'w-full'}"
         aria-current=${isActive ? 'page' : 'false'}
-        title=${this.collapsed ? item.label : ''}
+        title=${collapsed ? item.label : ''}
       >
         <ui-icon
           name="${item.icon}"
           size="sm"
           class="${isActive ? 'text-brand-600 dark:text-brand-400' : ''}"
         ></ui-icon>
-        ${!this.collapsed
+        ${!collapsed
           ? html`
               <span class="flex-1 text-left">${item.label}</span>
               ${item.badge
@@ -136,14 +141,19 @@ export class AdminSidebar extends LitElement {
                       ${item.badge}
                     </span>
                   `
-                : ''}
+                : nothing}
             `
-          : ''}
+          : nothing}
       </button>
     `;
   }
 
-  private renderMenuSection(label: string, items: MenuItem[]) {
+  private renderMenuSection(
+    label: string,
+    items: MenuItem[],
+    sublabel?: string,
+    collapsed = this.collapsed,
+  ) {
     const userRole = this.user?.role;
     const visibleItems = items.filter((item) => {
       if (!item.roles) return true;
@@ -155,24 +165,50 @@ export class AdminSidebar extends LitElement {
 
     return html`
       <div class="space-y-1">
-        ${!this.collapsed
+        ${!collapsed
           ? html`
               <p
                 class="px-3 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-surface-400"
               >
                 ${label}
+                ${sublabel ? html`<br /><span class="text-[0.6rem]">${sublabel}</span>` : nothing}
               </p>
             `
-          : ''}
-        ${visibleItems.map((item) => this.renderMenuItem(item))}
+          : nothing}
+        ${visibleItems.map((item) => this.renderMenuItem(item, collapsed))}
       </div>
     `;
   }
 
-  render() {
-    const sidebarWidth = this.collapsed ? 'w-16' : 'w-64';
+  private renderMainNavigation(collapsed = this.collapsed) {
     const showConfigureMuseumArea = this.canConfigureSelectedMuseum;
 
+    return html`
+      ${!collapsed && this.selectedMuseum
+        ? html`
+            <div
+              class="px-3 py-2 rounded-lg bg-surface-100 dark:bg-surface-800 text-xs text-surface-600 dark:text-surface-300"
+            >
+              Museo attivo: <span class="font-semibold">${this.selectedMuseum.name}</span>
+            </div>
+          `
+        : nothing}
+      ${this.renderMenuItem(this.dashboardItem, collapsed)}
+      ${showConfigureMuseumArea
+        ? this.renderMenuSection(
+            'Area Curatore',
+            this.configureMuseumMenuItems,
+            this.selectedMuseum?.name || '',
+            collapsed,
+          )
+        : nothing}
+      ${this.renderMenuSection('Area Admin', this.adminMenuItems, undefined, collapsed)}
+    `;
+  }
+
+  // ─── Render Entry ────────────────────────────────────────
+  render() {
+    const sidebarWidth = this.collapsed ? 'w-16' : 'w-64';
     return html`
       <!-- Desktop Sidebar -->
       <aside
@@ -184,35 +220,17 @@ export class AdminSidebar extends LitElement {
             ? 'justify-center'
             : 'gap-3 px-4'} h-16 border-b border-surface-200 dark:border-surface-800"
         >
-          <div class="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center">
-            <span class="text-white font-bold text-sm">A</span>
-          </div>
-          ${!this.collapsed
-            ? html` <span class="font-semibold text-surface-900 dark:text-white">ArtAround</span> `
-            : ''}
+          <ui-brand-mark .showText=${!this.collapsed}></ui-brand-mark>
         </div>
 
         <!-- Navigation -->
         <nav class="flex-1 px-3 py-4 space-y-3 overflow-y-auto">
-          ${!this.collapsed && this.selectedMuseum
-            ? html`
-                <div
-                  class="px-3 py-2 rounded-lg bg-surface-100 dark:bg-surface-800 text-xs text-surface-600 dark:text-surface-300"
-                >
-                  Museo attivo: <span class="font-semibold">${this.selectedMuseum.name}</span>
-                </div>
-              `
-            : ''}
-          ${this.renderMenuItem(this.dashboardItem)}
-          ${showConfigureMuseumArea
-            ? this.renderMenuSection('Configura Museo', this.configureMuseumMenuItems)
-            : ''}
-          ${this.renderMenuSection('Area Admin', this.adminMenuItems)}
+          ${this.renderMainNavigation(this.collapsed)}
         </nav>
 
         <!-- Bottom Section -->
         <div class="px-3 py-4 border-t border-surface-200 dark:border-surface-800 space-y-1">
-          ${this.bottomItems.map((item) => this.renderMenuItem(item))}
+          ${this.bottomItems.map((item) => this.renderMenuItem(item, this.collapsed))}
 
           <button
             @click=${() => this.handleNavigate('logout')}
@@ -222,7 +240,7 @@ export class AdminSidebar extends LitElement {
               : ''}"
           >
             <ui-icon name="logout" size="sm"></ui-icon>
-            ${!this.collapsed ? html`<span>Esci</span>` : ''}
+            ${!this.collapsed ? html`<span>Esci</span>` : nothing}
           </button>
         </div>
       </aside>
@@ -235,7 +253,7 @@ export class AdminSidebar extends LitElement {
               @click=${() => (this.mobileOpen = false)}
             ></div>
           `
-        : ''}
+        : nothing}
 
       <!-- Mobile Sidebar -->
       <aside
@@ -247,10 +265,7 @@ export class AdminSidebar extends LitElement {
           class="flex items-center justify-between px-4 h-16 border-b border-surface-200 dark:border-surface-800"
         >
           <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center">
-              <span class="text-white font-bold text-sm">A</span>
-            </div>
-            <span class="font-semibold text-surface-900 dark:text-white">ArtAround</span>
+            <ui-brand-mark></ui-brand-mark>
           </div>
           <ui-icon-button
             icon="close"
@@ -258,17 +273,12 @@ export class AdminSidebar extends LitElement {
             @click=${() => (this.mobileOpen = false)}
           ></ui-icon-button>
         </div>
-        <nav class="flex-1 px-3 py-4 space-y-3">
-          ${this.renderMenuItem(this.dashboardItem)}
-          ${showConfigureMuseumArea
-            ? this.renderMenuSection('Configura Museo', this.configureMuseumMenuItems)
-            : ''}
-          ${this.renderMenuSection('Area Admin', this.adminMenuItems)}
-        </nav>
+        <nav class="flex-1 px-3 py-4 space-y-3">${this.renderMainNavigation(false)}</nav>
       </aside>
     `;
   }
 
+  // ─── Public API ──────────────────────────────────────────
   public toggleMobile() {
     this.mobileOpen = !this.mobileOpen;
   }

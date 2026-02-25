@@ -1,4 +1,4 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
 @customElement('ui-input')
@@ -12,6 +12,7 @@ export class UiInput extends LitElement {
   @property({ type: Boolean }) required = false;
   @property({ type: Boolean }) disabled = false;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -21,6 +22,7 @@ export class UiInput extends LitElement {
     this.style.display = 'block';
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private handleInput(e: Event) {
     const target = e.target as HTMLInputElement;
     this.value = target.value;
@@ -33,6 +35,7 @@ export class UiInput extends LitElement {
     );
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     const inputClasses = `
       block w-full px-3 py-2.5 text-sm rounded-lg border transition-colors duration-150
@@ -55,10 +58,10 @@ export class UiInput extends LitElement {
           ? html`
               <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
                 ${this.label}
-                ${this.required ? html`<span class="text-danger-500 ml-0.5">*</span>` : ''}
+                ${this.required ? html`<span class="text-danger-500 ml-0.5">*</span>` : nothing}
               </label>
             `
-          : ''}
+          : nothing}
 
         <input
           type="${this.type}"
@@ -76,7 +79,7 @@ export class UiInput extends LitElement {
           ? html`
               <p id="hint" class="text-xs text-surface-500 dark:text-surface-400">${this.hint}</p>
             `
-          : ''}
+          : nothing}
         ${this.error
           ? html`
               <p
@@ -94,7 +97,7 @@ export class UiInput extends LitElement {
                 ${this.error}
               </p>
             `
-          : ''}
+          : nothing}
       </div>
     `;
   }

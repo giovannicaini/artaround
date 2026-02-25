@@ -23,7 +23,7 @@ export function MuseumAwareMixin<T extends Constructor<LitElement>>(
 
     private _museumChangeHandler = (event: Event) => {
       const detail = (event as CustomEvent).detail;
-      this.selectedMuseumId = detail?.wikidataId || detail?._id || null;
+      this.selectedMuseumId = detail?._id || null;
       this.onMuseumChanged();
     };
 
