@@ -8,6 +8,7 @@ import '../ui/ui-image-placeholder';
 import '../ui/ui-loading';
 import '../ui/ui-alert';
 import '../ui/ui-empty';
+import { __ } from '../../services/i18n.service';
 
 @customElement('museum-selector')
 export class MuseumSelector extends LitElement {
@@ -35,7 +36,7 @@ export class MuseumSelector extends LitElement {
       this.museums = await museumService.getMuseums();
     } catch (e) {
       console.error('Error loading museums:', e);
-      this.error = 'Impossibile caricare i musei';
+      this.error = __('Impossibile caricare i musei');
     } finally {
       this.loading = false;
     }
@@ -110,14 +111,14 @@ export class MuseumSelector extends LitElement {
               ${museum.name}
             </h3>
             <p class="text-sm text-surface-500 dark:text-surface-400 line-clamp-2 mb-3">
-              ${museum.description || 'Nessuna descrizione disponibile'}
+              ${museum.description || __('Nessuna descrizione disponibile')}
             </p>
 
             <!-- Location -->
             <div class="flex items-center gap-2 text-xs text-surface-400">
               <ui-icon name="location" size="xs"></ui-icon>
               <span
-                >${museum.location?.city || 'Città non specificata'},
+                >${museum.location?.city || __('Città non specificata')},
                 ${museum.location?.country || ''}</span
               >
             </div>
@@ -130,14 +131,14 @@ export class MuseumSelector extends LitElement {
   // ─── Render Entry ────────────────────────────────────────
   render() {
     if (this.loading) {
-      return html`<ui-loading size="lg" text="Caricamento musei..."></ui-loading>`;
+      return html`<ui-loading size="lg" .text=${__('Caricamento musei...')}></ui-loading>`;
     }
 
     if (this.error) {
       return html`
         <ui-alert
           variant="danger"
-          title="Errore"
+          .title=${__('Errore')}
           .message=${this.error}
           showRetry
           @retry=${this.loadMuseums}
@@ -149,8 +150,8 @@ export class MuseumSelector extends LitElement {
       return html`
         <ui-empty
           icon="folder"
-          title="Nessun museo"
-          description="Non ci sono musei disponibili al momento."
+          .title=${__('Nessun museo')}
+          .description=${__('Non ci sono musei disponibili al momento.')}
         ></ui-empty>
       `;
     }

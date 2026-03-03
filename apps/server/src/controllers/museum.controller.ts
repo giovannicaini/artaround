@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { body, validationResult } from 'express-validator';
-import { MuseumModel } from '../models/index.js';
+import { ItemModel, MuseumModel, VisitModel } from '../models/index.js';
 import { AppError } from '../middleware/index.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
+import { TranslationService } from '../utils/translation.service.js';
 import {
   MuseumFloor,
   MapMarker,
@@ -10,11 +11,50 @@ import {
   MarkerType,
   ConnectionType,
   RoleAssignment,
+  SUPPORTED_APP_LANGUAGES,
+  DEFAULT_APP_LANGUAGE,
+  type AppLanguage,
 } from '@artaround/shared';
 
 export class MuseumController {
   private static readonly HEX_COLOR_REGEX = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
   private static readonly SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+  private static normalizeActiveLanguages(activeLanguages: unknown): AppLanguage[] | undefined {
+    if (activeLanguages === undefined) {
+      return undefined;
+    }
+
+    if (!Array.isArray(activeLanguages)) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'activeLanguages must be an array');
+    }
+
+    const normalized = Array.from(
+      new Set(
+        activeLanguages.map((value) =>
+          String(value || '')
+            .trim()
+            .toLowerCase(),
+        ),
+      ),
+    ).filter(Boolean);
+
+    if (normalized.length === 0) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'activeLanguages cannot be empty');
+    }
+
+    for (const lang of normalized) {
+      if (!SUPPORTED_APP_LANGUAGES.includes(lang as AppLanguage)) {
+        throw new AppError(
+          400,
+          'VALIDATION_ERROR',
+          `Invalid active language '${lang}'. Allowed: ${SUPPORTED_APP_LANGUAGES.join(', ')}`,
+        );
+      }
+    }
+
+    return normalized as AppLanguage[];
+  }
 
   private static validateNavigatorConfigsPayload(navigatorConfigs: unknown): void {
     if (navigatorConfigs === undefined) {
@@ -153,6 +193,245 @@ export class MuseumController {
     body('targetFloorId').trim().notEmpty().withMessage('Target floor ID is required'),
   ];
 
+  static syncLanguagesValidation = [
+    body('activeLanguages').isArray({ min: 1 }).withMessage('activeLanguages is required'),
+  ];
+
+  private static mapToRecord(value: unknown): Record<string, string> {
+    if (value instanceof Map) {
+      return Object.fromEntries(value.entries()) as Record<string, string>;
+    }
+
+    if (value && typeof value === 'object') {
+      return { ...(value as Record<string, string>) };
+    }
+
+    return {};
+  }
+
+  private static async syncItemTranslationsForMuseum(
+    museumId: string,
+    activeLanguages: AppLanguage[],
+  ): Promise<{
+    scanned: number;
+    updated: number;
+    generated: number;
+    removed: number;
+    failed: number;
+  }> {
+    const items = await ItemModel.find({ museumId });
+
+    let updated = 0;
+    let generated = 0;
+    let removed = 0;
+    let failed = 0;
+
+    for (const item of items) {
+      try {
+        const sourceLang = (item.sourceLanguage || DEFAULT_APP_LANGUAGE) as AppLanguage;
+        const targetLanguages = activeLanguages.filter((lang) => lang !== sourceLang);
+
+        const titleTranslations = MuseumController.mapToRecord(item.translatedTitles);
+        const textTranslations = MuseumController.mapToRecord(item.translatedTexts);
+
+        let itemChanged = false;
+        const filteredTitleTranslations: Record<string, string> = {};
+        const filteredTextTranslations: Record<string, string> = {};
+
+        for (const lang of targetLanguages) {
+          const titleValue = titleTranslations[lang];
+          const textValue = textTranslations[lang];
+
+          if (titleValue && titleValue.trim()) {
+            filteredTitleTranslations[lang] = titleValue;
+          }
+          if (textValue && textValue.trim()) {
+            filteredTextTranslations[lang] = textValue;
+          }
+        }
+
+        const removedTitleCount =
+          Object.keys(titleTranslations).length - Object.keys(filteredTitleTranslations).length;
+        const removedTextCount =
+          Object.keys(textTranslations).length - Object.keys(filteredTextTranslations).length;
+
+        if (removedTitleCount > 0 || removedTextCount > 0) {
+          removed += removedTitleCount + removedTextCount;
+          itemChanged = true;
+        }
+
+        const batchItems: Array<{ key: string; text: string; targetLang: string }> = [];
+
+        for (const lang of targetLanguages) {
+          if (!filteredTitleTranslations[lang]) {
+            batchItems.push({ key: `${lang}:title`, text: item.title, targetLang: lang });
+          }
+          if (!filteredTextTranslations[lang]) {
+            batchItems.push({ key: `${lang}:text`, text: item.text, targetLang: lang });
+          }
+        }
+
+        if (batchItems.length > 0) {
+          const translations = await TranslationService.batchTranslate(sourceLang, batchItems);
+
+          for (const lang of targetLanguages) {
+            const titleKey = `${lang}:title`;
+            const textKey = `${lang}:text`;
+
+            if (!filteredTitleTranslations[lang] && translations[titleKey]) {
+              filteredTitleTranslations[lang] = translations[titleKey];
+              generated += 1;
+              itemChanged = true;
+            }
+            if (!filteredTextTranslations[lang] && translations[textKey]) {
+              filteredTextTranslations[lang] = translations[textKey];
+              generated += 1;
+              itemChanged = true;
+            }
+          }
+        }
+
+        if (itemChanged) {
+          item.set('translatedTitles', filteredTitleTranslations);
+          item.set('translatedTexts', filteredTextTranslations);
+          await item.save();
+          updated += 1;
+        }
+      } catch {
+        failed += 1;
+      }
+    }
+
+    return {
+      scanned: items.length,
+      updated,
+      generated,
+      removed,
+      failed,
+    };
+  }
+
+  private static async syncVisitTranslationsForMuseum(
+    museumId: string,
+    activeLanguages: AppLanguage[],
+  ): Promise<{
+    scanned: number;
+    updated: number;
+    generated: number;
+    removed: number;
+    failed: number;
+  }> {
+    const visits = await VisitModel.find({ museumId });
+
+    let updated = 0;
+    let generated = 0;
+    let removed = 0;
+    let failed = 0;
+
+    for (const visit of visits) {
+      try {
+        const sourceLang = (visit.metadata?.language || DEFAULT_APP_LANGUAGE) as AppLanguage;
+        const targetLanguages = activeLanguages.filter((lang) => lang !== sourceLang);
+
+        const titleTranslations = MuseumController.mapToRecord(visit.titleTranslations);
+        const descriptionTranslations = MuseumController.mapToRecord(visit.descriptionTranslations);
+
+        let visitChanged = false;
+        const filteredTitleTranslations: Record<string, string> = {};
+        const filteredDescriptionTranslations: Record<string, string> = {};
+
+        for (const lang of targetLanguages) {
+          const titleValue = titleTranslations[lang];
+          const descriptionValue = descriptionTranslations[lang];
+
+          if (titleValue && titleValue.trim()) {
+            filteredTitleTranslations[lang] = titleValue;
+          }
+          if (descriptionValue && descriptionValue.trim()) {
+            filteredDescriptionTranslations[lang] = descriptionValue;
+          }
+        }
+
+        const removedTitleCount =
+          Object.keys(titleTranslations).length - Object.keys(filteredTitleTranslations).length;
+        const removedDescriptionCount =
+          Object.keys(descriptionTranslations).length -
+          Object.keys(filteredDescriptionTranslations).length;
+
+        if (removedTitleCount > 0 || removedDescriptionCount > 0) {
+          removed += removedTitleCount + removedDescriptionCount;
+          visitChanged = true;
+        }
+
+        const batchItems: Array<{ key: string; text: string; targetLang: string }> = [];
+
+        for (const lang of targetLanguages) {
+          if (!filteredTitleTranslations[lang]) {
+            batchItems.push({ key: `${lang}:title`, text: visit.title, targetLang: lang });
+          }
+          if (!filteredDescriptionTranslations[lang]) {
+            batchItems.push({
+              key: `${lang}:description`,
+              text: visit.description,
+              targetLang: lang,
+            });
+          }
+        }
+
+        if (batchItems.length > 0) {
+          const translations = await TranslationService.batchTranslate(sourceLang, batchItems);
+
+          for (const lang of targetLanguages) {
+            const titleKey = `${lang}:title`;
+            const descriptionKey = `${lang}:description`;
+
+            if (!filteredTitleTranslations[lang] && translations[titleKey]) {
+              filteredTitleTranslations[lang] = translations[titleKey];
+              generated += 1;
+              visitChanged = true;
+            }
+            if (!filteredDescriptionTranslations[lang] && translations[descriptionKey]) {
+              filteredDescriptionTranslations[lang] = translations[descriptionKey];
+              generated += 1;
+              visitChanged = true;
+            }
+          }
+        }
+
+        const metadata = {
+          ...(visit.metadata || {}),
+          language: sourceLang,
+          supportedLanguages: activeLanguages,
+        };
+
+        if (
+          JSON.stringify(visit.metadata?.supportedLanguages || []) !==
+          JSON.stringify(activeLanguages)
+        ) {
+          visitChanged = true;
+        }
+
+        if (visitChanged) {
+          visit.set('titleTranslations', filteredTitleTranslations);
+          visit.set('descriptionTranslations', filteredDescriptionTranslations);
+          visit.set('metadata', metadata);
+          await visit.save();
+          updated += 1;
+        }
+      } catch {
+        failed += 1;
+      }
+    }
+
+    return {
+      scanned: visits.length,
+      updated,
+      generated,
+      removed,
+      failed,
+    };
+  }
+
   // Get all museums
   static async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -176,7 +455,12 @@ export class MuseumController {
   // Get museum by ID
   static async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { id } = req.params;
+      const idParam = req.params.id;
+      const id = Array.isArray(idParam) ? idParam[0] : idParam;
+
+      if (!id) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Museum id is required');
+      }
 
       const museum = await MuseumModel.findById(id);
       if (!museum) {
@@ -236,7 +520,12 @@ export class MuseumController {
 
       MuseumController.validateNavigatorConfigsPayload(req.body.navigatorConfigs);
 
-      const museum = new MuseumModel(req.body);
+      const activeLanguages = MuseumController.normalizeActiveLanguages(req.body.activeLanguages);
+
+      const museum = new MuseumModel({
+        ...req.body,
+        activeLanguages: activeLanguages ?? [DEFAULT_APP_LANGUAGE],
+      });
       await museum.save();
 
       res.status(201).json({
@@ -256,7 +545,14 @@ export class MuseumController {
 
       MuseumController.validateNavigatorConfigsPayload(req.body.navigatorConfigs);
 
-      const museum = await MuseumModel.findByIdAndUpdate(id, req.body, {
+      const activeLanguages = MuseumController.normalizeActiveLanguages(req.body.activeLanguages);
+
+      const updatePayload = {
+        ...req.body,
+        ...(activeLanguages ? { activeLanguages } : {}),
+      };
+
+      const museum = await MuseumModel.findByIdAndUpdate(id, updatePayload, {
         new: true,
         runValidators: true,
       });
@@ -269,6 +565,55 @@ export class MuseumController {
         success: true,
         data: museum,
         message: 'Museum updated successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async syncLanguages(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      }
+
+      const idParam = req.params.id;
+      const id = Array.isArray(idParam) ? idParam[0] : idParam;
+
+      if (!id) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Museum id is required');
+      }
+      const normalizedActiveLanguages = MuseumController.normalizeActiveLanguages(
+        req.body.activeLanguages,
+      );
+
+      if (!normalizedActiveLanguages) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'activeLanguages is required');
+      }
+
+      const museum = await MuseumModel.findById(id);
+      if (!museum) {
+        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      }
+
+      museum.activeLanguages = normalizedActiveLanguages;
+      await museum.save();
+
+      const [itemSync, visitSync] = await Promise.all([
+        MuseumController.syncItemTranslationsForMuseum(id, normalizedActiveLanguages),
+        MuseumController.syncVisitTranslationsForMuseum(id, normalizedActiveLanguages),
+      ]);
+
+      res.json({
+        success: true,
+        data: {
+          museumId: id,
+          activeLanguages: normalizedActiveLanguages,
+          items: itemSync,
+          visits: visitSync,
+        },
+        message: 'Lingue museo sincronizzate su contenuti e visite esistenti',
       });
     } catch (error) {
       next(error);

@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import './ui-icon';
+import { __ } from '../../services/i18n.service';
 
 /**
  * Scroll to Top Button
@@ -50,8 +51,8 @@ export class UiScrollTop extends LitElement {
       <button
         @click=${this.scrollToTop}
         class="fixed bottom-6 right-6 z-50 flex items-center justify-center w-12 h-12 bg-brand-600 hover:bg-brand-700 text-white rounded-full shadow-lg transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
-        title="Torna su"
-        aria-label="Torna all'inizio della pagina"
+        .title=${__('Torna su')}
+        aria-label=${__('Torna all\'inizio della pagina')}
       >
         <ui-icon name="chevron-up" size="md"></ui-icon>
       </button>

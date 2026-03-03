@@ -4,6 +4,7 @@ import type { MuseumFloor } from '@artaround/shared';
 import { modalService } from '../../services/modal.service';
 import '../ui/ui-button';
 import '../ui/ui-input';
+import { __ } from '../../services/i18n.service';
 
 /**
  * Floor Manager Component
@@ -51,11 +52,11 @@ export class FloorManager extends LitElement {
         <div
           class="flex justify-between items-center p-4 bg-surface-700 border-b border-surface-600"
         >
-          <h3 class="text-white font-medium text-base m-0">📐 Piani del Museo</h3>
+          <h3 class="text-white font-medium text-base m-0">📐 ${__('Piani del Museo')}</h3>
           <ui-button
             variant="primary"
             size="sm"
-            label="${this.showAddForm ? '✕ Annulla' : '➕ Aggiungi Piano'}"
+            .label=${this.showAddForm ? `✕ ${__('Annulla')}` : `➕ ${__('Aggiungi Piano')}`}
             @click=${() => (this.showAddForm = !this.showAddForm)}
           ></ui-button>
         </div>
@@ -93,22 +94,22 @@ export class FloorManager extends LitElement {
         <div class="flex-1 min-w-0">
           <div class="text-white font-medium truncate">${floor.name}</div>
           <div class="text-surface-400 text-xs">
-            ${floor.dimensions.width}×${floor.dimensions.height}px • ${markerCount} marker •
-            ${connectionCount} collegamenti
+            ${floor.dimensions.width}×${floor.dimensions.height}px • ${markerCount} ${__('marker')}
+            • ${connectionCount} ${__('collegamenti')}
           </div>
         </div>
         <div class="flex gap-1">
           <button
             class="p-1.5 rounded hover:bg-surface-500 text-surface-400 hover:text-white transition-colors"
             @click=${(e: Event) => this.editFloor(e, floor)}
-            title="Modifica"
+            .title=${__('Modifica')}
           >
             ✏️
           </button>
           <button
             class="p-1.5 rounded hover:bg-red-600 text-surface-400 hover:text-white transition-colors"
             @click=${(e: Event) => this.deleteFloor(e, floor)}
-            title="Elimina"
+            .title=${__('Elimina')}
           >
             🗑️
           </button>
@@ -125,22 +126,22 @@ export class FloorManager extends LitElement {
         <!-- Form Fields -->
         <div class="grid grid-cols-3 gap-3 mb-3">
           <ui-input
-            label="ID Piano"
-            placeholder="piano-terra"
+            .label=${__('ID Piano')}
+            .placeholder=${__('piano-terra')}
             .value=${this.newFloor.id}
             ?disabled=${isEditing}
             @input-change=${(e: CustomEvent) => (this.newFloor.id = e.detail.value)}
           ></ui-input>
           <ui-input
-            label="Nome"
-            placeholder="Piano Terra"
+            .label=${__('Nome')}
+            .placeholder=${__('Piano Terra')}
             .value=${this.newFloor.name}
             @input-change=${(e: CustomEvent) => (this.newFloor.name = e.detail.value)}
           ></ui-input>
           <ui-input
-            label="Livello"
+            .label=${__('Livello')}
             type="number"
-            placeholder="0"
+            .placeholder=${__('0')}
             .value=${String(this.newFloor.level)}
             @input-change=${(e: CustomEvent) =>
               (this.newFloor.level = parseInt(e.detail.value) || 0)}
@@ -166,8 +167,8 @@ export class FloorManager extends LitElement {
           <div class="text-3xl mb-2">${this.newFloor.svgContent ? '✅' : '📄'}</div>
           <div class="text-surface-400 text-sm">
             ${this.newFloor.svgContent
-              ? 'File SVG caricato - Clicca per cambiare'
-              : 'Trascina qui un file SVG o clicca per selezionare'}
+              ? __('File SVG caricato - Clicca per cambiare')
+              : __('Trascina qui un file SVG o clicca per selezionare')}
           </div>
         </div>
 
@@ -185,14 +186,14 @@ export class FloorManager extends LitElement {
         <!-- Dimensions -->
         <div class="grid grid-cols-2 gap-3 mb-3">
           <ui-input
-            label="Larghezza"
+            .label=${__('Larghezza')}
             type="number"
             .value=${String(this.newFloor.dimensions.width)}
             @input-change=${(e: CustomEvent) =>
               (this.newFloor.dimensions.width = parseInt(e.detail.value) || 800)}
           ></ui-input>
           <ui-input
-            label="Altezza"
+            .label=${__('Altezza')}
             type="number"
             .value=${String(this.newFloor.dimensions.height)}
             @input-change=${(e: CustomEvent) =>
@@ -202,10 +203,10 @@ export class FloorManager extends LitElement {
 
         <!-- Actions -->
         <div class="flex gap-2 justify-end">
-          <ui-button variant="ghost" label="Annulla" @click=${this.cancelForm}></ui-button>
+          <ui-button variant="ghost" .label=${__('Annulla')} @click=${this.cancelForm}></ui-button>
           <ui-button
             variant="primary"
-            label="${isEditing ? 'Salva Modifiche' : 'Aggiungi Piano'}"
+            .label=${isEditing ? __('Salva Modifiche') : __('Aggiungi Piano')}
             ?disabled=${!this.isFormValid()}
             ?loading=${this.loading}
             @click=${this.submitForm}
@@ -219,8 +220,8 @@ export class FloorManager extends LitElement {
     return html`
       <div class="p-10 text-center text-surface-400">
         <div class="text-5xl mb-3">🏛️</div>
-        <p class="m-0">Nessun piano configurato</p>
-        <p class="text-xs mt-1 m-0">Aggiungi i piani del museo per iniziare</p>
+        <p class="m-0">${__('Nessun piano configurato')}</p>
+        <p class="text-xs mt-1 m-0">${__('Aggiungi i piani del museo per iniziare')}</p>
       </div>
     `;
   }
@@ -300,7 +301,7 @@ export class FloorManager extends LitElement {
     e.stopPropagation();
 
     const confirmed = await modalService.confirm({
-      title: 'Elimina piano',
+      title: __('Elimina piano'),
       message: `Sei sicuro di voler eliminare "${floor.name}"?`,
       confirmLabel: 'Elimina',
       variant: 'danger',

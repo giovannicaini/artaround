@@ -9,6 +9,25 @@ import type {
   MuseumConfigResponse,
 } from '@artaround/shared';
 
+type MuseumLanguageSyncResult = {
+  museumId: string;
+  activeLanguages: string[];
+  items: {
+    scanned: number;
+    updated: number;
+    generated: number;
+    removed: number;
+    failed: number;
+  };
+  visits: {
+    scanned: number;
+    updated: number;
+    generated: number;
+    removed: number;
+    failed: number;
+  };
+};
+
 export class MuseumService {
   async getMuseums(): Promise<Museum[]> {
     const response = await apiService.get<Museum[]>('/museums');
@@ -62,6 +81,27 @@ export class MuseumService {
     return {
       data: null,
       error: getErrorMessage(response, 'Errore durante aggiornamento del museo'),
+    };
+  }
+
+  async syncMuseumLanguages(
+    id: string,
+    activeLanguages: string[],
+  ): Promise<{ data: MuseumLanguageSyncResult | null; error?: string }> {
+    const response = await apiService.post<MuseumLanguageSyncResult>(
+      `/museums/${id}/sync-languages`,
+      {
+        activeLanguages,
+      },
+    );
+
+    if (response.success && response.data) {
+      return { data: response.data };
+    }
+
+    return {
+      data: null,
+      error: getErrorMessage(response, 'Errore durante sincronizzazione lingue museo'),
     };
   }
 

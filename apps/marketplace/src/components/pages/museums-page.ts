@@ -16,6 +16,7 @@ import '../ui/ui-alert';
 import '../ui/ui-search-bar';
 import '../ui/ui-table';
 import '../ui/ui-button';
+import { __ } from '../../services/i18n.service';
 
 type FilterRole = 'all' | 'curator' | 'author';
 
@@ -45,15 +46,15 @@ export class MuseumsPage extends LitElement {
   private renderMuseumTag(type: MuseumTagType) {
     const config: Record<MuseumTagType, { label: string; classes: string }> = {
       selected: {
-        label: 'Selezionato',
+        label: __('Selezionato'),
         classes: 'bg-brand-500 text-white',
       },
       curator: {
-        label: 'Curatore',
+        label: __('Curatore'),
         classes: 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-400',
       },
       author: {
-        label: 'Autore',
+        label: __('Autore'),
         classes: 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-400',
       },
     };
@@ -141,7 +142,7 @@ export class MuseumsPage extends LitElement {
     return [
       {
         key: 'name',
-        label: 'Museo',
+        label: __('Museo'),
         width: '40%',
         render: (value, row) => {
           const museum = row as unknown as Museum;
@@ -165,7 +166,7 @@ export class MuseumsPage extends LitElement {
                 <p
                   class="text-sm text-surface-500 dark:text-surface-400 line-clamp-2 max-w-[300px]"
                 >
-                  ${museum.description || 'Nessuna descrizione'}
+                  ${museum.description || __('Nessuna descrizione')}
                 </p>
               </div>
             </div>
@@ -174,13 +175,13 @@ export class MuseumsPage extends LitElement {
       },
       {
         key: 'stats',
-        label: 'Statistiche',
+        label: __('Statistiche'),
         width: '20%',
         render: (_, row) => {
           const museum = row as unknown as Museum;
           const stats = this.museumStats.get(museum._id);
           if (this.loadingStats && !stats) {
-            return html`<span class="text-sm text-surface-400">Caricamento...</span>`;
+            return html`<span class="text-sm text-surface-400">${__('Caricamento...')}</span>`;
           }
           if (!stats) {
             return html`<span class="text-sm text-surface-400">-</span>`;
@@ -196,14 +197,14 @@ export class MuseumsPage extends LitElement {
       },
       {
         key: 'city',
-        label: 'Città',
+        label: __('Città'),
         width: '15%',
         render: (_, row) =>
           this.renderLocationCell(this.getMuseumCity(row as unknown as Museum), true),
       },
       {
         key: 'country',
-        label: 'Paese',
+        label: __('Paese'),
         width: '15%',
         render: (_, row) =>
           this.renderLocationCell(this.getMuseumCountry(row as unknown as Museum)),
@@ -219,7 +220,7 @@ export class MuseumsPage extends LitElement {
                 variant="primary"
                 size="sm"
                 icon="check"
-                label="Seleziona"
+                .label=${__('Seleziona')}
                 @click=${(e: Event) => {
                   e.stopPropagation();
                   this.selectMuseum(row as unknown as Museum);
@@ -253,7 +254,7 @@ export class MuseumsPage extends LitElement {
       this.loadMuseumStats();
     } catch (e) {
       console.error('Error loading museums:', e);
-      this.error = 'Impossibile caricare i musei';
+      this.error = __('Impossibile caricare i musei');
     } finally {
       this.loading = false;
     }
@@ -378,8 +379,8 @@ export class MuseumsPage extends LitElement {
           ? nothing
           : html`
               <ui-page-header
-                title="Seleziona Museo"
-                description="Scegli il museo su cui vuoi lavorare"
+                .title=${__('Seleziona museo')}
+                .description=${__('Scegli il museo su cui vuoi lavorare')}
               ></ui-page-header>
             `}
 
@@ -388,7 +389,7 @@ export class MuseumsPage extends LitElement {
           <div class="flex flex-col md:flex-row gap-4">
             <div class="flex-1">
               <ui-search-bar
-                placeholder="Cerca museo per nome, città o paese..."
+                .placeholder=${__('Cerca museo per nome, città o paese...')}
                 .value=${this.searchQuery}
                 @search=${this.handleSearch}
                 @input=${this.handleSearch}
@@ -409,12 +410,12 @@ export class MuseumsPage extends LitElement {
 
         <!-- Content -->
         ${this.loading
-          ? html`<ui-loading size="lg" text="Caricamento musei..."></ui-loading>`
+          ? html`<ui-loading size="lg" .text=${__('Caricamento musei...')}></ui-loading>`
           : this.error
             ? html`
                 <ui-alert
                   variant="danger"
-                  title="Errore"
+                  .title=${__('Errore')}
                   .message=${this.error}
                   showRetry
                   @retry=${this.loadMuseums}
@@ -424,10 +425,10 @@ export class MuseumsPage extends LitElement {
               ? html`
                   <ui-empty
                     icon="folder"
-                    title=${this.searchQuery ? 'Nessun risultato' : 'Nessun museo'}
-                    description=${this.searchQuery
-                      ? 'Nessun museo corrisponde alla ricerca'
-                      : 'Non ci sono musei disponibili al momento.'}
+                    .title=${this.searchQuery ? __('Nessun risultato') : __('Nessun museo')}
+                    .description=${this.searchQuery
+                      ? __('Nessun museo corrisponde alla ricerca')
+                      : __('Non ci sono musei disponibili al momento.')}
                   ></ui-empty>
                 `
               : html`

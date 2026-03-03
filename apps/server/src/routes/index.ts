@@ -63,9 +63,12 @@ router.get('/', (req, res) => {
         delete: 'DELETE /api/visits/:id (owner)',
       },
       marketplace: {
-        catalog: 'GET /api/marketplace/visits',
-        myPurchases: 'GET /api/marketplace/my-purchases (auth)',
-        purchase: 'POST /api/marketplace/purchase/:visitId (auth)',
+        itemCatalog: 'GET /api/marketplace/items',
+        visitCatalog: 'GET /api/marketplace/visits',
+        myItemPurchases: 'GET /api/marketplace/my-item-purchases (auth)',
+        myVisitPurchases: 'GET /api/marketplace/my-visit-purchases (auth)',
+        purchaseItem: 'POST /api/marketplace/purchase/item/:itemId (auth)',
+        purchaseVisit: 'POST /api/marketplace/purchase/visit/:visitId (auth)',
       },
       utils: {
         translate: 'POST /api/utils/translate',

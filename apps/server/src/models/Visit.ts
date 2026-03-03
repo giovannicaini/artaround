@@ -7,6 +7,8 @@ import {
   TargetAudience,
   VisitMetadata,
   LanguageLevel,
+  SUPPORTED_APP_LANGUAGES,
+  DEFAULT_APP_LANGUAGE,
 } from '@artaround/shared';
 
 export interface VisitDocument extends Omit<IVisit, '_id'>, Document {}
@@ -71,8 +73,17 @@ const targetAudienceSchema = new Schema<TargetAudience>(
 
 const visitMetadataSchema = new Schema<VisitMetadata>(
   {
-    language: { type: String, default: 'it' },
-    supportedLanguages: [String],
+    language: {
+      type: String,
+      enum: SUPPORTED_APP_LANGUAGES,
+      default: DEFAULT_APP_LANGUAGE,
+    },
+    supportedLanguages: [
+      {
+        type: String,
+        enum: SUPPORTED_APP_LANGUAGES,
+      },
+    ],
     artworksCount: { type: Number, default: 0 },
     totalItemsCount: { type: Number, default: 0 },
     estimatedDuration: { type: Number, required: true },
@@ -108,6 +119,14 @@ const visitSchema = new Schema<VisitDocument>(
     description: {
       type: String,
       required: true,
+    },
+    titleTranslations: {
+      type: Map,
+      of: String,
+    },
+    descriptionTranslations: {
+      type: Map,
+      of: String,
     },
     coverImage: String,
     steps: [visitStepSchema],

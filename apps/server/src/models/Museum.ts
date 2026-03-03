@@ -8,6 +8,8 @@ import {
   MarkerType,
   ConnectionType,
   AccessibilityInfo,
+  SUPPORTED_APP_LANGUAGES,
+  DEFAULT_APP_LANGUAGE,
 } from '@artaround/shared';
 
 import type { FloorConnection } from '@artaround/shared';
@@ -32,7 +34,17 @@ const locationSchema = new Schema<MuseumLocation>(
 const servicesSchema = new Schema<MuseumServices>(
   {
     ticketInfo: String,
+    ticketInfoTranslations: {
+      type: Map,
+      of: String,
+      default: undefined,
+    },
     openingHours: String,
+    openingHoursTranslations: {
+      type: Map,
+      of: String,
+      default: undefined,
+    },
     closedDays: String,
     website: String,
     phone: String,
@@ -181,6 +193,22 @@ const museumSchema = new Schema<MuseumDocument>(
     },
     description: {
       type: String,
+      required: true,
+    },
+    nameTranslations: {
+      type: Map,
+      of: String,
+      default: undefined,
+    },
+    descriptionTranslations: {
+      type: Map,
+      of: String,
+      default: undefined,
+    },
+    activeLanguages: {
+      type: [String],
+      enum: SUPPORTED_APP_LANGUAGES,
+      default: [DEFAULT_APP_LANGUAGE],
       required: true,
     },
 

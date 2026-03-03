@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import './ui-icon';
+import { __ } from '../../services/i18n.service';
 
 /**
  * UI Empty State
@@ -13,10 +14,10 @@ import './ui-icon';
  * ```html
  * <ui-empty
  *   icon="document"
- *   title="Nessun contenuto"
- *   description="Non ci sono ancora contenuti"
+ *   .title=${__('Nessun contenuto')}
+ *   .description=${__('Non ci sono ancora contenuti')}
  * >
- *   <ui-button slot="action" variant="primary" icon="plus" label="Crea il primo"></ui-button>
+ *   <ui-button slot="action" variant="primary" icon="plus" .label=${__('Crea il primo')}></ui-button>
  * </ui-empty>
  * ```
  */

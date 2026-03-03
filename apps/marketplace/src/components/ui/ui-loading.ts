@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { __ } from '../../services/i18n.service';
 
 /**
  * UI Loading State
@@ -8,7 +9,7 @@ import { customElement, property } from 'lit/decorators.js';
  *
  * @example
  * ```html
- * <ui-loading text="Caricamento contenuti..."></ui-loading>
+ * <ui-loading .text=${__('Caricamento contenuti...')}></ui-loading>
  * <ui-loading size="sm"></ui-loading>
  * ```
  */

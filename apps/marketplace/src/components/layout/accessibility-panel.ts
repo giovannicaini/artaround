@@ -7,6 +7,7 @@ import {
 } from '../../services/preferences.service';
 import '../ui/ui-icon';
 import '../ui/ui-icon-button';
+import { __ } from '../../services/i18n.service';
 
 @customElement('accessibility-panel')
 export class AccessibilityPanel extends LitElement {
@@ -151,7 +152,7 @@ export class AccessibilityPanel extends LitElement {
       <!-- Panel -->
       <div
         role="dialog"
-        aria-label="Impostazioni accessibilità"
+        aria-label=${__('Impostazioni accessibilità')}
         class="fixed right-0 top-0 bottom-0 z-50 w-full max-w-sm bg-white dark:bg-surface-900 shadow-2xl flex flex-col animate-slide-left"
       >
         <!-- Header -->
@@ -160,9 +161,15 @@ export class AccessibilityPanel extends LitElement {
         >
           <div class="flex items-center gap-2">
             <ui-icon name="accessibility" size="sm" class="text-brand-500"></ui-icon>
-            <h2 class="text-base font-semibold text-surface-900 dark:text-white">Accessibilità</h2>
+            <h2 class="text-base font-semibold text-surface-900 dark:text-white">
+              ${__('Accessibilità')}
+            </h2>
           </div>
-          <ui-icon-button icon="x" @click=${this.close} title="Chiudi pannello"></ui-icon-button>
+          <ui-icon-button
+            icon="x"
+            @click=${this.close}
+            .title=${__('Chiudi pannello')}
+          ></ui-icon-button>
         </div>
 
         <!-- Content -->

@@ -3,6 +3,8 @@ import { customElement, property, state } from 'lit/decorators.js';
 import {
   ArtworkType,
   ARTWORK_TYPE_OPTIONS_IT,
+  getArtworkTypeIcon,
+  getArtworkTypeLabel,
   type CreateArtworkData,
   type UpdateArtworkData,
   type Museum,
@@ -24,6 +26,7 @@ import '../ui/ui-loading';
 import '../ui/image-editor';
 import '../ui/ui-tag-input';
 import '../ui/ui-museum-required-notice';
+import { __ } from '../../services/i18n.service';
 
 /**
  * Artwork Creator/Editor Component
@@ -79,12 +82,23 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
   @state() private room = '';
   @state() private floor = '';
 
-  private readonly artworkTypeOptions = ARTWORK_TYPE_OPTIONS_IT;
+  private get artworkTypeOptions() {
+    return ARTWORK_TYPE_OPTIONS_IT.map((option) => {
+      const icon = getArtworkTypeIcon(option.value);
+      const label = __(getArtworkTypeLabel(option.value));
+      return {
+        ...option,
+        label: `${icon} ${label}`,
+      };
+    });
+  }
 
-  private dimensionUnitOptions = [
-    { value: 'cm', label: 'Centimetri (cm)' },
-    { value: 'm', label: 'Metri (m)' },
-  ];
+  private get dimensionUnitOptions() {
+    return [
+      { value: 'cm', label: __('Centimetri (cm)') },
+      { value: 'm', label: __('Metri (m)') },
+    ];
+  }
 
   // ─── Lifecycle ───────────────────────────────────────────
   async connectedCallback() {
@@ -147,7 +161,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
       }
     } catch (e) {
       console.error('Error loading artwork:', e);
-      this.error = "Errore durante il caricamento dell'opera";
+      this.error = __("Errore durante il caricamento dell'opera");
     } finally {
       this.loadingArtwork = false;
     }
@@ -406,14 +420,16 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     if (isDuplicate) {
       this.wikidataId = '';
       this.clearWikidataAutocomplete();
-      this.error =
-        'Questa opera è già stata aggiunta per il museo corrente e non può essere aggiunta nuovamente.';
+      this.error = __(
+        'Questa opera è già stata aggiunta per il museo corrente e non può essere aggiunta nuovamente.',
+      );
       await modalService.alert({
-        title: 'Opera già presente',
-        message:
+        title: __('Opera già presente'),
+        message: __(
           'Questa opera è già stata aggiunta per il museo corrente e non può essere aggiunta nuovamente.',
+        ),
         variant: 'info',
-        confirmLabel: 'OK',
+        confirmLabel: __('OK'),
       });
       return;
     }
@@ -461,16 +477,16 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
 
   private validateForm(): string | null {
     if (!this.wikidataId.trim()) {
-      return "L'ID Wikidata è obbligatorio (cerca l'opera su Wikidata)";
+      return __("L'ID Wikidata è obbligatorio (cerca l'opera su Wikidata)");
     }
     if (!this.artworkTitle.trim()) {
-      return 'Il titolo è obbligatorio';
+      return __('Il titolo è obbligatorio');
     }
     if (!this.museumId) {
-      return 'Seleziona un museo attivo';
+      return __('Seleziona un museo attivo');
     }
     if (!this.image.trim()) {
-      return "L'immagine è obbligatoria";
+      return __("L'immagine è obbligatoria");
     }
     return null;
   }
@@ -520,10 +536,10 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
 
       if (this.artworkId) {
         await artworkService.updateArtwork(this.artworkId, artworkData as UpdateArtworkData);
-        this.success = 'Opera aggiornata con successo!';
+        this.success = __('Opera aggiornata con successo!');
       } else {
         await artworkService.createArtwork(artworkData);
-        this.success = 'Opera creata con successo!';
+        this.success = __('Opera creata con successo!');
       }
 
       this.pendingWikidataFields = [];
@@ -542,7 +558,8 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
       }
     } catch (err) {
       console.error('Error saving artwork:', err);
-      this.error = err instanceof Error ? err.message : "Errore durante il salvataggio dell'opera";
+      this.error =
+        err instanceof Error ? err.message : __("Errore durante il salvataggio dell'opera");
     } finally {
       this.loading = false;
     }
@@ -607,7 +624,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
   // ─── Render Entry ────────────────────────────────────────
   render() {
     if (this.loadingArtwork) {
-      return html`<ui-loading size="lg" text="Caricamento opera..."></ui-loading>`;
+      return html`<ui-loading size="lg" .text=${__('Caricamento opera...')}></ui-loading>`;
     }
 
     const museumOptions = this.museums.map((m) => ({
@@ -633,7 +650,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
 
         <!-- Section: Wikidata Reference -->
         ${this.renderFormSection(
-          'Riferimento Wikidata',
+          __('Riferimento Wikidata'),
           'link',
           'text-blue-500',
           () => html`
@@ -641,17 +658,20 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
               ${this.artworkId
                 ? html`
                     <p class="text-sm text-surface-500 dark:text-surface-400">
-                      Il riferimento Wikidata non è modificabile dopo la creazione dell'opera.
+                      ${__(
+                        "Il riferimento Wikidata non è modificabile dopo la creazione dell'opera.",
+                      )}
                     </p>
                   `
                 : html`
                     <p class="text-sm text-surface-500 dark:text-surface-400">
-                      Cerca l'opera su Wikidata per compilare automaticamente i campi. L'ID Wikidata
-                      è obbligatorio per evitare duplicati.
+                      ${__(
+                        "Cerca l'opera su Wikidata per compilare automaticamente i campi. L'ID Wikidata è obbligatorio per evitare duplicati.",
+                      )}
                     </p>
                     <wikidata-autocomplete
-                      label="Cerca Opera su Wikidata"
-                      placeholder="Es: Gioconda, David di Michelangelo..."
+                      .label=${__('Cerca Opera su Wikidata')}
+                      .placeholder=${__('Es: Gioconda, David di Michelangelo...')}
                       searchType="artwork"
                       .value=${this.wikidataId}
                       .selectedId=${this.wikidataId}
@@ -685,7 +705,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
 
         <!-- Section: Basic Info -->
         ${this.renderFormSection(
-          'Informazioni Base',
+          __('Informazioni Base'),
           'image',
           'text-brand-500',
           () => html`
@@ -694,8 +714,8 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                 'artworkTitle',
                 html`
                   <ui-input
-                    label="Titolo *"
-                    placeholder="Titolo dell'opera"
+                    .label=${__('Titolo *')}
+                    .placeholder=${__("Titolo dell'opera")}
                     .value=${this.artworkTitle}
                     @input-change=${(e: CustomEvent) => {
                       this.artworkTitle = e.detail.value;
@@ -710,8 +730,8 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                 'description',
                 html`
                   <ui-textarea
-                    label="Descrizione"
-                    placeholder="Descrizione dell'opera..."
+                    .label=${__('Descrizione')}
+                    .placeholder=${__("Descrizione dell'opera...")}
                     .value=${this.description}
                     @input-change=${(e: CustomEvent) => {
                       this.description = e.detail.value;
@@ -724,16 +744,16 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
               )}
 
               <ui-select
-                label="Museo *"
+                .label=${__('Museo *')}
                 .value=${this.museumId}
                 .options=${museumOptions}
-                placeholder="Seleziona il museo"
+                .placeholder=${__('Seleziona il museo')}
                 ?disabled=${true}
                 required
               ></ui-select>
 
               <ui-select
-                label="Tipo Opera *"
+                .label=${__('Tipo Opera *')}
                 .value=${this.artworkType}
                 .options=${this.artworkTypeOptions}
                 @select-change=${(e: CustomEvent) => (this.artworkType = e.detail.value)}
@@ -744,14 +764,14 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
 
         <!-- Section: Authorship -->
         ${this.renderFormSection(
-          'Autore',
+          __('Autore'),
           'user',
           'text-amber-500',
           () => html`
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <wikidata-autocomplete
-                label="Cerca Autore su Wikidata"
-                placeholder="Es: Leonardo da Vinci, Caravaggio..."
+                .label=${__('Cerca Autore su Wikidata')}
+                .placeholder=${__('Es: Leonardo da Vinci, Caravaggio...')}
                 searchType="author"
                 .value=${this.authorWikidataId}
                 .selectedId=${this.authorWikidataId}
@@ -781,8 +801,8 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                 'author',
                 html`
                   <ui-input
-                    label="Nome Autore"
-                    placeholder="Nome dell'artista"
+                    .label=${__('Nome Autore')}
+                    .placeholder=${__("Nome dell'artista")}
                     .value=${this.author}
                     @input-change=${(e: CustomEvent) => {
                       this.author = e.detail.value;
@@ -795,8 +815,8 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                 'year',
                 html`
                   <ui-input
-                    label="Anno / Periodo"
-                    placeholder="Es: 1605, 1598-1601, XVI secolo"
+                    .label=${__('Anno / Periodo')}
+                    .placeholder=${__('Es: 1605, 1598-1601, XVI secolo')}
                     .value=${this.year}
                     @input-change=${(e: CustomEvent) => {
                       this.year = e.detail.value;
@@ -811,14 +831,14 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
 
         <!-- Section: Classification -->
         ${this.renderFormSection(
-          'Classificazione',
+          __('Classificazione'),
           'tag',
           'text-purple-500',
           () => html`
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <wikidata-autocomplete
-                label="Movimento Artistico"
-                placeholder="Es: Rinascimento, Barocco..."
+                .label=${__('Movimento Artistico')}
+                .placeholder=${__('Es: Rinascimento, Barocco...')}
                 searchType="movement"
                 .value=${this.movementWikidataId}
                 .selectedId=${this.movementWikidataId}
@@ -848,8 +868,8 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                 'movement',
                 html`
                   <ui-input
-                    label="Nome Movimento"
-                    placeholder="Nome del movimento"
+                    .label=${__('Nome Movimento')}
+                    .placeholder=${__('Nome del movimento')}
                     .value=${this.movement}
                     @input-change=${(e: CustomEvent) => {
                       this.movement = e.detail.value;
@@ -862,8 +882,8 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                 'technique',
                 html`
                   <ui-input
-                    label="Tecnica"
-                    placeholder="Es: Olio su tela, Affresco..."
+                    .label=${__('Tecnica')}
+                    .placeholder=${__('Es: Olio su tela, Affresco...')}
                     .value=${this.technique}
                     @input-change=${(e: CustomEvent) => {
                       this.technique = e.detail.value;
@@ -879,11 +899,11 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                   'materials',
                   html`
                     <ui-tag-input
-                      label="Materiali"
-                      placeholder="Es: Marmo di Carrara"
+                      .label=${__('Materiali')}
+                      .placeholder=${__('Es: Marmo di Carrara')}
                       .tags=${this.materials}
                       .lowercase=${false}
-                      emptyText="Nessun materiale aggiunto"
+                      .emptyText=${__('Nessun materiale aggiunto')}
                       @tags-change=${(e: CustomEvent<{ tags: string[] }>) => {
                         this.materials = e.detail.tags;
                         this.clearPendingWikidataField('materials');
@@ -898,7 +918,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
 
         <!-- Section: Dimensions -->
         ${this.renderFormSection(
-          'Dimensioni',
+          __('Dimensioni'),
           'chart',
           'text-teal-500',
           () => html`
@@ -908,8 +928,8 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                 html`
                   <ui-input
                     type="number"
-                    label="Altezza"
-                    placeholder="0"
+                    .label=${__('Altezza')}
+                    .placeholder=${__('0')}
                     .value=${String(this.dimensionHeight || '')}
                     @input-change=${(e: CustomEvent) => {
                       this.dimensionHeight = parseFloat(e.detail.value) || undefined;
@@ -923,7 +943,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                 html`
                   <ui-input
                     type="number"
-                    label="Larghezza"
+                    .label=${__('Larghezza')}
                     placeholder="0"
                     .value=${String(this.dimensionWidth || '')}
                     @input-change=${(e: CustomEvent) => {
@@ -938,7 +958,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                 html`
                   <ui-input
                     type="number"
-                    label="Profondità"
+                    .label=${__('Profondità')}
                     placeholder="0"
                     .value=${String(this.dimensionDepth || '')}
                     @input-change=${(e: CustomEvent) => {
@@ -952,7 +972,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                 'dimensionUnit',
                 html`
                   <ui-select
-                    label="Unità"
+                    .label=${__('Unità')}
                     .value=${this.dimensionUnit}
                     .options=${this.dimensionUnitOptions}
                     @select-change=${(e: CustomEvent) => {
@@ -987,8 +1007,8 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                 'room',
                 html`
                   <ui-input
-                    label="Sala"
-                    placeholder="Es: Sala VIII, Pinacoteca - Sala XIV"
+                    .label=${__('Sala')}
+                    .placeholder=${__('Es: Sala VIII, Pinacoteca - Sala XIV')}
                     .value=${this.room}
                     @input-change=${(e: CustomEvent) => {
                       this.room = e.detail.value;
@@ -1001,8 +1021,8 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                 'floor',
                 html`
                   <ui-input
-                    label="Piano"
-                    placeholder="Es: Piano Terra, Primo Piano"
+                    .label=${__('Piano')}
+                    .placeholder=${__('Es: Piano Terra, Primo Piano')}
                     .value=${this.floor}
                     @input-change=${(e: CustomEvent) => {
                       this.floor = e.detail.value;
@@ -1021,7 +1041,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
             'image',
             html`
               <image-editor
-                label="Immagine dell'opera"
+                .label=${__("Immagine dell'opera")}
                 category="artworks"
                 .value=${this.image}
                 maxWidth=${1200}
@@ -1041,11 +1061,15 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
         <div
           class="flex items-center justify-end gap-4 pt-6 border-t border-surface-200 dark:border-surface-700"
         >
-          <ui-button variant="ghost" label="Annulla" @click=${this.handleCancel}></ui-button>
+          <ui-button
+            variant="ghost"
+            .label=${__('Annulla')}
+            @click=${this.handleCancel}
+          ></ui-button>
           <ui-button
             type="submit"
             variant="primary"
-            .label=${this.artworkId ? 'Aggiorna Opera' : 'Crea Opera'}
+            .label=${this.artworkId ? __('Aggiorna Opera') : __('Crea Opera')}
             icon=${this.artworkId ? 'check' : 'plus'}
             ?loading=${this.loading}
           ></ui-button>

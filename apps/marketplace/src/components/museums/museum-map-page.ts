@@ -10,6 +10,7 @@ import './marker-editor';
 import '../ui/ui-button';
 import '../ui/ui-card';
 import '../ui/ui-image-placeholder';
+import { __ } from '../../services/i18n.service';
 
 /**
  * Museum Map Page
@@ -67,7 +68,7 @@ export class MuseumMapPage extends LitElement {
   // ─── Data Loading ────────────────────────────────────────
   private async loadData() {
     if (!this.museumId) {
-      this.error = 'ID museo non specificato';
+      this.error = __('ID museo non specificato');
       this.loading = false;
       return;
     }
@@ -93,7 +94,7 @@ export class MuseumMapPage extends LitElement {
       }
     } catch (err) {
       console.error('Error loading museum data:', err);
-      this.error = 'Errore nel caricamento dei dati del museo';
+      this.error = __('Errore nel caricamento dei dati del museo');
     } finally {
       this.loading = false;
     }
@@ -114,7 +115,7 @@ export class MuseumMapPage extends LitElement {
         <div class="min-h-screen bg-surface-950 flex items-center justify-center">
           <div class="text-center">
             <div class="animate-spin text-4xl mb-4">🔄</div>
-            <p class="text-surface-400">Caricamento...</p>
+            <p class="text-surface-400">${__('Caricamento...')}</p>
           </div>
         </div>
       `;
@@ -128,7 +129,7 @@ export class MuseumMapPage extends LitElement {
             <p class="text-red-400">${this.error}</p>
             <ui-button
               variant="primary"
-              label="Riprova"
+              .label=${__('Riprova')}
               class="mt-4"
               @click=${this.loadData}
             ></ui-button>
@@ -144,25 +145,31 @@ export class MuseumMapPage extends LitElement {
           class="flex items-center justify-between p-4 bg-surface-900 border-b border-surface-800"
         >
           <div class="flex items-center gap-4">
-            <ui-button variant="secondary" label="← Indietro" @click=${this.goBack}></ui-button>
+            <ui-button
+              variant="secondary"
+              .label=${`← ${__('Indietro')}`}
+              @click=${this.goBack}
+            ></ui-button>
             <div>
-              <h1 class="text-xl font-semibold text-white m-0">🗺️ Gestione Mappe</h1>
-              <p class="text-sm text-surface-400 m-0">${this.museum?.name || 'Museo'}</p>
+              <h1 class="text-xl font-semibold text-white m-0">🗺️ ${__('Gestione Mappe')}</h1>
+              <p class="text-sm text-surface-400 m-0">${this.museum?.name || __('Museo')}</p>
             </div>
           </div>
 
           <div class="flex items-center gap-3">
             ${this.hasChanges
-              ? html` <span class="text-yellow-400 text-sm">● Modifiche non salvate</span> `
+              ? html`
+                  <span class="text-yellow-400 text-sm">● ${__('Modifiche non salvate')}</span>
+                `
               : nothing}
             <ui-button
               variant="secondary"
-              .label=${this.isFullscreen ? '⬜ Riduci' : '⛶ Schermo intero'}
+              .label=${this.isFullscreen ? `⬜ ${__('Riduci')}` : `⛶ ${__('Schermo intero')}`}
               @click=${() => (this.isFullscreen = !this.isFullscreen)}
             ></ui-button>
             <ui-button
               variant="primary"
-              label="💾 Salva Tutto"
+              .label=${`💾 ${__('Salva Tutto')}`}
               ?loading=${this.saving}
               ?disabled=${!this.hasChanges}
               @click=${this.saveAll}
@@ -190,7 +197,7 @@ export class MuseumMapPage extends LitElement {
             <div class="bg-surface-800 rounded-lg overflow-hidden border border-surface-700">
               <div class="p-4 bg-surface-700 border-b border-surface-600">
                 <h3 class="text-white font-medium text-base m-0">
-                  🖼️ Opere (${this.artworks.length})
+                  🖼️ ${__('Opere')} (${this.artworks.length})
                 </h3>
               </div>
               <div class="max-h-64 overflow-y-auto">
@@ -198,7 +205,7 @@ export class MuseumMapPage extends LitElement {
                   ? this.artworks.map((artwork) => this.renderArtworkItem(artwork))
                   : html`
                       <div class="p-4 text-center text-surface-400">
-                        <p class="m-0">Nessuna opera nel museo</p>
+                        <p class="m-0">${__('Nessuna opera nel museo')}</p>
                       </div>
                     `}
               </div>
@@ -275,7 +282,7 @@ export class MuseumMapPage extends LitElement {
         </div>
         <div class="flex-1 min-w-0">
           <div class="text-white text-sm font-medium truncate">${artwork.title}</div>
-          <div class="text-surface-400 text-xs">${artwork.author || 'Artista sconosciuto'}</div>
+          <div class="text-surface-400 text-xs">${artwork.author || __('Artista sconosciuto')}</div>
         </div>
         <div class="flex-shrink-0">
           ${hasPosition
@@ -290,10 +297,10 @@ export class MuseumMapPage extends LitElement {
   private async goBack() {
     if (this.hasChanges) {
       const confirmed = await modalService.confirm({
-        title: 'Modifiche non salvate',
-        message: 'Hai modifiche non salvate. Sei sicuro di voler uscire?',
-        confirmLabel: 'Esci',
-        cancelLabel: 'Rimani',
+        title: __('Modifiche non salvate'),
+        message: __('Hai modifiche non salvate. Sei sicuro di voler uscire?'),
+        confirmLabel: __('Esci'),
+        cancelLabel: __('Rimani'),
         variant: 'danger',
       });
       if (!confirmed) {
@@ -326,11 +333,11 @@ export class MuseumMapPage extends LitElement {
         this.selectedFloorId = result.data.id;
         this.hasChanges = false;
       } else {
-        await modalService.error(result.error || "Errore durante l'aggiunta del piano");
+        await modalService.error(result.error || __("Errore durante l'aggiunta del piano"));
       }
     } catch (err) {
       console.error('Error adding floor:', err);
-      await modalService.error("Errore di connessione durante l'aggiunta del piano");
+      await modalService.error(__("Errore di connessione durante l'aggiunta del piano"));
     }
   }
 
@@ -343,7 +350,7 @@ export class MuseumMapPage extends LitElement {
       this.hasChanges = false;
     } catch (err) {
       console.error('Error updating floor:', err);
-      await modalService.error("Errore durante l'aggiornamento del piano");
+      await modalService.error(__("Errore durante l'aggiornamento del piano"));
     }
   }
 
@@ -359,7 +366,7 @@ export class MuseumMapPage extends LitElement {
       }
     } catch (err) {
       console.error('Error deleting floor:', err);
-      await modalService.error("Errore durante l'eliminazione del piano");
+      await modalService.error(__("Errore durante l'eliminazione del piano"));
     }
   }
 
@@ -396,7 +403,7 @@ export class MuseumMapPage extends LitElement {
       this.clickPosition = null;
     } catch (err) {
       console.error('Error adding marker:', err);
-      await modalService.error("Errore durante l'aggiunta del marker");
+      await modalService.error(__("Errore durante l'aggiunta del marker"));
     }
   }
 
@@ -460,7 +467,7 @@ export class MuseumMapPage extends LitElement {
       }
     } catch (err) {
       console.error('Error deleting marker:', err);
-      await modalService.error("Errore durante l'eliminazione del marker");
+      await modalService.error(__("Errore durante l'eliminazione del marker"));
     }
   }
 
@@ -478,10 +485,10 @@ export class MuseumMapPage extends LitElement {
       }
 
       this.hasChanges = false;
-      await modalService.success('Modifiche salvate con successo!');
+      await modalService.success(__('Modifiche salvate con successo!'));
     } catch (err) {
       console.error('Error saving:', err);
-      await modalService.error('Errore durante il salvataggio');
+      await modalService.error(__('Errore durante il salvataggio'));
     } finally {
       this.saving = false;
     }

@@ -1,13 +1,15 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { User } from '@artaround/shared';
+import type { User, AppLanguage } from '@artaround/shared';
 import { preferencesService } from '../../services/preferences.service';
 import { historyService } from '../../services/history.service';
+import { i18nService, __ } from '../../services/i18n.service';
 import '../ui/ui-icon';
 import '../ui/ui-avatar';
 import '../ui/ui-button';
 import '../ui/ui-icon-button';
 import '../ui/ui-search-bar';
+import '../ui/ui-language-select';
 import './accessibility-panel';
 
 @customElement('admin-header')
@@ -21,6 +23,7 @@ export class AdminHeader extends LitElement {
   @state() private canGoBack = false;
   @state() private canGoForward = false;
   @state() private a11yPanelOpen = false;
+  @state() private uiLanguage: AppLanguage = i18nService.getLanguage();
 
   // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
@@ -34,6 +37,7 @@ export class AdminHeader extends LitElement {
     window.addEventListener('museum-changed', this.handleMuseumChanged as EventListener);
     window.addEventListener('history-state-changed', this.handleHistoryChanged as EventListener);
     window.addEventListener('theme-changed', this.handleThemeChanged as EventListener);
+    window.addEventListener('ui-language-changed', this.handleLanguageChanged as EventListener);
 
     // Initialize history state
     this.canGoBack = historyService.canGoBack();
@@ -51,6 +55,7 @@ export class AdminHeader extends LitElement {
     window.removeEventListener('museum-changed', this.handleMuseumChanged as EventListener);
     window.removeEventListener('history-state-changed', this.handleHistoryChanged as EventListener);
     window.removeEventListener('theme-changed', this.handleThemeChanged as EventListener);
+    window.removeEventListener('ui-language-changed', this.handleLanguageChanged as EventListener);
     super.disconnectedCallback();
   }
 
@@ -66,6 +71,10 @@ export class AdminHeader extends LitElement {
 
   private handleThemeChanged = (_event: CustomEvent) => {
     this.darkMode = document.documentElement.classList.contains('dark');
+  };
+
+  private handleLanguageChanged = (event: CustomEvent<{ language: AppLanguage }>) => {
+    this.uiLanguage = event.detail?.language || i18nService.getLanguage();
   };
 
   private handleHistoryBack() {
@@ -113,7 +122,7 @@ export class AdminHeader extends LitElement {
               @click=${this.handleMenuToggle}
               class="lg:hidden"
               icon="menu"
-              title="Toggle menu"
+              .title=${__('Apri/chiudi menu')}
             ></ui-icon-button>
 
             <!-- Sidebar Collapse Button (Desktop) -->
@@ -121,7 +130,7 @@ export class AdminHeader extends LitElement {
               @click=${this.handleSidebarToggle}
               class="hidden lg:inline-flex"
               icon="menu"
-              title="Toggle sidebar"
+              .title=${__('Comprimi/espandi sidebar')}
             ></ui-icon-button>
 
             <!-- History Navigation -->
@@ -129,21 +138,18 @@ export class AdminHeader extends LitElement {
               <ui-icon-button
                 @click=${this.handleHistoryBack}
                 icon="arrow-left"
-                title="Indietro"
+                .title=${__('Indietro')}
                 ?disabled=${!this.canGoBack}
                 class="${!this.canGoBack ? 'opacity-40 cursor-not-allowed' : ''}"
               ></ui-icon-button>
               <ui-icon-button
                 @click=${this.handleHistoryForward}
                 icon="arrow-right"
-                title="Avanti"
+                .title=${__('Avanti')}
                 ?disabled=${!this.canGoForward}
                 class="${!this.canGoForward ? 'opacity-40 cursor-not-allowed' : ''}"
               ></ui-icon-button>
             </div>
-
-            <!-- Page Title -->
-            <h1 class="text-lg font-semibold text-surface-900 dark:text-white">${this.title}</h1>
           </div>
 
           <!-- Right Section -->
@@ -152,15 +158,32 @@ export class AdminHeader extends LitElement {
               <ui-button
                 variant="secondary"
                 size="sm"
-                icon="location"
-                .label=${this.selectedMuseum?.name || 'Seleziona museo'}
+                icon="museum"
+                .label=${this.selectedMuseum?.name || __('Seleziona museo')}
                 @click=${this.handleSelectMuseum}
               ></ui-button>
               ${this.selectedMuseum
                 ? html`
                     <ui-icon-button
                       icon="x"
-                      title="Deseleziona museo"
+                      .title=${__('Deseleziona museo')}
+                      @click=${this.handleClearMuseum}
+                    ></ui-icon-button>
+                  `
+                : nothing}
+            </div>
+
+            <div class="lg:hidden flex items-center gap-1">
+              <ui-icon-button
+                icon="museum"
+                .title=${this.selectedMuseum?.name || __('Seleziona museo')}
+                @click=${this.handleSelectMuseum}
+              ></ui-icon-button>
+              ${this.selectedMuseum
+                ? html`
+                    <ui-icon-button
+                      icon="x"
+                      .title=${__('Deseleziona museo')}
                       @click=${this.handleClearMuseum}
                     ></ui-icon-button>
                   `
@@ -171,27 +194,24 @@ export class AdminHeader extends LitElement {
             <ui-icon-button
               @click=${this.toggleDarkMode}
               icon="${this.darkMode ? 'sun' : 'moon'}"
-              title="Toggle theme"
+              .title=${__('Cambia tema')}
             ></ui-icon-button>
 
             <!-- Accessibility -->
             <ui-icon-button
               @click=${() => (this.a11yPanelOpen = true)}
               icon="accessibility"
-              title="Impostazioni accessibilità"
+              .title=${__('Impostazioni accessibilità')}
             ></ui-icon-button>
 
-            <!-- Notifications -->
-            <button
-              class="relative p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-            >
-              <ui-icon
-                name="bell"
-                size="sm"
-                class="text-surface-600 dark:text-surface-300"
-              ></ui-icon>
-              <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-danger-500 rounded-full"></span>
-            </button>
+            <!-- Language Selector -->
+            <ui-language-select
+              compact
+              align="right"
+              .value=${this.uiLanguage}
+              @select-change=${(e: CustomEvent) =>
+                i18nService.setLanguage((e.detail.value || 'it') as AppLanguage)}
+            ></ui-language-select>
 
             <!-- User Menu -->
             <div class="relative user-menu">
@@ -209,7 +229,7 @@ export class AdminHeader extends LitElement {
                 <span
                   class="hidden sm:block text-sm font-medium text-surface-700 dark:text-surface-300"
                 >
-                  ${this.user?.username || 'Utente'}
+                  ${this.user?.username || __('Utente')}
                 </span>
                 <ui-icon name="chevron-down" size="xs" class="text-surface-400"></ui-icon>
               </button>
@@ -231,7 +251,7 @@ export class AdminHeader extends LitElement {
                           class="flex items-center gap-2 w-full px-3 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-md transition-colors"
                         >
                           <ui-icon name="cog" size="xs"></ui-icon>
-                          Impostazioni
+                          ${__('Impostazioni')}
                         </button>
                         <button
                           @click=${() =>
@@ -241,7 +261,7 @@ export class AdminHeader extends LitElement {
                           class="flex items-center gap-2 w-full px-3 py-2 text-sm text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-900/20 rounded-md transition-colors"
                         >
                           <ui-icon name="logout" size="xs"></ui-icon>
-                          Esci
+                          ${__('Esci')}
                         </button>
                       </div>
                     </div>

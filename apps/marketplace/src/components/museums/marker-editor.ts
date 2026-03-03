@@ -13,6 +13,7 @@ import '../ui/ui-select';
 import '../ui/ui-textarea';
 import '../ui/ui-icon-button';
 import '../ui/ui-image-placeholder';
+import { __ } from '../../services/i18n.service';
 
 /**
  * Marker Editor Component
@@ -56,7 +57,12 @@ export class MarkerEditor extends LitElement {
   @state()
   private selectedArtworkId = '';
 
-  private readonly markerTypes = MARKER_TYPE_EDITOR_OPTIONS_IT;
+  private get markerTypes() {
+    return MARKER_TYPE_EDITOR_OPTIONS_IT.map((option) => ({
+      ...option,
+      label: __(option.label),
+    }));
+  }
 
   updated(changedProperties: Map<string, unknown>) {
     // When a marker is selected, switch to the list tab
@@ -156,13 +162,13 @@ export class MarkerEditor extends LitElement {
         ? html`
             <div class="mb-4">
               <ui-select
-                label="Opera collegata"
+                .label=${__('Opera collegata')}
                 .value=${this.selectedArtworkId}
                 .options=${this.artworks.map((artwork) => ({
                   value: artwork._id,
                   label: artwork.title,
                 }))}
-                placeholder="Seleziona opera"
+                .placeholder=${__('Seleziona opera')}
                 @select-change=${(e: CustomEvent) => {
                   this.selectedArtworkId = e.detail.value;
                   const artwork = this.artworks.find((a) => a._id === e.detail.value);
@@ -178,8 +184,8 @@ export class MarkerEditor extends LitElement {
       <!-- Label -->
       <div class="mb-4">
         <ui-input
-          label="Etichetta"
-          placeholder="Nome del punto"
+          .label=${__('Etichetta')}
+          .placeholder=${__('Nome del punto')}
           .value=${this.markerLabel}
           @input-change=${(e: CustomEvent) => (this.markerLabel = e.detail.value)}
         ></ui-input>
@@ -188,9 +194,9 @@ export class MarkerEditor extends LitElement {
       <!-- Description -->
       <div class="mb-4">
         <ui-textarea
-          label="Descrizione (opzionale)"
+          .label=${__('Descrizione (opzionale)')}
           .rows=${2}
-          placeholder="Descrizione aggiuntiva..."
+          .placeholder=${__('Descrizione aggiuntiva...')}
           .value=${this.markerDescription}
           @textarea-change=${(e: CustomEvent) => (this.markerDescription = e.detail.value)}
         ></ui-textarea>
@@ -199,7 +205,7 @@ export class MarkerEditor extends LitElement {
       <!-- Add Button -->
       <ui-button
         variant="primary"
-        label="➕ Aggiungi Marker"
+        .label=${`➕ ${__('Aggiungi Marker')}`}
         block
         ?disabled=${!this.clickPosition || !this.markerLabel}
         @click=${this.addMarker}
@@ -212,7 +218,7 @@ export class MarkerEditor extends LitElement {
       return html`
         <div class="text-center py-8 text-surface-400">
           <div class="text-4xl mb-2">📍</div>
-          <p class="m-0">Nessun marker su questo piano</p>
+          <p class="m-0">${__('Nessun marker su questo piano')}</p>
         </div>
       `;
     }
@@ -244,7 +250,7 @@ export class MarkerEditor extends LitElement {
 
     return html`
       <div class="p-3 bg-surface-700 rounded-lg border border-brand-500/50 mb-4">
-        <div class="text-brand-400 text-sm font-medium mb-3">✏️ Modifica Marker</div>
+        <div class="text-brand-400 text-sm font-medium mb-3">✏️ ${__('Modifica Marker')}</div>
 
         <!-- Marker Type Grid -->
         <div class="mb-3">
@@ -272,13 +278,13 @@ export class MarkerEditor extends LitElement {
           ? html`
               <div class="mb-3">
                 <ui-select
-                  label="Opera collegata"
+                  .label=${__('Opera collegata')}
                   .value=${this.selectedMarker.artworkId || ''}
                   .options=${this.artworks.map((artwork) => ({
                     value: artwork.wikidataId,
                     label: artwork.title,
                   }))}
-                  placeholder="Nessuna opera"
+                  .placeholder=${__('Nessuna opera')}
                   @select-change=${(e: CustomEvent) => this.updateMarkerArtwork(e.detail.value)}
                 ></ui-select>
               </div>
@@ -288,8 +294,8 @@ export class MarkerEditor extends LitElement {
         <!-- Label -->
         <div class="mb-3">
           <ui-input
-            label="Etichetta"
-            placeholder="Nome del punto"
+            .label=${__('Etichetta')}
+            .placeholder=${__('Nome del punto')}
             .value=${this.selectedMarker.label || ''}
             @input-change=${(e: CustomEvent) => this.updateMarkerLabel(e.detail.value)}
           ></ui-input>
@@ -298,9 +304,9 @@ export class MarkerEditor extends LitElement {
         <!-- Description -->
         <div class="mb-3">
           <ui-textarea
-            label="Descrizione"
+            .label=${__('Descrizione')}
             .rows=${2}
-            placeholder="Descrizione aggiuntiva..."
+            .placeholder=${__('Descrizione aggiuntiva...')}
             .value=${this.selectedMarker.description || ''}
             @textarea-change=${(e: CustomEvent) => this.updateMarkerDescription(e.detail.value)}
           ></ui-textarea>
@@ -315,7 +321,7 @@ export class MarkerEditor extends LitElement {
         <ui-button
           variant="secondary"
           size="sm"
-          label="✓ Chiudi modifica"
+          .label=${`✓ ${__('Chiudi modifica')}`}
           block
           @click=${this.deselectMarker}
         ></ui-button>
@@ -395,9 +401,9 @@ export class MarkerEditor extends LitElement {
 
     return html`
       <div class="mt-4 p-3 bg-surface-700 rounded-lg border border-surface-600">
-        <div class="text-surface-300 text-sm font-medium mb-2">🎯 Ritaglio Immagine</div>
+        <div class="text-surface-300 text-sm font-medium mb-2">🎯 ${__('Ritaglio Immagine')}</div>
         <p class="text-surface-400 text-xs mb-3">
-          Trascina l'immagine per spostarla • Scroll per zoom
+          ${__("Trascina l'immagine per spostarla • Scroll per zoom")}
         </p>
 
         <!-- Fixed circle with movable/zoomable image inside -->
@@ -426,7 +432,7 @@ export class MarkerEditor extends LitElement {
 
         <!-- Preview: uses exact same transform -->
         <div class="mt-3 flex items-center gap-3">
-          <div class="text-surface-400 text-xs">Anteprima:</div>
+          <div class="text-surface-400 text-xs">${__('Anteprima')}:</div>
           <div
             class="w-8 h-8 rounded-full overflow-hidden border-2 border-white/80 shadow-lg flex-shrink-0 bg-surface-900"
           >
@@ -453,11 +459,13 @@ export class MarkerEditor extends LitElement {
 
         <!-- Info and reset -->
         <div class="flex justify-between items-center mt-3">
-          <div class="text-xs text-surface-400">Zoom: ${focalZoom.toFixed(1)}x</div>
+          <div class="text-xs text-surface-400">
+            ${__('Ingrandimento')}: ${focalZoom.toFixed(1)}x
+          </div>
           <ui-button
             variant="secondary"
             size="xs"
-            label="🔄 Reset"
+            .label=${__('🔄 Reset')}
             @click=${this.resetFocalPoint}
           ></ui-button>
         </div>
@@ -634,7 +642,7 @@ export class MarkerEditor extends LitElement {
         <ui-icon-button
           icon="trash"
           variant="danger"
-          title="Elimina"
+          .title=${__('Elimina')}
           @click=${(e: Event) => this.deleteMarker(e, marker)}
         ></ui-icon-button>
       </div>
@@ -684,7 +692,7 @@ export class MarkerEditor extends LitElement {
     e.stopPropagation();
 
     const confirmed = await modalService.confirm({
-      title: 'Elimina marker',
+      title: __('Elimina marker'),
       message: `Eliminare il marker "${marker.label}"?`,
       confirmLabel: 'Elimina',
       variant: 'danger',

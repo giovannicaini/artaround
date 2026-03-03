@@ -3,6 +3,7 @@ import { customElement, state } from 'lit/decorators.js';
 import { authService } from './services/auth.service';
 import { preferencesService } from './services/preferences.service';
 import { historyService, type HistoryState } from './services/history.service';
+import { __ } from './services/i18n.service';
 import { ContextualRole, ResourceType, UserRole, type User } from '@artaround/shared';
 
 // Import components
@@ -13,6 +14,9 @@ import './components/pages/dashboard-page';
 import './components/pages/museums-page';
 import './components/pages/artworks-page';
 import './components/pages/contents-page';
+import './components/pages/author-area-page';
+import './components/pages/marketplace-page';
+import './components/pages/purchases-page';
 import './components/pages/users-page';
 import './components/visits/visits-page';
 import './components/museums/museum-map-page';
@@ -54,11 +58,43 @@ export class AppRoot extends LitElement {
     this.checkAuth();
     this.restoreHistoryState();
     window.addEventListener('museum-changed', this.handleMuseumChanged as EventListener);
+    window.addEventListener('ui-language-changed', this.handleLanguageChanged as EventListener);
   }
 
   disconnectedCallback() {
     window.removeEventListener('museum-changed', this.handleMuseumChanged as EventListener);
+    window.removeEventListener('ui-language-changed', this.handleLanguageChanged as EventListener);
     super.disconnectedCallback();
+  }
+
+  private handleLanguageChanged = (_event: CustomEvent) => {
+    this.pageTitle = this.getRouteTitle(this.currentRoute);
+  };
+
+  private getRouteTitle(route: string): string {
+    const labelByRoute: Record<string, string> = {
+      dashboard: 'Dashboard',
+      museums: 'Seleziona Museo',
+      'museums-management': 'Gestione Musei',
+      'museum-maps': 'Gestione Mappe',
+      'museum-edit': 'Modifica Museo',
+      artworks: 'Gestione Opere',
+      'navigator-customizations': 'Configurazioni Navigator',
+      'navigator-default-config': 'Configurazione default app navigator',
+      'author-area': 'Area Autore',
+      marketplace: 'Marketplace',
+      purchases: 'Acquisti',
+      contents: 'Contenuti',
+      visits: 'Visite',
+      users: 'Gestione Utenti',
+      categories: 'Categorie',
+      tags: 'Tag',
+      analytics: 'Analytics',
+      settings: 'Impostazioni',
+    };
+
+    const label = labelByRoute[route] || 'Homepage';
+    return __(label);
   }
 
   // ─── Auth & Navigation ───────────────────────────────────
@@ -96,17 +132,33 @@ export class AppRoot extends LitElement {
       return;
     }
 
+    if (
+      route === 'author-area' &&
+      (!this.currentUser ||
+        (this.currentUser.role !== UserRole.AUTHOR && this.currentUser.role !== UserRole.ADMIN))
+    ) {
+      this.currentRoute = 'dashboard';
+      this.pageTitle = this.getRouteTitle('dashboard');
+      this.pushToHistory('dashboard', {}, this.getRouteTitle('dashboard'));
+      return;
+    }
+
+    if (this.requiresSelectedMuseum(route) && !this.hasSelectedMuseum()) {
+      this.redirectToMuseumsSelection();
+      return;
+    }
+
     if (this.requiresMuseumConfigAccess(route) && !this.canAccessMuseumConfigArea()) {
       this.currentRoute = 'dashboard';
-      this.pageTitle = 'Dashboard';
-      this.pushToHistory('dashboard', {}, 'Dashboard');
+      this.pageTitle = this.getRouteTitle('dashboard');
+      this.pushToHistory('dashboard', {}, this.getRouteTitle('dashboard'));
       return;
     }
 
     if (route === 'navigator-default-config' && this.currentUser?.role !== UserRole.ADMIN) {
       this.currentRoute = 'dashboard';
-      this.pageTitle = 'Dashboard';
-      this.pushToHistory('dashboard', {}, 'Dashboard');
+      this.pageTitle = this.getRouteTitle('dashboard');
+      this.pushToHistory('dashboard', {}, this.getRouteTitle('dashboard'));
       return;
     }
 
@@ -115,25 +167,7 @@ export class AppRoot extends LitElement {
     // Scroll to top on navigation
     window.scrollTo(0, 0);
 
-    // Update page title based on route
-    const titles: Record<string, string> = {
-      dashboard: 'Dashboard',
-      museums: 'Musei',
-      'museums-management': 'Gestione Musei',
-      'museum-maps': 'Gestione Mappe',
-      'museum-edit': 'Modifica Museo',
-      artworks: 'Gestione Opere',
-      'navigator-customizations': 'Configurazioni Navigator',
-      'navigator-default-config': 'Configurazione default app navigator',
-      contents: 'Contenuti',
-      visits: 'Visite',
-      users: 'Gestione Utenti',
-      categories: 'Categorie',
-      tags: 'Tag',
-      analytics: 'Analytics',
-      settings: 'Impostazioni',
-    };
-    this.pageTitle = titles[route] || 'Homepage';
+    this.pageTitle = this.getRouteTitle(route);
 
     // Push to history (only if not navigating from history)
     if (!this.isNavigatingFromHistory) {
@@ -185,6 +219,12 @@ export class AppRoot extends LitElement {
           .openingViewMode=${this.routeParams.viewMode || 'list'}
           @page-state-changed=${this.handlePageStateChanged}
         ></artworks-page>`;
+      case 'author-area':
+        return html`<author-area-page .user=${this.currentUser}></author-area-page>`;
+      case 'marketplace':
+        return html`<marketplace-page .user=${this.currentUser}></marketplace-page>`;
+      case 'purchases':
+        return html`<purchases-page .user=${this.currentUser}></purchases-page>`;
       case 'contents':
         return html`<contents-page .user=${this.currentUser}></contents-page>`;
       case 'visits':
@@ -216,7 +256,7 @@ export class AppRoot extends LitElement {
                 ${this.pageTitle}
               </h3>
               <p class="text-sm text-surface-500 dark:text-surface-400">
-                Questa sezione è in fase di sviluppo
+                ${__('Questa sezione è in fase di sviluppo')}
               </p>
             </div>
           </div>
@@ -238,7 +278,7 @@ export class AppRoot extends LitElement {
             >
               <span class="text-white font-bold text-xl">A</span>
             </div>
-            <p class="text-sm text-surface-500 dark:text-surface-400">Caricamento...</p>
+            <p class="text-sm text-surface-500 dark:text-surface-400">${__('Caricamento...')}</p>
           </div>
         </div>
       `;
@@ -302,37 +342,41 @@ export class AppRoot extends LitElement {
   private handleMuseumConfirmed(e: CustomEvent) {
     preferencesService.setSelectedMuseum(e.detail);
     this.currentRoute = 'artworks';
-    this.pageTitle = 'Gestione Opere';
-    this.pushToHistory('artworks', {}, 'Gestione Opere');
+    this.pageTitle = this.getRouteTitle('artworks');
+    this.pushToHistory('artworks', {}, this.getRouteTitle('artworks'));
   }
 
   private handleSelectMuseum() {
     this.currentRoute = 'museums';
-    this.pageTitle = 'Seleziona Museo';
-    this.pushToHistory('museums', {}, 'Seleziona Museo');
+    this.pageTitle = this.getRouteTitle('museums');
+    this.pushToHistory('museums', {}, this.getRouteTitle('museums'));
   }
 
   private handleMuseumChanged = (event: CustomEvent) => {
     if (!event.detail) {
       this.currentRoute = 'dashboard';
-      this.pageTitle = 'Dashboard';
+      this.pageTitle = this.getRouteTitle('dashboard');
       this.routeParams = {};
-      this.pushToHistory('dashboard', {}, 'Dashboard');
+      this.pushToHistory('dashboard', {}, this.getRouteTitle('dashboard'));
       return;
     }
 
     if (this.requiresMuseumConfigAccess(this.currentRoute) && !this.canAccessMuseumConfigArea()) {
       this.currentRoute = 'dashboard';
-      this.pageTitle = 'Dashboard';
-      this.pushToHistory('dashboard', {}, 'Dashboard');
+      this.pageTitle = this.getRouteTitle('dashboard');
+      this.pushToHistory('dashboard', {}, this.getRouteTitle('dashboard'));
     }
   };
 
   private handleOpenMapEditor(e: CustomEvent) {
     this.routeParams = { museumId: e.detail.museumId };
     this.currentRoute = 'museum-maps';
-    this.pageTitle = 'Gestione Mappe';
-    this.pushToHistory('museum-maps', { museumId: e.detail.museumId }, 'Gestione Mappe');
+    this.pageTitle = this.getRouteTitle('museum-maps');
+    this.pushToHistory(
+      'museum-maps',
+      { museumId: e.detail.museumId },
+      this.getRouteTitle('museum-maps'),
+    );
   }
 
   private handleOpenArtworkDetail(e: CustomEvent) {
@@ -341,8 +385,12 @@ export class AppRoot extends LitElement {
 
     this.routeParams = { ...this.routeParams, artworkId: String(artworkId) };
     this.currentRoute = 'artworks';
-    this.pageTitle = 'Gestione Opere';
-    this.pushToHistory('artworks', { artworkId: String(artworkId) }, 'Gestione Opere');
+    this.pageTitle = this.getRouteTitle('artworks');
+    this.pushToHistory(
+      'artworks',
+      { artworkId: String(artworkId) },
+      this.getRouteTitle('artworks'),
+    );
   }
 
   /**
@@ -381,6 +429,26 @@ export class AppRoot extends LitElement {
     return route === 'museum-edit' || route === 'artworks' || route === 'navigator-customizations';
   }
 
+  private requiresSelectedMuseum(route: string): boolean {
+    return (
+      route === 'author-area' ||
+      route === 'marketplace' ||
+      route === 'purchases' ||
+      route === 'contents'
+    );
+  }
+
+  private hasSelectedMuseum(): boolean {
+    return Boolean(preferencesService.getSelectedMuseum()?._id);
+  }
+
+  private redirectToMuseumsSelection(): void {
+    this.currentRoute = 'museums';
+    this.pageTitle = this.getRouteTitle('museums');
+    this.routeParams = {};
+    this.pushToHistory('museums', {}, this.getRouteTitle('museums'));
+  }
+
   private canAccessMuseumConfigArea(): boolean {
     const selectedMuseum = preferencesService.getSelectedMuseum();
 
@@ -414,7 +482,7 @@ export class AppRoot extends LitElement {
       this.isNavigatingFromHistory = false;
     } else {
       // Prima visita: aggiungi dashboard alla history
-      this.pushToHistory('dashboard', {}, 'Dashboard');
+      this.pushToHistory('dashboard', {}, this.getRouteTitle('dashboard'));
     }
   }
 
@@ -447,23 +515,30 @@ export class AppRoot extends LitElement {
    */
   private navigateToState(state: HistoryState): void {
     // Verifica i permessi prima di navigare
+    if (this.requiresSelectedMuseum(state.route) && !this.hasSelectedMuseum()) {
+      this.currentRoute = 'museums';
+      this.pageTitle = this.getRouteTitle('museums');
+      this.routeParams = {};
+      return;
+    }
+
     if (this.requiresMuseumConfigAccess(state.route) && !this.canAccessMuseumConfigArea()) {
       this.currentRoute = 'dashboard';
-      this.pageTitle = 'Dashboard';
+      this.pageTitle = this.getRouteTitle('dashboard');
       this.routeParams = {};
       return;
     }
 
     if (state.route === 'navigator-default-config' && this.currentUser?.role !== UserRole.ADMIN) {
       this.currentRoute = 'dashboard';
-      this.pageTitle = 'Dashboard';
+      this.pageTitle = this.getRouteTitle('dashboard');
       this.routeParams = {};
       return;
     }
 
     this.currentRoute = state.route;
     this.routeParams = { ...state.params };
-    this.pageTitle = state.title;
+    this.pageTitle = this.getRouteTitle(state.route);
 
     // Scroll to top on navigation
     window.scrollTo(0, 0);

@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import './ui-icon';
 import './ui-button';
+import { __ } from '../../services/i18n.service';
 
 export type AlertVariant = 'success' | 'danger' | 'warning' | 'info';
 
@@ -12,8 +13,8 @@ export type AlertVariant = 'success' | 'danger' | 'warning' | 'info';
  *
  * @example
  * ```html
- * <ui-alert variant="danger" message="Si è verificato un errore"></ui-alert>
- * <ui-alert variant="success" message="Operazione completata!"></ui-alert>
+ * <ui-alert variant="danger" .message=${__('Si è verificato un errore')}></ui-alert>
+ * <ui-alert variant="success" .message=${__('Operazione completata!')}></ui-alert>
  * <ui-alert variant="info" title="Nota" message="Informazione importante"></ui-alert>
  * ```
  */
@@ -113,7 +114,7 @@ export class UiAlert extends LitElement {
                   class="mt-2 text-sm font-medium ${config.iconColor} hover:underline"
                   @click=${this.handleRetry}
                 >
-                  Riprova
+                  ${__('Riprova')}
                 </button>
               `
             : nothing}
@@ -124,7 +125,7 @@ export class UiAlert extends LitElement {
                 type="button"
                 class="flex-shrink-0 p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors ${config.iconColor}"
                 @click=${this.handleDismiss}
-                aria-label="Chiudi"
+                aria-label=${__('Chiudi')}
               >
                 <ui-icon name="x" size="sm"></ui-icon>
               </button>

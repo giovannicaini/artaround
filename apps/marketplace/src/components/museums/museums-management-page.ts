@@ -6,7 +6,8 @@ import type { TableColumn, TableAction } from '../ui/ui-table';
 import { museumService } from '../../services/museum.service';
 import { userService } from '../../services/user.service';
 import { uploadService } from '../../services/upload.service';
-import type { Museum, User, CreateMuseumData, MuseumCurator } from '@artaround/shared';
+import { translationService } from '../../services/translation.service';
+import type { Museum, User, CreateMuseumData, MuseumCurator, AppLanguage } from '@artaround/shared';
 import { UserRole, ContextualRole, ResourceType } from '@artaround/shared';
 import '../ui/ui-button';
 import '../ui/ui-card';
@@ -29,6 +30,7 @@ import '../ui/ui-list-controls';
 import '../ui/ui-color-input';
 import '../ui/image-editor';
 import '../items/wikidata-autocomplete';
+import { __, i18nService } from '../../services/i18n.service';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'view' | 'curators';
 type MuseumListLayout = 'grid' | 'table';
@@ -47,6 +49,10 @@ interface MuseumFormData {
   wikidataId: string;
   name: string;
   description: string;
+  primaryLanguage: AppLanguage;
+  nameTranslations: Partial<Record<AppLanguage, string>>;
+  descriptionTranslations: Partial<Record<AppLanguage, string>>;
+  activeLanguages: AppLanguage[];
   address: string;
   city: string;
   country: string;
@@ -56,7 +62,9 @@ interface MuseumFormData {
   phone: string;
   email: string;
   openingHours: string;
+  openingHoursTranslations: Partial<Record<AppLanguage, string>>;
   ticketInfo: string;
+  ticketInfoTranslations: Partial<Record<AppLanguage, string>>;
   coverImage: string;
   navigatorConfigs: NavigatorConfigFormData[];
 }
@@ -141,45 +149,45 @@ export class MuseumsManagementPage extends LitElement {
   private static readonly HEX_COLOR_REGEX = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
   private static readonly SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
   private readonly navigatorImageEditors: NavigatorImageEditorDefinition[] = [
-    { key: 'logo', label: 'Logo', maxWidth: 512, maxHeight: 512, defaultFormat: 'png' },
+    { key: 'logo', label: __('Logo'), maxWidth: 512, maxHeight: 512, defaultFormat: 'png' },
     {
       key: 'splashImage',
-      label: 'Immagine apertura',
+      label: __('Immagine apertura'),
       maxWidth: 1440,
       maxHeight: 2560,
       defaultFormat: 'webp',
     },
     {
       key: 'openingImage',
-      label: 'Opening image',
+      label: __('Opening image'),
       maxWidth: 1440,
       maxHeight: 2560,
       defaultFormat: 'webp',
     },
     {
       key: 'icon192',
-      label: 'Icon 192x192',
+      label: __('Icon 192x192'),
       maxWidth: 192,
       maxHeight: 192,
       defaultFormat: 'png',
     },
     {
       key: 'icon512',
-      label: 'Icon 512x512',
+      label: __('Icon 512x512'),
       maxWidth: 512,
       maxHeight: 512,
       defaultFormat: 'png',
     },
     {
       key: 'iconMaskable',
-      label: 'Icon maskable',
+      label: __('Icon maskable'),
       maxWidth: 512,
       maxHeight: 512,
       defaultFormat: 'png',
     },
     {
       key: 'appleTouchIcon',
-      label: 'Apple touch icon',
+      label: __('Apple touch icon'),
       maxWidth: 180,
       maxHeight: 180,
       defaultFormat: 'png',
@@ -195,6 +203,8 @@ export class MuseumsManagementPage extends LitElement {
   @state() private selectedMuseum: Museum | null = null;
   @state() private loading = true;
   @state() private saving = false;
+  @state() private syncingLanguages = false;
+  @state() private translatingMuseumFields = false;
   @state() private error = '';
   @state() private success = '';
 
@@ -223,21 +233,35 @@ export class MuseumsManagementPage extends LitElement {
   @state() private addingCurator = false;
   @state() private removingCuratorId: string | null = null;
 
-  private readonly listSortOptions: Array<{ value: MuseumSortField; label: string }> = [
-    { value: 'name', label: 'Nome' },
-    { value: 'city', label: 'Città' },
-    { value: 'country', label: 'Paese' },
-    { value: 'status', label: 'Stato' },
-  ];
+  private get listSortOptions(): Array<{ value: MuseumSortField; label: string }> {
+    return [
+      { value: 'name', label: __('Nome') },
+      { value: 'city', label: __('Città') },
+      { value: 'country', label: __('Paese') },
+      { value: 'status', label: __('Stato') },
+    ];
+  }
 
-  private readonly listColumnOptions: Array<{ key: string; label: string }> = [
-    { key: 'name', label: 'Nome' },
-    { key: 'city', label: 'Città' },
-    { key: 'country', label: 'Paese' },
-    { key: 'status', label: 'Stato' },
-  ];
+  private get listColumnOptions(): Array<{ key: string; label: string }> {
+    return [
+      { key: 'name', label: __('Nome') },
+      { key: 'city', label: __('Città') },
+      { key: 'country', label: __('Paese') },
+      { key: 'status', label: __('Stato') },
+    ];
+  }
 
   private readonly defaultVisibleColumns = ['name', 'city', 'country', 'status'];
+
+  private get languageOptions(): Array<{ value: AppLanguage; label: string }> {
+    return [
+      { value: 'it', label: `🇮🇹 ${__('Italiano')}` },
+      { value: 'en', label: `🇬🇧 ${__('English')}` },
+      { value: 'fr', label: `🇫🇷 ${__('Français')}` },
+      { value: 'de', label: `🇩🇪 ${__('Deutsch')}` },
+      { value: 'es', label: `🇪🇸 ${__('Español')}` },
+    ];
+  }
 
   // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
@@ -271,6 +295,10 @@ export class MuseumsManagementPage extends LitElement {
       wikidataId: '',
       name: '',
       description: '',
+      primaryLanguage: 'it',
+      nameTranslations: {},
+      descriptionTranslations: {},
+      activeLanguages: ['it'],
       address: '',
       city: '',
       country: 'Italia',
@@ -280,7 +308,9 @@ export class MuseumsManagementPage extends LitElement {
       phone: '',
       email: '',
       openingHours: '',
+      openingHoursTranslations: {},
       ticketInfo: '',
+      ticketInfoTranslations: {},
       coverImage: '',
       navigatorConfigs: [this.getEmptyNavigatorConfig(1)],
     };
@@ -349,6 +379,152 @@ export class MuseumsManagementPage extends LitElement {
       iconMaskable: config.pwa.iconMaskable || '',
       appleTouchIcon: config.pwa.appleTouchIcon || '',
     })) as NavigatorConfigFormData[];
+  }
+
+  private getActiveSourceLanguage(): AppLanguage {
+    return this.formData.primaryLanguage || 'it';
+  }
+
+  private getMuseumTargetLanguages(): AppLanguage[] {
+    const source = this.getActiveSourceLanguage();
+    return this.formData.activeLanguages.filter((lang) => lang !== source);
+  }
+
+  private setPrimaryLanguage(lang: AppLanguage) {
+    const additional = this.formData.activeLanguages.filter((value) => value !== lang);
+    this.formData = {
+      ...this.formData,
+      primaryLanguage: lang,
+      activeLanguages: [lang, ...additional],
+    };
+  }
+
+  private normalizeTranslationMap(
+    values: Partial<Record<AppLanguage, string>>,
+  ): Partial<Record<AppLanguage, string>> | undefined {
+    const source = this.getActiveSourceLanguage();
+    const targets = new Set(this.getMuseumTargetLanguages());
+    const cleaned: Partial<Record<AppLanguage, string>> = {};
+
+    for (const [langRaw, valueRaw] of Object.entries(values)) {
+      const lang = langRaw as AppLanguage;
+      const value = String(valueRaw || '').trim();
+
+      if (!value) continue;
+      if (lang === source) continue;
+      if (!targets.has(lang)) continue;
+
+      cleaned[lang] = value;
+    }
+
+    return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+  }
+
+  private getLocalizedMuseumName(museum: Museum | null): string {
+    if (!museum) return '';
+
+    const currentLanguage = i18nService.getLanguage();
+    if (currentLanguage === 'it') {
+      return museum.name;
+    }
+
+    return museum.nameTranslations?.[currentLanguage] || museum.name;
+  }
+
+  private async translateMissingMuseumFields() {
+    const sourceLanguage = this.getActiveSourceLanguage();
+    const targets = this.getMuseumTargetLanguages();
+
+    if (targets.length === 0) {
+      this.error = __('Seleziona almeno una lingua aggiuntiva per tradurre');
+      return;
+    }
+
+    const batchItems: Array<{ key: string; text: string; targetLang: AppLanguage }> = [];
+
+    for (const lang of targets) {
+      if (this.formData.name.trim() && !this.formData.nameTranslations[lang]?.trim()) {
+        batchItems.push({ key: `${lang}:name`, text: this.formData.name, targetLang: lang });
+      }
+      if (
+        this.formData.description.trim() &&
+        !this.formData.descriptionTranslations[lang]?.trim()
+      ) {
+        batchItems.push({
+          key: `${lang}:description`,
+          text: this.formData.description,
+          targetLang: lang,
+        });
+      }
+      if (
+        this.formData.openingHours.trim() &&
+        !this.formData.openingHoursTranslations[lang]?.trim()
+      ) {
+        batchItems.push({
+          key: `${lang}:openingHours`,
+          text: this.formData.openingHours,
+          targetLang: lang,
+        });
+      }
+      if (this.formData.ticketInfo.trim() && !this.formData.ticketInfoTranslations[lang]?.trim()) {
+        batchItems.push({
+          key: `${lang}:ticketInfo`,
+          text: this.formData.ticketInfo,
+          targetLang: lang,
+        });
+      }
+    }
+
+    if (batchItems.length === 0) {
+      this.success = __('Le traduzioni del museo sono già complete');
+      return;
+    }
+
+    this.translatingMuseumFields = true;
+    this.error = '';
+
+    try {
+      const translations = await translationService.translateBatch(sourceLanguage, batchItems);
+
+      const nextNameTranslations = { ...this.formData.nameTranslations };
+      const nextDescriptionTranslations = { ...this.formData.descriptionTranslations };
+      const nextOpeningHoursTranslations = { ...this.formData.openingHoursTranslations };
+      const nextTicketInfoTranslations = { ...this.formData.ticketInfoTranslations };
+
+      for (const lang of targets) {
+        const nameKey = `${lang}:name`;
+        const descriptionKey = `${lang}:description`;
+        const openingHoursKey = `${lang}:openingHours`;
+        const ticketInfoKey = `${lang}:ticketInfo`;
+
+        if (translations[nameKey]) {
+          nextNameTranslations[lang] = translations[nameKey];
+        }
+        if (translations[descriptionKey]) {
+          nextDescriptionTranslations[lang] = translations[descriptionKey];
+        }
+        if (translations[openingHoursKey]) {
+          nextOpeningHoursTranslations[lang] = translations[openingHoursKey];
+        }
+        if (translations[ticketInfoKey]) {
+          nextTicketInfoTranslations[lang] = translations[ticketInfoKey];
+        }
+      }
+
+      this.formData = {
+        ...this.formData,
+        nameTranslations: nextNameTranslations,
+        descriptionTranslations: nextDescriptionTranslations,
+        openingHoursTranslations: nextOpeningHoursTranslations,
+        ticketInfoTranslations: nextTicketInfoTranslations,
+      };
+
+      this.success = __('Traduzioni del museo generate con successo');
+    } catch {
+      this.error = __('Traduzione automatica non riuscita');
+    } finally {
+      this.translatingMuseumFields = false;
+    }
   }
 
   private addNavigatorConfig() {
@@ -420,44 +596,44 @@ export class MuseumsManagementPage extends LitElement {
 
     for (const config of configs) {
       if (!config.id.trim() || !config.name.trim()) {
-        return 'Ogni configurazione deve avere ID e nome';
+        return __('Ogni configurazione deve avere ID e nome');
       }
 
       const slug = this.sanitizeSlug(config.slug);
       if (!slug || !MuseumsManagementPage.SLUG_REGEX.test(slug)) {
-        return `Slug non valido per "${config.name}" (usa solo lettere minuscole, numeri e trattini)`;
+        return `${__('Slug non valido per')} "${config.name}" (${__('usa solo lettere minuscole, numeri e trattini')})`;
       }
 
       if (slugSet.has(slug)) {
-        return `Slug duplicato: ${slug}`;
+        return `${__('Slug duplicato')}: ${slug}`;
       }
       slugSet.add(slug);
 
       if (!config.manifestName.trim() || !config.shortName.trim()) {
-        return `Manifest name e short name sono obbligatori per "${config.name}"`;
+        return `${__('Manifest name e short name sono obbligatori per')} "${config.name}"`;
       }
 
       if (!config.startUrl.trim() || !config.scope.trim()) {
-        return `Start URL e scope sono obbligatori per "${config.name}"`;
+        return `${__('Start URL e scope sono obbligatori per')} "${config.name}"`;
       }
 
       if (!config.icon192.trim() || !config.icon512.trim()) {
-        return `Le icone 192x192 e 512x512 sono obbligatorie per "${config.name}"`;
+        return `${__('Le icone 192x192 e 512x512 sono obbligatorie per')} "${config.name}"`;
       }
 
       const colors = [
-        { label: 'Primary color', value: config.primaryColor },
-        { label: 'Theme color', value: config.themeColor },
-        { label: 'Background color', value: config.backgroundColor },
+        { label: __('Colore primario'), value: config.primaryColor },
+        { label: __('Colore tema'), value: config.themeColor },
+        { label: __('Colore sfondo'), value: config.backgroundColor },
       ];
 
       if (config.secondaryColor.trim()) {
-        colors.push({ label: 'Secondary color', value: config.secondaryColor });
+        colors.push({ label: __('Colore secondario'), value: config.secondaryColor });
       }
 
       for (const color of colors) {
         if (!MuseumsManagementPage.HEX_COLOR_REGEX.test(color.value.trim())) {
-          return `${color.label} non valido in "${config.name}". Usa formato HEX (es. #0ea5e9)`;
+          return `${color.label} ${__('non valido in')} "${config.name}". ${__('Usa formato HEX (es. #0ea5e9)')}`;
         }
       }
     }
@@ -561,7 +737,7 @@ export class MuseumsManagementPage extends LitElement {
       this.museums = await museumService.getMuseums();
     } catch (e) {
       console.error('Error loading museums:', e);
-      this.error = 'Errore nel caricamento dei musei';
+      this.error = __('Errore nel caricamento dei musei');
     } finally {
       this.loading = false;
     }
@@ -642,7 +818,7 @@ export class MuseumsManagementPage extends LitElement {
     return html`
       <ui-badge
         variant=${this.activeFilterCount > 0 ? 'primary' : 'secondary'}
-        .label=${`${this.activeFilterCount} filtri`}
+        .label=${`${this.activeFilterCount} ${__('filtri')}`}
       ></ui-badge>
     `;
   }
@@ -651,15 +827,15 @@ export class MuseumsManagementPage extends LitElement {
     return html`
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         <ui-input
-          label="Ricerca"
-          placeholder="Nome museo, città, descrizione..."
+          .label=${__('Ricerca')}
+          .placeholder=${__('Nome museo, città, descrizione...')}
           .value=${this.searchQuery}
           @input-change=${(e: CustomEvent<{ value: string }>) =>
             (this.searchQuery = e.detail.value)}
         ></ui-input>
 
         <ui-select
-          label="Ordina per"
+          .label=${__('Ordina per')}
           .value=${this.sortField}
           .options=${this.listSortOptions}
           @select-change=${(e: CustomEvent<{ value: MuseumSortField }>) =>
@@ -667,29 +843,31 @@ export class MuseumsManagementPage extends LitElement {
         ></ui-select>
 
         <ui-select
-          label="Direzione"
+          .label=${__('Direzione')}
           .value=${this.sortDirection}
           .options=${[
-            { value: 'asc', label: 'Crescente' },
-            { value: 'desc', label: 'Decrescente' },
+            { value: 'asc', label: __('Crescente') },
+            { value: 'desc', label: __('Decrescente') },
           ]}
           @select-change=${(e: CustomEvent<{ value: 'asc' | 'desc' }>) =>
             (this.sortDirection = e.detail.value)}
         ></ui-select>
 
         <div>
-          <p class="text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Vista</p>
+          <p class="text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
+            ${__('Vista')}
+          </p>
           <div class="flex items-center gap-2">
             <ui-button
               size="xs"
               .variant=${this.listLayout === 'grid' ? 'primary' : 'secondary'}
-              label="Griglia"
+              .label=${__('Griglia')}
               @click=${() => (this.listLayout = 'grid')}
             ></ui-button>
             <ui-button
               size="xs"
               .variant=${this.listLayout === 'table' ? 'primary' : 'secondary'}
-              label="Tabella"
+              .label=${__('Tabella')}
               @click=${() => (this.listLayout = 'table')}
             ></ui-button>
           </div>
@@ -697,7 +875,9 @@ export class MuseumsManagementPage extends LitElement {
       </div>
 
       <div class="space-y-2">
-        <p class="text-sm font-medium text-surface-700 dark:text-surface-300">Campi visibili</p>
+        <p class="text-sm font-medium text-surface-700 dark:text-surface-300">
+          ${__('Campi visibili')}
+        </p>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
           ${this.listColumnOptions.map(
             (column) => html`
@@ -718,7 +898,7 @@ export class MuseumsManagementPage extends LitElement {
         <ui-button
           variant="secondary"
           size="sm"
-          label="Reset"
+          .label=${__('Reset')}
           @click=${this.resetListControls}
         ></ui-button>
       </div>
@@ -729,23 +909,23 @@ export class MuseumsManagementPage extends LitElement {
     const columns: TableColumn[] = [];
 
     if (this.hasVisibleColumn('name')) {
-      columns.push({ key: 'name', label: 'Nome' });
+      columns.push({ key: 'name', label: __('Nome') });
     }
     if (this.hasVisibleColumn('city')) {
-      columns.push({ key: 'city', label: 'Città' });
+      columns.push({ key: 'city', label: __('Città') });
     }
     if (this.hasVisibleColumn('country')) {
-      columns.push({ key: 'country', label: 'Paese' });
+      columns.push({ key: 'country', label: __('Paese') });
     }
     if (this.hasVisibleColumn('status')) {
       columns.push({
         key: 'status',
-        label: 'Stato',
+        label: __('Stato'),
         render: (_value, row) => {
           const museum = row.__museum as Museum;
           return museum.isActive
-            ? html`<ui-badge variant="success" label="Attivo"></ui-badge>`
-            : html`<ui-badge variant="secondary" label="Inattivo"></ui-badge>`;
+            ? html`<ui-badge variant="success" .label=${__('Attivo')}></ui-badge>`
+            : html`<ui-badge variant="secondary" .label=${__('Inattivo')}></ui-badge>`;
         },
       });
     }
@@ -758,7 +938,7 @@ export class MuseumsManagementPage extends LitElement {
       name: museum.name,
       city: museum.location?.city || '—',
       country: museum.location?.country || '—',
-      status: museum.isActive ? 'Attivo' : 'Inattivo',
+      status: museum.isActive ? __('Attivo') : __('Inattivo'),
       __museum: museum,
     }));
   }
@@ -767,18 +947,18 @@ export class MuseumsManagementPage extends LitElement {
     const actions: TableAction[] = [];
 
     if (this.isAdmin) {
-      actions.push({ icon: 'users', label: 'Gestisci Curatori', action: 'curators' });
+      actions.push({ icon: 'users', label: __('Gestisci Curatori'), action: 'curators' });
     }
 
     actions.push({
       icon: 'edit',
-      label: 'Modifica',
+      label: __('Modifica'),
       action: 'edit',
       condition: (row) => this.canEditMuseum(row.__museum as Museum),
     });
 
     if (this.isAdmin) {
-      actions.push({ icon: 'trash', label: 'Elimina', action: 'delete', variant: 'danger' });
+      actions.push({ icon: 'trash', label: __('Elimina'), action: 'delete', variant: 'danger' });
     }
 
     return actions;
@@ -822,7 +1002,7 @@ export class MuseumsManagementPage extends LitElement {
     if (!this.selectedMuseumId) {
       this.viewMode = 'edit';
       this.selectedMuseum = null;
-      this.error = 'Seleziona prima un museo dalla dashboard';
+      this.error = __('Seleziona prima un museo dalla dashboard');
       return;
     }
 
@@ -832,30 +1012,45 @@ export class MuseumsManagementPage extends LitElement {
     try {
       const museum = await museumService.getMuseum(this.selectedMuseumId);
       if (!museum) {
-        this.error = 'Museo non trovato';
+        this.error = __('Museo non trovato');
         return;
       }
 
       if (!this.canEditMuseum(museum)) {
-        this.error = 'Non hai i permessi per configurare questo museo';
+        this.error = __('Non hai i permessi per configurare questo museo');
         return;
       }
 
       this.openEditForm(museum);
     } catch (e) {
       console.error('Error loading museum configuration:', e);
-      this.error = 'Errore nel caricamento del museo';
+      this.error = __('Errore nel caricamento del museo');
     } finally {
       this.loading = false;
     }
   }
 
   private openEditForm(museum: Museum) {
+    const inferredPrimaryLanguage: AppLanguage =
+      museum.activeLanguages && museum.activeLanguages.length > 0
+        ? museum.activeLanguages[0]
+        : 'it';
+    const normalizedActiveLanguages =
+      museum.activeLanguages && museum.activeLanguages.length > 0
+        ? (Array.from(
+            new Set([inferredPrimaryLanguage, ...museum.activeLanguages]),
+          ) as AppLanguage[])
+        : (['it'] as AppLanguage[]);
+
     this.selectedMuseum = museum;
     this.formData = {
       wikidataId: museum.wikidataId || '',
       name: museum.name,
       description: museum.description || '',
+      primaryLanguage: inferredPrimaryLanguage,
+      nameTranslations: museum.nameTranslations || {},
+      descriptionTranslations: museum.descriptionTranslations || {},
+      activeLanguages: normalizedActiveLanguages,
       address: museum.location?.address || '',
       city: museum.location?.city || '',
       country: museum.location?.country || 'Italia',
@@ -865,13 +1060,68 @@ export class MuseumsManagementPage extends LitElement {
       phone: museum.services?.phone || '',
       email: museum.services?.email || '',
       openingHours: museum.services?.openingHours || '',
+      openingHoursTranslations: museum.services?.openingHoursTranslations || {},
       ticketInfo: museum.services?.ticketInfo || '',
+      ticketInfoTranslations: museum.services?.ticketInfoTranslations || {},
       coverImage: museum.coverImage || '',
       navigatorConfigs: this.mapNavigatorConfigsFromMuseum(museum),
     };
     this.viewMode = 'edit';
     this.error = '';
     this.success = '';
+  }
+
+  private toggleActiveLanguage(lang: AppLanguage, checked: boolean) {
+    if (lang === this.formData.primaryLanguage) {
+      return;
+    }
+
+    const current = new Set(this.formData.activeLanguages);
+
+    if (checked) {
+      current.add(lang);
+    } else {
+      current.delete(lang);
+    }
+
+    const next = Array.from(current).filter((value) => value !== this.formData.primaryLanguage);
+    this.formData = {
+      ...this.formData,
+      activeLanguages: [this.formData.primaryLanguage, ...next],
+    };
+  }
+
+  private async syncMuseumLanguages() {
+    if (!this.selectedMuseum) {
+      this.error = __('Seleziona prima un museo da modificare');
+      return;
+    }
+
+    this.syncingLanguages = true;
+    this.error = '';
+    this.success = '';
+
+    try {
+      const result = await museumService.syncMuseumLanguages(
+        this.selectedMuseum._id,
+        this.formData.activeLanguages,
+      );
+
+      if (!result.data) {
+        this.error = result.error || 'Errore durante sincronizzazione lingue';
+        return;
+      }
+
+      this.success = `Sincronizzazione completata. Contenuti: aggiornati ${result.data.items.updated}, traduzioni AI ${result.data.items.generated}, rimosse ${result.data.items.removed}. Visite: aggiornate ${result.data.visits.updated}, traduzioni AI ${result.data.visits.generated}, rimosse ${result.data.visits.removed}.`;
+
+      await this.loadMuseums();
+      const refreshed = await museumService.getMuseum(this.selectedMuseum._id);
+      if (refreshed) {
+        this.openEditForm(refreshed);
+      }
+    } finally {
+      this.syncingLanguages = false;
+    }
   }
 
   private async openCuratorsView(museum: Museum) {
@@ -889,7 +1139,7 @@ export class MuseumsManagementPage extends LitElement {
       this.curators = await museumService.getCurators(museumId);
     } catch (e) {
       console.error('Error loading curators:', e);
-      this.error = 'Errore nel caricamento dei curatori';
+      this.error = __('Errore nel caricamento dei curatori');
     } finally {
       this.loadingCurators = false;
     }
@@ -918,7 +1168,7 @@ export class MuseumsManagementPage extends LitElement {
     try {
       const result = await museumService.addCurator(this.selectedMuseum._id, this.selectedUserId);
       if (result.success) {
-        this.success = 'Curatore aggiunto con successo';
+        this.success = __('Curatore aggiunto con successo');
         this.selectedUserId = '';
         await this.loadCurators(this.selectedMuseum._id);
         await this.loadAvailableUsers();
@@ -926,7 +1176,7 @@ export class MuseumsManagementPage extends LitElement {
         this.error = result.error || "Errore durante l'aggiunta del curatore";
       }
     } catch (e) {
-      this.error = "Errore durante l'aggiunta del curatore";
+      this.error = __("Errore durante l'aggiunta del curatore");
     } finally {
       this.addingCurator = false;
     }
@@ -941,14 +1191,14 @@ export class MuseumsManagementPage extends LitElement {
     try {
       const result = await museumService.removeCurator(this.selectedMuseum._id, userId);
       if (result.success) {
-        this.success = 'Curatore rimosso con successo';
+        this.success = __('Curatore rimosso con successo');
         await this.loadCurators(this.selectedMuseum._id);
         await this.loadAvailableUsers();
       } else {
         this.error = result.error || 'Errore durante la rimozione del curatore';
       }
     } catch (e) {
-      this.error = 'Errore durante la rimozione del curatore';
+      this.error = __('Errore durante la rimozione del curatore');
     } finally {
       this.removingCuratorId = null;
     }
@@ -978,7 +1228,7 @@ export class MuseumsManagementPage extends LitElement {
 
     // Validation: wikidataId is required for new museums
     if (this.viewMode === 'create' && !this.formData.wikidataId) {
-      this.error = 'Seleziona un museo da Wikidata prima di continuare';
+      this.error = __('Seleziona un museo da Wikidata prima di continuare');
       return;
     }
 
@@ -991,10 +1241,27 @@ export class MuseumsManagementPage extends LitElement {
     this.saving = true;
 
     try {
+      const normalizedActiveLanguages =
+        this.formData.activeLanguages.length > 0
+          ? Array.from(
+              new Set([
+                this.formData.primaryLanguage,
+                ...this.formData.activeLanguages.filter(
+                  (lang) => lang !== this.formData.primaryLanguage,
+                ),
+              ]),
+            )
+          : (['it'] as AppLanguage[]);
+
       const data: CreateMuseumData & { navigatorConfigs?: unknown[] } = {
         wikidataId: this.formData.wikidataId,
         name: this.formData.name,
         description: this.formData.description,
+        nameTranslations: this.normalizeTranslationMap(this.formData.nameTranslations),
+        descriptionTranslations: this.normalizeTranslationMap(
+          this.formData.descriptionTranslations,
+        ),
+        activeLanguages: normalizedActiveLanguages,
         location: {
           address: this.formData.address,
           city: this.formData.city,
@@ -1008,7 +1275,13 @@ export class MuseumsManagementPage extends LitElement {
           phone: this.formData.phone || undefined,
           email: this.formData.email || undefined,
           openingHours: this.formData.openingHours || undefined,
+          openingHoursTranslations: this.normalizeTranslationMap(
+            this.formData.openingHoursTranslations,
+          ),
           ticketInfo: this.formData.ticketInfo || undefined,
+          ticketInfoTranslations: this.normalizeTranslationMap(
+            this.formData.ticketInfoTranslations,
+          ),
         },
         navigatorConfigs:
           this.formData.navigatorConfigs.length > 0
@@ -1050,7 +1323,7 @@ export class MuseumsManagementPage extends LitElement {
       if (this.viewMode === 'create') {
         const result = await museumService.createMuseum(data);
         if (result.data) {
-          this.success = 'Museo creato con successo';
+          this.success = __('Museo creato con successo');
           await this.loadMuseums();
           this.backToList();
         } else {
@@ -1059,7 +1332,7 @@ export class MuseumsManagementPage extends LitElement {
       } else if (this.viewMode === 'edit' && this.selectedMuseum) {
         const result = await museumService.updateMuseum(this.selectedMuseum._id, data);
         if (result.data) {
-          this.success = 'Museo aggiornato con successo';
+          this.success = __('Museo aggiornato con successo');
           await this.loadMuseums();
           this.backToList();
         } else {
@@ -1067,7 +1340,7 @@ export class MuseumsManagementPage extends LitElement {
         }
       }
     } catch (e) {
-      this.error = 'Errore durante il salvataggio';
+      this.error = __('Errore durante il salvataggio');
     } finally {
       this.saving = false;
     }
@@ -1080,6 +1353,9 @@ export class MuseumsManagementPage extends LitElement {
       wikidataId: id,
       name: label || '',
       description: description || '',
+      primaryLanguage: this.formData.primaryLanguage || 'it',
+      nameTranslations: {},
+      descriptionTranslations: {},
       coverImage: imageUrl || '',
     };
   }
@@ -1103,14 +1379,14 @@ export class MuseumsManagementPage extends LitElement {
     try {
       const result = await museumService.deleteMuseum(this.museumToDelete._id);
       if (result.success) {
-        this.success = 'Museo eliminato con successo';
+        this.success = __('Museo eliminato con successo');
         await this.loadMuseums();
         this.closeDeleteModal();
       } else {
         this.error = result.error || "Errore durante l'eliminazione";
       }
     } catch (e) {
-      this.error = "Errore durante l'eliminazione";
+      this.error = __("Errore durante l'eliminazione");
     } finally {
       this.deleting = false;
     }
@@ -1202,11 +1478,11 @@ export class MuseumsManagementPage extends LitElement {
         <!-- Delete Modal -->
         <ui-modal
           .open=${this.deleteModalOpen}
-          title="Elimina Museo"
+          .title=${__('Elimina Museo')}
           message="Sei sicuro di voler eliminare ${this.museumToDelete
             ?.name}? Questa azione è irreversibile."
           variant="danger"
-          confirmLabel="Elimina"
+          .confirmLabel=${__('Elimina')}
           .loading=${this.deleting}
           @confirm=${this.confirmDelete}
           @cancel=${this.closeDeleteModal}
@@ -1220,14 +1496,14 @@ export class MuseumsManagementPage extends LitElement {
     const museums = this.sortedMuseums;
 
     return html`
-      <ui-page-header title="Gestione Musei" description="Gestisci i musei e assegna curatori">
+      <ui-page-header .title=${__('Gestione Musei')} description="">
         ${this.isAdmin
           ? html`
               <ui-button
                 slot="actions"
                 variant="primary"
                 icon="plus"
-                label="Nuovo Museo"
+                .label=${__('Nuovo Museo')}
                 @click=${this.openCreateForm}
               ></ui-button>
             `
@@ -1235,8 +1511,8 @@ export class MuseumsManagementPage extends LitElement {
       </ui-page-header>
 
       <ui-list-controls
-        title="Filtri e visualizzazione"
-        description="Espandi per cercare, ordinare e cambiare layout"
+        .title=${__('Filtri e visualizzazione')}
+        .description=${__('Espandi per cercare, ordinare e cambiare layout')}
         .collapsed=${this.controlsCollapsed}
         .renderSummary=${() => this.renderListControlsSummary()}
         .renderContent=${() => this.renderListControlsContent()}
@@ -1249,10 +1525,10 @@ export class MuseumsManagementPage extends LitElement {
         ? html`<ui-loading></ui-loading>`
         : museums.length === 0
           ? html`<ui-empty
-              title="Nessun museo trovato"
+              .title=${__('Nessun museo trovato')}
               description=${this.searchQuery
-                ? 'Prova a modificare la ricerca'
-                : 'Crea il primo museo per iniziare'}
+                ? __('Prova a modificare la ricerca')
+                : __('Crea il primo museo per iniziare')}
               icon="folder"
             ></ui-empty>`
           : this.listLayout === 'grid'
@@ -1313,7 +1589,7 @@ export class MuseumsManagementPage extends LitElement {
                 ? html`
                     <ui-icon-button
                       icon="edit"
-                      title="Modifica"
+                      .title=${__('Modifica')}
                       @click=${() => this.openEditForm(museum)}
                     ></ui-icon-button>
                   `
@@ -1322,13 +1598,13 @@ export class MuseumsManagementPage extends LitElement {
                 ? html`
                     <ui-icon-button
                       icon="users"
-                      title="Gestisci Curatori"
+                      .title=${__('Gestisci Curatori')}
                       @click=${() => this.openCuratorsView(museum)}
                     ></ui-icon-button>
                     <ui-icon-button
                       icon="trash"
                       variant="danger"
-                      title="Elimina"
+                      .title=${__('Elimina')}
                       @click=${() => this.openDeleteModal(museum)}
                     ></ui-icon-button>
                   `
@@ -1336,8 +1612,8 @@ export class MuseumsManagementPage extends LitElement {
             </div>
             ${this.hasVisibleColumn('status')
               ? museum.isActive
-                ? html`<ui-badge variant="success" label="Attivo"></ui-badge>`
-                : html`<ui-badge variant="secondary" label="Inattivo"></ui-badge>`
+                ? html`<ui-badge variant="success" .label=${__('Attivo')}></ui-badge>`
+                : html`<ui-badge variant="secondary" .label=${__('Inattivo')}></ui-badge>`
               : nothing}
           </div>
         </div>
@@ -1350,22 +1626,27 @@ export class MuseumsManagementPage extends LitElement {
     const isMuseumOnlyMode = this.configMode === 'museum';
     const isNavigatorOnlyMode = this.configMode === 'navigator';
     const showBaseSections = !isNavigatorOnlyMode;
-    const showNavigatorSection = !isMuseumOnlyMode;
+    const showNavigatorSection = isNavigatorOnlyMode;
     const canManageNavigatorConfigs = true;
+    const sourceLanguage = this.getActiveSourceLanguage();
+    const sourceLanguageLabel =
+      this.languageOptions.find((option) => option.value === sourceLanguage)?.label ||
+      sourceLanguage.toUpperCase();
+    const localizedMuseumName = this.getLocalizedMuseumName(this.selectedMuseum);
     const formTitle = isCreate
-      ? 'Nuovo Museo'
+      ? __('Nuovo Museo')
       : isMuseumOnlyMode
-        ? `Modifica Museo ${this.selectedMuseum?.name || ''}`
+        ? `${__('Modifica Museo')} ${localizedMuseumName || ''}`
         : isNavigatorOnlyMode
-          ? `Configurazioni Navigator - ${this.selectedMuseum?.name || ''}`
-          : `Modifica ${this.selectedMuseum?.name}`;
+          ? `${__('Configurazioni Navigator')} - ${localizedMuseumName || ''}`
+          : `${__('Modifica')} ${localizedMuseumName}`;
     const formDescription = isCreate
-      ? 'Crea un nuovo museo nel sistema'
+      ? __('Crea un nuovo museo nel sistema')
       : isMuseumOnlyMode
-        ? 'Aggiorna dati e servizi del museo selezionato'
+        ? __('Aggiorna dati e servizi del museo selezionato')
         : isNavigatorOnlyMode
-          ? 'Gestisci branding, manifest e asset PWA del navigator'
-          : 'Modifica le informazioni del museo';
+          ? __('Gestisci branding, manifest e asset PWA del navigator')
+          : __('Modifica le informazioni del museo');
 
     if (this.loading && this.configMode !== 'full') {
       return html`<ui-loading></ui-loading>`;
@@ -1374,24 +1655,24 @@ export class MuseumsManagementPage extends LitElement {
     if (this.configMode !== 'full' && !this.selectedMuseum) {
       return html`
         <ui-empty
-          title="Museo non disponibile"
-          description="Seleziona un museo dalla dashboard per accedere a questa sezione"
+          .title=${__('Museo non disponibile')}
+          .description=${__('Seleziona un museo dalla dashboard per accedere a questa sezione')}
           icon="folder"
         ></ui-empty>
       `;
     }
     const navigatorDisplayOptions = [
-      { value: 'standalone', label: 'Standalone' },
-      { value: 'fullscreen', label: 'Fullscreen' },
-      { value: 'minimal-ui', label: 'Minimal UI' },
-      { value: 'browser', label: 'Browser' },
+      { value: 'standalone', label: __('Standalone') },
+      { value: 'fullscreen', label: __('Fullscreen') },
+      { value: 'minimal-ui', label: __('Minimal UI') },
+      { value: 'browser', label: __('Browser') },
     ];
 
     const navigatorOrientationOptions = [
-      { value: 'portrait', label: 'Portrait' },
-      { value: 'landscape', label: 'Landscape' },
-      { value: 'natural', label: 'Natural' },
-      { value: 'any', label: 'Any' },
+      { value: 'portrait', label: __('Portrait') },
+      { value: 'landscape', label: __('Landscape') },
+      { value: 'natural', label: __('Natural') },
+      { value: 'any', label: __('Any') },
     ];
 
     return html`
@@ -1408,15 +1689,15 @@ export class MuseumsManagementPage extends LitElement {
             class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
           >
             <ui-icon name="link" size="sm" class="text-blue-500"></ui-icon>
-            Riferimento Wikidata
+            ${__('Riferimento Wikidata')}
           </h3>
           <ui-card padding="none">
             <div class="p-6 space-y-4">
               ${isCreate
                 ? html`
                     <wikidata-autocomplete
-                      label="Cerca museo su Wikidata"
-                      placeholder="Cerca il museo su Wikidata..."
+                      .label=${__('Cerca museo su Wikidata')}
+                      .placeholder=${__('Cerca il museo su Wikidata...')}
                       searchType="museum"
                       required
                       @wikidata-select=${this.handleWikidataSelect}
@@ -1428,11 +1709,11 @@ export class MuseumsManagementPage extends LitElement {
                     >
                       <label
                         class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1"
-                        >ID Wikidata</label
+                        >${__('ID Wikidata')}</label
                       >
                       <div class="flex items-center gap-2">
                         <ui-badge variant="secondary" .label=${this.formData.wikidataId}></ui-badge>
-                        <span class="text-xs text-surface-500">(non modificabile)</span>
+                        <span class="text-xs text-surface-500">(${__('non modificabile')})</span>
                       </div>
                     </div>
                   `}
@@ -1457,13 +1738,13 @@ export class MuseumsManagementPage extends LitElement {
             class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
           >
             <ui-icon name="image" size="sm" class="text-brand-500"></ui-icon>
-            Informazioni Base
+            ${__('Informazioni Base')}
           </h3>
           <ui-card padding="none">
             <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ui-input
-                label="Nome *"
-                placeholder="Nome del museo"
+                .label=${__('Nome *')}
+                .placeholder=${__('Nome del museo')}
                 .value=${this.formData.name}
                 @input-change=${(e: CustomEvent) =>
                   (this.formData = { ...this.formData, name: e.detail.value })}
@@ -1471,7 +1752,7 @@ export class MuseumsManagementPage extends LitElement {
               ></ui-input>
 
               <image-editor
-                label="Immagine di copertina"
+                .label=${__('Immagine di copertina')}
                 category="museums"
                 .value=${this.formData.coverImage}
                 maxWidth=${1200}
@@ -1485,8 +1766,8 @@ export class MuseumsManagementPage extends LitElement {
 
               <div class="lg:col-span-2">
                 <ui-textarea
-                  label="Descrizione"
-                  placeholder="Descrizione del museo..."
+                  .label=${__('Descrizione')}
+                  .placeholder=${__('Descrizione del museo...')}
                   .value=${this.formData.description}
                   @textarea-change=${(e: CustomEvent) =>
                     (this.formData = { ...this.formData, description: e.detail.value })}
@@ -1501,14 +1782,195 @@ export class MuseumsManagementPage extends LitElement {
           <h3
             class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
           >
+            <ui-icon name="globe" size="sm" class="text-indigo-500"></ui-icon>
+            ${__('Lingue attive')}
+          </h3>
+          <ui-card padding="none">
+            <div class="p-6 space-y-4">
+              <ui-select
+                .label=${__('Lingua principale del museo')}
+                .value=${this.formData.primaryLanguage}
+                .options=${this.languageOptions}
+                @select-change=${(e: CustomEvent<{ value: AppLanguage }>) =>
+                  this.setPrimaryLanguage(e.detail.value)}
+              ></ui-select>
+
+              <label class="block text-sm font-medium text-surface-700 dark:text-surface-300"
+                >${__('Lingue aggiuntive del museo')}</label
+              >
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                ${this.languageOptions
+                  .filter((option) => option.value !== this.formData.primaryLanguage)
+                  .map(
+                    (option) => html`
+                      <ui-checkbox
+                        .label=${option.label}
+                        .checked=${this.formData.activeLanguages.includes(option.value)}
+                        @checkbox-change=${(e: CustomEvent) =>
+                          this.toggleActiveLanguage(option.value, Boolean(e.detail.checked))}
+                      ></ui-checkbox>
+                    `,
+                  )}
+              </div>
+              <p class="text-xs text-surface-500 dark:text-surface-400">
+                ${__(
+                  'La lingua principale è quella usata per scrivere i contenuti di base. Le lingue aggiuntive saranno usate per traduzioni e contenuti multilingua.',
+                )}
+              </p>
+
+              ${this.viewMode === 'edit' && this.selectedMuseum
+                ? html`
+                    <div class="pt-2 border-t border-surface-200 dark:border-surface-700">
+                      <ui-button
+                        type="button"
+                        variant="secondary"
+                        icon="sparkles"
+                        .label=${__('Sincronizza traduzioni esistenti')}
+                        .loading=${this.syncingLanguages}
+                        @click=${this.syncMuseumLanguages}
+                      ></ui-button>
+                      <p class="mt-2 text-xs text-surface-500 dark:text-surface-400">
+                        ${__(
+                          'Applica le lingue attive ai contenuti e visite già presenti: rimuove traduzioni non richieste e genera con AI quelle mancanti.',
+                        )}
+                      </p>
+                    </div>
+                  `
+                : nothing}
+            </div>
+          </ui-card>
+        </section>
+
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="languages" size="sm" class="text-violet-500"></ui-icon>
+            ${__('Traduzioni museo')}
+          </h3>
+          <ui-card padding="none">
+            <div class="p-6 space-y-5">
+              <div class="flex flex-wrap items-center gap-3">
+                <ui-button
+                  type="button"
+                  variant="secondary"
+                  icon="sparkles"
+                  .label=${__('Traduci campi mancanti con AI')}
+                  .loading=${this.translatingMuseumFields}
+                  .disabled=${this.getMuseumTargetLanguages().length === 0}
+                  @click=${this.translateMissingMuseumFields}
+                ></ui-button>
+                <ui-badge
+                  variant="secondary"
+                  .label=${`${__('Lingua sorgente')}: ${sourceLanguageLabel}`}
+                ></ui-badge>
+                <p class="text-xs text-surface-500 dark:text-surface-400">
+                  ${__(
+                    'Compila automaticamente nome, descrizione, orari e biglietti per le lingue aggiuntive non ancora tradotte.',
+                  )}
+                </p>
+              </div>
+
+              ${this.getMuseumTargetLanguages().length === 0
+                ? html`<p class="text-sm text-surface-600 dark:text-surface-300">
+                    ${__(
+                      'Aggiungi almeno una lingua aggiuntiva per inserire o generare traduzioni del museo.',
+                    )}
+                  </p>`
+                : nothing}
+
+              <div class="space-y-6">
+                ${this.getMuseumTargetLanguages().map((lang) => {
+                  const languageLabel = this.languageOptions.find(
+                    (option) => option.value === lang,
+                  )?.label;
+
+                  return html`
+                    <div
+                      class="p-4 rounded-lg border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/50 space-y-4"
+                    >
+                      <h4 class="font-medium text-surface-900 dark:text-white">
+                        ${__('Traduzioni in')} ${languageLabel || lang.toUpperCase()}
+                      </h4>
+
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <ui-input
+                          .label=${__('Nome museo')}
+                          .value=${this.formData.nameTranslations[lang] || ''}
+                          @input-change=${(e: CustomEvent) =>
+                            (this.formData = {
+                              ...this.formData,
+                              nameTranslations: {
+                                ...this.formData.nameTranslations,
+                                [lang]: e.detail.value,
+                              },
+                            })}
+                        ></ui-input>
+                      </div>
+
+                      <ui-textarea
+                        .label=${__('Descrizione')}
+                        .value=${this.formData.descriptionTranslations[lang] || ''}
+                        @textarea-change=${(e: CustomEvent) =>
+                          (this.formData = {
+                            ...this.formData,
+                            descriptionTranslations: {
+                              ...this.formData.descriptionTranslations,
+                              [lang]: e.detail.value,
+                            },
+                          })}
+                        rows="3"
+                      ></ui-textarea>
+
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <ui-textarea
+                          .label=${__('Orari di apertura')}
+                          .value=${this.formData.openingHoursTranslations[lang] || ''}
+                          @textarea-change=${(e: CustomEvent) =>
+                            (this.formData = {
+                              ...this.formData,
+                              openingHoursTranslations: {
+                                ...this.formData.openingHoursTranslations,
+                                [lang]: e.detail.value,
+                              },
+                            })}
+                          rows="3"
+                        ></ui-textarea>
+
+                        <ui-textarea
+                          .label=${__('Informazioni biglietti')}
+                          .value=${this.formData.ticketInfoTranslations[lang] || ''}
+                          @textarea-change=${(e: CustomEvent) =>
+                            (this.formData = {
+                              ...this.formData,
+                              ticketInfoTranslations: {
+                                ...this.formData.ticketInfoTranslations,
+                                [lang]: e.detail.value,
+                              },
+                            })}
+                          rows="3"
+                        ></ui-textarea>
+                      </div>
+                    </div>
+                  `;
+                })}
+              </div>
+            </div>
+          </ui-card>
+        </section>
+
+        <section>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
             <ui-icon name="location" size="sm" class="text-emerald-500"></ui-icon>
-            Posizione
+            ${__('Posizione')}
           </h3>
           <ui-card padding="none">
             <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               <ui-input
-                label="Indirizzo *"
-                placeholder="Via..."
+                .label=${__('Indirizzo *')}
+                .placeholder=${__('Via...')}
                 .value=${this.formData.address}
                 @input-change=${(e: CustomEvent) =>
                   (this.formData = { ...this.formData, address: e.detail.value })}
@@ -1516,8 +1978,8 @@ export class MuseumsManagementPage extends LitElement {
               ></ui-input>
 
               <ui-input
-                label="Città *"
-                placeholder="Città"
+                .label=${__('Città *')}
+                .placeholder=${__('Città')}
                 .value=${this.formData.city}
                 @input-change=${(e: CustomEvent) =>
                   (this.formData = { ...this.formData, city: e.detail.value })}
@@ -1525,24 +1987,24 @@ export class MuseumsManagementPage extends LitElement {
               ></ui-input>
 
               <ui-input
-                label="Regione"
-                placeholder="Regione"
+                .label=${__('Regione')}
+                .placeholder=${__('Regione')}
                 .value=${this.formData.region}
                 @input-change=${(e: CustomEvent) =>
                   (this.formData = { ...this.formData, region: e.detail.value })}
               ></ui-input>
 
               <ui-input
-                label="CAP"
-                placeholder="00000"
+                .label=${__('CAP')}
+                .placeholder=${__('00000')}
                 .value=${this.formData.postalCode}
                 @input-change=${(e: CustomEvent) =>
                   (this.formData = { ...this.formData, postalCode: e.detail.value })}
               ></ui-input>
 
               <ui-input
-                label="Paese *"
-                placeholder="Italia"
+                .label=${__('Paese *')}
+                .placeholder=${__('Italia')}
                 .value=${this.formData.country}
                 @input-change=${(e: CustomEvent) =>
                   (this.formData = { ...this.formData, country: e.detail.value })}
@@ -1557,29 +2019,29 @@ export class MuseumsManagementPage extends LitElement {
             class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
           >
             <ui-icon name="globe" size="sm" class="text-amber-500"></ui-icon>
-            Contatti e Servizi
+            ${__('Contatti e Servizi')}
           </h3>
           <ui-card padding="none">
             <div class="p-6 space-y-4">
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <ui-input
-                  label="Sito Web"
-                  placeholder="https://..."
+                  .label=${__('Sito Web')}
+                  .placeholder=${__('https://...')}
                   .value=${this.formData.website}
                   @input-change=${(e: CustomEvent) =>
                     (this.formData = { ...this.formData, website: e.detail.value })}
                 ></ui-input>
                 <ui-input
-                  label="Telefono"
-                  placeholder="+39..."
+                  .label=${__('Telefono')}
+                  .placeholder=${__('+39...')}
                   .value=${this.formData.phone}
                   @input-change=${(e: CustomEvent) =>
                     (this.formData = { ...this.formData, phone: e.detail.value })}
                 ></ui-input>
                 <ui-input
-                  label="Email"
+                  .label=${__('Email')}
                   type="email"
-                  placeholder="info@museo.it"
+                  .placeholder=${__('info@museo.it')}
                   .value=${this.formData.email}
                   @input-change=${(e: CustomEvent) =>
                     (this.formData = { ...this.formData, email: e.detail.value })}
@@ -1587,8 +2049,8 @@ export class MuseumsManagementPage extends LitElement {
               </div>
 
               <ui-textarea
-                label="Orari di apertura"
-                placeholder="Lun-Ven: 9-18..."
+                .label=${__('Orari di apertura')}
+                .placeholder=${__('Lun-Ven: 9-18...')}
                 .value=${this.formData.openingHours}
                 @textarea-change=${(e: CustomEvent) =>
                   (this.formData = { ...this.formData, openingHours: e.detail.value })}
@@ -1596,8 +2058,8 @@ export class MuseumsManagementPage extends LitElement {
               ></ui-textarea>
 
               <ui-textarea
-                label="Informazioni biglietti"
-                placeholder="Prezzo intero, ridotto..."
+                .label=${__('Informazioni biglietti')}
+                .placeholder=${__('Prezzo intero, ridotto...')}
                 .value=${this.formData.ticketInfo}
                 @textarea-change=${(e: CustomEvent) =>
                   (this.formData = { ...this.formData, ticketInfo: e.detail.value })}
@@ -1613,7 +2075,7 @@ export class MuseumsManagementPage extends LitElement {
               class="text-lg font-semibold text-surface-900 dark:text-white flex items-center gap-2"
             >
               <ui-icon name="cog" size="sm" class="text-purple-500"></ui-icon>
-              Configurazioni Navigator
+              ${__('Configurazioni Navigator')}
             </h3>
             ${canManageNavigatorConfigs
               ? html`<ui-button
@@ -1621,7 +2083,7 @@ export class MuseumsManagementPage extends LitElement {
                   variant="secondary"
                   size="sm"
                   icon="plus"
-                  label="Aggiungi Config"
+                  .label=${__('Aggiungi Config')}
                   @click=${this.addNavigatorConfig}
                 ></ui-button>`
               : nothing}
@@ -1629,8 +2091,10 @@ export class MuseumsManagementPage extends LitElement {
 
           ${isNavigatorOnlyMode && this.formData.navigatorConfigs.length === 0
             ? html`<ui-empty
-                title="Nessuna personalizzazione navigator"
-                description="Questo museo non ha configurazioni navigator personalizzate. Usa Aggiungi Config per crearne una."
+                .title=${__('Nessuna personalizzazione navigator')}
+                .description=${__(
+                  'Questo museo non ha configurazioni navigator personalizzate. Usa Aggiungi Config per crearne una.',
+                )}
                 icon="cog"
               ></ui-empty>`
             : nothing}
@@ -1650,14 +2114,14 @@ export class MuseumsManagementPage extends LitElement {
                           variant="secondary"
                           size="sm"
                           icon="download"
-                          label="Export Manifest"
+                          .label=${__('Esporta manifest')}
                           @click=${() => this.exportNavigatorManifest(config)}
                         ></ui-button>
                         ${canManageNavigatorConfigs
                           ? html`<ui-icon-button
                               icon="trash"
                               variant="danger"
-                              title="Rimuovi configurazione"
+                              .title=${__('Rimuovi configurazione')}
                               @click=${() => this.removeNavigatorConfig(config.id)}
                             ></ui-icon-button>`
                           : nothing}
@@ -1666,14 +2130,14 @@ export class MuseumsManagementPage extends LitElement {
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <ui-input
-                        label="Nome Config *"
+                        .label=${__('Nome Config *')}
                         .value=${config.name}
                         @input-change=${(e: CustomEvent) =>
                           this.updateNavigatorConfig(config.id, { name: e.detail.value })}
                         required
                       ></ui-input>
                       <ui-input
-                        label="Slug *"
+                        .label=${__('Slug *')}
                         .value=${config.slug}
                         @input-change=${(e: CustomEvent) =>
                           this.updateNavigatorConfig(config.id, {
@@ -1682,7 +2146,7 @@ export class MuseumsManagementPage extends LitElement {
                         required
                       ></ui-input>
                       <ui-input
-                        label="Titolo Home"
+                        .label=${__('Titolo Home')}
                         .value=${config.homeTitle}
                         @input-change=${(e: CustomEvent) =>
                           this.updateNavigatorConfig(config.id, { homeTitle: e.detail.value })}
@@ -1691,20 +2155,20 @@ export class MuseumsManagementPage extends LitElement {
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <ui-input
-                        label="Sottotitolo Home"
+                        .label=${__('Sottotitolo Home')}
                         .value=${config.homeSubtitle}
                         @input-change=${(e: CustomEvent) =>
                           this.updateNavigatorConfig(config.id, { homeSubtitle: e.detail.value })}
                       ></ui-input>
                       <ui-input
-                        label="Manifest Name *"
+                        .label=${__('Nome manifest *')}
                         .value=${config.manifestName}
                         @input-change=${(e: CustomEvent) =>
                           this.updateNavigatorConfig(config.id, { manifestName: e.detail.value })}
                         required
                       ></ui-input>
                       <ui-input
-                        label="Manifest Short Name *"
+                        .label=${__('Nome breve manifest *')}
                         .value=${config.shortName}
                         @input-change=${(e: CustomEvent) =>
                           this.updateNavigatorConfig(config.id, { shortName: e.detail.value })}
@@ -1713,32 +2177,32 @@ export class MuseumsManagementPage extends LitElement {
                       ${this.renderNavigatorColorField(
                         config,
                         'primaryColor',
-                        'Primary Color',
+                        __('Colore primario'),
                         '#0ea5e9',
                       )}
                       ${this.renderNavigatorColorField(
                         config,
                         'secondaryColor',
-                        'Secondary Color',
+                        __('Colore secondario'),
                         '#1f2937',
                       )}
                       ${this.renderNavigatorColorField(
                         config,
                         'themeColor',
-                        'Theme Color',
+                        __('Colore tema'),
                         '#0ea5e9',
                       )}
                       ${this.renderNavigatorColorField(
                         config,
                         'backgroundColor',
-                        'Background Color',
+                        __('Colore sfondo'),
                         '#ffffff',
                       )}
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <ui-select
-                        label="Display"
+                        .label=${__('Visualizzazione')}
                         .value=${config.display}
                         .options=${navigatorDisplayOptions}
                         @select-change=${(e: CustomEvent) =>
@@ -1747,7 +2211,7 @@ export class MuseumsManagementPage extends LitElement {
                           })}
                       ></ui-select>
                       <ui-select
-                        label="Orientation"
+                        .label=${__('Orientamento')}
                         .value=${config.orientation}
                         .options=${navigatorOrientationOptions}
                         @select-change=${(e: CustomEvent) =>
@@ -1756,7 +2220,7 @@ export class MuseumsManagementPage extends LitElement {
                           })}
                       ></ui-select>
                       <ui-input
-                        label="Start URL"
+                        .label=${__('URL iniziale')}
                         .value=${config.startUrl}
                         @input-change=${(e: CustomEvent) =>
                           this.updateNavigatorConfig(config.id, {
@@ -1764,7 +2228,7 @@ export class MuseumsManagementPage extends LitElement {
                           })}
                       ></ui-input>
                       <ui-input
-                        label="Scope"
+                        .label=${__('Ambito')}
                         .value=${config.scope}
                         @input-change=${(e: CustomEvent) =>
                           this.updateNavigatorConfig(config.id, { scope: e.detail.value || '/' })}
@@ -1772,7 +2236,7 @@ export class MuseumsManagementPage extends LitElement {
                     </div>
 
                     <ui-textarea
-                      label="Testo di benvenuto"
+                      .label=${__('Testo di benvenuto')}
                       .value=${config.welcomeText}
                       @textarea-change=${(e: CustomEvent) =>
                         this.updateNavigatorConfig(config.id, { welcomeText: e.detail.value })}
@@ -1780,7 +2244,7 @@ export class MuseumsManagementPage extends LitElement {
                     ></ui-textarea>
 
                     <ui-textarea
-                      label="Manifest Description"
+                      .label=${__('Descrizione manifest')}
                       .value=${config.manifestDescription}
                       @textarea-change=${(e: CustomEvent) =>
                         this.updateNavigatorConfig(config.id, {
@@ -1800,11 +2264,15 @@ export class MuseumsManagementPage extends LitElement {
         </section>
 
         <div class="flex justify-end gap-3">
-          <ui-button variant="secondary" label="Annulla" @click=${this.backToList}></ui-button>
+          <ui-button
+            variant="secondary"
+            .label=${__('Annulla')}
+            @click=${this.backToList}
+          ></ui-button>
           <ui-button
             type="submit"
             variant="primary"
-            label=${isCreate ? 'Crea Museo' : 'Salva Modifiche'}
+            .label=${isCreate ? __('Crea Museo') : __('Salva Modifiche')}
             icon="check"
             .loading=${this.saving}
           ></ui-button>
@@ -1816,8 +2284,8 @@ export class MuseumsManagementPage extends LitElement {
   private renderCurators() {
     return html`
       <ui-page-header
-        title="Curatori - ${this.selectedMuseum?.name}"
-        description="Gestisci i curatori che possono modificare questo museo"
+        title="${__('Curatori')} - ${this.selectedMuseum?.name}"
+        .description=${__('Gestisci i curatori che possono modificare questo museo')}
         showBack
         @back=${this.backToList}
       ></ui-page-header>
@@ -1826,14 +2294,14 @@ export class MuseumsManagementPage extends LitElement {
         <div class="p-6 space-y-6">
           <!-- Add Curator -->
           <ui-section
-            title="Aggiungi Curatore"
-            description="Assegna un nuovo curatore a questo museo"
+            .title=${__('Aggiungi Curatore')}
+            .description=${__('Assegna un nuovo curatore a questo museo')}
             .renderContent=${() => html`
               <div class="flex gap-3 items-end">
                 <div class="flex-1">
                   <ui-select
-                    label="Seleziona utente"
-                    placeholder=${this.loadingUsers ? 'Caricamento...' : 'Scegli un utente'}
+                    .label=${__('Seleziona utente')}
+                    placeholder=${this.loadingUsers ? __('Caricamento...') : __('Scegli un utente')}
                     .value=${this.selectedUserId}
                     .options=${this.availableUsers.map((u) => ({
                       value: u._id,
@@ -1845,7 +2313,7 @@ export class MuseumsManagementPage extends LitElement {
                 </div>
                 <ui-button
                   variant="primary"
-                  label="Aggiungi"
+                  .label=${__('Aggiungi')}
                   icon="plus"
                   .loading=${this.addingCurator}
                   ?disabled=${!this.selectedUserId}
@@ -1857,13 +2325,13 @@ export class MuseumsManagementPage extends LitElement {
 
           <!-- Curators List -->
           <ui-section
-            title="Curatori Attuali"
-            description="Utenti con permesso di modifica"
+            .title=${__('Curatori Attuali')}
+            .description=${__('Utenti con permesso di modifica')}
             .renderContent=${() =>
               this.loadingCurators
                 ? html`<ui-loading></ui-loading>`
                 : this.curators.length === 0
-                  ? html`<p class="text-surface-500 text-sm">Nessun curatore assegnato</p>`
+                  ? html`<p class="text-surface-500 text-sm">${__('Nessun curatore assegnato')}</p>`
                   : html`
                       <div class="space-y-3">
                         ${this.curators.map(
@@ -1889,7 +2357,7 @@ export class MuseumsManagementPage extends LitElement {
                               <ui-button
                                 variant="ghost"
                                 size="sm"
-                                label="Rimuovi"
+                                .label=${__('Rimuovi')}
                                 icon="trash"
                                 .loading=${this.removingCuratorId === curator._id}
                                 @click=${() => this.handleRemoveCurator(curator._id)}

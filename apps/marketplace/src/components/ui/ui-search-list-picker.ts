@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { __ } from '../../services/i18n.service';
 
 export interface SearchListPickerOption {
   value: string;
@@ -10,11 +11,11 @@ export interface SearchListPickerOption {
 export class UiSearchListPicker extends LitElement {
   @property({ type: String }) label = '';
   @property({ type: String }) value = '';
-  @property({ type: String }) placeholder = 'Cerca...';
+  @property({ type: String }) placeholder = '';
   @property({ type: Boolean }) loading = false;
-  @property({ type: String }) loadingText = 'Caricamento...';
-  @property({ type: String }) emptyText = 'Nessun elemento disponibile';
-  @property({ type: String }) noResultsText = 'Nessun risultato';
+  @property({ type: String }) loadingText = '';
+  @property({ type: String }) emptyText = '';
+  @property({ type: String }) noResultsText = '';
   @property({ type: Boolean }) showSelectedHint = true;
   @property({ type: Array }) options: SearchListPickerOption[] = [];
 
@@ -55,6 +56,10 @@ export class UiSearchListPicker extends LitElement {
   // ─── Render ──────────────────────────────────────────────
   render() {
     const filtered = this.filteredOptions;
+    const resolvedPlaceholder = this.placeholder || __('Cerca...');
+    const resolvedLoadingText = this.loadingText || __('Caricamento...');
+    const resolvedEmptyText = this.emptyText || __('Nessun elemento disponibile');
+    const resolvedNoResultsText = this.noResultsText || __('Nessun risultato');
 
     return html`
       <div class="space-y-1.5">
@@ -82,13 +87,13 @@ export class UiSearchListPicker extends LitElement {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                 ></path>
               </svg>
-              ${this.loadingText}
+              ${resolvedLoadingText}
             </div>`
           : html`
               <input
                 type="text"
                 .value=${this.query}
-                placeholder=${this.placeholder}
+                placeholder=${resolvedPlaceholder}
                 class="block w-full px-3 py-2 text-sm rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
                 @input=${(e: InputEvent) => {
                   this.query = (e.target as HTMLInputElement).value;
@@ -100,7 +105,7 @@ export class UiSearchListPicker extends LitElement {
               >
                 ${filtered.length === 0
                   ? html`<p class="px-3 py-3 text-sm text-surface-400 text-center">
-                      ${this.options.length === 0 ? this.emptyText : this.noResultsText}
+                      ${this.options.length === 0 ? resolvedEmptyText : resolvedNoResultsText}
                     </p>`
                   : filtered.map(
                       (option) => html`

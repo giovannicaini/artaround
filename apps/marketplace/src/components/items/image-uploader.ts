@@ -3,11 +3,12 @@ import { customElement, property, state } from 'lit/decorators.js';
 import '../ui/ui-icon';
 import '../ui/ui-button';
 import '../ui/ui-image-placeholder';
+import { __ } from '../../services/i18n.service';
 
 @customElement('image-uploader')
 export class ImageUploader extends LitElement {
-  @property({ type: String }) label = 'Immagine';
-  @property({ type: String }) hint = 'PNG, JPG fino a 5MB';
+  @property({ type: String }) label = '';
+  @property({ type: String }) hint = '';
   @property({ type: String }) value = '';
   @property({ type: String }) error = '';
   @property({ type: Boolean }) required = false;
@@ -51,13 +52,13 @@ export class ImageUploader extends LitElement {
   private async processFile(file: File) {
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      this.error = "Il file deve essere un'immagine";
+      this.error = __("Il file deve essere un'immagine");
       return;
     }
 
     // Validate file size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
-      this.error = "L'immagine non può superare i 5MB";
+      this.error = __("L'immagine non può superare i 5MB");
       return;
     }
 
@@ -77,7 +78,7 @@ export class ImageUploader extends LitElement {
       );
     } catch (e) {
       console.error('Error processing image:', e);
-      this.error = "Errore durante l'elaborazione dell'immagine";
+      this.error = __("Errore durante l'elaborazione dell'immagine");
     } finally {
       this.uploading = false;
     }
@@ -106,10 +107,13 @@ export class ImageUploader extends LitElement {
 
   // ─── Render Entry ────────────────────────────────────────
   render() {
+    const resolvedLabel = this.label || __('Immagine');
+    const resolvedHint = this.hint || __('PNG, JPG fino a 5MB');
+
     return html`
       <div class="space-y-1.5">
         <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
-          ${this.label}
+          ${resolvedLabel}
           ${this.required ? html`<span class="text-danger-500 ml-0.5">*</span>` : nothing}
         </label>
 
@@ -121,7 +125,7 @@ export class ImageUploader extends LitElement {
               >
                 <img
                   src="${this.value}"
-                  alt="Preview"
+                  alt=${__('Anteprima')}
                   class="w-full h-48 object-contain"
                   @error=${(e: Event) => {
                     const img = e.target as HTMLImageElement;
@@ -192,7 +196,7 @@ export class ImageUploader extends LitElement {
                           ></path>
                         </svg>
                         <p class="text-sm text-surface-600 dark:text-surface-400">
-                          Elaborazione in corso...
+                          ${__('Elaborazione in corso...')}
                         </p>
                       `
                     : html`
@@ -203,11 +207,13 @@ export class ImageUploader extends LitElement {
                         ></ui-icon>
                         <p class="text-sm text-surface-600 dark:text-surface-400 mb-1">
                           <span class="text-brand-600 dark:text-brand-400 font-medium"
-                            >Clicca per caricare</span
+                            >${__('Clicca per caricare')}</span
                           >
-                          o trascina qui
+                          ${__('o trascina qui')}
                         </p>
-                        <p class="text-xs text-surface-500 dark:text-surface-500">${this.hint}</p>
+                        <p class="text-xs text-surface-500 dark:text-surface-500">
+                          ${resolvedHint}
+                        </p>
                       `}
                 </div>
               </div>

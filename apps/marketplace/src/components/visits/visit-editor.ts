@@ -15,11 +15,15 @@ import {
   type VisitGeneralInfo,
   type TargetAudience,
   type Museum,
+  type AppLanguage,
+  isSupportedAppLanguage,
 } from '@artaround/shared';
 import { visitService } from '../../services/visit.service';
 import { museumService } from '../../services/museum.service';
 import { artworkService } from '../../services/artwork.service';
 import { itemService } from '../../services/item.service';
+import { translationService } from '../../services/translation.service';
+import { __ } from '../../services/i18n.service';
 import { MuseumAwareMixin, AppBaseElement } from '../../base';
 import '../ui/ui-input';
 import '../ui/ui-select';
@@ -36,6 +40,7 @@ import '../ui/ui-checkbox';
 import '../ui/ui-icon-button';
 import '../ui/ui-tag-input';
 import '../ui/ui-panel-section';
+import '../ui/ui-language-select';
 
 type EditorTab = 'info' | 'steps' | 'audience' | 'settings';
 
@@ -51,11 +56,13 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
 
   @state() private loadingVisit = false;
   @state() private saving = false;
+  @state() private translating = false;
   @state() private error = '';
   @state() private success = '';
   @state() private museums: Museum[] = [];
   @state() private loadingMuseums = true;
   @state() private activeTab: EditorTab = 'info';
+  @state() private activeLanguages: AppLanguage[] = ['it'];
 
   // Basic info
   @state() private visitTitle = '';
@@ -88,37 +95,73 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
   @state() private estimatedDuration = 60;
 
   // Metadata
-  @state() private language = 'it';
+  @state() private language: AppLanguage = 'it';
+  @state() private titleTranslations: Partial<Record<AppLanguage, string>> = {};
+  @state() private descriptionTranslations: Partial<Record<AppLanguage, string>> = {};
+  @state() private translationModeByLang: Partial<Record<AppLanguage, 'ai' | 'manual'>> = {};
   @state() private price = 0;
   @state() private isFree = true;
   @state() private license: LicenseType = LicenseType.CC0;
 
-  private readonly languageLevelOptions = LANGUAGE_LEVEL_OPTIONS_EMOJI_IT;
+  private get languageLevelOptions() {
+    return LANGUAGE_LEVEL_OPTIONS_EMOJI_IT.map((option) => {
+      const labelParts = option.label.split(' ');
+      const icon = labelParts.shift() || '';
+      const text = labelParts.join(' ');
+      return {
+        ...option,
+        label: icon ? `${icon} ${__(text)}` : __(option.label),
+      };
+    });
+  }
 
-  private logisticIcons = [
-    { value: 'ticket', label: '🎫 Biglietteria' },
-    { value: 'info', label: 'ℹ️ Informazioni' },
-    { value: 'clock', label: '⏰ Orari' },
-    { value: 'accessibility', label: '♿ Accessibilità' },
-    { value: 'food', label: '🍽️ Ristoro' },
-    { value: 'shop', label: '🛍️ Shop' },
-    { value: 'toilet', label: '🚻 Servizi' },
-    { value: 'wifi', label: '📶 WiFi' },
-  ];
+  private get logisticIcons() {
+    return [
+      { value: 'ticket', label: `🎫 ${__('Biglietteria')}` },
+      { value: 'info', label: `ℹ️ ${__('Informazioni')}` },
+      { value: 'clock', label: `⏰ ${__('Orari')}` },
+      { value: 'accessibility', label: `♿ ${__('Accessibilità')}` },
+      { value: 'food', label: `🍽️ ${__('Ristoro')}` },
+      { value: 'shop', label: `🛍️ ${__('Shop')}` },
+      { value: 'toilet', label: `🚻 ${__('Servizi')}` },
+      { value: 'wifi', label: `📶 ${__('WiFi')}` },
+    ];
+  }
 
   // ─── Lifecycle ───────────────────────────────────────────
   async connectedCallback() {
     super.connectedCallback();
+    window.addEventListener('ui-language-changed', this.handleLanguageChanged as EventListener);
     await this.loadMuseums();
 
     if (!this.visitId && this.selectedMuseumId) {
       this.museumId = this.selectedMuseumId;
+      await this.loadMuseumLanguages();
       await this.loadArtworksForMuseum();
     }
 
     if (this.visitId) {
       await this.loadVisit();
     }
+  }
+
+  disconnectedCallback(): void {
+    window.removeEventListener('ui-language-changed', this.handleLanguageChanged as EventListener);
+    super.disconnectedCallback();
+  }
+
+  private handleLanguageChanged = (_event: CustomEvent<{ language: AppLanguage }>) => {
+    this.requestUpdate();
+  };
+
+  onMuseumChanged(): void {
+    if (this.visitId || !this.selectedMuseumId) {
+      return;
+    }
+
+    this.museumId = this.selectedMuseumId;
+    void this.loadMuseumLanguages();
+    void this.loadArtworksForMuseum();
   }
 
   // ─── Data Loading ────────────────────────────────────────
@@ -141,8 +184,10 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       const visit = await visitService.getById(this.visitId);
       if (visit) {
         // Basic info
-        this.visitTitle = visit.title;
-        this.description = visit.description;
+        this.visitTitle = visit.title || '';
+        this.description = visit.description || '';
+        this.titleTranslations = visit.titleTranslations || {};
+        this.descriptionTranslations = visit.descriptionTranslations || {};
         this.coverImage = visit.coverImage || '';
         this.museumId = visit.museumId;
         this.steps = visit.steps || [];
@@ -177,12 +222,13 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
 
         // Load artworks for this museum
         if (this.museumId) {
+          await this.loadMuseumLanguages();
           await this.loadArtworksForMuseum();
         }
       }
     } catch (e) {
       console.error('Error loading visit:', e);
-      this.error = 'Impossibile caricare la visita';
+      this.error = __('Impossibile caricare la visita');
     } finally {
       this.loadingVisit = false;
     }
@@ -202,6 +248,130 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
+  private async loadMuseumLanguages() {
+    if (!this.museumId) {
+      this.activeLanguages = ['it'];
+      return;
+    }
+
+    try {
+      const museum = await museumService.getMuseum(this.museumId);
+      const active = (museum?.activeLanguages || []).filter((lang): lang is AppLanguage =>
+        isSupportedAppLanguage(lang),
+      );
+      const normalizedActive: AppLanguage[] =
+        active.length > 0 ? active : (['it'] as AppLanguage[]);
+      this.activeLanguages = normalizedActive;
+      if (!normalizedActive.includes(this.language)) {
+        this.language = normalizedActive[0] || 'it';
+      }
+    } catch {
+      this.activeLanguages = ['it'];
+    }
+  }
+
+  private getTargetLanguages(): AppLanguage[] {
+    return this.activeLanguages.filter((lang) => lang !== this.language);
+  }
+
+  private getLanguageLabel(language: AppLanguage): string {
+    switch (language) {
+      case 'it':
+        return __('Italiano');
+      case 'en':
+        return __('English');
+      case 'fr':
+        return __('Français');
+      case 'de':
+        return __('Deutsch');
+      case 'es':
+        return __('Español');
+    }
+
+    return String(language).toUpperCase();
+  }
+
+  private async translateMissingVisitLanguages() {
+    const sourceTitle = (this.visitTitle || '').trim();
+    const sourceDescription = (this.description || '').trim();
+
+    if (!sourceTitle || !sourceDescription) {
+      this.error = __('Compila titolo e descrizione nella lingua principale prima di tradurre');
+      return;
+    }
+
+    this.translating = true;
+    this.error = '';
+
+    try {
+      const targets = this.getTargetLanguages();
+      const batchItems: Array<{ key: string; text: string; targetLang: AppLanguage }> = [];
+
+      for (const lang of targets) {
+        if (!this.titleTranslations[lang]?.trim()) {
+          batchItems.push({ key: `${lang}:title`, text: sourceTitle, targetLang: lang });
+        }
+        if (!this.descriptionTranslations[lang]?.trim()) {
+          batchItems.push({
+            key: `${lang}:description`,
+            text: sourceDescription,
+            targetLang: lang,
+          });
+        }
+      }
+
+      if (batchItems.length === 0) {
+        return;
+      }
+
+      const translations = await translationService.translateBatch(this.language, batchItems);
+
+      for (const lang of targets) {
+        let translatedByAI = false;
+        const titleKey = `${lang}:title`;
+        const descriptionKey = `${lang}:description`;
+
+        if (translations[titleKey]) {
+          this.titleTranslations = {
+            ...this.titleTranslations,
+            [lang]: translations[titleKey],
+          };
+          translatedByAI = true;
+        }
+
+        if (translations[descriptionKey]) {
+          this.descriptionTranslations = {
+            ...this.descriptionTranslations,
+            [lang]: translations[descriptionKey],
+          };
+          translatedByAI = true;
+        }
+
+        if (translatedByAI && this.translationModeByLang[lang] !== 'manual') {
+          this.translationModeByLang = {
+            ...this.translationModeByLang,
+            [lang]: 'ai',
+          };
+        }
+      }
+    } catch (e) {
+      this.error = e instanceof Error ? e.message : __('Traduzione automatica non riuscita');
+    } finally {
+      this.translating = false;
+    }
+  }
+
+  private markLanguageAsManual(lang: AppLanguage): void {
+    this.translationModeByLang = {
+      ...this.translationModeByLang,
+      [lang]: 'manual',
+    };
+  }
+
+  private getTranslationStatus(lang: AppLanguage): 'ai' | 'manual' {
+    return this.translationModeByLang[lang] === 'ai' ? 'ai' : 'manual';
+  }
+
   private async loadItemsForArtwork(artworkId: string) {
     try {
       const result = await itemService.getItems({ referenceId: artworkId, limit: 100 });
@@ -216,9 +386,11 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     this.museumId = e.detail.value;
     // Reload artworks when museum changes
     if (this.museumId) {
+      await this.loadMuseumLanguages();
       await this.loadArtworksForMuseum();
     } else {
       this.artworks = [];
+      this.activeLanguages = ['it'];
     }
   }
 
@@ -318,12 +490,15 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         museumId: this.museumId,
         title: this.visitTitle,
         description: this.description,
+        titleTranslations: this.titleTranslations,
+        descriptionTranslations: this.descriptionTranslations,
         coverImage: this.coverImage || undefined,
         steps: this.steps,
         generalInfo,
         targetAudience,
         metadata: {
           language: this.language,
+          supportedLanguages: this.activeLanguages,
           price: this.isFree ? 0 : this.price,
           isFree: this.isFree,
           license: this.license,
@@ -333,10 +508,10 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
 
       if (this.visitId) {
         await visitService.update(this.visitId, visitData);
-        this.success = 'Visita aggiornata con successo!';
+        this.success = __('Visita aggiornata con successo!');
       } else {
         const created = await visitService.create(visitData as CreateVisitData);
-        this.success = 'Visita creata con successo!';
+        this.success = __('Visita creata con successo!');
         this.visitId = created._id;
       }
 
@@ -350,25 +525,32 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       );
     } catch (e) {
       console.error('Error saving visit:', e);
-      this.error = e instanceof Error ? e.message : 'Impossibile salvare la visita';
+      this.error = e instanceof Error ? e.message : __('Impossibile salvare la visita');
     } finally {
       this.saving = false;
     }
   }
 
   private validateForm(): boolean {
-    if (!this.visitTitle.trim()) {
-      this.error = 'Il titolo è obbligatorio';
+    if (!(this.visitTitle || '').trim()) {
+      this.error = __('Il titolo è obbligatorio');
       this.activeTab = 'info';
       return false;
     }
-    if (!this.description.trim()) {
-      this.error = 'La descrizione è obbligatoria';
+    if (!(this.description || '').trim()) {
+      this.error = __('La descrizione è obbligatoria');
       this.activeTab = 'info';
       return false;
+    }
+    for (const lang of this.getTargetLanguages()) {
+      if (!this.titleTranslations[lang]?.trim() || !this.descriptionTranslations[lang]?.trim()) {
+        this.error = `Completa le traduzioni per ${lang.toUpperCase()}`;
+        this.activeTab = 'info';
+        return false;
+      }
     }
     if (!this.museumId) {
-      this.error = 'Seleziona un museo';
+      this.error = __('Seleziona un museo');
       this.activeTab = 'info';
       return false;
     }
@@ -378,7 +560,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       return false;
     }
     if (this.languageLevels.length === 0) {
-      this.error = 'Seleziona almeno un livello di linguaggio';
+      this.error = __('Seleziona almeno un livello di linguaggio');
       this.activeTab = 'audience';
       return false;
     }
@@ -397,7 +579,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
   // ─── Render Entry ────────────────────────────────────────
   render() {
     if (this.loadingVisit) {
-      return html`<ui-loading size="lg" text="Caricamento visita..."></ui-loading>`;
+      return html`<ui-loading size="lg" .text=${__('Caricamento visita...')}></ui-loading>`;
     }
 
     return html`
@@ -407,13 +589,13 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
           ? html`
               <ui-alert
                 variant="warning"
-                .message=${'Seleziona un museo attivo prima di creare la visita.'}
+                .message=${__('Seleziona un museo attivo prima di creare la visita.')}
               ></ui-alert>
               <div class="flex justify-end">
                 <ui-button
                   variant="secondary"
                   size="sm"
-                  label="Seleziona museo"
+                  .label=${__('Seleziona museo')}
                   @click=${this.emitSelectMuseum}
                 ></ui-button>
               </div>
@@ -429,10 +611,15 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         <!-- Tabs -->
         <ui-tabs
           .tabs=${[
-            { id: 'info', label: 'Informazioni', icon: 'document' },
-            { id: 'steps', label: 'Percorso', icon: 'list', badge: this.steps.length || undefined },
-            { id: 'audience', label: 'Pubblico', icon: 'users' },
-            { id: 'settings', label: 'Impostazioni', icon: 'cog' },
+            { id: 'info', label: __('Informazioni'), icon: 'document' },
+            {
+              id: 'steps',
+              label: __('Percorso'),
+              icon: 'list',
+              badge: this.steps.length || undefined,
+            },
+            { id: 'audience', label: __('Pubblico'), icon: 'users' },
+            { id: 'settings', label: __('Impostazioni'), icon: 'cog' },
           ]}
           .activeTab=${this.activeTab}
           @tab-change=${(e: CustomEvent) => (this.activeTab = e.detail.id)}
@@ -448,13 +635,13 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
           <ui-button
             type="button"
             variant="secondary"
-            label="Annulla"
+            .label=${__('Annulla')}
             @click=${this.handleCancel}
           ></ui-button>
           <ui-button
             type="submit"
             variant="primary"
-            label=${this.visitId ? 'Salva Modifiche' : 'Crea Visita'}
+            .label=${this.visitId ? __('Salva Modifiche') : __('Crea Visita')}
             icon="save"
             .loading=${this.saving}
           ></ui-button>
@@ -484,14 +671,14 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       <div class="space-y-8">
         <!-- Museum Selection -->
         <ui-panel-section
-          title="Museo"
+          .title=${__('Museo')}
           icon="location"
           .renderContent=${() => html`
             <ui-select
-              label="Seleziona il museo"
+              .label=${__('Seleziona il museo')}
               .value=${this.museumId}
-              .options=${this.museums.map((m) => ({ value: m.wikidataId, label: m.name }))}
-              placeholder=${this.loadingMuseums ? 'Caricamento...' : 'Seleziona un museo'}
+              .options=${this.museums.map((m) => ({ value: m._id, label: m.name }))}
+              placeholder=${this.loadingMuseums ? __('Caricamento...') : __('Seleziona il museo')}
               ?disabled=${this.loadingMuseums}
               @select-change=${this.handleMuseumChange}
               required
@@ -501,13 +688,13 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
 
         <!-- Basic Info -->
         <ui-panel-section
-          title="Informazioni di base"
+          .title=${__('Informazioni di base')}
           icon="document"
           .renderContent=${() => html`
             <div class="space-y-4">
               <ui-input
-                label="Titolo della visita"
-                placeholder="Es. Capolavori del Rinascimento"
+                .label=${__('Titolo della visita')}
+                .placeholder=${__('Es. Capolavori del Rinascimento')}
                 .value=${this.visitTitle}
                 @input=${(e: InputEvent) =>
                   (this.visitTitle = (e.target as HTMLInputElement).value)}
@@ -515,8 +702,8 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
               ></ui-input>
 
               <ui-textarea
-                label="Descrizione"
-                placeholder="Descrivi il percorso di visita..."
+                .label=${__('Descrizione')}
+                .placeholder=${__('Descrivi il percorso di visita...')}
                 .value=${this.description}
                 @input=${(e: InputEvent) =>
                   (this.description = (e.target as HTMLTextAreaElement).value)}
@@ -524,9 +711,82 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
                 required
               ></ui-textarea>
 
+              ${this.getTargetLanguages().length > 0
+                ? html`
+                    <div
+                      class="p-4 rounded-xl border border-surface-200 dark:border-surface-700 space-y-4"
+                    >
+                      <div class="flex items-center justify-between gap-3">
+                        <h4 class="text-sm font-semibold text-surface-800 dark:text-surface-100">
+                          ${__('Traduzioni richieste')} (${this.getTargetLanguages().length})
+                        </h4>
+                        <ui-button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          icon="sparkles"
+                          .label=${__('Traduci mancanti con AI')}
+                          .loading=${this.translating}
+                          @click=${() => this.translateMissingVisitLanguages()}
+                        ></ui-button>
+                      </div>
+
+                      ${this.getTargetLanguages().map((lang) => {
+                        const label = this.getLanguageLabel(lang);
+
+                        return html`
+                          <div class="space-y-3 p-3 rounded-lg bg-surface-50 dark:bg-surface-800">
+                            <div class="flex items-center justify-between gap-2">
+                              <p
+                                class="text-xs font-semibold text-surface-600 dark:text-surface-300"
+                              >
+                                ${label}
+                              </p>
+                              <ui-badge
+                                size="sm"
+                                variant=${this.getTranslationStatus(lang) === 'ai'
+                                  ? 'info'
+                                  : 'secondary'}
+                                .label=${this.getTranslationStatus(lang) === 'ai'
+                                  ? __('AI')
+                                  : __('Manuale')}
+                              ></ui-badge>
+                            </div>
+                            <ui-input
+                              .label=${`${__('Titolo')} (${lang.toUpperCase()})`}
+                              .value=${this.titleTranslations[lang] || ''}
+                              @input=${(e: InputEvent) => {
+                                this.titleTranslations = {
+                                  ...this.titleTranslations,
+                                  [lang]: (e.target as HTMLInputElement).value,
+                                };
+                                this.markLanguageAsManual(lang);
+                              }}
+                              required
+                            ></ui-input>
+                            <ui-textarea
+                              .label=${`${__('Descrizione')} (${lang.toUpperCase()})`}
+                              .value=${this.descriptionTranslations[lang] || ''}
+                              @input=${(e: InputEvent) => {
+                                this.descriptionTranslations = {
+                                  ...this.descriptionTranslations,
+                                  [lang]: (e.target as HTMLTextAreaElement).value,
+                                };
+                                this.markLanguageAsManual(lang);
+                              }}
+                              rows="3"
+                              required
+                            ></ui-textarea>
+                          </div>
+                        `;
+                      })}
+                    </div>
+                  `
+                : nothing}
+
               <ui-input
-                label="Immagine di copertina (URL)"
-                placeholder="https://example.com/image.jpg"
+                .label=${__('Immagine di copertina (URL)')}
+                .placeholder=${__('https://example.com/image.jpg')}
                 .value=${this.coverImage}
                 @input=${(e: InputEvent) =>
                   (this.coverImage = (e.target as HTMLInputElement).value)}
@@ -564,36 +824,36 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
 
         <!-- Practical Info -->
         <ui-panel-section
-          title="Informazioni pratiche"
+          .title=${__('Informazioni pratiche')}
           icon="info"
           .renderContent=${() => html`
             <div class="space-y-4">
               <ui-input
-                label="Costi"
-                placeholder="Es. Ingresso €15, ridotto €8"
+                .label=${__('Costi')}
+                .placeholder=${__('Es. Ingresso €15, ridotto €8')}
                 .value=${this.costs}
                 @input=${(e: InputEvent) => (this.costs = (e.target as HTMLInputElement).value)}
               ></ui-input>
 
               <ui-input
-                label="Informazioni biglietti"
-                placeholder="Es. Prenotazione obbligatoria online"
+                .label=${__('Informazioni biglietti')}
+                .placeholder=${__('Es. Prenotazione obbligatoria online')}
                 .value=${this.ticketInfo}
                 @input=${(e: InputEvent) =>
                   (this.ticketInfo = (e.target as HTMLInputElement).value)}
               ></ui-input>
 
               <ui-input
-                label="Orari di apertura"
-                placeholder="Es. Mar-Dom 9:00-19:00"
+                .label=${__('Orari di apertura')}
+                .placeholder=${__('Es. Mar-Dom 9:00-19:00')}
                 .value=${this.openingHours}
                 @input=${(e: InputEvent) =>
                   (this.openingHours = (e.target as HTMLInputElement).value)}
               ></ui-input>
 
               <ui-textarea
-                label="Accessibilità"
-                placeholder="Es. Accessibile ai disabili, ascensore disponibile"
+                .label=${__('Accessibilità')}
+                .placeholder=${__('Es. Accessibile ai disabili, ascensore disponibile')}
                 .value=${this.accessibility}
                 @input=${(e: InputEvent) =>
                   (this.accessibility = (e.target as HTMLTextAreaElement).value)}
@@ -601,7 +861,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
               ></ui-textarea>
 
               <ui-checkbox
-                label="Accessibile in sedia a rotelle"
+                .label=${__('Accessibile in sedia a rotelle')}
                 .checked=${this.wheelchairAccessible}
                 @checkbox-change=${(e: CustomEvent) =>
                   (this.wheelchairAccessible = e.detail.checked)}
@@ -623,7 +883,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
             variant="outline"
             size="sm"
             icon="image"
-            label="Aggiungi Opera"
+            .label=${__('Aggiungi Opera')}
             @click=${() => this.addStep(VisitStepType.ARTWORK)}
             ?disabled=${!this.museumId || this.artworks.length === 0}
           ></ui-button>
@@ -632,7 +892,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
             variant="outline"
             size="sm"
             icon="info"
-            label="Info Logistica"
+            .label=${__('Info logistica')}
             @click=${() => this.addStep(VisitStepType.LOGISTIC)}
           ></ui-button>
           <ui-button
@@ -640,7 +900,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
             variant="outline"
             size="sm"
             icon="arrow-right"
-            label="Indicazioni"
+            .label=${__('Indicazioni')}
             @click=${() => this.addStep(VisitStepType.NAVIGATION)}
           ></ui-button>
         </div>
@@ -655,7 +915,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       return html`
         <div class="text-center py-8 text-surface-500 dark:text-surface-400">
           <ui-icon name="location" size="lg" class="mb-2 opacity-50"></ui-icon>
-          <p>Seleziona prima un museo nella tab Informazioni</p>
+          <p>${__('Seleziona prima un museo nella tab Informazioni')}</p>
         </div>
       `;
     }
@@ -664,7 +924,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       return html`
         <div class="text-center py-8 text-surface-500 dark:text-surface-400">
           <ui-icon name="list" size="lg" class="mb-2 opacity-50"></ui-icon>
-          <p>Aggiungi il primo passaggio del percorso</p>
+          <p>${__('Aggiungi il primo passaggio del percorso')}</p>
         </div>
       `;
     }
@@ -753,7 +1013,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
             <ui-icon-button
               icon="chevron-up"
               size="xs"
-              title="Sposta su"
+              .title=${__('Sposta su')}
               @click=${(e: Event) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -765,7 +1025,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
               class="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-surface-100 dark:hover:bg-surface-800 ${isEditing
                 ? 'opacity-30 cursor-not-allowed'
                 : ''}"
-              title="Trascina per riordinare"
+              .title=${__('Trascina per riordinare')}
             >
               <span
                 class="w-8 h-8 flex items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-semibold text-sm"
@@ -776,7 +1036,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
             <ui-icon-button
               icon="chevron-down"
               size="xs"
-              title="Sposta giù"
+              .title=${__('Sposta giù')}
               @click=${(e: Event) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -791,7 +1051,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
             <div class="flex items-center gap-2 mb-2">
               <ui-badge variant="outline" .label=${stepTypeLabel}></ui-badge>
               ${step.isOptional
-                ? html`<ui-badge variant="secondary" label="Opzionale"></ui-badge>`
+                ? html`<ui-badge variant="secondary" .label=${__('Opzionale')}></ui-badge>`
                 : nothing}
             </div>
 
@@ -818,13 +1078,13 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         <ui-icon-button
           icon="check"
           variant="brand"
-          title="Chiudi"
+          .title=${__('Chiudi')}
           @click=${() => (this.editingStepIndex = null)}
         ></ui-icon-button>
         <ui-icon-button
           icon="trash"
           variant="danger"
-          title="Rimuovi"
+          .title=${__('Rimuovi')}
           @click=${() => this.removeStep(index)}
         ></ui-icon-button>
       `;
@@ -832,13 +1092,13 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     return html`
       <ui-icon-button
         icon="edit"
-        title="Modifica"
+        .title=${__('Modifica')}
         @click=${() => (this.editingStepIndex = index)}
       ></ui-icon-button>
       <ui-icon-button
         icon="trash"
         variant="danger"
-        title="Rimuovi"
+        .title=${__('Rimuovi')}
         @click=${() => this.removeStep(index)}
       ></ui-icon-button>
     `;
@@ -878,7 +1138,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
             </div>
             <div>
               <p class="font-medium text-surface-900 dark:text-white">
-                ${artwork?.title || "Seleziona un'opera"}
+                ${artwork?.title || __("Seleziona un'opera")}
               </p>
               ${artwork?.author
                 ? html`<p class="text-sm text-surface-500">${artwork.author}</p>`
@@ -891,7 +1151,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         return html`
           <div>
             <p class="font-medium text-surface-900 dark:text-white">
-              ${step.logisticTitle || 'Info logistica'}
+              ${step.logisticTitle || __('Info logistica')}
             </p>
             ${step.logisticText
               ? html`<p class="text-sm text-surface-500 line-clamp-2">${step.logisticText}</p>`
@@ -903,8 +1163,8 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
           <div>
             <p class="font-medium text-surface-900 dark:text-white">
               ${step.fromRoom && step.toRoom
-                ? `Da ${step.fromRoom} a ${step.toRoom}`
-                : 'Indicazioni di navigazione'}
+                ? `${__('Da')} ${step.fromRoom} ${__('a')} ${step.toRoom}`
+                : __('Indicazioni di navigazione')}
             </p>
             ${step.navigationText
               ? html`<p class="text-sm text-surface-500 line-clamp-2">${step.navigationText}</p>`
@@ -929,13 +1189,13 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     return html`
       <div class="space-y-4 mt-3 pt-3 border-t border-surface-200 dark:border-surface-700">
         <ui-select
-          label="Opera"
+          .label=${__('Opera')}
           .value=${step.artworkId || ''}
           .options=${this.artworks.map((a) => ({
             value: a.wikidataId,
-            label: `${a.title} - ${a.author || 'Autore sconosciuto'}`,
+            label: `${a.title} - ${a.author || __('Autore sconosciuto')}`,
           }))}
-          placeholder=${this.loadingArtworks ? 'Caricamento...' : "Seleziona un'opera"}
+          placeholder=${this.loadingArtworks ? __('Caricamento...') : __("Seleziona un'opera")}
           ?disabled=${this.loadingArtworks}
           @select-change=${async (e: CustomEvent) => {
             const artworkId = e.detail.value;
@@ -951,14 +1211,14 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
               <div class="space-y-2">
                 <div class="flex items-center justify-between">
                   <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
-                    Contenuti disponibili
+                    ${__('Contenuti disponibili')}
                   </label>
                   <div class="flex gap-2">
                     <ui-button
                       type="button"
                       variant="ghost"
                       size="xs"
-                      label="Seleziona tutti"
+                      .label=${__('Seleziona tutti')}
                       @click=${() => {
                         const allIds = this.availableItems.map((item) => item._id);
                         this.updateStep(index, { itemIds: allIds });
@@ -969,7 +1229,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
                       type="button"
                       variant="ghost"
                       size="xs"
-                      label="Deseleziona tutti"
+                      .label=${__('Deseleziona tutti')}
                       @click=${() => this.updateStep(index, { itemIds: [] })}
                     ></ui-button>
                   </div>
@@ -1007,8 +1267,8 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
 
         <ui-input
           type="number"
-          label="Durata stimata (secondi)"
-          placeholder="Es. 180"
+          .label=${__('Durata stimata (secondi)')}
+          .placeholder=${__('Es. 180')}
           .value=${String(step.estimatedDuration || '')}
           @input=${(e: InputEvent) =>
             this.updateStep(index, {
@@ -1017,7 +1277,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         ></ui-input>
 
         <ui-checkbox
-          label="Passaggio opzionale"
+          .label=${__('Passaggio opzionale')}
           .checked=${step.isOptional}
           @checkbox-change=${(e: CustomEvent) =>
             this.updateStep(index, { isOptional: e.detail.checked })}
@@ -1030,16 +1290,16 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     return html`
       <div class="space-y-4 mt-3 pt-3 border-t border-surface-200 dark:border-surface-700">
         <ui-input
-          label="Titolo"
-          placeholder="Es. Informazioni utili"
+          .label=${__('Titolo')}
+          .placeholder=${__('Es. Informazioni utili')}
           .value=${step.logisticTitle || ''}
           @input=${(e: InputEvent) =>
             this.updateStep(index, { logisticTitle: (e.target as HTMLInputElement).value })}
         ></ui-input>
 
         <ui-textarea
-          label="Testo"
-          placeholder="Descrivi le informazioni logistiche..."
+          .label=${__('Testo')}
+          .placeholder=${__('Descrivi le informazioni logistiche...')}
           .value=${step.logisticText || ''}
           @input=${(e: InputEvent) =>
             this.updateStep(index, { logisticText: (e.target as HTMLTextAreaElement).value })}
@@ -1047,7 +1307,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         ></ui-textarea>
 
         <ui-select
-          label="Icona"
+          .label=${__('Icona')}
           .value=${step.logisticIcon || 'info'}
           .options=${this.logisticIcons}
           @select-change=${(e: CustomEvent) =>
@@ -1055,7 +1315,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         ></ui-select>
 
         <ui-checkbox
-          label="Passaggio opzionale"
+          .label=${__('Passaggio opzionale')}
           .checked=${step.isOptional}
           @checkbox-change=${(e: CustomEvent) =>
             this.updateStep(index, { isOptional: e.detail.checked })}
@@ -1069,16 +1329,16 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       <div class="space-y-4 mt-3 pt-3 border-t border-surface-200 dark:border-surface-700">
         <div class="grid grid-cols-2 gap-4">
           <ui-input
-            label="Da (sala/area)"
-            placeholder="Es. Sala 1"
+            .label=${__('Da (sala/area)')}
+            .placeholder=${__('Es. Sala 1')}
             .value=${step.fromRoom || ''}
             @input=${(e: InputEvent) =>
               this.updateStep(index, { fromRoom: (e.target as HTMLInputElement).value })}
           ></ui-input>
 
           <ui-input
-            label="A (sala/area)"
-            placeholder="Es. Sala 3"
+            .label=${__('A (sala/area)')}
+            .placeholder=${__('Es. Sala 3')}
             .value=${step.toRoom || ''}
             @input=${(e: InputEvent) =>
               this.updateStep(index, { toRoom: (e.target as HTMLInputElement).value })}
@@ -1086,8 +1346,8 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         </div>
 
         <ui-textarea
-          label="Indicazioni"
-          placeholder="Es. Prosegui dritto, alla fine del corridoio gira a sinistra..."
+          .label=${__('Indicazioni')}
+          .placeholder=${__('Es. Prosegui dritto, alla fine del corridoio gira a sinistra...')}
           .value=${step.navigationText || ''}
           @input=${(e: InputEvent) =>
             this.updateStep(index, { navigationText: (e.target as HTMLTextAreaElement).value })}
@@ -1095,15 +1355,15 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         ></ui-textarea>
 
         <ui-input
-          label="Immagine del percorso (URL)"
-          placeholder="https://example.com/path.jpg"
+          .label=${__('Immagine del percorso (URL)')}
+          .placeholder=${__('https://example.com/path.jpg')}
           .value=${step.navigationImage || ''}
           @input=${(e: InputEvent) =>
             this.updateStep(index, { navigationImage: (e.target as HTMLInputElement).value })}
         ></ui-input>
 
         <ui-checkbox
-          label="Passaggio opzionale"
+          .label=${__('Passaggio opzionale')}
           .checked=${step.isOptional}
           @checkbox-change=${(e: CustomEvent) =>
             this.updateStep(index, { isOptional: e.detail.checked })}
@@ -1116,9 +1376,9 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     return html`
       <div class="space-y-8">
         <ui-panel-section
-          title="Livelli di linguaggio supportati"
+          .title=${__('Livelli di linguaggio supportati')}
           icon="document"
-          description="Seleziona i livelli per cui questa visita è adatta"
+          .description=${__('Seleziona i livelli per cui questa visita è adatta')}
           .renderContent=${() => html`
             <div class="space-y-2">
               ${this.languageLevelOptions.map(
@@ -1150,22 +1410,22 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         ></ui-panel-section>
 
         <ui-panel-section
-          title="Fascia d'età"
+          .title=${__("Fascia d'età")}
           icon="users"
           .renderContent=${() => html`
             <div class="grid grid-cols-2 gap-4">
               <ui-input
                 type="number"
-                label="Età minima"
-                placeholder="Es. 8"
+                .label=${__('Età minima')}
+                .placeholder=${__('Es. 8')}
                 .value=${String(this.minAge || '')}
                 @input=${(e: InputEvent) =>
                   (this.minAge = parseInt((e.target as HTMLInputElement).value) || undefined)}
               ></ui-input>
               <ui-input
                 type="number"
-                label="Età massima"
-                placeholder="Es. 99"
+                .label=${__('Età massima')}
+                .placeholder=${__('Es. 99')}
                 .value=${String(this.maxAge || '')}
                 @input=${(e: InputEvent) =>
                   (this.maxAge = parseInt((e.target as HTMLInputElement).value) || undefined)}
@@ -1175,13 +1435,13 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         ></ui-panel-section>
 
         <ui-panel-section
-          title="Durata stimata"
+          .title=${__('Durata stimata')}
           icon="clock"
           .renderContent=${() => html`
             <ui-input
               type="number"
-              label="Durata (minuti)"
-              placeholder="Es. 60"
+              .label=${__('Durata (minuti)')}
+              .placeholder=${__('Es. 60')}
               .value=${String(this.estimatedDuration)}
               @input=${(e: InputEvent) =>
                 (this.estimatedDuration = parseInt((e.target as HTMLInputElement).value) || 60)}
@@ -1190,14 +1450,14 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         ></ui-panel-section>
 
         <ui-panel-section
-          title="Interessi correlati"
+          .title=${__('Interessi correlati')}
           icon="tag"
           .renderContent=${() => html`
             <ui-tag-input
-              placeholder="Es. Arte barocca"
+              .placeholder=${__('Es. Arte barocca')}
               .tags=${this.interests}
               .lowercase=${false}
-              emptyText="Nessun interesse aggiunto"
+              .emptyText=${__('Nessun interesse aggiunto')}
               @tags-change=${(e: CustomEvent<{ tags: string[] }>) => {
                 this.interests = e.detail.tags;
               }}
@@ -1212,31 +1472,26 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     return html`
       <div class="space-y-8">
         <ui-panel-section
-          title="Lingua"
+          .title=${__('Lingua')}
           icon="globe"
           .renderContent=${() => html`
-            <ui-select
-              label="Lingua principale"
+            <ui-language-select
+              .label=${__('Lingua principale')}
               .value=${this.language}
-              .options=${[
-                { value: 'it', label: '🇮🇹 Italiano' },
-                { value: 'en', label: '🇬🇧 English' },
-                { value: 'fr', label: '🇫🇷 Français' },
-                { value: 'de', label: '🇩🇪 Deutsch' },
-                { value: 'es', label: '🇪🇸 Español' },
-              ]}
-              @select-change=${(e: CustomEvent) => (this.language = e.detail.value)}
-            ></ui-select>
+              .languages=${this.activeLanguages}
+              @select-change=${(e: CustomEvent) =>
+                (this.language = (e.detail.value || 'it') as AppLanguage)}
+            ></ui-language-select>
           `}
         ></ui-panel-section>
 
         <ui-panel-section
-          title="Prezzo"
+          .title=${__('Prezzo')}
           icon="currency"
           .renderContent=${() => html`
             <div class="space-y-4">
               <ui-checkbox
-                label="Visita gratuita"
+                .label=${__('Visita gratuita')}
                 .checked=${this.isFree}
                 @checkbox-change=${(e: CustomEvent) => (this.isFree = e.detail.checked)}
               ></ui-checkbox>
@@ -1245,8 +1500,8 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
                 ? html`
                     <ui-input
                       type="number"
-                      label="Prezzo (€)"
-                      placeholder="Es. 4.99"
+                      .label=${__('Prezzo (€)')}
+                      .placeholder=${__('Es. 4.99')}
                       .value=${String(this.price)}
                       @input=${(e: InputEvent) =>
                         (this.price = parseFloat((e.target as HTMLInputElement).value) || 0)}
@@ -1260,14 +1515,14 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         ></ui-panel-section>
 
         <ui-panel-section
-          title="Servizi disponibili"
+          .title=${__('Servizi disponibili')}
           icon="cog"
           .renderContent=${() => html`
             <ui-tag-input
-              placeholder="Es. Bar, Guardaroba, WiFi"
+              .placeholder=${__('Es. Bar, Guardaroba, WiFi')}
               .tags=${this.services}
               .lowercase=${false}
-              emptyText="Nessun servizio aggiunto"
+              .emptyText=${__('Nessun servizio aggiunto')}
               @tags-change=${(e: CustomEvent<{ tags: string[] }>) => {
                 this.services = e.detail.tags;
               }}
@@ -1276,14 +1531,14 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         ></ui-panel-section>
 
         <ui-panel-section
-          title="Consigli per i visitatori"
+          .title=${__('Consigli per i visitatori')}
           icon="info"
           .renderContent=${() => html`
             <ui-tag-input
-              placeholder="Es. Arrivare con 15 minuti di anticipo"
+              .placeholder=${__('Es. Arrivare con 15 minuti di anticipo')}
               .tags=${this.tips}
               .lowercase=${false}
-              emptyText="Nessun consiglio aggiunto"
+              .emptyText=${__('Nessun consiglio aggiunto')}
               @tags-change=${(e: CustomEvent<{ tags: string[] }>) => {
                 this.tips = e.detail.tags;
               }}

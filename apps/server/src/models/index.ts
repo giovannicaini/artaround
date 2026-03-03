@@ -10,5 +10,7 @@ export { VisitModel } from './Visit.js';
 export type { VisitDocument } from './Visit.js';
 export { VisitPurchase } from './VisitPurchase.js';
 export type { VisitPurchaseDocument } from './VisitPurchase.js';
+export { ItemPurchase } from './ItemPurchase.js';
+export type { ItemPurchaseDocument } from './ItemPurchase.js';
 export { AppConfigModel } from './AppConfig.js';
 export type { AppConfigDocument } from './AppConfig.js';

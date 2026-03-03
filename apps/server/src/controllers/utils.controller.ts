@@ -3,6 +3,7 @@ import { body, validationResult } from 'express-validator';
 import { WikidataService } from '../utils/wikidata.service.js';
 import { AppConfigModel, MuseumModel } from '../models/index.js';
 import { TranslationService } from '../utils/translation.service.js';
+import { AIService } from '../utils/ai.service.js';
 import { AppError } from '../middleware/index.js';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth.middleware.js';
@@ -256,6 +257,14 @@ export class UtilsController {
     body('targetLang').notEmpty().withMessage('Target language is required'),
   ];
 
+  static translateBatchValidation = [
+    body('sourceLang').notEmpty().withMessage('Source language is required'),
+    body('items').isArray({ min: 1 }).withMessage('Items array is required'),
+    body('items.*.key').notEmpty().withMessage('Each item key is required'),
+    body('items.*.text').notEmpty().withMessage('Each item text is required'),
+    body('items.*.targetLang').notEmpty().withMessage('Each item targetLang is required'),
+  ];
+
   static async translate(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -274,6 +283,45 @@ export class UtilsController {
           sourceLang,
           targetLang,
         },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async translateBatch(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      }
+
+      const { sourceLang, items } = req.body as {
+        sourceLang: string;
+        items: Array<{ key: string; text: string; targetLang: string }>;
+      };
+
+      const translations = await TranslationService.batchTranslate(sourceLang, items);
+
+      res.json({
+        success: true,
+        data: {
+          sourceLang,
+          translations,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async aiHealth(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await AIService.checkOpenAIHealth();
+
+      res.status(result.ok ? 200 : 503).json({
+        success: result.ok,
+        data: result,
       });
     } catch (error) {
       next(error);

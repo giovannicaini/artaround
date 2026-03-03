@@ -9,6 +9,7 @@ import '../ui/ui-input';
 import '../ui/ui-select';
 import '../ui/ui-badge';
 import '../ui/ui-image-placeholder';
+import { __ } from '../../services/i18n.service';
 
 interface CropRegion {
   x: number;
@@ -46,7 +47,7 @@ export class ImageEditor extends LitElement {
   @property({ type: String }) value = '';
 
   /** Label shown above the component */
-  @property({ type: String }) label = 'Immagine';
+  @property({ type: String }) label = '';
 
   /** Whether this field is required */
   @property({ type: Boolean }) required = false;
@@ -197,7 +198,7 @@ export class ImageEditor extends LitElement {
   private async editCurrentImage() {
     const currentUrl = uploadService.getImageUrl(this.value);
     if (!currentUrl) {
-      this.error = 'Nessuna immagine da modificare';
+      this.error = __('Nessuna immagine da modificare');
       return;
     }
 
@@ -209,7 +210,7 @@ export class ImageEditor extends LitElement {
       await this.loadImageDimensions(currentUrl);
       this.imageDataUrl = currentUrl;
     } catch {
-      this.error = "Impossibile caricare l'immagine corrente per la modifica";
+      this.error = __("Impossibile caricare l'immagine corrente per la modifica");
     }
   }
 
@@ -238,11 +239,11 @@ export class ImageEditor extends LitElement {
 
   private loadFile(file: File) {
     if (!file.type.startsWith('image/')) {
-      this.error = "Il file deve essere un'immagine";
+      this.error = __("Il file deve essere un'immagine");
       return;
     }
     if (file.size > 20 * 1024 * 1024) {
-      this.error = 'Il file è troppo grande (max 20MB)';
+      this.error = __('Il file è troppo grande (max 20MB)');
       return;
     }
 
@@ -261,12 +262,12 @@ export class ImageEditor extends LitElement {
     const normalizedUrl = this.urlInput.trim();
 
     if (!normalizedUrl) {
-      this.error = 'Inserisci un URL valido';
+      this.error = __('Inserisci un URL valido');
       return;
     }
 
     if (!/^https?:\/\//i.test(normalizedUrl)) {
-      this.error = "L'URL deve iniziare con http:// o https://";
+      this.error = __("L'URL deve iniziare con http:// o https://");
       return;
     }
 
@@ -311,10 +312,10 @@ export class ImageEditor extends LitElement {
           this.error =
             typeof result.error === 'string'
               ? result.error
-              : "Impossibile caricare l'immagine dall'URL";
+              : __("Impossibile caricare l'immagine dall'URL");
         }
       } catch {
-        this.error = "Impossibile caricare l'immagine dall'URL";
+        this.error = __("Impossibile caricare l'immagine dall'URL");
       } finally {
         this.uploading = false;
       }
@@ -551,7 +552,7 @@ export class ImageEditor extends LitElement {
           oldPathForUpload,
         );
       } else {
-        this.error = 'Nessuna immagine da salvare';
+        this.error = __('Nessuna immagine da salvare');
         this.uploading = false;
         return;
       }
@@ -580,10 +581,10 @@ export class ImageEditor extends LitElement {
         this.resetEditor();
       } else {
         this.error =
-          typeof result.error === 'string' ? result.error : 'Errore durante il caricamento';
+          typeof result.error === 'string' ? result.error : __('Errore durante il caricamento');
       }
     } catch {
-      this.error = 'Errore durante il caricamento';
+      this.error = __('Errore durante il caricamento');
     } finally {
       this.uploading = false;
     }
@@ -623,10 +624,12 @@ export class ImageEditor extends LitElement {
   // ─── Render ────────────────────────────────────────────────
 
   render() {
+    const resolvedLabel = this.label || __('Immagine');
+
     return html`
       <div class="space-y-1.5">
         <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
-          ${this.label}
+          ${resolvedLabel}
           ${this.required ? html`<span class="text-danger-500 ml-0.5">*</span>` : nothing}
         </label>
 
@@ -664,7 +667,7 @@ export class ImageEditor extends LitElement {
           src="${imageAttrs.src}"
           srcset="${ifDefined(imageAttrs.srcset)}"
           sizes="${ifDefined(imageAttrs.sizes)}"
-          alt="Immagine corrente"
+          alt=${__('Immagine corrente')}
           class="w-full h-48 object-contain"
           @error=${(e: Event) => {
             const img = e.target as HTMLImageElement;
@@ -684,14 +687,14 @@ export class ImageEditor extends LitElement {
           <ui-button
             variant="primary"
             size="sm"
-            label="Modifica"
+            .label=${__('Modifica')}
             icon="edit"
             @click=${this.editCurrentImage}
           ></ui-button>
           <ui-button
             variant="secondary"
             size="sm"
-            label="Sostituisci"
+            .label=${__('Sostituisci')}
             icon="upload"
             @click=${() => {
               this.step = 'source';
@@ -702,7 +705,7 @@ export class ImageEditor extends LitElement {
           <ui-button
             variant="danger"
             size="sm"
-            label="Rimuovi"
+            .label=${__('Rimuovi')}
             icon="trash"
             @click=${this.handleRemove}
           ></ui-button>
@@ -731,7 +734,7 @@ export class ImageEditor extends LitElement {
           >
             <span class="flex items-center justify-center gap-1.5">
               <ui-icon name="upload" size="xs"></ui-icon>
-              File locale
+              ${__('File locale')}
             </span>
           </button>
           <button
@@ -747,7 +750,7 @@ export class ImageEditor extends LitElement {
           >
             <span class="flex items-center justify-center gap-1.5">
               <ui-icon name="globe" size="xs"></ui-icon>
-              Da URL
+              ${__('Da URL')}
             </span>
           </button>
         </div>
@@ -767,7 +770,7 @@ export class ImageEditor extends LitElement {
                     this.error = '';
                   }}
                 >
-                  ← Torna all'immagine corrente
+                  ${`← ${__("Torna all'immagine corrente")}`}
                 </button>
               </div>
             `
@@ -799,8 +802,10 @@ export class ImageEditor extends LitElement {
             class="text-surface-400 dark:text-surface-500 mx-auto mb-3"
           ></ui-icon>
           <p class="text-sm text-surface-600 dark:text-surface-400 mb-1">
-            <span class="text-brand-600 dark:text-brand-400 font-medium">Clicca per caricare</span>
-            o trascina qui
+            <span class="text-brand-600 dark:text-brand-400 font-medium"
+              >${__('Clicca per caricare')}</span
+            >
+            ${__('o trascina qui')}
           </p>
           <p class="text-xs text-surface-500">PNG, JPG, WebP, GIF — max 20MB</p>
         </div>
@@ -813,7 +818,7 @@ export class ImageEditor extends LitElement {
       <div class="space-y-3">
         <ui-input
           label=""
-          placeholder="https://example.com/immagine.jpg"
+          .placeholder=${__('https://example.com/immagine.jpg')}
           .value=${this.urlInput}
           @input-change=${(e: CustomEvent) => {
             this.urlInput = e.detail.value;
@@ -823,7 +828,7 @@ export class ImageEditor extends LitElement {
           type="button"
           variant="primary"
           size="sm"
-          label="Carica da URL"
+          .label=${__('Carica da URL')}
           icon="download"
           .loading=${this.uploading}
           ?disabled=${this.uploading}
@@ -901,7 +906,7 @@ export class ImageEditor extends LitElement {
           <div class="flex items-end gap-3 flex-wrap">
             <div class="w-28">
               <ui-input
-                label="Larghezza"
+                .label=${__('Larghezza')}
                 type="number"
                 .value=${String(this.targetWidth)}
                 @input-change=${this.handleWidthChange}
@@ -914,7 +919,9 @@ export class ImageEditor extends LitElement {
                 ${this.lockAspectRatio
                 ? 'text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/30'
                 : 'text-surface-400 hover:text-surface-600 dark:hover:text-surface-300'}"
-              title="${this.lockAspectRatio ? 'Proporzioni bloccate' : 'Proporzioni libere'}"
+              title="${this.lockAspectRatio
+                ? __('Proporzioni bloccate')
+                : __('Proporzioni libere')}"
               @click=${this.toggleAspectLock}
             >
               <ui-icon name="link" size="xs"></ui-icon>
@@ -922,7 +929,7 @@ export class ImageEditor extends LitElement {
 
             <div class="w-28">
               <ui-input
-                label="Altezza"
+                .label=${__('Altezza')}
                 type="number"
                 .value=${String(this.targetHeight)}
                 @input-change=${this.handleHeightChange}
@@ -931,7 +938,7 @@ export class ImageEditor extends LitElement {
 
             <div class="w-28">
               <ui-select
-                label="Formato"
+                .label=${__('Formato')}
                 .value=${this.outputFormat}
                 .options=${[
                   { value: 'webp', label: 'WebP' },
@@ -948,7 +955,7 @@ export class ImageEditor extends LitElement {
               <label
                 class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5"
               >
-                Qualità
+                ${__('Qualità')}
               </label>
               <div class="flex items-center gap-2">
                 <input
@@ -972,7 +979,7 @@ export class ImageEditor extends LitElement {
             <ui-button
               variant=${this.cropEnabled ? 'primary' : 'outline'}
               size="sm"
-              label=${this.cropEnabled ? 'Ritaglio attivo' : 'Ritaglia'}
+              .label=${this.cropEnabled ? __('Ritaglio attivo') : __('Ritaglia')}
               icon="image"
               @click=${this.toggleCrop}
             ></ui-button>
@@ -981,7 +988,7 @@ export class ImageEditor extends LitElement {
                   <ui-button
                     variant="secondary"
                     size="sm"
-                    label="Seleziona tutto"
+                    .label=${__('Seleziona tutto')}
                     @click=${this.resetCrop}
                   ></ui-button>
                 `
@@ -994,13 +1001,17 @@ export class ImageEditor extends LitElement {
           >
             <ui-button
               variant="primary"
-              label="Salva immagine"
+              .label=${__('Salva immagine')}
               icon="save"
               .loading=${this.uploading}
               ?disabled=${this.uploading || this.isEstimateOverLimit}
               @click=${this.handleSave}
             ></ui-button>
-            <ui-button variant="secondary" label="Annulla" @click=${this.cancelEdit}></ui-button>
+            <ui-button
+              variant="secondary"
+              .label=${__('Annulla')}
+              @click=${this.cancelEdit}
+            ></ui-button>
           </div>
         </div>
       </div>

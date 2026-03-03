@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './ui-button';
+import { __ } from '../../services/i18n.service';
 
 /**
  * UI Form Actions
@@ -23,8 +24,8 @@ import './ui-button';
  */
 @customElement('ui-form-actions')
 export class UiFormActions extends LitElement {
-  @property({ type: String }) submitLabel = 'Salva';
-  @property({ type: String }) cancelLabel = 'Annulla';
+  @property({ type: String }) submitLabel = '';
+  @property({ type: String }) cancelLabel = '';
   @property({ type: String }) submitIcon = 'save';
   @property({ type: Boolean }) loading = false;
   @property({ type: Boolean }) disabled = false;
@@ -53,6 +54,9 @@ export class UiFormActions extends LitElement {
 
   // ─── Render ──────────────────────────────────────────────
   render() {
+    const resolvedSubmitLabel = this.submitLabel || __('Salva');
+    const resolvedCancelLabel = this.cancelLabel || __('Annulla');
+
     const alignClasses = {
       left: 'justify-start',
       center: 'justify-center',
@@ -71,7 +75,7 @@ export class UiFormActions extends LitElement {
               <ui-button
                 type="button"
                 variant="secondary"
-                label=${this.cancelLabel}
+                .label=${resolvedCancelLabel}
                 @click=${this.handleCancel}
                 ?disabled=${this.loading}
               ></ui-button>
@@ -80,7 +84,7 @@ export class UiFormActions extends LitElement {
         <ui-button
           type="submit"
           variant=${this.submitVariant}
-          label=${this.submitLabel}
+          .label=${resolvedSubmitLabel}
           icon=${this.submitIcon}
           .loading=${this.loading}
           ?disabled=${this.disabled}

@@ -5,6 +5,8 @@ import {
   ContentDuration,
   LanguageLevel,
   LicenseType,
+  SUPPORTED_APP_LANGUAGES,
+  DEFAULT_APP_LANGUAGE,
 } from '@artaround/shared';
 
 export interface ItemDocument extends Omit<IItem, '_id'>, Document {}
@@ -32,6 +34,12 @@ const itemSchema = new Schema<ItemDocument>(
     referenceTitle: String,
 
     // Content
+    sourceLanguage: {
+      type: String,
+      enum: SUPPORTED_APP_LANGUAGES,
+      default: DEFAULT_APP_LANGUAGE,
+      required: true,
+    },
     title: {
       type: String,
       required: true,
@@ -39,6 +47,10 @@ const itemSchema = new Schema<ItemDocument>(
     text: {
       type: String,
       required: true,
+    },
+    translatedTitles: {
+      type: Map,
+      of: String,
     },
     translatedTexts: {
       type: Map,

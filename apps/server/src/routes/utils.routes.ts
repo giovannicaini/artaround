@@ -21,6 +21,23 @@ router.put(
 
 /**
  * @swagger
+ * /api/utils/ai-health:
+ *   get:
+ *     tags: [Utils]
+ *     summary: Verifica connessione OpenAI
+ *     description: Esegue un test rapido sulla configurazione OpenAI
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: OpenAI configurata e raggiungibile
+ *       503:
+ *         description: OpenAI non configurata o non raggiungibile
+ */
+router.get('/ai-health', authMiddleware, UtilsController.aiHealth);
+
+/**
+ * @swagger
  * /api/utils/wikidata/{id}:
  *   get:
  *     tags: [Utils]
@@ -110,7 +127,7 @@ router.get('/wikidata-search', UtilsController.searchWikidata);
  *   post:
  *     tags: [Utils]
  *     summary: Traduci testo con AI
- *     description: Traduce testo usando OpenAI o Claude
+ *     description: Traduce testo usando OpenAI
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -165,6 +182,13 @@ router.post(
   authMiddleware,
   UtilsController.translateValidation,
   UtilsController.translate,
+);
+
+router.post(
+  '/translate-batch',
+  authMiddleware,
+  UtilsController.translateBatchValidation,
+  UtilsController.translateBatch,
 );
 
 export default router;

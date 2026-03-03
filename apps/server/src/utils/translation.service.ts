@@ -1,37 +1,24 @@
-import axios from 'axios';
-import { config } from '../config/config.js';
+import { AIService } from './ai.service.js';
+
+type BatchTranslationInput = {
+  key: string;
+  text: string;
+  targetLang: string;
+};
+
+type BatchTranslationOutput = {
+  translations: Array<{
+    key: string;
+    translatedText: string;
+  }>;
+};
 
 export class TranslationService {
-  // Translate text using OpenAI or Claude
+  // Translate text using OpenAI only
   static async translate(text: string, sourceLang: string, targetLang: string): Promise<string> {
     try {
-      // Try OpenAI first
-      if (config.ai.openaiApiKey) {
-        return await this.translateWithOpenAI(text, sourceLang, targetLang);
-      }
-
-      // Fallback to Claude
-      if (config.ai.anthropicApiKey) {
-        return await this.translateWithClaude(text, sourceLang, targetLang);
-      }
-
-      throw new Error('No AI API key configured');
-    } catch (error) {
-      console.error('Translation error:', error);
-      throw error;
-    }
-  }
-
-  private static async translateWithOpenAI(
-    text: string,
-    sourceLang: string,
-    targetLang: string,
-  ): Promise<string> {
-    const response = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
-      {
-        model: 'gpt-4o-mini',
-        messages: [
+      return await AIService.createChatCompletion(
+        [
           {
             role: 'system',
             content: `You are a professional translator. Translate from ${sourceLang} to ${targetLang}. Preserve the tone and style. Return only the translation without any explanation.`,
@@ -41,56 +28,58 @@ export class TranslationService {
             content: text,
           },
         ],
-        temperature: 0.3,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${config.ai.openaiApiKey}`,
-          'Content-Type': 'application/json',
+        {
+          model: 'gpt-4o-mini',
+          temperature: 0.3,
         },
-      },
-    );
-
-    return response.data.choices[0].message.content.trim();
-  }
-
-  private static async translateWithClaude(
-    text: string,
-    sourceLang: string,
-    targetLang: string,
-  ): Promise<string> {
-    const response = await axios.post(
-      'https://api.anthropic.com/v1/messages',
-      {
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 4096,
-        messages: [
-          {
-            role: 'user',
-            content: `Translate the following text from ${sourceLang} to ${targetLang}. Preserve the tone and style. Return only the translation without any explanation:\n\n${text}`,
-          },
-        ],
-        temperature: 0.3,
-      },
-      {
-        headers: {
-          'x-api-key': config.ai.anthropicApiKey!,
-          'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
-        },
-      },
-    );
-
-    return response.data.content[0].text.trim();
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`OpenAI translation failed: ${message}`);
+    }
   }
 
   // Batch translate multiple texts
   static async batchTranslate(
-    texts: string[],
     sourceLang: string,
-    targetLang: string,
-  ): Promise<string[]> {
-    const promises = texts.map((text) => this.translate(text, sourceLang, targetLang));
-    return await Promise.all(promises);
+    items: BatchTranslationInput[],
+  ): Promise<Record<string, string>> {
+    if (items.length === 0) {
+      return {};
+    }
+
+    try {
+      const result = await AIService.generateJson<BatchTranslationOutput>(
+        `You are a professional translator.
+Translate each item from ${sourceLang} to the targetLang specified in each item.
+Preserve tone and style.
+Return only JSON with this exact schema:
+{ "translations": [{ "key": "string", "translatedText": "string" }] }
+Keep exactly one output entry for each input key.`,
+        JSON.stringify({ items }),
+        {
+          model: 'gpt-4o-mini',
+          temperature: 0.2,
+        },
+      );
+
+      const translationMap: Record<string, string> = {};
+      for (const entry of result.translations || []) {
+        if (entry?.key && typeof entry.translatedText === 'string') {
+          translationMap[entry.key] = entry.translatedText.trim();
+        }
+      }
+
+      for (const item of items) {
+        if (!translationMap[item.key]) {
+          throw new Error(`Missing translation for key: ${item.key}`);
+        }
+      }
+
+      return translationMap;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`OpenAI batch translation failed: ${message}`);
+    }
   }
 }

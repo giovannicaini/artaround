@@ -35,6 +35,7 @@ import '../ui/ui-checkbox';
 import '../ui/ui-filter-tabs';
 import '../ui/ui-search-list-picker';
 import '../ui/ui-panel-section';
+import { __ } from '../../services/i18n.service';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'view';
 
@@ -161,7 +162,7 @@ export class UsersPage extends LitElement {
       this.total = response.pagination.total;
     } catch (e) {
       console.error('Error loading users:', e);
-      this.error = 'Errore nel caricamento degli utenti';
+      this.error = __('Errore nel caricamento degli utenti');
     } finally {
       this.loading = false;
     }
@@ -230,7 +231,7 @@ export class UsersPage extends LitElement {
 
     // Validation
     if (!this.formData.username.trim()) {
-      this.error = 'Username obbligatorio';
+      this.error = __('Username obbligatorio');
       return;
     }
     if (!this.formData.email.trim()) {
@@ -254,7 +255,7 @@ export class UsersPage extends LitElement {
           isActive: this.formData.isActive,
         };
         await userService.create(data);
-        this.success = 'Utente creato con successo!';
+        this.success = __('Utente creato con successo!');
       } else if (this.viewMode === 'edit' && this.selectedUser) {
         const data: UpdateUserData = {
           username: this.formData.username.trim(),
@@ -266,7 +267,7 @@ export class UsersPage extends LitElement {
           data.password = this.formData.password;
         }
         await userService.update(this.selectedUser._id, data);
-        this.success = 'Utente aggiornato con successo!';
+        this.success = __('Utente aggiornato con successo!');
       }
 
       // Refresh list and go back
@@ -277,7 +278,7 @@ export class UsersPage extends LitElement {
       }, 1000);
     } catch (e) {
       console.error('Error saving user:', e);
-      this.error = e instanceof Error ? e.message : 'Errore nel salvataggio';
+      this.error = e instanceof Error ? e.message : __('Errore nel salvataggio');
     } finally {
       this.saving = false;
     }
@@ -344,7 +345,7 @@ export class UsersPage extends LitElement {
 
   private async handleAddRoleAssignment() {
     if (!this.selectedUser || !this.roleAssignmentData.resourceId) {
-      this.error = 'ID risorsa obbligatorio';
+      this.error = __('ID risorsa obbligatorio');
       return;
     }
 
@@ -360,10 +361,10 @@ export class UsersPage extends LitElement {
       this.users = this.users.map((u) => (u._id === updatedUser._id ? updatedUser : u));
 
       this.roleAssignmentModalOpen = false;
-      this.success = 'Ruolo assegnato con successo!';
+      this.success = __('Ruolo assegnato con successo!');
     } catch (e) {
       console.error('Error adding role assignment:', e);
-      this.error = e instanceof Error ? e.message : "Errore nell'assegnazione del ruolo";
+      this.error = e instanceof Error ? e.message : __("Errore nell'assegnazione del ruolo");
     } finally {
       this.saving = false;
     }
@@ -403,12 +404,16 @@ export class UsersPage extends LitElement {
   private renderList() {
     return html`
       <!-- Header -->
-      <ui-page-header title="Gestione Utenti" .count=${this.total} countLabel="utenti">
+      <ui-page-header
+        .title=${__('Gestione Utenti')}
+        .count=${this.total}
+        .countLabel=${__('utenti')}
+      >
         <ui-button
           slot="actions"
           variant="primary"
           icon="plus"
-          label="Nuovo Utente"
+          .label=${__('Nuovo Utente')}
           @click=${this.openCreateForm}
         ></ui-button>
       </ui-page-header>
@@ -417,7 +422,7 @@ export class UsersPage extends LitElement {
       <div class="flex flex-col lg:flex-row gap-4 mb-6">
         <div class="flex-1">
           <ui-search-bar
-            placeholder="🔍 Cerca per nome o email..."
+            .placeholder=${`🔍 ${__('Cerca per nome o email...')}`}
             .value=${this.searchQuery}
             .showButton=${false}
             @search=${(e: CustomEvent) => {
@@ -432,7 +437,7 @@ export class UsersPage extends LitElement {
           <!-- Role filter -->
           <ui-filter-tabs
             .tabs=${[
-              { value: '', label: 'Tutti' },
+              { value: '', label: __('Tutti') },
               ...Object.values(UserRole).map((role) => ({
                 value: role,
                 label: userService.getRoleLabel(role),
@@ -445,9 +450,9 @@ export class UsersPage extends LitElement {
           <!-- Active filter -->
           <ui-filter-tabs
             .tabs=${[
-              { value: 'all', label: 'Tutti' },
-              { value: 'active', label: 'Attivi' },
-              { value: 'inactive', label: 'Inattivi' },
+              { value: 'all', label: __('Tutti') },
+              { value: 'active', label: __('Attivi') },
+              { value: 'inactive', label: __('Inattivi') },
             ]}
             .value=${this.filterActive}
             @filter-change=${(e: CustomEvent) => this.handleFilterActive(e.detail.value)}
@@ -462,20 +467,20 @@ export class UsersPage extends LitElement {
 
       <!-- Users table -->
       ${this.loading
-        ? html`<ui-loading size="lg" text="Caricamento utenti..."></ui-loading>`
+        ? html`<ui-loading size="lg" .text=${__('Caricamento utenti...')}></ui-loading>`
         : this.users.length === 0
           ? html`<ui-empty
               icon="users"
-              title="Nessun utente trovato"
+              .title=${__('Nessun utente trovato')}
               .description=${this.searchQuery || this.filterRole || this.filterActive !== 'all'
-                ? 'Prova a modificare i filtri di ricerca'
-                : 'Crea il primo utente per iniziare'}
+                ? __('Prova a modificare i filtri di ricerca')
+                : __('Crea il primo utente per iniziare')}
             >
               <ui-button
                 slot="action"
                 variant="primary"
                 icon="plus"
-                label="Nuovo Utente"
+                .label=${__('Nuovo Utente')}
                 @click=${this.openCreateForm}
               ></ui-button>
             </ui-empty>`
@@ -502,32 +507,32 @@ export class UsersPage extends LitElement {
                 <th
                   class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider"
                 >
-                  Utente
+                  ${__('Utente')}
                 </th>
                 <th
                   class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider"
                 >
-                  Ruolo
+                  ${__('Ruolo')}
                 </th>
                 <th
                   class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider"
                 >
-                  Ruoli Contestuali
+                  ${__('Ruoli Contestuali')}
                 </th>
                 <th
                   class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider"
                 >
-                  Stato
+                  ${__('Stato')}
                 </th>
                 <th
                   class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider"
                 >
-                  Creato
+                  ${__('Creato')}
                 </th>
                 <th
                   class="px-4 py-3 text-right text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider"
                 >
-                  Azioni
+                  ${__('Azioni')}
                 </th>
               </tr>
             </thead>
@@ -562,8 +567,8 @@ export class UsersPage extends LitElement {
 
   private renderStatusBadge(isActive: boolean) {
     return isActive
-      ? html`<ui-badge variant="success" dot label="Attivo"></ui-badge>`
-      : html`<ui-badge variant="secondary" dot label="Inattivo"></ui-badge>`;
+      ? html`<ui-badge variant="success" dot .label=${__('Attivo')}></ui-badge>`
+      : html`<ui-badge variant="secondary" dot .label=${__('Inattivo')}></ui-badge>`;
   }
 
   private formatUserDate(
@@ -625,19 +630,19 @@ export class UsersPage extends LitElement {
             <ui-icon-button
               icon="eye"
               size="sm"
-              title="Visualizza"
+              .title=${__('Visualizza')}
               @click=${() => this.openViewUser(user)}
             ></ui-icon-button>
             <ui-icon-button
               icon="edit"
               size="sm"
-              title="Modifica"
+              .title=${__('Modifica')}
               @click=${() => this.openEditForm(user)}
             ></ui-icon-button>
             <ui-icon-button
               icon="shield"
               size="sm"
-              title="Assegna ruolo"
+              .title=${__('Assegna ruolo')}
               @click=${() => this.openRoleAssignmentModal(user)}
             ></ui-icon-button>
             ${user._id !== this.currentUser?._id
@@ -646,7 +651,7 @@ export class UsersPage extends LitElement {
                     icon="trash"
                     size="sm"
                     variant="danger"
-                    title="Disattiva"
+                    .title=${__('Disattiva')}
                     @click=${() => this.openDeleteModal(user)}
                   ></ui-icon-button>
                 `
@@ -664,10 +669,10 @@ export class UsersPage extends LitElement {
       <div class="max-w-2xl mx-auto">
         <!-- Header -->
         <ui-page-header
-          .title=${isEdit ? 'Modifica Utente' : 'Nuovo Utente'}
+          .title=${isEdit ? __('Modifica Utente') : __('Nuovo Utente')}
           .description=${isEdit
-            ? `Modifica i dati di ${this.selectedUser?.username}`
-            : 'Crea un nuovo account utente'}
+            ? `${__('Modifica i dati di')} ${this.selectedUser?.username}`
+            : __('Crea un nuovo account utente')}
           showBack
           @back=${this.handleCancel}
         ></ui-page-header>
@@ -684,8 +689,8 @@ export class UsersPage extends LitElement {
         <ui-card>
           <div class="space-y-5">
             <ui-input
-              label="Username"
-              placeholder="mario_rossi"
+              .label=${__('Username')}
+              .placeholder=${__('mario_rossi')}
               .value=${this.formData.username}
               @input=${(e: InputEvent) =>
                 (this.formData = {
@@ -697,8 +702,8 @@ export class UsersPage extends LitElement {
 
             <ui-input
               type="email"
-              label="Email"
-              placeholder="mario@example.com"
+              .label=${__('Email')}
+              .placeholder=${__('mario@example.com')}
               .value=${this.formData.email}
               @input=${(e: InputEvent) =>
                 (this.formData = { ...this.formData, email: (e.target as HTMLInputElement).value })}
@@ -707,8 +712,10 @@ export class UsersPage extends LitElement {
 
             <ui-input
               type="password"
-              label=${isEdit ? 'Nuova Password (lascia vuoto per non modificare)' : 'Password'}
-              placeholder="••••••••"
+              .label=${isEdit
+                ? __('Nuova Password (lascia vuoto per non modificare)')
+                : __('Password')}
+              .placeholder="••••••••"
               .value=${this.formData.password}
               @input=${(e: InputEvent) =>
                 (this.formData = {
@@ -719,7 +726,7 @@ export class UsersPage extends LitElement {
             ></ui-input>
 
             <ui-select
-              label="Ruolo Globale"
+              .label=${__('Ruolo Globale')}
               .value=${this.formData.role}
               .options=${Object.values(UserRole).map((role) => ({
                 value: role,
@@ -736,8 +743,8 @@ export class UsersPage extends LitElement {
           <!-- Checkbox section -->
           <div class="mt-8 pt-6 border-t border-surface-200 dark:border-surface-700">
             <ui-checkbox
-              label="Account attivo"
-              hint="Se disattivo, l'utente non potrà accedere al sistema"
+              .label=${__('Account attivo')}
+              .hint=${__("Se disattivo, l'utente non potrà accedere al sistema")}
               ?checked=${this.formData.isActive}
               @checkbox-change=${(e: CustomEvent) =>
                 (this.formData = {
@@ -751,10 +758,14 @@ export class UsersPage extends LitElement {
           <div
             class="flex items-center justify-end gap-3 mt-8 pt-6 border-t border-surface-200 dark:border-surface-700"
           >
-            <ui-button variant="ghost" label="Annulla" @click=${this.handleCancel}></ui-button>
+            <ui-button
+              variant="ghost"
+              .label=${__('Annulla')}
+              @click=${this.handleCancel}
+            ></ui-button>
             <ui-button
               variant="primary"
-              .label=${isEdit ? 'Salva Modifiche' : 'Crea Utente'}
+              .label=${isEdit ? __('Salva Modifiche') : __('Crea Utente')}
               @click=${this.handleSubmit}
               ?loading=${this.saving}
             ></ui-button>
@@ -781,28 +792,28 @@ export class UsersPage extends LitElement {
           <ui-button
             variant="outline"
             icon="edit"
-            label="Modifica"
+            .label=${__('Modifica')}
             @click=${() => this.openEditForm(user)}
           ></ui-button>
         </div>
 
         <!-- User info card -->
         <ui-panel-section
-          title="Informazioni Generali"
+          .title=${__('Informazioni Generali')}
           icon="user"
           class="mb-6"
           .renderContent=${() => html`
             <dl class="grid grid-cols-2 gap-4">
               <div>
-                <dt class="text-sm text-surface-500">Ruolo Globale</dt>
+                <dt class="text-sm text-surface-500">${__('Ruolo Globale')}</dt>
                 <dd class="mt-1">${this.renderRoleBadge(user.role, 'primary')}</dd>
               </div>
               <div>
-                <dt class="text-sm text-surface-500">Stato</dt>
+                <dt class="text-sm text-surface-500">${__('Stato')}</dt>
                 <dd class="mt-1">${this.renderStatusBadge(user.isActive)}</dd>
               </div>
               <div>
-                <dt class="text-sm text-surface-500">Registrato il</dt>
+                <dt class="text-sm text-surface-500">${__('Registrato il')}</dt>
                 <dd class="mt-1 text-surface-900 dark:text-white">
                   ${this.formatUserDate(user.createdAt, {
                     day: 'numeric',
@@ -812,7 +823,7 @@ export class UsersPage extends LitElement {
                 </dd>
               </div>
               <div>
-                <dt class="text-sm text-surface-500">Ultimo accesso</dt>
+                <dt class="text-sm text-surface-500">${__('Ultimo accesso')}</dt>
                 <dd class="mt-1 text-surface-900 dark:text-white">
                   ${user.lastLogin
                     ? this.formatUserDate(user.lastLogin, {
@@ -822,7 +833,7 @@ export class UsersPage extends LitElement {
                         hour: '2-digit',
                         minute: '2-digit',
                       })
-                    : 'Mai'}
+                    : __('Mai')}
                 </dd>
               </div>
             </dl>
@@ -832,12 +843,14 @@ export class UsersPage extends LitElement {
         <!-- Role assignments card -->
         <ui-card>
           <div class="flex items-center justify-between mb-4">
-            <h3 class="font-semibold text-surface-900 dark:text-white">Ruoli Contestuali</h3>
+            <h3 class="font-semibold text-surface-900 dark:text-white">
+              ${__('Ruoli Contestuali')}
+            </h3>
             <ui-button
               variant="outline"
               size="sm"
               icon="plus"
-              label="Aggiungi Ruolo"
+              .label=${__('Aggiungi ruolo')}
               @click=${() => this.openRoleAssignmentModal(user)}
             ></ui-button>
           </div>
@@ -857,9 +870,9 @@ export class UsersPage extends LitElement {
             : html`
                 <div class="text-center py-8 text-surface-500">
                   <ui-icon name="shield" size="lg" class="mb-2 opacity-50"></ui-icon>
-                  <p>Nessun ruolo contestuale assegnato</p>
+                  <p>${__('Nessun ruolo contestuale assegnato')}</p>
                   <p class="text-sm mt-1">
-                    I ruoli contestuali permettono permessi specifici su singole risorse
+                    ${__('I ruoli contestuali permettono permessi specifici su singole risorse')}
                   </p>
                 </div>
               `}
@@ -941,11 +954,11 @@ export class UsersPage extends LitElement {
     return this.deleteModalOpen
       ? html`
           <ui-modal
-            title="Disattiva Utente"
-            message=${`Sei sicuro di voler disattivare l'utente "${this.userToDelete?.username}"? L'utente non potrà più accedere al sistema.`}
+            .title=${__('Disattiva Utente')}
+            message=${`${__("Sei sicuro di voler disattivare l'utente")} "${this.userToDelete?.username}"? ${__("L'utente non potrà più accedere al sistema.")}`}
             variant="danger"
-            confirmLabel="Disattiva"
-            cancelLabel="Annulla"
+            .confirmLabel=${__('Disattiva')}
+            .cancelLabel=${__('Annulla')}
             ?open=${this.deleteModalOpen}
             ?loading=${this.deleting}
             @confirm=${this.handleConfirmDelete}
@@ -1004,12 +1017,12 @@ export class UsersPage extends LitElement {
             <div class="p-6 space-y-4">
               ${existingRoles.length > 0
                 ? html`<p class="text-xs font-semibold text-surface-500 uppercase tracking-wider">
-                    Aggiungi ruolo
+                    ${__('Aggiungi ruolo')}
                   </p>`
                 : nothing}
 
               <ui-select
-                label="Tipo di Ruolo"
+                .label=${__('Tipo di Ruolo')}
                 .value=${this.roleAssignmentData.role}
                 .options=${Object.values(ContextualRole).map((role) => ({
                   value: role,
@@ -1023,7 +1036,7 @@ export class UsersPage extends LitElement {
               ></ui-select>
 
               <ui-select
-                label="Tipo di Risorsa"
+                .label=${__('Tipo di Risorsa')}
                 .value=${this.roleAssignmentData.resourceType}
                 .options=${Object.values(ResourceType).map((type) => ({
                   value: type,
@@ -1041,11 +1054,11 @@ export class UsersPage extends LitElement {
               ></ui-select>
 
               <ui-search-list-picker
-                label="Risorsa"
-                placeholder="Cerca per nome..."
-                loadingText="Caricamento risorse..."
-                emptyText="Nessuna risorsa disponibile"
-                noResultsText="Nessun risultato"
+                .label=${__('Risorsa')}
+                .placeholder=${__('Cerca per nome...')}
+                .loadingText=${__('Caricamento risorse...')}
+                .emptyText=${__('Nessuna risorsa disponibile')}
+                .noResultsText=${__('Nessun risultato')}
                 .loading=${this.resourceOptionsLoading}
                 .options=${this.resourceOptions}
                 .value=${this.roleAssignmentData.resourceId}
@@ -1063,12 +1076,12 @@ export class UsersPage extends LitElement {
             >
               <ui-button
                 variant="ghost"
-                label="Chiudi"
+                .label=${__('Chiudi')}
                 @click=${() => (this.roleAssignmentModalOpen = false)}
               ></ui-button>
               <ui-button
                 variant="primary"
-                label="Assegna Ruolo"
+                .label=${__('Assegna ruolo')}
                 @click=${this.handleAddRoleAssignment}
                 ?loading=${this.saving}
               ></ui-button>

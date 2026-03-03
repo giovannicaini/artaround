@@ -29,6 +29,7 @@ import '../ui/ui-media-card';
 import '../ui/ui-museum-required-notice';
 import '../ui/ui-panel-section';
 import '../items/item-creator';
+import { __ } from '../../services/i18n.service';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'view';
 /**
@@ -40,6 +41,7 @@ type ViewMode = 'list' | 'create' | 'edit' | 'view';
 @customElement('contents-page')
 export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
   @property({ type: Object }) user: User | null = null;
+  @property({ type: Boolean }) authorOnly = false;
 
   @state() private viewMode: ViewMode = 'list';
   @state() private items: Item[] = [];
@@ -56,6 +58,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
   @state() private deleteModalOpen = false;
   @state() private itemToDelete: Item | null = null;
   @state() private deleting = false;
+  @state() private ownItemsCache: Item[] = [];
 
   // ─── Computed State ──────────────────────────────────────
   private get permissions(): PermissionSet {
@@ -85,6 +88,30 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     this.error = '';
 
     try {
+      if (this.authorOnly) {
+        const myItems = await itemService.getMyItems();
+        const filteredByMuseum = this.selectedMuseumId
+          ? myItems.filter((item) => item.museumId === this.selectedMuseumId)
+          : myItems;
+
+        this.ownItemsCache = filteredByMuseum;
+        const visibleItems = this.searchQuery.trim()
+          ? filteredByMuseum.filter((item) => {
+              const q = this.searchQuery.toLowerCase();
+              return item.title.toLowerCase().includes(q) || item.text.toLowerCase().includes(q);
+            })
+          : filteredByMuseum;
+
+        this.items = visibleItems;
+        this.pagination = {
+          page: 1,
+          limit: Math.max(visibleItems.length, 1),
+          total: visibleItems.length,
+          totalPages: 1,
+        };
+        return;
+      }
+
       const result = await itemService.getItems({
         page: this.pagination.page,
         limit: this.pagination.limit,
@@ -94,13 +121,30 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
       this.pagination = result.pagination;
     } catch (e) {
       console.error('Error loading items:', e);
-      this.error = 'Errore durante il caricamento dei contenuti';
+      this.error = __('Errore durante il caricamento dei contenuti');
     } finally {
       this.loading = false;
     }
   }
 
   private async handleSearch() {
+    if (this.authorOnly) {
+      const query = this.searchQuery.trim().toLowerCase();
+      this.items = query
+        ? this.ownItemsCache.filter(
+            (item) =>
+              item.title.toLowerCase().includes(query) || item.text.toLowerCase().includes(query),
+          )
+        : [...this.ownItemsCache];
+      this.pagination = {
+        page: 1,
+        limit: Math.max(this.items.length, 1),
+        total: this.items.length,
+        totalPages: 1,
+      };
+      return;
+    }
+
     if (!this.searchQuery.trim()) {
       this.loadItems();
       return;
@@ -119,7 +163,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
       this.pagination = result.pagination;
     } catch (e) {
       console.error('Error searching items:', e);
-      this.error = 'Errore durante la ricerca';
+      this.error = __('Errore durante la ricerca');
     } finally {
       this.loading = false;
     }
@@ -133,7 +177,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
 
   private handleEditItem(item: Item) {
     if (!this.permissions.canEditItem) {
-      this.error = 'Non hai i permessi per modificare i contenuti.';
+      this.error = __('Non hai i permessi per modificare i contenuti.');
       return;
     }
     this.selectedItem = item;
@@ -142,7 +186,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
 
   private handleDeleteItem(item: Item) {
     if (!this.permissions.canDeleteItem) {
-      this.error = 'Non hai i permessi per eliminare i contenuti.';
+      this.error = __('Non hai i permessi per eliminare i contenuti.');
       return;
     }
     this.itemToDelete = item;
@@ -171,6 +215,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
   }
 
   private handlePageChange(page: number) {
+    if (this.authorOnly) return;
     this.pagination.page = page;
     this.loadItems();
   }
@@ -231,14 +276,14 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
       <div class="space-y-6">
         <!-- Header -->
         <ui-page-header
-          title="Contenuti"
+          .title=${__('Contenuti')}
           .count=${this.pagination.total}
-          countLabel="contenuti totali"
-          description="Testi descrittivi per opere, autori, movimenti"
+          .countLabel=${__('contenuti totali')}
+          .description=${__('Testi descrittivi per opere, autori, movimenti')}
         >
           <div slot="actions" class="flex items-center gap-3">
             <ui-search-bar
-              placeholder="Cerca contenuti..."
+              .placeholder=${__('Cerca contenuti...')}
               .value=${this.searchQuery}
               @input-change=${(e: CustomEvent) => (this.searchQuery = e.detail.value)}
               @search=${this.handleSearch}
@@ -248,7 +293,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
                   <ui-button
                     variant="primary"
                     icon="plus"
-                    label="Nuovo Contenuto"
+                    .label=${__('Nuovo Contenuto')}
                     @click=${() => (this.viewMode = 'create')}
                   ></ui-button>
                 `
@@ -256,7 +301,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
           </div>
         </ui-page-header>
 
-        ${!this.selectedMuseumId
+        ${!this.selectedMuseumId && !this.authorOnly
           ? html`<ui-museum-required-notice
               subject="contenuti"
               @select-museum=${this.emitSelectMuseum}
@@ -265,7 +310,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
 
         <!-- Content -->
         ${this.loading
-          ? html`<ui-loading text="Caricamento contenuti..."></ui-loading>`
+          ? html`<ui-loading .text=${__('Caricamento contenuti...')}></ui-loading>`
           : this.error
             ? html`<ui-alert
                 variant="danger"
@@ -292,8 +337,8 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
       <div class="space-y-6">
         <!-- Header -->
         <ui-page-header
-          title="Nuovo Contenuto"
-          description="Crea un nuovo contenuto descrittivo"
+          .title=${__('Nuovo Contenuto')}
+          .description=${__('Crea un nuovo contenuto descrittivo')}
           showBack
           @back=${this.backToListView}
         ></ui-page-header>
@@ -314,17 +359,17 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     return html`
       <ui-empty
         icon="document"
-        title="Nessun contenuto"
-        description=${this.searchQuery
-          ? 'Nessun risultato per la ricerca'
-          : 'Non ci sono ancora contenuti'}
+        .title=${__('Nessun contenuto')}
+        .description=${this.searchQuery
+          ? __('Nessun risultato per la ricerca')
+          : __('Non ci sono ancora contenuti')}
       >
         ${this.permissions.canCreateItem
           ? html`
               <ui-button
                 variant="primary"
                 icon="plus"
-                label="Crea il primo contenuto"
+                .label=${__('Crea il primo contenuto')}
                 @click=${() => (this.viewMode = 'create')}
               ></ui-button>
             `
@@ -354,7 +399,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
         bodyClass="p-4"
         .renderTopRight=${() =>
           item.isFree
-            ? html`<ui-badge variant="success" size="sm" label="Gratuito"></ui-badge>`
+            ? html`<ui-badge variant="success" size="sm" .label=${__('Gratuito')}></ui-badge>`
             : html`<ui-badge
                 variant="warning"
                 size="sm"
@@ -426,14 +471,14 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
           >
             <ui-icon-button
               icon="eye"
-              title="Visualizza"
+              .title=${__('Visualizza')}
               @click=${() => this.handleViewItem(item)}
             ></ui-icon-button>
             ${this.permissions.canEditItem
               ? html`
                   <ui-icon-button
                     icon="edit"
-                    title="Modifica"
+                    .title=${__('Modifica')}
                     @click=${() => this.handleEditItem(item)}
                   ></ui-icon-button>
                 `
@@ -443,7 +488,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
                   <ui-icon-button
                     icon="trash"
                     variant="danger"
-                    title="Elimina"
+                    .title=${__('Elimina')}
                     @click=${() => this.handleDeleteItem(item)}
                   ></ui-icon-button>
                 `
@@ -462,7 +507,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
         <!-- Header -->
         <ui-page-header
           title=${this.selectedItem.title}
-          description=${this.selectedItem.referenceTitle || 'Contenuto'}
+          .description=${this.selectedItem.referenceTitle || __('Contenuto')}
           showBack
           @back=${this.backToListView}
         >
@@ -472,7 +517,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
                   slot="actions"
                   variant="primary"
                   icon="edit"
-                  label="Modifica"
+                  .label=${__('Modifica')}
                   @click=${() => (this.viewMode = 'edit')}
                 ></ui-button>
               `
@@ -490,7 +535,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
           <div class="lg:col-span-2 space-y-6">
             <!-- Characteristics -->
             <ui-panel-section
-              title="Caratteristiche"
+              .title=${__('Caratteristiche')}
               icon="list"
               .renderContent=${() => html`
                 <div class="flex flex-wrap gap-2 mb-4">
@@ -509,20 +554,25 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
                 </div>
 
                 <dl class="grid grid-cols-2 gap-4">
-                  ${this.renderDetailRow('Riferimento Wikidata', this.selectedItem!.referenceId)}
-                  ${this.renderDetailRow('Licenza', this.selectedItem!.license || 'N/A')}
                   ${this.renderDetailRow(
-                    'Prezzo',
-                    this.selectedItem!.isFree ? 'Gratuito' : `€${this.selectedItem!.price || 0}`,
+                    __('Riferimento Wikidata'),
+                    this.selectedItem!.referenceId,
                   )}
-                  ${this.renderDetailRow('Autore', this.selectedItem!.authorName)}
+                  ${this.renderDetailRow(__('Licenza'), this.selectedItem!.license || __('N/D'))}
+                  ${this.renderDetailRow(
+                    __('Prezzo'),
+                    this.selectedItem!.isFree
+                      ? __('Gratuito')
+                      : `€${this.selectedItem!.price || 0}`,
+                  )}
+                  ${this.renderDetailRow(__('Autore'), this.selectedItem!.authorName)}
                 </dl>
               `}
             ></ui-panel-section>
 
             <!-- Text Content -->
             <ui-panel-section
-              title="Testo"
+              .title=${__('Testo')}
               icon="document"
               .renderContent=${() => html`
                 <p class="text-surface-700 dark:text-surface-300 whitespace-pre-wrap">
@@ -535,7 +585,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
             ${this.selectedItem.tags && this.selectedItem.tags.length > 0
               ? html`
                   <ui-panel-section
-                    title="Tags"
+                    .title=${__('Tag')}
                     icon="tag"
                     .renderContent=${() => html`
                       <div class="flex flex-wrap gap-2">
@@ -560,7 +610,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
       <div class="space-y-6">
         <!-- Header -->
         <ui-page-header
-          title="Modifica Contenuto"
+          .title=${__('Modifica Contenuto')}
           description=${this.selectedItem.title}
           showBack
           @back=${this.backToListView}
@@ -593,11 +643,13 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
       <!-- Delete Confirmation Modal -->
       <ui-modal
         ?open=${this.deleteModalOpen}
-        title="Elimina Contenuto"
-        message="Sei sicuro di voler eliminare questo contenuto? Questa azione non può essere annullata."
+        .title=${__('Elimina Contenuto')}
+        .message=${__(
+          'Sei sicuro di voler eliminare questo contenuto? Questa azione non può essere annullata.',
+        )}
         variant="danger"
-        confirmLabel="Elimina"
-        cancelLabel="Annulla"
+        .confirmLabel=${__('Elimina')}
+        .cancelLabel=${__('Annulla')}
         ?loading=${this.deleting}
         @confirm=${this.handleConfirmDelete}
         @cancel=${this.handleCancelDelete}

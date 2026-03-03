@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './ui-button';
 import './ui-icon';
+import { __ } from '../../services/i18n.service';
 
 @customElement('ui-modal')
 export class UiModal extends LitElement {
@@ -9,8 +10,8 @@ export class UiModal extends LitElement {
   @property({ type: String }) title = '';
   @property({ type: String }) message = '';
   @property({ type: String }) variant: 'default' | 'danger' | 'success' | 'info' = 'default';
-  @property({ type: String }) confirmLabel = 'Conferma';
-  @property({ type: String }) cancelLabel = 'Annulla';
+  @property({ type: String }) confirmLabel = '';
+  @property({ type: String }) cancelLabel = '';
   @property({ type: Boolean }) loading = false;
   @property({ type: Boolean }) hideCancel = false;
 
@@ -64,6 +65,8 @@ export class UiModal extends LitElement {
   // ─── Render ──────────────────────────────────────────────
   render() {
     if (!this.open) return null;
+    const resolvedConfirmLabel = this.confirmLabel || __('Conferma');
+    const resolvedCancelLabel = this.cancelLabel || __('Annulla');
 
     const iconMap = {
       danger: 'warning',
@@ -119,7 +122,7 @@ export class UiModal extends LitElement {
               ? html`
                   <ui-button
                     variant="secondary"
-                    label="${this.cancelLabel}"
+                    .label=${resolvedCancelLabel}
                     ?disabled=${this.loading}
                     @click=${this.handleCancel}
                   ></ui-button>
@@ -127,7 +130,7 @@ export class UiModal extends LitElement {
               : nothing}
             <ui-button
               variant="${this.variant === 'danger' ? 'danger' : 'primary'}"
-              label="${this.confirmLabel}"
+              .label=${resolvedConfirmLabel}
               ?loading=${this.loading}
               @click=${this.handleConfirm}
             ></ui-button>

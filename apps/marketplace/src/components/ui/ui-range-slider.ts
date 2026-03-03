@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { __ } from '../../services/i18n.service';
 
 @customElement('ui-range-slider')
 export class UiRangeSlider extends LitElement {
@@ -181,7 +182,7 @@ export class UiRangeSlider extends LitElement {
               data-handle="from"
               class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 border-brand-500 bg-white dark:bg-surface-900 shadow-sm cursor-ew-resize"
               style="left: ${this.fromPercent}%;"
-              aria-label="Valore minimo"
+              aria-label=${__('Valore minimo')}
             ></button>
 
             <button
@@ -189,7 +190,7 @@ export class UiRangeSlider extends LitElement {
               data-handle="to"
               class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 border-brand-500 bg-white dark:bg-surface-900 shadow-sm cursor-ew-resize"
               style="left: ${this.toPercent}%;"
-              aria-label="Valore massimo"
+              aria-label=${__('Valore massimo')}
             ></button>
           </div>
 

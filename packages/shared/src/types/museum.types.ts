@@ -4,6 +4,8 @@
  * Uses Wikidata ID as primary identifier for museums.
  */
 
+import type { AppLanguage } from './i18n.types';
+
 // ========================================
 // MUSEUM
 // ========================================
@@ -15,6 +17,9 @@ export interface Museum {
   // Basic info
   name: string;
   description: string;
+  nameTranslations?: Partial<Record<AppLanguage, string>>;
+  descriptionTranslations?: Partial<Record<AppLanguage, string>>;
+  activeLanguages: AppLanguage[];
 
   // Location
   location: MuseumLocation;
@@ -53,7 +58,9 @@ export interface MuseumLocation {
 
 export interface MuseumServices {
   ticketInfo?: string; // "€15, ridotto €8"
+  ticketInfoTranslations?: Partial<Record<AppLanguage, string>>;
   openingHours?: string; // "Mar-Dom 9:00-19:00"
+  openingHoursTranslations?: Partial<Record<AppLanguage, string>>;
   closedDays?: string; // "Lunedì"
   website?: string;
   phone?: string;
@@ -71,6 +78,9 @@ export interface CreateMuseumData {
   wikidataId: string;
   name: string;
   description: string;
+  nameTranslations?: Partial<Record<AppLanguage, string>>;
+  descriptionTranslations?: Partial<Record<AppLanguage, string>>;
+  activeLanguages?: AppLanguage[];
   location: MuseumLocation;
   images?: string[];
   coverImage?: string;

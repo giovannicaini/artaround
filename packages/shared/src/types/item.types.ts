@@ -12,6 +12,8 @@
  * They are specific to each Visit and managed as VisitStep properties.
  */
 
+import type { AppLanguage } from './i18n.types';
+
 // ========================================
 // ITEM (Contenuto testuale/audio)
 // ========================================
@@ -28,8 +30,10 @@ export interface Item {
   referenceTitle?: string; // Title/name for display (cached from reference)
 
   // Content
+  sourceLanguage: AppLanguage;
   title: string;
   text: string;
+  translatedTitles?: Partial<Record<AppLanguage, string>>;
   translatedTexts?: Record<string, string>; // locale code -> translated text
 
   // Content characteristics
@@ -163,11 +167,14 @@ export interface ItemFilters {
 
 export interface CreateItemData {
   museumId: string;
+  sourceLanguage?: AppLanguage;
   referenceType: ItemReferenceType;
   referenceId?: string; // Wikidata ID for artwork/author/movement/museum
   referenceTitle?: string;
   title: string;
   text: string;
+  translatedTitles?: Partial<Record<AppLanguage, string>>;
+  translatedTexts?: Partial<Record<AppLanguage, string>>;
   duration: ContentDuration;
   languageLevel: LanguageLevel;
   license: LicenseType;

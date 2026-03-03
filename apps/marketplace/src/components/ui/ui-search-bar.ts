@@ -3,6 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import './ui-icon';
 import './ui-input';
 import './ui-button';
+import { __ } from '../../services/i18n.service';
 
 /**
  * UI Search Bar
@@ -15,7 +16,7 @@ import './ui-button';
  * @example
  * ```html
  * <ui-search-bar
- *   placeholder="Cerca contenuti..."
+ *   .placeholder=${__('Cerca contenuti...')}
  *   .value=${this.searchQuery}
  *   @search=${(e) => this.handleSearch(e.detail.value)}
  * ></ui-search-bar>

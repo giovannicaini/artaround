@@ -3,14 +3,15 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { wikidataService } from '../../services/wikidata.service';
 import { preferencesService } from '../../services/preferences.service';
 import type { WikidataSearchResult } from '@artaround/shared';
+import { __ } from '../../services/i18n.service';
 import '../ui/ui-input';
 import '../ui/ui-icon';
 import '../ui/ui-image-placeholder';
 
 @customElement('wikidata-autocomplete')
 export class WikidataAutocomplete extends LitElement {
-  @property({ type: String }) label = "Opera d'arte";
-  @property({ type: String }) placeholder = 'Cerca su Wikidata...';
+  @property({ type: String }) label = '';
+  @property({ type: String }) placeholder = '';
   @property({ type: String }) value = '';
   @property({ type: String }) selectedId = '';
   @property({ type: String }) error = '';
@@ -143,10 +144,13 @@ export class WikidataAutocomplete extends LitElement {
 
   // ─── Render Entry ────────────────────────────────────────
   render() {
+    const resolvedLabel = this.label || __("Opera d'arte");
+    const resolvedPlaceholder = this.placeholder || __('Cerca su Wikidata...');
+
     return html`
       <div class="relative">
         <label class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-          ${this.label}
+          ${resolvedLabel}
           ${this.required ? html`<span class="text-danger-500 ml-0.5">*</span>` : nothing}
         </label>
 
@@ -163,11 +167,12 @@ export class WikidataAutocomplete extends LitElement {
                     @change=${this.handleOnlyCurrentMuseumChange}
                     ?disabled=${this.disabled}
                   />
-                  Includi solo opere del museo corrente su Wikidata
+                  ${__('Includi solo opere del museo corrente su Wikidata')}
                 </label>
                 <p class="mt-1 text-[11px] text-surface-500 dark:text-surface-400">
-                  Se disattivo, la ricerca include anche opere di altri musei (es. mostre
-                  temporanee).
+                  ${__(
+                    'Se disattivo, la ricerca include anche opere di altri musei (es. mostre temporanee).',
+                  )}
                 </p>
               </div>
             `
@@ -184,7 +189,7 @@ export class WikidataAutocomplete extends LitElement {
               ${this.error
               ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500/20'
               : 'border-surface-300 dark:border-surface-600 focus:border-brand-500 focus:ring-brand-500/20'}"
-            placeholder="${this.placeholder}"
+            placeholder="${resolvedPlaceholder}"
             .value="${this.query || this.selectedLabel}"
             ?disabled="${this.disabled}"
             @input="${(e: Event) =>
@@ -272,13 +277,13 @@ export class WikidataAutocomplete extends LitElement {
                             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                           ></path>
                         </svg>
-                        Ricerca in corso...
+                        ${__('Ricerca in corso...')}
                       </div>
                     `
                   : this.results.length === 0
                     ? html`
                         <div class="px-4 py-3 text-sm text-surface-500 dark:text-surface-400">
-                          Nessun risultato trovato
+                          ${__('Nessun risultato trovato')}
                         </div>
                       `
                     : this.results.map(

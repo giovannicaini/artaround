@@ -1,9 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
 import { body, validationResult } from 'express-validator';
-import { VisitModel } from '../models/index.js';
+import { VisitModel, MuseumModel } from '../models/index.js';
 import { AppError } from '../middleware/index.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
-import { VisitStepType, LanguageLevel } from '@artaround/shared';
+import {
+  VisitStepType,
+  LanguageLevel,
+  DEFAULT_APP_LANGUAGE,
+  SUPPORTED_APP_LANGUAGES,
+  isSupportedAppLanguage,
+  type AppLanguage,
+} from '@artaround/shared';
 
 /**
  * Visit Controller
@@ -12,11 +19,69 @@ import { VisitStepType, LanguageLevel } from '@artaround/shared';
  */
 
 export class VisitController {
+  private static async getMuseumActiveLanguages(museumId: string): Promise<AppLanguage[]> {
+    const museum = await MuseumModel.findById(museumId).select('activeLanguages').lean();
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+    }
+
+    const activeLanguagesRaw = Array.isArray(museum.activeLanguages)
+      ? museum.activeLanguages
+      : [DEFAULT_APP_LANGUAGE];
+    const activeLanguages = activeLanguagesRaw
+      .map((lang) =>
+        String(lang || '')
+          .trim()
+          .toLowerCase(),
+      )
+      .filter((lang): lang is AppLanguage => isSupportedAppLanguage(lang));
+
+    return activeLanguages.length > 0 ? activeLanguages : [DEFAULT_APP_LANGUAGE];
+  }
+
+  private static ensureVisitLanguageCoverage(
+    activeLanguages: AppLanguage[],
+    sourceLanguage: AppLanguage,
+    title: string,
+    description: string,
+    titleTranslations: Record<string, string>,
+    descriptionTranslations: Record<string, string>,
+  ): void {
+    for (const lang of activeLanguages) {
+      const hasTitle =
+        lang === sourceLanguage ? Boolean(title.trim()) : Boolean(titleTranslations[lang]?.trim());
+      const hasDescription =
+        lang === sourceLanguage
+          ? Boolean(description.trim())
+          : Boolean(descriptionTranslations[lang]?.trim());
+
+      if (!hasTitle || !hasDescription) {
+        throw new AppError(
+          400,
+          'VALIDATION_ERROR',
+          `Missing required visit translations for language '${lang}'`,
+        );
+      }
+    }
+  }
+
   // Validation rules for the new Visit structure
   static createValidation = [
     body('museumId').notEmpty().withMessage('Museum ID (Wikidata) is required'),
     body('title').trim().notEmpty().withMessage('Title is required'),
     body('description').trim().notEmpty().withMessage('Description is required'),
+    body('titleTranslations')
+      .optional()
+      .isObject()
+      .withMessage('titleTranslations must be an object'),
+    body('descriptionTranslations')
+      .optional()
+      .isObject()
+      .withMessage('descriptionTranslations must be an object'),
+    body('metadata.language')
+      .optional()
+      .isIn(SUPPORTED_APP_LANGUAGES)
+      .withMessage(`metadata.language must be one of: ${SUPPORTED_APP_LANGUAGES.join(', ')}`),
     body('steps').isArray({ min: 1 }).withMessage('At least one step required'),
     body('steps.*.order').isNumeric().withMessage('Step order is required'),
     body('steps.*.type').isIn(Object.values(VisitStepType)).withMessage('Invalid step type'),
@@ -156,11 +221,49 @@ export class VisitController {
         (a: { order: number }, b: { order: number }) => a.order - b.order,
       );
 
+      const sourceLanguageRaw = String(req.body?.metadata?.language || DEFAULT_APP_LANGUAGE)
+        .trim()
+        .toLowerCase();
+      if (!isSupportedAppLanguage(sourceLanguageRaw)) {
+        throw new AppError(
+          400,
+          'VALIDATION_ERROR',
+          `metadata.language must be one of: ${SUPPORTED_APP_LANGUAGES.join(', ')}`,
+        );
+      }
+
+      const activeLanguages = await VisitController.getMuseumActiveLanguages(
+        String(req.body.museumId),
+      );
+      const titleTranslations = (req.body.titleTranslations || {}) as Record<string, string>;
+      const descriptionTranslations = (req.body.descriptionTranslations || {}) as Record<
+        string,
+        string
+      >;
+
+      VisitController.ensureVisitLanguageCoverage(
+        activeLanguages,
+        sourceLanguageRaw,
+        String(req.body.title || ''),
+        String(req.body.description || ''),
+        titleTranslations,
+        descriptionTranslations,
+      );
+
+      const mergedMetadata = {
+        ...(req.body.metadata || {}),
+        language: sourceLanguageRaw,
+        supportedLanguages: activeLanguages,
+      };
+
       const visitData = {
         ...req.body,
         steps,
         authorId: req.user.id,
         isPublished: false,
+        metadata: mergedMetadata,
+        titleTranslations,
+        descriptionTranslations,
       };
 
       const visit = new VisitModel(visitData);

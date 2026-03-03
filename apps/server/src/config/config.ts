@@ -49,14 +49,7 @@ const resolveEnvPath = (): { envPath?: string; attemptedPaths: string[] } => {
     return undefined;
   };
 
-  const starts = [
-    process.cwd(),
-    moduleDir,
-    serverAppDir,
-    workspaceRootDir,
-    '/app',
-    '/usr/src/app',
-  ];
+  const starts = [process.cwd(), moduleDir, serverAppDir, workspaceRootDir, '/app', '/usr/src/app'];
 
   for (const start of starts) {
     const found = searchFrom(start);
@@ -108,7 +101,6 @@ export const config = {
 
   ai: {
     openaiApiKey: process.env.OPENAI_API_KEY,
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
   },
 
   wikidata: {

@@ -2,11 +2,12 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './ui-card';
 import './ui-badge';
+import { __ } from '../../services/i18n.service';
 
 @customElement('ui-resource-list-card')
 export class UiResourceListCard extends LitElement {
   @property({ type: String }) title = '';
-  @property({ type: String }) emptyText = 'Nessun elemento';
+  @property({ type: String }) emptyText = '';
   @property({ type: Number }) count = 0;
   @property({ type: String }) badgeVariant: 'secondary' | 'success' | 'warning' | 'danger' =
     'secondary';
@@ -25,6 +26,8 @@ export class UiResourceListCard extends LitElement {
 
   // ─── Render ──────────────────────────────────────────────
   render() {
+    const resolvedEmptyText = this.emptyText || __('Nessun elemento');
+
     return html`
       <ui-card padding="none">
         <div
@@ -43,7 +46,7 @@ export class UiResourceListCard extends LitElement {
 
         <div class="divide-y divide-surface-200 dark:divide-surface-800">
           ${this.count === 0
-            ? html`<p class="px-5 py-4 text-sm text-surface-500">${this.emptyText}</p>`
+            ? html`<p class="px-5 py-4 text-sm text-surface-500">${resolvedEmptyText}</p>`
             : this.renderItems
               ? this.renderItems()
               : nothing}

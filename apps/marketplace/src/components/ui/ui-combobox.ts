@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import './ui-icon';
+import { __ } from '../../services/i18n.service';
 
 export interface ComboboxOption {
   value: string;
@@ -15,7 +16,7 @@ export interface ComboboxOption {
 export class UiCombobox extends LitElement {
   @property({ type: String }) label = '';
   @property({ type: String }) value = '';
-  @property({ type: String }) placeholder = 'Cerca o seleziona...';
+  @property({ type: String }) placeholder = '';
   @property({ type: String }) hint = '';
   @property({ type: String }) error = '';
   @property({ type: Boolean }) disabled = false;
@@ -117,6 +118,7 @@ export class UiCombobox extends LitElement {
   // ─── Render ──────────────────────────────────────────────
   render() {
     const items = this.filtered;
+    const resolvedPlaceholder = this.placeholder || __('Cerca o seleziona...');
     const inputClasses = `
       w-full px-3 py-2.5 text-sm rounded-lg border transition-colors duration-150
       bg-white dark:bg-surface-900
@@ -146,7 +148,7 @@ export class UiCombobox extends LitElement {
                 <input
                   type="text"
                   class="${inputClasses} pr-8"
-                  placeholder="Cerca..."
+                  placeholder=${__('Cerca...')}
                   .value=${this.search}
                   @input=${(e: InputEvent) => {
                     this.search = (e.target as HTMLInputElement).value;
@@ -167,7 +169,7 @@ export class UiCombobox extends LitElement {
                   ?disabled=${this.disabled}
                 >
                   <span class="${this.value ? '' : 'text-surface-400 dark:text-surface-500'}">
-                    ${this.value ? this.selectedLabel : this.placeholder}
+                    ${this.value ? this.selectedLabel : resolvedPlaceholder}
                   </span>
                 </button>
               `}
@@ -180,7 +182,7 @@ export class UiCombobox extends LitElement {
                     type="button"
                     class="pointer-events-auto text-surface-400 hover:text-surface-600 dark:hover:text-surface-300"
                     @click=${this.clear}
-                    title="Rimuovi selezione"
+                    .title=${__('Rimuovi selezione')}
                   >
                     <ui-icon name="x" size="xs"></ui-icon>
                   </button>
@@ -218,11 +220,11 @@ export class UiCombobox extends LitElement {
                           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                         ></path>
                       </svg>
-                      Caricamento...
+                      ${__('Caricamento...')}
                     </p>`
                   : items.length === 0
                     ? html`<p class="px-3 py-4 text-sm text-surface-400 text-center">
-                        Nessun risultato
+                        ${__('Nessun risultato')}
                       </p>`
                     : html`
                         <ul

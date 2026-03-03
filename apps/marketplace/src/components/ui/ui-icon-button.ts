@@ -13,14 +13,14 @@ import './ui-icon';
  * ```html
  * <ui-icon-button
  *   icon="edit"
- *   title="Modifica"
+ *   title="Edit"
  *   @click=${this.handleEdit}
  * ></ui-icon-button>
  *
  * <ui-icon-button
  *   icon="trash"
  *   variant="danger"
- *   title="Elimina"
+ *   title="Delete"
  *   @click=${this.handleDelete}
  * ></ui-icon-button>
  * ```

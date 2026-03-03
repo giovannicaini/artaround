@@ -28,6 +28,7 @@ import '../ui/ui-stat-card';
 import '../ui/ui-list-row';
 import '../ui/ui-section-header';
 import '../ui/ui-resource-list-card';
+import { __ } from '../../services/i18n.service';
 
 @customElement('dashboard-page')
 export class DashboardPage extends LitElement {
@@ -176,7 +177,7 @@ export class DashboardPage extends LitElement {
       await this.loadUserScopedLists();
     } catch (error) {
       console.error('Error loading dashboard data:', error);
-      this.loadError = 'Errore nel caricamento dei dati reali della dashboard';
+      this.loadError = __('Errore nel caricamento dei dati reali della dashboard');
     } finally {
       this.loading = false;
     }
@@ -202,7 +203,7 @@ export class DashboardPage extends LitElement {
   }
 
   private getMuseumNameById(museumId?: string): string {
-    if (!museumId) return 'Museo non specificato';
+    if (!museumId) return __('Museo non specificato');
     return this.museumIndexById.get(museumId)?.name || museumId;
   }
 
@@ -340,8 +341,8 @@ export class DashboardPage extends LitElement {
   // ─── Render Helpers ──────────────────────────────────────
   private getVisitStatusBadge(visit: Visit) {
     return visit.isPublished
-      ? html`<ui-badge variant="success" size="sm" label="Pubblicata"></ui-badge>`
-      : html`<ui-badge variant="warning" size="sm" label="Bozza"></ui-badge>`;
+      ? html`<ui-badge variant="success" size="sm" .label=${__('Pubblicata')}></ui-badge>`
+      : html`<ui-badge variant="warning" size="sm" .label=${__('Bozza')}></ui-badge>`;
   }
 
   private renderSecondaryBadge(label: string) {
@@ -390,7 +391,7 @@ export class DashboardPage extends LitElement {
           .title=${museum.name}
           .subtitle=${`${museum.location?.city || '-'} • ${museum.location?.country || '-'}`}
           .renderTrailing=${() =>
-            html`<ui-badge variant="success" size="sm" label="Curatore"></ui-badge>`}
+            html`<ui-badge variant="success" size="sm" .label=${__('Curatore')}></ui-badge>`}
           @click=${() => this.handleCuratorMuseumClick(museum)}
         ></ui-list-row>
       `,
@@ -433,7 +434,7 @@ export class DashboardPage extends LitElement {
     return this.recentArtworks.map((artwork) =>
       this.renderSecondaryResourceListRow(
         artwork.title || artwork._id,
-        `${artwork.author || 'Autore non specificato'} • ${this.formatDate(artwork.updatedAt || artwork.createdAt)}`,
+        `${artwork.author || __('Autore non specificato')} • ${this.formatDate(artwork.updatedAt || artwork.createdAt)}`,
         artwork.artworkType,
         () => this.handleRecentArtworkClick(artwork),
       ),
@@ -493,8 +494,10 @@ export class DashboardPage extends LitElement {
     return html`
       <div class="space-y-6 animate-fade-in">
         <ui-page-header
-          .title=${'Buongiorno, ' + (this.user?.username?.split(' ')[0] || 'Admin')}
-          description="Benvenuto nella dashboard del marketplace. Qui puoi avere una panoramica delle attività recenti e gestire le tue opere e visite."
+          .title=${__('Buongiorno') + ', ' + (this.user?.username?.split(' ')[0] || 'Admin')}
+          .description=${__(
+            'Benvenuto nella dashboard del marketplace. Qui puoi avere una panoramica delle attività recenti e gestire le tue opere e visite.',
+          )}
         >
         </ui-page-header>
 
@@ -512,17 +515,17 @@ export class DashboardPage extends LitElement {
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div class="min-w-0">
                 <p class="text-sm font-medium text-surface-700 dark:text-surface-300">
-                  Museo attivo
+                  ${__('Museo attivo')}
                 </p>
                 <p class="mt-1 text-lg font-semibold text-surface-900 dark:text-white truncate">
-                  ${this.selectedMuseum?.name || 'Nessun museo selezionato'}
+                  ${this.selectedMuseum?.name || __('Nessun museo selezionato')}
                 </p>
               </div>
 
               <ui-badge
                 variant=${this.selectedMuseum ? 'success' : 'warning'}
                 size="sm"
-                .label=${this.selectedMuseum ? 'Selezionato' : 'Non selezionato'}
+                .label=${this.selectedMuseum ? __('Selezionato') : __('Non selezionato')}
               ></ui-badge>
             </div>
 
@@ -531,14 +534,14 @@ export class DashboardPage extends LitElement {
                 variant="secondary"
                 size="sm"
                 icon="location"
-                .label=${this.showMuseumSelector ? 'Chiudi selettore' : 'Cambia museo'}
+                .label=${this.showMuseumSelector ? __('Chiudi selettore') : __('Cambia museo')}
                 @click=${this.handleSelectMuseum}
               ></ui-button>
               ${this.selectedMuseum
                 ? html`
                     <ui-icon-button
                       icon="x"
-                      title="Deseleziona museo"
+                      .title=${__('Deseleziona museo')}
                       @click=${this.clearMuseumSelection}
                     ></ui-icon-button>
                   `
@@ -568,53 +571,65 @@ export class DashboardPage extends LitElement {
                 ? html`
                     <section class="space-y-3">
                       <ui-section-header
-                        title="Dati generali"
-                        description="Panoramica complessiva della piattaforma"
+                        .title=${__('Dati generali')}
+                        .description=${__('Panoramica complessiva della piattaforma')}
                       ></ui-section-header>
                       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                        ${this.renderStatCard('Utenti registrati', this.totalActiveUsers, 'users')}
-                        ${this.renderStatCard('Musei attivi', this.totalActiveMuseums, 'location')}
                         ${this.renderStatCard(
-                          'Opere inserite',
+                          __('Utenti registrati'),
+                          this.totalActiveUsers,
+                          'users',
+                        )}
+                        ${this.renderStatCard(
+                          __('Musei attivi'),
+                          this.totalActiveMuseums,
+                          'location',
+                        )}
+                        ${this.renderStatCard(
+                          __('Opere inserite'),
                           this.totalInsertedArtworks,
                           'image',
                         )}
                         ${this.renderStatCard(
-                          'Contenuti pubblicati',
+                          __('Contenuti pubblicati'),
                           this.totalPublishedContents,
                           'document',
                         )}
-                        ${this.renderStatCard('Visite create', this.totalCreatedVisits, 'visit')}
+                        ${this.renderStatCard(
+                          __('Visite create'),
+                          this.totalCreatedVisits,
+                          'visit',
+                        )}
                       </div>
                     </section>
                   `
                 : nothing}
               ${this.renderDashboardSection(
-                'Le mie risorse',
-                'Elementi legati al tuo utente, indipendenti dal museo attivo',
+                __('Le mie risorse'),
+                __('Elementi legati al tuo utente, indipendenti dal museo attivo'),
                 () => html`
                   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     ${this.renderResourceListCard({
-                      title: 'I musei di cui sono curatore',
-                      emptyText: 'Nessun museo assegnato',
+                      title: __('I musei di cui sono curatore'),
+                      emptyText: __('Nessun museo assegnato'),
                       count: this.curatorMuseums.length,
                       renderItems: () => this.renderCuratorMuseumsRows(),
                     })}
                     ${this.renderResourceListCard({
-                      title: 'Le opere di cui sono autore',
-                      emptyText: 'Nessuna opera assegnata',
+                      title: __('Le opere di cui sono autore'),
+                      emptyText: __('Nessuna opera assegnata'),
                       count: this.authoredArtworks.length,
                       renderItems: () => this.renderAuthoredArtworksRows(),
                     })}
                     ${this.renderResourceListCard({
-                      title: 'I miei contenuti',
-                      emptyText: 'Nessun contenuto creato',
+                      title: __('I miei contenuti'),
+                      emptyText: __('Nessun contenuto creato'),
                       count: this.myItems.length,
                       renderItems: () => this.renderMyItemsRows(),
                     })}
                     ${this.renderResourceListCard({
-                      title: 'Le mie visite',
-                      emptyText: 'Nessuna visita creata',
+                      title: __('Le mie visite'),
+                      emptyText: __('Nessuna visita creata'),
                       count: this.myVisits.length,
                       renderItems: () => this.renderMyVisitsRows(),
                     })}
@@ -622,43 +637,49 @@ export class DashboardPage extends LitElement {
                 `,
               )}
               ${this.renderDashboardSection(
-                'Museo selezionato',
+                __('Museo selezionato'),
                 this.selectedMuseum
-                  ? `Statistiche e attività di ${this.selectedMuseum.name}`
-                  : 'Seleziona un museo per visualizzare statistiche e attività dedicate',
+                  ? `${__('Statistiche e attività di')} ${this.selectedMuseum.name}`
+                  : __('Seleziona un museo per visualizzare statistiche e attività dedicate'),
                 () =>
                   !this.selectedMuseum
                     ? html`<ui-alert
                         variant="info"
-                        title="Nessun museo attivo"
-                        message="Per lavorare su opere e configurazioni devi prima selezionare un museo."
+                        .title=${__('Nessun museo attivo')}
+                        .message=${__(
+                          'Per lavorare su opere e configurazioni devi prima selezionare un museo.',
+                        )}
                       ></ui-alert>`
                     : html`
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                          ${this.renderStatCard('Opere nel museo', this.totalArtworks, 'image')}
+                          ${this.renderStatCard(__('Opere nel museo'), this.totalArtworks, 'image')}
                           ${this.renderStatCard(
-                            'Contenuti pubblicati',
+                            __('Contenuti pubblicati'),
                             this.totalContents,
                             'visit',
                           )}
-                          ${this.renderStatCard('Visite nel museo', this.totalVisits, 'document')}
+                          ${this.renderStatCard(
+                            __('Visite nel museo'),
+                            this.totalVisits,
+                            'document',
+                          )}
                         </div>
 
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                           ${this.renderResourceListCard({
-                            title: 'Ultime opere create',
-                            emptyText: 'Nessuna opera disponibile',
+                            title: __('Ultime opere create'),
+                            emptyText: __('Nessuna opera disponibile'),
                             count: this.recentArtworks.length,
                             renderActions: () =>
-                              this.renderOpenRouteAction('artworks', 'Apri opere'),
+                              this.renderOpenRouteAction('artworks', __('Apri opere')),
                             renderItems: () => this.renderRecentArtworksRows(),
                           })}
                           ${this.renderResourceListCard({
-                            title: 'Ultime visite',
-                            emptyText: 'Nessuna visita disponibile',
+                            title: __('Ultime visite'),
+                            emptyText: __('Nessuna visita disponibile'),
                             count: this.recentVisits.length,
                             renderActions: () =>
-                              this.renderOpenRouteAction('visits', 'Apri visite'),
+                              this.renderOpenRouteAction('visits', __('Apri visite')),
                             renderItems: () => this.renderRecentVisitsRows(),
                           })}
                         </div>

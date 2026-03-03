@@ -7,6 +7,7 @@ import '../ui/ui-card';
 import '../ui/ui-alert';
 import '../ui/ui-checkbox';
 import '../ui/ui-brand-mark';
+import { __ } from '../../services/i18n.service';
 
 @customElement('login-page')
 export class LoginPage extends LitElement {
@@ -25,7 +26,7 @@ export class LoginPage extends LitElement {
     e.preventDefault();
 
     if (!this.username || !this.password) {
-      this.error = 'Inserisci username e password';
+      this.error = __('Inserisci username e password');
       return;
     }
 
@@ -47,11 +48,11 @@ export class LoginPage extends LitElement {
           }),
         );
       } else {
-        this.error = 'Username o password non validi';
+        this.error = __('Username o password non validi');
       }
     } catch (err) {
       console.error('Login error:', err);
-      this.error = 'Errore di connessione al server';
+      this.error = __('Errore di connessione al server');
     } finally {
       this.loading = false;
     }
@@ -84,7 +85,7 @@ export class LoginPage extends LitElement {
               ></ui-brand-mark>
             </div>
             <p class="text-sm text-surface-500 dark:text-surface-400 mt-1">
-              Accedi al pannello di amministrazione
+              ${__('Accedi al pannello di amministrazione')}
             </p>
           </div>
 
@@ -97,8 +98,8 @@ export class LoginPage extends LitElement {
 
               <ui-input
                 type="text"
-                label="Username"
-                placeholder="admin"
+                .label=${__('Username')}
+                .placeholder=${__('admin')}
                 .value=${this.username}
                 required
                 @input-change=${(e: CustomEvent) => (this.username = e.detail.value)}
@@ -106,20 +107,20 @@ export class LoginPage extends LitElement {
 
               <ui-input
                 type="password"
-                label="Password"
-                placeholder="••••••••"
+                .label=${__('Password')}
+                .placeholder=${__('••••••••')}
                 .value=${this.password}
                 required
                 @input-change=${(e: CustomEvent) => (this.password = e.detail.value)}
               ></ui-input>
 
               <div class="flex items-center justify-between">
-                <ui-checkbox label="Ricordami"></ui-checkbox>
+                <ui-checkbox .label=${__('Ricordami')}></ui-checkbox>
                 <a
                   href="#"
                   class="text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
                 >
-                  Password dimenticata?
+                  ${__('Password dimenticata?')}
                 </a>
               </div>
 
@@ -129,14 +130,14 @@ export class LoginPage extends LitElement {
                 size="lg"
                 block
                 ?loading=${this.loading}
-                label="Accedi"
+                .label=${__('Accedi')}
               ></ui-button>
             </form>
           </ui-card>
 
           <!-- Footer -->
           <p class="text-center text-xs text-surface-400 mt-6">
-            &copy; 2026 ArtAround. Tutti i diritti riservati.
+            ${__('© 2026 ArtAround. Tutti i diritti riservati.')}
           </p>
         </div>
       </div>

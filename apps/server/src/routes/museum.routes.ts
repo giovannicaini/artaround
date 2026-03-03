@@ -165,6 +165,14 @@ router.put(
   MuseumController.update,
 );
 
+router.post(
+  '/:id/sync-languages',
+  authMiddleware,
+  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  MuseumController.syncLanguagesValidation,
+  MuseumController.syncLanguages,
+);
+
 // Delete: admin only
 router.delete('/:id', authMiddleware, roleMiddleware(UserRole.ADMIN), MuseumController.delete);
 

@@ -1,4 +1,5 @@
 import { LanguageLevel } from './item.types';
+import type { AppLanguage } from './i18n.types';
 
 /**
  * Visit Types
@@ -25,6 +26,8 @@ export interface Visit {
   // Basic info
   title: string;
   description: string;
+  titleTranslations?: Partial<Record<AppLanguage, string>>;
+  descriptionTranslations?: Partial<Record<AppLanguage, string>>;
   coverImage?: string;
 
   // Ordered sequence of steps
@@ -128,8 +131,8 @@ export interface TargetAudience {
 // ========================================
 
 export interface VisitMetadata {
-  language: string; // Primary language (it, en, etc.)
-  supportedLanguages?: string[]; // All available translations
+  language: AppLanguage; // Primary language (it, en, etc.)
+  supportedLanguages?: AppLanguage[]; // All available translations
 
   // Calculated stats
   artworksCount: number;
@@ -166,6 +169,8 @@ export interface CreateVisitData {
   museumId: string;
   title: string;
   description: string;
+  titleTranslations?: Partial<Record<AppLanguage, string>>;
+  descriptionTranslations?: Partial<Record<AppLanguage, string>>;
   coverImage?: string;
   steps: Omit<VisitStep, 'id'>[];
   generalInfo?: VisitGeneralInfo;

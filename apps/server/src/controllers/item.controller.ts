@@ -1,9 +1,17 @@
 import { Request, Response, NextFunction } from 'express';
 import { body, validationResult } from 'express-validator';
-import { ItemModel } from '../models/index.js';
+import { ItemModel, MuseumModel } from '../models/index.js';
 import { AppError } from '../middleware/index.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
-import { ItemReferenceType, ContentDuration, LanguageLevel } from '@artaround/shared';
+import {
+  ItemReferenceType,
+  ContentDuration,
+  LanguageLevel,
+  DEFAULT_APP_LANGUAGE,
+  SUPPORTED_APP_LANGUAGES,
+  isSupportedAppLanguage,
+  type AppLanguage,
+} from '@artaround/shared';
 
 /**
  * Item Controller
@@ -12,6 +20,50 @@ import { ItemReferenceType, ContentDuration, LanguageLevel } from '@artaround/sh
  */
 
 export class ItemController {
+  private static async getMuseumActiveLanguages(museumId: string): Promise<AppLanguage[]> {
+    const museum = await MuseumModel.findById(museumId).select('activeLanguages').lean();
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+    }
+
+    const activeLanguagesRaw = Array.isArray(museum.activeLanguages)
+      ? museum.activeLanguages
+      : [DEFAULT_APP_LANGUAGE];
+    const activeLanguages = activeLanguagesRaw
+      .map((lang) =>
+        String(lang || '')
+          .trim()
+          .toLowerCase(),
+      )
+      .filter((lang): lang is AppLanguage => isSupportedAppLanguage(lang));
+
+    return activeLanguages.length > 0 ? activeLanguages : [DEFAULT_APP_LANGUAGE];
+  }
+
+  private static ensureItemLanguageCoverage(
+    activeLanguages: AppLanguage[],
+    sourceLanguage: AppLanguage,
+    title: string,
+    text: string,
+    translatedTitles: Record<string, string>,
+    translatedTexts: Record<string, string>,
+  ): void {
+    for (const lang of activeLanguages) {
+      const hasTitle =
+        lang === sourceLanguage ? Boolean(title.trim()) : Boolean(translatedTitles[lang]?.trim());
+      const hasText =
+        lang === sourceLanguage ? Boolean(text.trim()) : Boolean(translatedTexts[lang]?.trim());
+
+      if (!hasTitle || !hasText) {
+        throw new AppError(
+          400,
+          'VALIDATION_ERROR',
+          `Missing required translations for language '${lang}'`,
+        );
+      }
+    }
+  }
+
   // Validation rules for the new Item structure
   static createValidation = [
     body('museumId').isString().notEmpty().withMessage('Museum ID is required'),
@@ -20,6 +72,16 @@ export class ItemController {
       .withMessage('Invalid reference type'),
     body('referenceId').optional().isString().withMessage('Reference ID must be a string'),
     body('title').trim().notEmpty().withMessage('Title is required'),
+    body('text').trim().notEmpty().withMessage('Text is required'),
+    body('sourceLanguage')
+      .optional()
+      .isIn(SUPPORTED_APP_LANGUAGES)
+      .withMessage(`sourceLanguage must be one of: ${SUPPORTED_APP_LANGUAGES.join(', ')}`),
+    body('translatedTitles')
+      .optional()
+      .isObject()
+      .withMessage('translatedTitles must be an object'),
+    body('translatedTexts').optional().isObject().withMessage('translatedTexts must be an object'),
     body('contentMatrix')
       .isArray({ min: 1 })
       .withMessage('At least one content matrix entry required'),
@@ -238,6 +300,37 @@ export class ItemController {
         authorId: req.user.id,
         isFree: req.body.price === 0 || req.body.price === undefined,
       };
+
+      const sourceLanguageRaw = String(
+        req.body.sourceLanguage || DEFAULT_APP_LANGUAGE,
+      ).toLowerCase();
+      if (!isSupportedAppLanguage(sourceLanguageRaw)) {
+        throw new AppError(
+          400,
+          'VALIDATION_ERROR',
+          `sourceLanguage must be one of: ${SUPPORTED_APP_LANGUAGES.join(', ')}`,
+        );
+      }
+
+      const activeLanguages = await ItemController.getMuseumActiveLanguages(
+        String(req.body.museumId),
+      );
+
+      const translatedTitles = (req.body.translatedTitles || {}) as Record<string, string>;
+      const translatedTexts = (req.body.translatedTexts || {}) as Record<string, string>;
+
+      ItemController.ensureItemLanguageCoverage(
+        activeLanguages,
+        sourceLanguageRaw,
+        String(req.body.title || ''),
+        String(req.body.text || ''),
+        translatedTitles,
+        translatedTexts,
+      );
+
+      itemData.sourceLanguage = sourceLanguageRaw;
+      itemData.translatedTitles = translatedTitles;
+      itemData.translatedTexts = translatedTexts;
 
       const item = new ItemModel(itemData);
       await item.save();

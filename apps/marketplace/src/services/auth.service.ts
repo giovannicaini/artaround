@@ -1,7 +1,32 @@
 import { apiService } from './api.service';
+import { historyService } from './history.service';
+import { preferencesService } from './preferences.service';
 import type { User, LoginRequest, RegisterRequest } from '@artaround/shared';
 
 export class AuthService {
+  private static readonly PRESERVED_STORAGE_KEYS = ['theme', 'accessibility'];
+
+  private resetStorageForFreshLogin(): void {
+    try {
+      const preservedEntries = AuthService.PRESERVED_STORAGE_KEYS.map(
+        (key) => [key, localStorage.getItem(key)] as const,
+      );
+
+      localStorage.clear();
+
+      for (const [key, value] of preservedEntries) {
+        if (value !== null) {
+          localStorage.setItem(key, value);
+        }
+      }
+    } catch {
+      // Ignore storage failures (private mode/quota issues)
+    }
+
+    historyService.clear();
+    preferencesService.clearSelectedMuseum();
+  }
+
   async login(credentials: LoginRequest): Promise<User | null> {
     const response = await apiService.post<{ user: User; token: string }>(
       '/auth/login',
@@ -9,6 +34,7 @@ export class AuthService {
     );
 
     if (response.success && response.data) {
+      this.resetStorageForFreshLogin();
       localStorage.setItem('authToken', response.data.token);
       return response.data.user;
     }

@@ -4,6 +4,8 @@ import { authMiddleware } from '../middleware/index.js';
 
 const router = Router();
 
+router.get('/items', MarketplaceController.getItems);
+
 /**
  * @swagger
  * /api/marketplace/visits:
@@ -49,6 +51,8 @@ const router = Router();
  */
 router.get('/visits', MarketplaceController.getVisits);
 
+router.post('/purchase/item/:itemId', authMiddleware, MarketplaceController.purchaseItem);
+
 /**
  * @swagger
  * /api/marketplace/purchase/{visitId}:
@@ -89,6 +93,7 @@ router.get('/visits', MarketplaceController.getVisits);
  *         $ref: '#/components/responses/NotFoundError'
  */
 router.post('/purchase/:visitId', authMiddleware, MarketplaceController.purchaseVisit);
+router.post('/purchase/visit/:visitId', authMiddleware, MarketplaceController.purchaseVisit);
 
 /**
  * @swagger
@@ -127,5 +132,7 @@ router.post('/purchase/:visitId', authMiddleware, MarketplaceController.purchase
  *         $ref: '#/components/responses/UnauthorizedError'
  */
 router.get('/my-purchases', authMiddleware, MarketplaceController.getMyPurchases);
+router.get('/my-visit-purchases', authMiddleware, MarketplaceController.getMyPurchases);
+router.get('/my-item-purchases', authMiddleware, MarketplaceController.getMyItemPurchases);
 
 export default router;

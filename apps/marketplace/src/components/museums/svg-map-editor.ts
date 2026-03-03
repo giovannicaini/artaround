@@ -3,6 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import type { MuseumFloor, MapMarker, Artwork } from '@artaround/shared';
 import '../ui/ui-image-placeholder';
+import { __ } from '../../services/i18n.service';
 
 export interface MarkerDragEvent {
   markerId: string;
@@ -141,7 +142,7 @@ export class SvgMapEditor extends LitElement {
             <button
               class="w-8 h-8 flex items-center justify-center rounded bg-surface-700 text-white hover:bg-surface-600 transition-colors ml-2"
               @click=${this.resetView}
-              title="Reset View"
+              title=${__('Reimposta vista')}
             >
               🔄
             </button>
@@ -180,8 +181,8 @@ export class SvgMapEditor extends LitElement {
                 <div class="flex items-center justify-center h-full text-surface-400">
                   <div class="text-center">
                     <div class="text-5xl mb-3">🗺️</div>
-                    <p>Nessuna mappa disponibile</p>
-                    <p class="text-sm">Aggiungi un piano per iniziare</p>
+                    <p>${__('Nessuna mappa disponibile')}</p>
+                    <p class="text-sm">${__('Aggiungi un piano per iniziare')}</p>
                   </div>
                 </div>
               `}
@@ -193,13 +194,13 @@ export class SvgMapEditor extends LitElement {
         >
           <div>
             ${floor
-              ? `${floor.dimensions.width} × ${floor.dimensions.height}px • ${floor.markers?.length || 0} marker`
-              : 'Nessun piano selezionato'}
+              ? `${floor.dimensions.width} × ${floor.dimensions.height}px • ${floor.markers?.length || 0} ${__('marker')}`
+              : __('Nessun piano selezionato')}
           </div>
           <div>
             ${this.editMode
-              ? '✏️ Click: aggiungi marker • Scroll: zoom • Tasto destro: sposta'
-              : '👁️ Modalità Visualizzazione'}
+              ? `✏️ ${__('Click: aggiungi marker • Scroll: zoom • Tasto destro: sposta')}`
+              : `👁️ ${__('Modalità Visualizzazione')}`}
           </div>
         </div>
       </div>

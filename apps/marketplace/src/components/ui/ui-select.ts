@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './ui-icon';
+import { __ } from '../../services/i18n.service';
 
 export interface SelectOption {
   value: string;
@@ -12,12 +13,13 @@ export interface SelectOption {
 export class UiSelect extends LitElement {
   @property({ type: String }) label = '';
   @property({ type: String }) value = '';
-  @property({ type: String }) placeholder = 'Seleziona...';
+  @property({ type: String }) placeholder = '';
   @property({ type: String }) error = '';
   @property({ type: String }) hint = '';
   @property({ type: Boolean }) required = false;
   @property({ type: Boolean }) disabled = false;
   @property({ type: Boolean }) clearable = false;
+  @property({ type: Boolean }) emojiFont = false;
   @property({ type: Array }) options: SelectOption[] = [];
 
   // ─── Lifecycle ───────────────────────────────────────────
@@ -60,6 +62,8 @@ export class UiSelect extends LitElement {
 
   // ─── Render ──────────────────────────────────────────────
   render() {
+    const resolvedPlaceholder = this.placeholder || __('Seleziona...');
+
     const selectClasses = `
       block w-full px-3 py-2.5 text-sm rounded-lg border transition-colors duration-150
       bg-white dark:bg-surface-900
@@ -92,13 +96,16 @@ export class UiSelect extends LitElement {
             .value="${this.value}"
             ?required="${this.required}"
             ?disabled="${this.disabled}"
+            style=${this.emojiFont
+              ? 'font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Color Emoji, Apple Color Emoji, Segoe UI Emoji, sans-serif;'
+              : ''}
             aria-invalid="${this.error ? 'true' : 'false'}"
             @change="${this.handleChange}"
           >
             ${this.placeholder
               ? html`
                   <option value="" ?disabled=${this.required} ?selected=${!this.value}>
-                    ${this.placeholder}
+                    ${resolvedPlaceholder}
                   </option>
                 `
               : nothing}
@@ -122,8 +129,8 @@ export class UiSelect extends LitElement {
                   class="absolute inset-y-0 right-8 my-auto h-5 w-5 rounded-full flex items-center justify-center text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
                   @mousedown=${(e: Event) => e.preventDefault()}
                   @click=${this.clearValue}
-                  aria-label="Azzera selezione"
-                  title="Azzera"
+                  aria-label=${__('Azzera selezione')}
+                  title=${__('Azzera')}
                 >
                   <ui-icon name="x" size="xs"></ui-icon>
                 </button>

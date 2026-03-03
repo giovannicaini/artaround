@@ -10,6 +10,8 @@
     "build": "tsc",
     "start": "NODE_ENV=production node dist/index.js",
     "seed": "tsx src/scripts/seed.ts",
+    "migrate:legacy-museum-ids": "tsx src/scripts/migrate-legacy-museum-ids.ts",
+    "migrate:legacy-museum-ids:dry": "tsx src/scripts/migrate-legacy-museum-ids.ts --dry-run",
     "lint": "eslint src --ext .ts",
     "clean": "rm -rf dist"
   },

@@ -10,6 +10,7 @@ import '../ui/ui-select';
 import '../ui/ui-textarea';
 import '../ui/ui-icon';
 import '../ui/ui-button';
+import { __ } from '../../services/i18n.service';
 
 /**
  * Content entry for the matrix
@@ -43,9 +44,19 @@ export class ContentMatrixEditor extends LitElement {
   @state() private editingCell: { row: number; col: number } | null = null;
   @state() private editText = '';
 
-  private readonly durations = CONTENT_DURATION_MATRIX_OPTIONS_IT;
+  private get durations() {
+    return CONTENT_DURATION_MATRIX_OPTIONS_IT.map((option) => ({
+      ...option,
+      label: __(option.label),
+    }));
+  }
 
-  private readonly languageLevels = LANGUAGE_LEVEL_SHORT_OPTIONS_IT;
+  private get languageLevels() {
+    return LANGUAGE_LEVEL_SHORT_OPTIONS_IT.map((option) => ({
+      ...option,
+      label: __(option.label),
+    }));
+  }
 
   // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
@@ -121,10 +132,11 @@ export class ContentMatrixEditor extends LitElement {
   render() {
     return html`
       <div class="content-matrix-editor">
-        <h3 class="text-lg font-semibold mb-4">Matrice dei contenuti</h3>
+        <h3 class="text-lg font-semibold mb-4">${__('Matrice dei contenuti')}</h3>
         <p class="text-sm text-gray-500 mb-4">
-          Crea versioni del contenuto a diverse durate e livelli linguistici. Clicca su una cella
-          per modificarla.
+          ${__(
+            'Crea versioni del contenuto a diverse durate e livelli linguistici. Clicca su una cella per modificarla.',
+          )}
         </p>
 
         <!-- Matrix Grid -->
@@ -180,12 +192,12 @@ export class ContentMatrixEditor extends LitElement {
                     ${this.languageLevels[this.editingCell.col].label}
                   </h4>
                   <p class="text-sm text-gray-500 mb-4">
-                    Scrivi il contenuto per questa combinazione di durata e livello.
+                    ${__('Scrivi il contenuto per questa combinazione di durata e livello.')}
                   </p>
 
                   <textarea
                     class="w-full h-48 p-3 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Inserisci il testo del contenuto..."
+                    .placeholder=${__('Inserisci il testo del contenuto...')}
                     .value=${this.editText}
                     @input=${(e: Event) => {
                       this.editText = (e.target as HTMLTextAreaElement).value;
@@ -193,8 +205,12 @@ export class ContentMatrixEditor extends LitElement {
                   ></textarea>
 
                   <div class="flex justify-end gap-2 mt-4">
-                    <ui-button variant="ghost" @click=${this.closeEditor}> Annulla </ui-button>
-                    <ui-button variant="primary" @click=${this.saveCell}> Salva </ui-button>
+                    <ui-button variant="ghost" @click=${this.closeEditor}>
+                      ${__('Annulla')}
+                    </ui-button>
+                    <ui-button variant="primary" @click=${this.saveCell}>
+                      ${__('Salva')}
+                    </ui-button>
                   </div>
                 </div>
               </div>

@@ -21,6 +21,7 @@ import '../ui/ui-icon-button';
 import '../ui/ui-media-card';
 import '../ui/ui-museum-required-notice';
 import './visit-editor';
+import { __ } from '../../services/i18n.service';
 
 type ViewMode = 'list' | 'create' | 'edit';
 
@@ -32,6 +33,7 @@ type ViewMode = 'list' | 'create' | 'edit';
 @customElement('visits-page')
 export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
   @property({ type: Object }) user: User | null = null;
+  @property({ type: Boolean }) authorArea = false;
 
   @state() private viewMode: ViewMode = 'list';
   @state() private visits: Visit[] = [];
@@ -87,7 +89,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
       }
     } catch (e) {
       console.error('Error loading visits:', e);
-      this.error = 'Impossibile caricare le visite';
+      this.error = __('Impossibile caricare le visite');
     } finally {
       this.loading = false;
     }
@@ -146,7 +148,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
       this.visitToDelete = null;
     } catch (e) {
       console.error('Error deleting visit:', e);
-      this.error = e instanceof Error ? e.message : 'Impossibile eliminare la visita';
+      this.error = e instanceof Error ? e.message : __('Impossibile eliminare la visita');
     } finally {
       this.deleting = false;
     }
@@ -165,7 +167,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     } catch (e) {
       console.error('Error toggling publish:', e);
       this.error =
-        e instanceof Error ? e.message : 'Impossibile modificare lo stato di pubblicazione';
+        e instanceof Error ? e.message : __('Impossibile modificare lo stato di pubblicazione');
     } finally {
       this.publishing = false;
     }
@@ -205,8 +207,8 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
         bodyClass="p-4"
         .renderTopRight=${() =>
           visit.isPublished
-            ? html`<ui-badge variant="success" label="Pubblicata"></ui-badge>`
-            : html`<ui-badge variant="secondary" label="Bozza"></ui-badge>`}
+            ? html`<ui-badge variant="success" .label=${__('Pubblicata')}></ui-badge>`
+            : html`<ui-badge variant="secondary" .label=${__('Bozza')}></ui-badge>`}
         .renderContent=${() => html`
           <h3 class="font-semibold text-surface-900 dark:text-white mb-1 line-clamp-1">
             ${visit.title}
@@ -218,14 +220,14 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
           <div class="flex items-center gap-4 text-sm text-surface-500 dark:text-surface-400 mb-3">
             <span class="flex items-center gap-1">
               <ui-icon name="image" size="xs"></ui-icon>
-              ${artworksCount} ${artworksCount === 1 ? 'opera' : 'opere'}
+              ${artworksCount} ${artworksCount === 1 ? __('opera') : __('opere')}
             </span>
             <span class="flex items-center gap-1">
               <ui-icon name="clock" size="xs"></ui-icon>
               ${duration} min
             </span>
             ${visit.metadata?.isFree
-              ? html`<span class="text-success-600 dark:text-success-400">Gratuita</span>`
+              ? html`<span class="text-success-600 dark:text-success-400">${__('Gratuita')}</span>`
               : html`<span>€${visit.metadata?.price?.toFixed(2) || '0.00'}</span>`}
           </div>
 
@@ -256,13 +258,13 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
               ? html`
                   <ui-icon-button
                     icon=${visit.isPublished ? 'eye-off' : 'eye'}
-                    title=${visit.isPublished ? 'Rimuovi pubblicazione' : 'Pubblica'}
+                    .title=${visit.isPublished ? __('Rimuovi pubblicazione') : __('Pubblica')}
                     ?disabled=${this.publishing}
                     @click=${() => this.handleTogglePublish(visit)}
                   ></ui-icon-button>
                   <ui-icon-button
                     icon="edit"
-                    title="Modifica"
+                    .title=${__('Modifica')}
                     @click=${() => this.handleEditVisit(visit)}
                   ></ui-icon-button>
                 `
@@ -272,7 +274,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
                   <ui-icon-button
                     icon="trash"
                     variant="danger"
-                    title="Elimina"
+                    .title=${__('Elimina')}
                     @click=${() => this.handleDeleteClick(visit)}
                   ></ui-icon-button>
                 `
@@ -299,13 +301,13 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
       <div class="space-y-6">
         <!-- Header -->
         <ui-page-header
-          title="Le tue Visite"
-          description="Crea e gestisci i tuoi percorsi di visita guidata"
+          .title=${__('Le tue Visite')}
+          .description=${__('Crea e gestisci i tuoi percorsi di visita guidata')}
           .count=${this.visits.length}
         >
           <div slot="actions" class="flex items-center gap-3">
             <ui-search-bar
-              placeholder="Cerca visite..."
+              .placeholder=${__('Cerca visite...')}
               .value=${this.searchQuery}
               .showButton=${false}
               @search=${(e: CustomEvent) => (this.searchQuery = e.detail.value)}
@@ -316,7 +318,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
                   <ui-button
                     variant="primary"
                     icon="plus"
-                    label="Nuova Visita"
+                    .label=${__('Nuova Visita')}
                     @click=${this.handleCreateVisit}
                   ></ui-button>
                 `
@@ -333,7 +335,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
               @dismiss=${() => (this.error = '')}
             ></ui-alert>`
           : nothing}
-        ${!this.selectedMuseumId
+        ${!this.selectedMuseumId && !this.authorArea
           ? html`<ui-museum-required-notice
               subject="visite"
               @select-museum=${this.emitSelectMuseum}
@@ -343,9 +345,9 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
         <!-- Filters -->
         <ui-filter-tabs
           .tabs=${[
-            { value: 'all', label: 'Tutte' },
-            { value: 'published', label: 'Pubblicate' },
-            { value: 'draft', label: 'Bozze' },
+            { value: 'all', label: __('Tutte') },
+            { value: 'published', label: __('Pubblicate') },
+            { value: 'draft', label: __('Bozze') },
           ]}
           .value=${this.filterPublished}
           @filter-change=${(e: CustomEvent) => (this.filterPublished = e.detail.value)}
@@ -353,16 +355,16 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
 
         <!-- Content -->
         ${this.loading
-          ? html`<ui-loading size="lg" text="Caricamento visite..."></ui-loading>`
+          ? html`<ui-loading size="lg" .text=${__('Caricamento visite...')}></ui-loading>`
           : this.filteredVisits.length === 0
             ? html`<ui-empty
                 icon=${this.searchQuery || this.filterPublished !== 'all' ? 'search' : 'document'}
-                title=${this.searchQuery || this.filterPublished !== 'all'
-                  ? 'Nessun risultato'
-                  : 'Nessuna visita'}
+                .title=${this.searchQuery || this.filterPublished !== 'all'
+                  ? __('Nessun risultato')
+                  : __('Nessuna visita')}
                 .description=${this.searchQuery || this.filterPublished !== 'all'
-                  ? 'Prova a modificare i filtri di ricerca'
-                  : 'Non hai ancora creato nessuna visita guidata'}
+                  ? __('Prova a modificare i filtri di ricerca')
+                  : __('Non hai ancora creato nessuna visita guidata')}
               >
                 ${this.permissions.canCreateVisit &&
                 !this.searchQuery &&
@@ -371,7 +373,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
                       slot="action"
                       variant="primary"
                       icon="plus"
-                      label="Crea la prima visita"
+                      .label=${__('Crea la prima visita')}
                       @click=${this.handleCreateVisit}
                     ></ui-button>`
                   : nothing}
@@ -381,11 +383,11 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
 
       <!-- Delete Modal -->
       <ui-modal
-        title="Elimina Visita"
-        message=${`Sei sicuro di voler eliminare la visita "${this.visitToDelete?.title}"? Questa azione non può essere annullata.`}
+        .title=${__('Elimina Visita')}
+        message=${`${__('Sei sicuro di voler eliminare la visita')} "${this.visitToDelete?.title}"? ${__('Questa azione non può essere annullata.')}`}
         variant="danger"
-        confirmLabel="Elimina"
-        cancelLabel="Annulla"
+        .confirmLabel=${__('Elimina')}
+        .cancelLabel=${__('Annulla')}
         ?open=${this.deleteModalOpen}
         ?loading=${this.deleting}
         @confirm=${this.handleConfirmDelete}

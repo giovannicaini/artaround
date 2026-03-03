@@ -1,5 +1,6 @@
 import { apiService, type ApiResponse } from './api.service';
 import type { ImageProcessOptions, UploadResult, UploadCategory } from '@artaround/shared';
+import { __ } from './i18n.service';
 
 export class UploadService {
   async uploadFile(
@@ -45,7 +46,7 @@ export class UploadService {
         success: false,
         error: {
           code: 'UPLOAD_ERROR',
-          message: 'Errore durante il caricamento',
+          message: __('Errore durante il caricamento'),
         },
       };
     }

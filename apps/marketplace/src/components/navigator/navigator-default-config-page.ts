@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import type { NavigatorAppConfig } from '@artaround/shared';
 import { navigatorDefaultConfigService } from '../../services/navigator-default-config.service';
+import { aiService } from '../../services/ai.service';
 import '../ui/ui-page-header';
 import '../ui/ui-card';
 import '../ui/ui-button';
@@ -10,6 +11,7 @@ import '../ui/ui-textarea';
 import '../ui/ui-select';
 import '../ui/ui-alert';
 import '../ui/ui-loading';
+import { __ } from '../../services/i18n.service';
 
 interface NavigatorConfigFormData {
   id: string;
@@ -65,6 +67,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
   @state() private configs: NavigatorConfigFormData[] = [];
   @state() private loading = true;
   @state() private saving = false;
+  @state() private checkingAI = false;
   @state() private error = '';
   @state() private success = '';
 
@@ -277,19 +280,19 @@ export class NavigatorDefaultConfigPage extends LitElement {
   // ─── Validation & Save ───────────────────────────────────
   private validateBeforeSave(): string | null {
     if (!this.configs.length) {
-      return 'La configurazione default è obbligatoria';
+      return __('La configurazione default è obbligatoria');
     }
 
     const slugSet = new Set<string>();
 
     for (const config of this.configs) {
       if (!config.id.trim() || !config.name.trim()) {
-        return 'Ogni configurazione deve avere ID e nome';
+        return __('Ogni configurazione deve avere ID e nome');
       }
 
       const slug = this.sanitizeSlug(config.slug);
       if (!slug || !NavigatorDefaultConfigPage.SLUG_REGEX.test(slug)) {
-        return `Slug non valido per "${config.name}"`;
+        return `${__('Slug non valido per')} "${config.name}"`;
       }
 
       if (slugSet.has(slug)) {
@@ -375,7 +378,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
     if (result.error) {
       this.error = result.error;
     } else {
-      this.success = 'Configurazioni default salvate con successo';
+      this.success = __('Configurazioni default salvate con successo');
       this.configs = (result.data || []).map((config) => ({
         id: config.id,
         name: config.name,
@@ -404,6 +407,24 @@ export class NavigatorDefaultConfigPage extends LitElement {
       }));
     }
     this.saving = false;
+  }
+
+  private async testOpenAI() {
+    this.error = '';
+    this.success = '';
+    this.checkingAI = true;
+
+    try {
+      const result = await aiService.checkHealth();
+      if (result.data?.ok) {
+        this.success = `OpenAI connessa correttamente (model: ${result.data.model})`;
+      } else {
+        this.error =
+          result.error || result.data?.error || 'OpenAI non configurata o non raggiungibile';
+      }
+    } finally {
+      this.checkingAI = false;
+    }
   }
 
   private exportManifest(config: NavigatorConfigFormData) {
@@ -456,17 +477,17 @@ export class NavigatorDefaultConfigPage extends LitElement {
   // ─── Render Entry ────────────────────────────────────────
   render() {
     const displayOptions = [
-      { value: 'standalone', label: 'Standalone' },
-      { value: 'fullscreen', label: 'Fullscreen' },
-      { value: 'minimal-ui', label: 'Minimal UI' },
-      { value: 'browser', label: 'Browser' },
+      { value: 'standalone', label: __('Standalone') },
+      { value: 'fullscreen', label: __('Fullscreen') },
+      { value: 'minimal-ui', label: __('Minimal UI') },
+      { value: 'browser', label: __('Browser') },
     ];
 
     const orientationOptions = [
-      { value: 'portrait', label: 'Portrait' },
-      { value: 'landscape', label: 'Landscape' },
-      { value: 'natural', label: 'Natural' },
-      { value: 'any', label: 'Any' },
+      { value: 'portrait', label: __('Portrait') },
+      { value: 'landscape', label: __('Landscape') },
+      { value: 'natural', label: __('Natural') },
+      { value: 'any', label: __('Any') },
     ];
 
     return html`
@@ -475,14 +496,21 @@ export class NavigatorDefaultConfigPage extends LitElement {
         ${this.renderFeedbackAlert('success', this.success, () => (this.success = ''))}
 
         <ui-page-header
-          title="Configurazione default app navigator"
-          description="Definisci la configurazione globale di default per l'app navigator"
+          .title=${__('Configurazione default app navigator')}
+          .description=${__("Definisci la configurazione globale di default per l'app navigator")}
         >
           <div slot="actions">
             <ui-button
+              variant="secondary"
+              icon="sparkles"
+              .label=${__('Test OpenAI')}
+              .loading=${this.checkingAI}
+              @click=${this.testOpenAI}
+            ></ui-button>
+            <ui-button
               variant="primary"
               icon="check"
-              label="Salva"
+              .label=${__('Salva')}
               .loading=${this.saving}
               @click=${this.save}
             ></ui-button>
@@ -502,54 +530,64 @@ export class NavigatorDefaultConfigPage extends LitElement {
                             variant="secondary"
                             size="sm"
                             icon="download"
-                            label="Export Manifest"
+                            .label=${__('Esporta manifest')}
                             @click=${() => this.exportManifest(config)}
                           ></ui-button>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          ${this.renderGeneralField(config, 'name', 'Nome Config *', {
+                          ${this.renderGeneralField(config, 'name', __('Nome Config *'), {
                             required: true,
                           })}
-                          ${this.renderGeneralField(config, 'slug', 'Slug *', {
+                          ${this.renderGeneralField(config, 'slug', __('Slug *'), {
                             required: true,
                             transform: (value) => this.sanitizeSlug(value),
                           })}
-                          ${this.renderGeneralField(config, 'homeTitle', 'Titolo Home')}
+                          ${this.renderGeneralField(config, 'homeTitle', __('Titolo Home'))}
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          ${this.renderGeneralField(config, 'homeSubtitle', 'Sottotitolo Home')}
-                          ${this.renderGeneralField(config, 'manifestName', 'Manifest Name *', {
+                          ${this.renderGeneralField(config, 'homeSubtitle', __('Sottotitolo Home'))}
+                          ${this.renderGeneralField(config, 'manifestName', __('Nome manifest *'), {
                             required: true,
                           })}
-                          ${this.renderGeneralField(config, 'shortName', 'Manifest Short Name *', {
-                            required: true,
-                          })}
+                          ${this.renderGeneralField(
+                            config,
+                            'shortName',
+                            __('Nome breve manifest *'),
+                            {
+                              required: true,
+                            },
+                          )}
                           ${this.renderColorField(
                             config,
                             'primaryColor',
-                            'Primary Color',
+                            __('Colore primario'),
                             '#0ea5e9',
                           )}
                           ${this.renderColorField(
                             config,
                             'secondaryColor',
-                            'Secondary Color',
+                            __('Colore secondario'),
                             '#1f2937',
                           )}
-                          ${this.renderColorField(config, 'themeColor', 'Theme Color', '#0ea5e9')}
+                          ${this.renderColorField(
+                            config,
+                            'themeColor',
+                            __('Colore tema'),
+                            '#0ea5e9',
+                          )}
                           ${this.renderColorField(
                             config,
                             'backgroundColor',
-                            'Background Color',
+                            __('Colore sfondo'),
                             '#ffffff',
                           )}
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <ui-select
-                            label="Display"
+                            .label=${__('Visualizzazione')}
                             .value=${config.display}
                             .options=${displayOptions}
                             @select-change=${(e: CustomEvent) =>
@@ -558,7 +596,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
                               })}
                           ></ui-select>
                           <ui-select
-                            label="Orientation"
+                            .label=${__('Orientamento')}
                             .value=${config.orientation}
                             .options=${orientationOptions}
                             @select-change=${(e: CustomEvent) =>
@@ -567,12 +605,12 @@ export class NavigatorDefaultConfigPage extends LitElement {
                                   .value as NavigatorConfigFormData['orientation'],
                               })}
                           ></ui-select>
-                          ${this.renderTextField(config, 'startUrl', 'Start URL', '/')}
-                          ${this.renderTextField(config, 'scope', 'Scope', '/')}
+                          ${this.renderTextField(config, 'startUrl', __('URL iniziale'), '/')}
+                          ${this.renderTextField(config, 'scope', __('Ambito'), '/')}
                         </div>
 
                         <ui-textarea
-                          label="Testo di benvenuto"
+                          .label=${__('Testo di benvenuto')}
                           .value=${config.welcomeText}
                           @textarea-change=${(e: CustomEvent) =>
                             this.updateConfig(config.id, { welcomeText: e.detail.value })}
@@ -580,7 +618,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
                         ></ui-textarea>
 
                         <ui-textarea
-                          label="Manifest Description"
+                          .label=${__('Descrizione manifest')}
                           .value=${config.manifestDescription}
                           @textarea-change=${(e: CustomEvent) =>
                             this.updateConfig(config.id, {
@@ -590,13 +628,21 @@ export class NavigatorDefaultConfigPage extends LitElement {
                         ></ui-textarea>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          ${this.renderTextField(config, 'logo', 'Logo URL')}
-                          ${this.renderTextField(config, 'splashImage', 'Splash URL')}
-                          ${this.renderTextField(config, 'openingImage', 'Opening Image URL')}
-                          ${this.renderTextField(config, 'icon192', 'Icon 192x192 URL')}
-                          ${this.renderTextField(config, 'icon512', 'Icon 512x512 URL')}
-                          ${this.renderTextField(config, 'iconMaskable', 'Icon Maskable URL')}
-                          ${this.renderTextField(config, 'appleTouchIcon', 'Apple Touch Icon URL')}
+                          ${this.renderTextField(config, 'logo', __('URL logo'))}
+                          ${this.renderTextField(config, 'splashImage', __('URL splash'))}
+                          ${this.renderTextField(
+                            config,
+                            'openingImage',
+                            __('URL immagine iniziale'),
+                          )}
+                          ${this.renderTextField(config, 'icon192', __('URL icona 192x192'))}
+                          ${this.renderTextField(config, 'icon512', __('URL icona 512x512'))}
+                          ${this.renderTextField(config, 'iconMaskable', __('URL icona maskable'))}
+                          ${this.renderTextField(
+                            config,
+                            'appleTouchIcon',
+                            __('URL icona Apple Touch'),
+                          )}
                         </div>
                       </div>
                     </ui-card>

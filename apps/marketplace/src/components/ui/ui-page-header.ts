@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import './ui-icon';
 import './ui-button';
+import { __ } from '../../services/i18n.service';
 
 /**
  * UI Page Header
@@ -13,10 +14,10 @@ import './ui-button';
  * @example
  * ```html
  * <ui-page-header
- *   title="Contenuti"
- *   description="Gestisci i tuoi contenuti"
+ *   title="Contents"
+ *   .description=${__('Gestisci i tuoi contenuti')}
  *   .count=${100}
- *   countLabel="contenuti totali"
+ *   .countLabel=${__('contenuti totali')}
  * >
  *   <ui-button slot="actions" variant="primary" icon="plus" label="Nuovo"></ui-button>
  * </ui-page-header>

@@ -1,9 +1,55 @@
 import { Request, Response, NextFunction } from 'express';
-import { VisitModel, VisitPurchase } from '../models/index.js';
+import { ItemModel, ItemPurchase, VisitModel, VisitPurchase } from '../models/index.js';
 import { AppError } from '../middleware/index.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 
 export class MarketplaceController {
+  // Get item catalog
+  static async getItems(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const {
+        museumId,
+        isFree,
+        minRating,
+        sortBy = 'createdAt',
+        page = '1',
+        limit = '20',
+      } = req.query;
+
+      const filter: Record<string, unknown> = {};
+      if (museumId) filter.museumId = museumId;
+      if (isFree !== undefined) filter.isFree = isFree === 'true';
+      if (minRating) filter.rating = { $gte: parseFloat(minRating as string) };
+
+      const pageNum = parseInt(page as string, 10);
+      const limitNum = parseInt(limit as string, 10);
+      const skip = (pageNum - 1) * limitNum;
+
+      let sort: Record<string, 1 | -1> = { createdAt: -1 };
+      if (sortBy === 'rating') sort = { rating: -1 };
+      if (sortBy === 'price') sort = { price: 1 };
+      if (sortBy === 'usage') sort = { usageCount: -1 };
+
+      const [items, total] = await Promise.all([
+        ItemModel.find(filter).sort(sort).skip(skip).limit(limitNum),
+        ItemModel.countDocuments(filter),
+      ]);
+
+      res.json({
+        success: true,
+        data: items,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          totalPages: Math.ceil(total / limitNum),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Get published visits (marketplace catalog)
   static async getVisits(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -65,6 +111,10 @@ export class MarketplaceController {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
+      if (visit.authorId === req.user.id) {
+        throw new AppError(400, 'OWN_VISIT_PURCHASE', 'You cannot purchase your own visit');
+      }
+
       if (!visit.isPublished) {
         throw new AppError(400, 'VISIT_NOT_PUBLISHED', 'This visit is not available for purchase');
       }
@@ -103,6 +153,54 @@ export class MarketplaceController {
     }
   }
 
+  // Purchase item
+  static async purchaseItem(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { itemId } = req.params;
+
+      if (!req.user) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      }
+
+      const item = await ItemModel.findById(itemId);
+      if (!item) {
+        throw new AppError(404, 'ITEM_NOT_FOUND', 'Item not found');
+      }
+
+      if (item.authorId === req.user.id) {
+        throw new AppError(400, 'OWN_ITEM_PURCHASE', 'You cannot purchase your own item');
+      }
+
+      const existing = await ItemPurchase.findOne({
+        userId: req.user.id,
+        itemId,
+      });
+
+      if (existing) {
+        throw new AppError(409, 'ALREADY_PURCHASED', 'You have already purchased this item');
+      }
+
+      const purchase = new ItemPurchase({
+        itemId,
+        userId: req.user.id,
+        price: item.price,
+      });
+
+      await purchase.save();
+
+      item.usageCount += 1;
+      await item.save();
+
+      res.status(201).json({
+        success: true,
+        data: purchase,
+        message: 'Item purchased successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Get user's purchased visits
   static async getMyPurchases(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -113,6 +211,30 @@ export class MarketplaceController {
       const purchases = await VisitPurchase.find({ userId: req.user.id })
         .sort({ purchasedAt: -1 })
         .populate('visitId');
+
+      res.json({
+        success: true,
+        data: purchases,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get user's purchased items
+  static async getMyItemPurchases(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      }
+
+      const purchases = await ItemPurchase.find({ userId: req.user.id })
+        .sort({ purchasedAt: -1 })
+        .populate('itemId');
 
       res.json({
         success: true,
