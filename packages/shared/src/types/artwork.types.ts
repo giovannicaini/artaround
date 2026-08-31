@@ -79,22 +79,6 @@ export interface ArtworkMapPosition {
   y: number;
   rotation?: number; // 0-360 degrees
 }
-/*
-export enum ArtworkType {
-  PAINTING = 'painting',
-  SCULPTURE = 'sculpture',
-  FRESCO = 'fresco',
-  MOSAIC = 'mosaic',
-  DRAWING = 'drawing',
-  PRINT = 'print',
-  RELIEF = 'relief',
-  INSTALLATION = 'installation',
-  DECORATIVE = 'decorative',
-  TAPESTRY = 'tapestry',
-  OTHER = 'other',
-}
-  
-*/
 export enum ArtworkType {
   Painting = 'painting',
   Drawing = 'drawing',

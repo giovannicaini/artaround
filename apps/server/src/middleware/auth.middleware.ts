@@ -48,7 +48,7 @@ export const authMiddleware = async (
         success: false,
         error: {
           code: 'INVALID_TOKEN',
-          message: `Invalid or expired token. Errore completo: ${(error as Error).message}`,
+          message: 'Invalid or expired token',
         },
       });
     }
