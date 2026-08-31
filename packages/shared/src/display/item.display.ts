@@ -1,4 +1,9 @@
-import { ContentDuration, ItemReferenceType, LanguageLevel, LicenseType } from '../types/item.types';
+import {
+  ContentDuration,
+  ItemReferenceType,
+  LanguageLevel,
+  LicenseType,
+} from '../types/item.types';
 import type { SelectOption } from './common';
 
 export const ITEM_REFERENCE_TYPE_LABELS_IT: Readonly<Record<ItemReferenceType, string>> = {

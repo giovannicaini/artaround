@@ -1,7 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import './ui-icon';
-import { __ } from '../../services/i18n.service';
 
 /**
  * UI Empty State

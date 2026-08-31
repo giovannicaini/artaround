@@ -126,7 +126,17 @@ function mapArtworkType(instanceOfQid: string): string {
   if (['Q860372', 'Q20742776', 'Q682010'].includes(q)) return 'new_media';
   if (['Q87167', 'Q213924', 'Q48498', 'Q571'].includes(q)) return 'manuscript_book';
   if (
-    ['Q631931', 'Q19705453', 'Q133067', 'Q7075109', 'Q13464614', 'Q5567091', 'Q21061279', 'Q14745', 'Q2142903'].includes(q)
+    [
+      'Q631931',
+      'Q19705453',
+      'Q133067',
+      'Q7075109',
+      'Q13464614',
+      'Q5567091',
+      'Q21061279',
+      'Q14745',
+      'Q2142903',
+    ].includes(q)
   )
     return 'decorative_object';
   return 'other';
@@ -170,13 +180,15 @@ async function fetchWithRetry(
         ...options,
         headers: {
           'User-Agent': USER_AGENT,
-          ...(options.headers as Record<string, string> ?? {}),
+          ...((options.headers as Record<string, string>) ?? {}),
         },
         signal: AbortSignal.timeout(20_000),
       });
       if (res.status === 429 || res.status >= 500) {
         const delay = Math.min(1000 * 2 ** attempt + Math.random() * 500, 32_000);
-        console.warn(`    [${res.status}] retry ${attempt + 1}/${maxRetries} in ${Math.round(delay)}ms — ${url}`);
+        console.warn(
+          `    [${res.status}] retry ${attempt + 1}/${maxRetries} in ${Math.round(delay)}ms — ${url}`,
+        );
         await sleep(delay);
         continue;
       }
@@ -387,7 +399,10 @@ function findCatalogSlug(
     if (intersection < 2) continue; // almeno 2 token in comune
     const union = new Set([...wdTokens, ...slugTokens]).size;
     const jaccard = intersection / union;
-    if (jaccard > bestJaccard) { bestJaccard = jaccard; bestSlug = slug; }
+    if (jaccard > bestJaccard) {
+      bestJaccard = jaccard;
+      bestSlug = slug;
+    }
   }
   return bestJaccard >= 0.45 ? bestSlug : null;
 }
@@ -412,7 +427,7 @@ async function findSlugViaWikipedia(
     try {
       const data = await fetchWikidata(sparql);
       articleUrl = data.results.bindings[0]?.['article']?.value ?? null;
-    } catch { }
+    } catch {}
     if (!articleUrl) continue;
     // Fetch Wikipedia page e cerca URL del catalogo Borghese
     try {
@@ -427,7 +442,7 @@ async function findSlugViaWikipedia(
       // Il link esiste ma l'opera non è esposta: ritorna comunque lo slug per
       // permettere al chiamante di decidere (logica missing_room già gestita).
       return slug;
-    } catch { }
+    } catch {}
   }
   return null;
 }
@@ -446,9 +461,7 @@ async function findSlugViaWikipedia(
 function extractRoom(html: string): { room: string; floor: string } | null {
   // Strategia 1 (più affidabile): parametro URL sala=s<numero> nel link della scheda
   // Pattern osservato: href="/collezione/pittura?sala=s20"
-  const posSection = html.match(
-    /[Pp]osizione[\s\S]{0,400}?sala=s?(\d+)/,
-  );
+  const posSection = html.match(/[Pp]osizione[\s\S]{0,400}?sala=s?(\d+)/);
   if (posSection) {
     const n = parseInt(posSection[1], 10);
     if (!Number.isNaN(n) && n >= 1 && n <= 20) {
@@ -463,9 +476,26 @@ function extractRoom(html: string): { room: string; floor: string } | null {
 
   // Strategia 2: cifre romane nel testo (es. "Sala VIII")
   const romanMap: Record<string, number> = {
-    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8,
-    IX: 9, X: 10, XI: 11, XII: 12, XIII: 13, XIV: 14, XV: 15,
-    XVI: 16, XVII: 17, XVIII: 18, XIX: 19, XX: 20,
+    I: 1,
+    II: 2,
+    III: 3,
+    IV: 4,
+    V: 5,
+    VI: 6,
+    VII: 7,
+    VIII: 8,
+    IX: 9,
+    X: 10,
+    XI: 11,
+    XII: 12,
+    XIII: 13,
+    XIV: 14,
+    XV: 15,
+    XVI: 16,
+    XVII: 17,
+    XVIII: 18,
+    XIX: 19,
+    XX: 20,
   };
   const rRoman = /\bSala\s+(X{0,2}(?:IX|IV|V?I{0,3}))\b/gi;
   for (const m of html.matchAll(rRoman)) {
@@ -493,10 +523,20 @@ function extractDescription(html: string): string {
       .replace(/<[^>]+>/g, ' ')
       .replace(/&[a-z]+;/g, (e) => {
         const map: Record<string, string> = {
-          '&egrave;': 'è', '&agrave;': 'à', '&igrave;': 'ì', '&ograve;': 'ò',
-          '&ugrave;': 'ù', '&eacute;': 'é', '&rsquo;': "'", '&lsquo;': "'",
-          '&ldquo;': '"', '&rdquo;': '"', '&amp;': '&', '&ndash;': '–',
-          '&mdash;': '—', '&nbsp;': ' ',
+          '&egrave;': 'è',
+          '&agrave;': 'à',
+          '&igrave;': 'ì',
+          '&ograve;': 'ò',
+          '&ugrave;': 'ù',
+          '&eacute;': 'é',
+          '&rsquo;': "'",
+          '&lsquo;': "'",
+          '&ldquo;': '"',
+          '&rdquo;': '"',
+          '&amp;': '&',
+          '&ndash;': '–',
+          '&mdash;': '—',
+          '&nbsp;': ' ',
         };
         return map[e] ?? e;
       })
@@ -536,8 +576,7 @@ function extractDescription(html: string): string {
  */
 function extractDimensions(html: string): BorgheseArtwork['dimensions'] {
   // Formato Borghese: "cm H x W" (con spazio opzionale e separatori vari)
-  const borgheseTwo =
-    html.match(/\bcm\s+(\d+(?:[.,]\d+)?)\s*[x×xX]\s*(\d+(?:[.,]\d+)?)/i);
+  const borgheseTwo = html.match(/\bcm\s+(\d+(?:[.,]\d+)?)\s*[x×xX]\s*(\d+(?:[.,]\d+)?)/i);
   if (borgheseTwo) {
     const h = parseFloat(borgheseTwo[1].replace(',', '.'));
     const w = parseFloat(borgheseTwo[2].replace(',', '.'));
@@ -552,8 +591,7 @@ function extractDimensions(html: string): BorgheseArtwork['dimensions'] {
   }
 
   // Formato generico: "H x W cm"
-  const genericTwo =
-    html.match(/(\d{2,4}(?:[.,]\d+)?)\s*[×xX]\s*(\d{2,4}(?:[.,]\d+)?)\s*cm/i);
+  const genericTwo = html.match(/(\d{2,4}(?:[.,]\d+)?)\s*[×xX]\s*(\d{2,4}(?:[.,]\d+)?)\s*cm/i);
   if (genericTwo) {
     const h = parseFloat(genericTwo[1].replace(',', '.'));
     const w = parseFloat(genericTwo[2].replace(',', '.'));
@@ -569,8 +607,7 @@ function extractDimensions(html: string): BorgheseArtwork['dimensions'] {
 
   // Singola misura "cm 123" o "123 cm"
   const one =
-    html.match(/\bcm\s+(\d{2,4}(?:[.,]\d+)?)/i) ??
-    html.match(/(\d{2,4}(?:[.,]\d+)?)\s*cm/i);
+    html.match(/\bcm\s+(\d{2,4}(?:[.,]\d+)?)/i) ?? html.match(/(\d{2,4}(?:[.,]\d+)?)\s*cm/i);
   if (one) {
     const h = parseFloat(one[1].replace(',', '.'));
     if (Number.isFinite(h)) {
@@ -589,7 +626,10 @@ function extractMaterials(html: string): string[] {
     /Materia\s*\/\s*Tecnica[^<]*<\/[^>]+>[\s\S]{0,200}?vline[^>]*>([\s\S]{0,300}?)<\/div>/i,
   );
   if (borgheseMatch) {
-    const raw = borgheseMatch[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    const raw = borgheseMatch[1]
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
     if (raw.length > 1) {
       return raw
         .split(/[,;]/)
@@ -604,7 +644,10 @@ function extractMaterials(html: string): string[] {
     /[Mm]ateria\s*[/\/]?\s*[Tt]ecnica[^<]*<\/[^>]+>([\s\S]{0,500}?)(?:<\/(?:p|div|td|li|span)>|Misure|Datazione|Sala)/i,
   );
   if (sec) {
-    const raw = sec[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    const raw = sec[1]
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
     const parts = raw
       .split(/[,;]/)
       .map((s) => s.trim())
@@ -622,7 +665,10 @@ function extractSubjects(html: string): string[] {
     /(?:[Ss]oggetto|[Ii]conografia|[Kk]eyword|[Ss]ubject)[\s\S]{0,20}?(?:<[^>]+>)?([\s\S]{0,500}?)(?:<\/(?:p|div|td|li|span)>|Misure|Datazione|Sala|Materia)/i,
   );
   if (sec) {
-    const raw = sec[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    const raw = sec[1]
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
     const parts = raw
       .split(/[,;]/)
       .map((s) => s.trim())
@@ -790,10 +836,12 @@ async function main(): Promise<void> {
   // ---- Step 4: Query C (label-lookup per slug non coperti da A/B) ----
   // Raccoglie tutti i QID già noti (da A e B) per evitare duplicati nel pool
   const knownQids = new Set<string>(
-    [...rowsA, ...rowsB].map((r) => {
-      const u = r['item'];
-      return u ? qidFromUri(u.value) : '';
-    }).filter(Boolean),
+    [...rowsA, ...rowsB]
+      .map((r) => {
+        const u = r['item'];
+        return u ? qidFromUri(u.value) : '';
+      })
+      .filter(Boolean),
   );
 
   // Coppie title+catalogUrl per i slug del catalogo non ancora in Wikidata
@@ -805,7 +853,9 @@ async function main(): Promise<void> {
 
   let rowsC: WDBinding[] = [];
   const C_BATCH = 40;
-  console.log(`  [C] Label-lookup su Wikidata per ${cPairs.length} slug catalogo (batch da ${C_BATCH})…`);
+  console.log(
+    `  [C] Label-lookup su Wikidata per ${cPairs.length} slug catalogo (batch da ${C_BATCH})…`,
+  );
   for (let i = 0; i < cPairs.length; i += C_BATCH) {
     const batch = cPairs.slice(i, i + C_BATCH);
     try {
@@ -927,7 +977,9 @@ async function main(): Promise<void> {
     const htmlRoom = extractRoom(html);
     let roomData: { room: string; floor: string } | null = preKnownRoom ?? htmlRoom;
     if (preKnownRoom && htmlRoom && htmlRoom.room !== preKnownRoom.room) {
-      console.log(`         ℹ️  room HTML (${htmlRoom.room}) diversa da catalogo (${preKnownRoom.room}), uso catalogo`);
+      console.log(
+        `         ℹ️  room HTML (${htmlRoom.room}) diversa da catalogo (${preKnownRoom.room}), uso catalogo`,
+      );
     }
     if (!roomData) {
       console.log(`         ⚠️  room non trovata (deposito?) — ${describedUrl}`);
@@ -1062,8 +1114,7 @@ async function main(): Promise<void> {
 
   const qidCheck = new Set<string>();
   for (const a of artworks) {
-    if (!/^Q\d+$/.test(a.wikidataId))
-      errors.push(`❌  wikidataId non valido: ${a.wikidataId}`);
+    if (!/^Q\d+$/.test(a.wikidataId)) errors.push(`❌  wikidataId non valido: ${a.wikidataId}`);
     if (!/^Q\d+$/.test(a.authorWikidataId))
       errors.push(`❌  authorWikidataId non valido per ${a.wikidataId}`);
     if (a.movementWikidataId && !/^Q\d+$/.test(a.movementWikidataId))
@@ -1076,8 +1127,7 @@ async function main(): Promise<void> {
       errors.push(`❌  description vuota per ${a.wikidataId}`);
     if (a.dimensions && a.dimensions.unit !== 'cm')
       errors.push(`❌  dimensions.unit !== 'cm' per ${a.wikidataId}`);
-    if (qidCheck.has(a.wikidataId))
-      errors.push(`❌  wikidataId duplicato: ${a.wikidataId}`);
+    if (qidCheck.has(a.wikidataId)) errors.push(`❌  wikidataId duplicato: ${a.wikidataId}`);
     qidCheck.add(a.wikidataId);
   }
 

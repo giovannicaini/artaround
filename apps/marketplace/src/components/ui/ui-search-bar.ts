@@ -3,7 +3,6 @@ import { customElement, property, state } from 'lit/decorators.js';
 import './ui-icon';
 import './ui-input';
 import './ui-button';
-import { __ } from '../../services/i18n.service';
 
 /**
  * UI Search Bar

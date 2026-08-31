@@ -174,14 +174,18 @@ export class NavigatorDefaultConfigPage extends LitElement {
       homeTitle: config.content?.homeTitle || '',
       homeTitleTranslations: this.normalizeTranslations(config.content?.homeTitleTranslations),
       homeSubtitle: config.content?.homeSubtitle || '',
-      homeSubtitleTranslations: this.normalizeTranslations(config.content?.homeSubtitleTranslations),
+      homeSubtitleTranslations: this.normalizeTranslations(
+        config.content?.homeSubtitleTranslations,
+      ),
       welcomeText: config.content?.welcomeText || '',
       welcomeTextTranslations: this.normalizeTranslations(config.content?.welcomeTextTranslations),
       openingImage: config.content?.openingImage || '',
       manifestName: config.pwa.manifestName,
       shortName: config.pwa.shortName,
       manifestDescription: config.pwa.description || '',
-      manifestDescriptionTranslations: this.normalizeTranslations(config.pwa.descriptionTranslations),
+      manifestDescriptionTranslations: this.normalizeTranslations(
+        config.pwa.descriptionTranslations,
+      ),
       themeColor: config.pwa.themeColor,
       backgroundColor: config.pwa.backgroundColor,
       display: config.pwa.display,
@@ -213,7 +217,9 @@ export class NavigatorDefaultConfigPage extends LitElement {
   private getTranslationsOrUndefined(
     value: Partial<Record<AppLanguage, string>>,
   ): Partial<Record<AppLanguage, string>> | undefined {
-    const hasValue = Object.values(value || {}).some((item) => String(item || '').trim().length > 0);
+    const hasValue = Object.values(value || {}).some(
+      (item) => String(item || '').trim().length > 0,
+    );
     return hasValue ? value : undefined;
   }
 
@@ -333,7 +339,9 @@ export class NavigatorDefaultConfigPage extends LitElement {
           class="space-y-4 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-100/80 dark:bg-violet-900/25 p-4"
         >
           <div class="flex items-center justify-between flex-wrap gap-2">
-            <h5 class="font-medium text-surface-900 dark:text-white">${__('Traduzioni navigator')}</h5>
+            <h5 class="font-medium text-surface-900 dark:text-white">
+              ${__('Traduzioni navigator')}
+            </h5>
             <ui-badge
               variant="secondary"
               .label=${`${__('Lingua sorgente')}: ${sourceLanguageLabel}`}
@@ -632,14 +640,20 @@ export class NavigatorDefaultConfigPage extends LitElement {
         homeTitle: config.content?.homeTitle || '',
         homeTitleTranslations: this.normalizeTranslations(config.content?.homeTitleTranslations),
         homeSubtitle: config.content?.homeSubtitle || '',
-        homeSubtitleTranslations: this.normalizeTranslations(config.content?.homeSubtitleTranslations),
+        homeSubtitleTranslations: this.normalizeTranslations(
+          config.content?.homeSubtitleTranslations,
+        ),
         welcomeText: config.content?.welcomeText || '',
-        welcomeTextTranslations: this.normalizeTranslations(config.content?.welcomeTextTranslations),
+        welcomeTextTranslations: this.normalizeTranslations(
+          config.content?.welcomeTextTranslations,
+        ),
         openingImage: config.content?.openingImage || '',
         manifestName: config.pwa.manifestName,
         shortName: config.pwa.shortName,
         manifestDescription: config.pwa.description || '',
-        manifestDescriptionTranslations: this.normalizeTranslations(config.pwa.descriptionTranslations),
+        manifestDescriptionTranslations: this.normalizeTranslations(
+          config.pwa.descriptionTranslations,
+        ),
         themeColor: config.pwa.themeColor,
         backgroundColor: config.pwa.backgroundColor,
         display: config.pwa.display,

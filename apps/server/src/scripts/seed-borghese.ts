@@ -49,7 +49,8 @@ const UPLOADS_DIR = path.resolve(__dirname, '../../../../uploads');
 const ARTWORKS_DIR = path.join(UPLOADS_DIR, 'artworks');
 
 const seedFileName = getArgValue('--seed-file') ?? 'seed-borghese.json';
-const cacheFileName = getArgValue('--cache-file') ?? `${seedFileName.replace(/\.json$/i, '')}.items-cache.v2.json`;
+const cacheFileName =
+  getArgValue('--cache-file') ?? `${seedFileName.replace(/\.json$/i, '')}.items-cache.v2.json`;
 
 const ITEMS_CACHE_PATH = path.resolve(__dirname, cacheFileName);
 const seedPath = path.resolve(__dirname, seedFileName);
@@ -117,17 +118,12 @@ async function downloadImage(remoteUrl: string, wikidataId: string): Promise<str
   let bestSize = Number.POSITIVE_INFINITY;
 
   for (const profile of IMAGE_OPTIMIZATION_PROFILES) {
-    const saved = await UploadService.processAndSave(
-      imageBuffer,
-      `${wikidataId}.jpg`,
-      'artworks',
-      {
-        width: profile.width,
-        fit: 'inside',
-        quality: profile.quality,
-        format: 'webp',
-      },
-    );
+    const saved = await UploadService.processAndSave(imageBuffer, `${wikidataId}.jpg`, 'artworks', {
+      width: profile.width,
+      fit: 'inside',
+      quality: profile.quality,
+      format: 'webp',
+    });
 
     if (bestPath) {
       await UploadService.deleteFile(bestPath);
@@ -146,7 +142,9 @@ async function downloadImage(remoteUrl: string, wikidataId: string): Promise<str
   }
 
   if (bestSize > IMAGE_TARGET_MAX_BYTES) {
-    console.warn(`   ⚠  ${wikidataId} — immagine oltre target (${Math.round(bestSize / 1024)}KB > 512KB)`);
+    console.warn(
+      `   ⚠  ${wikidataId} — immagine oltre target (${Math.round(bestSize / 1024)}KB > 512KB)`,
+    );
   }
 
   return bestPath;
@@ -158,7 +156,9 @@ function isLocalUploadPath(value: string | undefined): value is string {
 
 async function cleanupLocalImagesForMuseum(museumId: string): Promise<void> {
   const [artworks, items] = await Promise.all([
-    ArtworkModel.find({ museumId }, { image: 1, images: 1, _id: 0 }).lean<Array<{ image?: string; images?: string[] }>>(),
+    ArtworkModel.find({ museumId }, { image: 1, images: 1, _id: 0 }).lean<
+      Array<{ image?: string; images?: string[] }>
+    >(),
     ItemModel.find({ museumId }, { image: 1, _id: 0 }).lean<Array<{ image?: string }>>(),
   ]);
 
@@ -192,9 +192,7 @@ async function cleanupLocalImagesForMuseum(museumId: string): Promise<void> {
 }
 
 /** Esegue il download in parallelo con limite di concorrenza. */
-async function downloadAllImages(
-  artworks: SeedArtwork[],
-): Promise<Map<string, string>> {
+async function downloadAllImages(artworks: SeedArtwork[]): Promise<Map<string, string>> {
   const result = new Map<string, string>(); // wikidataId → publicPath
   let done = 0;
   let skipped = 0;
@@ -217,13 +215,17 @@ async function downloadAllImages(
           process.stdout.write(`   ⬇  [${done}] ${a.wikidataId} → ${localPath}\n`);
         } catch (err) {
           failed++;
-          console.warn(`   ⚠  ${a.wikidataId} (${a.title.slice(0, 40)}) — download fallito: ${(err as Error).message}`);
+          console.warn(
+            `   ⚠  ${a.wikidataId} (${a.title.slice(0, 40)}) — download fallito: ${(err as Error).message}`,
+          );
         }
       }),
     );
   }
 
-  console.log(`\n   ✅  Download completato: ${done} scaricate, ${skipped} senza img, ${failed} fallite\n`);
+  console.log(
+    `\n   ✅  Download completato: ${done} scaricate, ${skipped} senza img, ${failed} fallite\n`,
+  );
   return result;
 }
 
@@ -334,7 +336,8 @@ let ACTIVE_MUSEUM_NAME = 'Galleria Borghese';
 
 const require = createRequire(import.meta.url);
 const seedData: SeedDocument = require(seedPath);
-ACTIVE_MUSEUM_NAME = String((seedData.museum as { name?: string })?.name ?? 'Museo').trim() || 'Museo';
+ACTIVE_MUSEUM_NAME =
+  String((seedData.museum as { name?: string })?.name ?? 'Museo').trim() || 'Museo';
 
 // ── Items (guide contenuto per ogni opera) ────────────────────────────────────
 
@@ -410,12 +413,18 @@ const ITEM_LENGTH_RULES: Record<ContentDuration, ItemLengthRule> = {
   },
 };
 
-function buildItemTitle(artworkTitle: string, duration: ContentDuration, level: LanguageLevel): string {
+function buildItemTitle(
+  artworkTitle: string,
+  duration: ContentDuration,
+  level: LanguageLevel,
+): string {
   return `${artworkTitle} — ${duration} — ${level}`;
 }
 
-const DISALLOWED_LOCATION_REGEX = /\b(?:museo|sala\s+[ivxlcdm\d]+|sala\b|piano\s+terra|primo\s+piano|secondo\s+piano|collezione)\b/i;
-const WRITTEN_NUMBER_REGEX = /\b(?:due|tre|quattro|cinque|sei|sette|otto|nove|dieci|undici|dodici|tredici|quattordici|quindici|sedici|diciassette|diciotto|diciannove|venti\w*|trenta\w*|quaranta\w*|cinquanta\w*|sessanta\w*|settanta\w*|ottanta\w*|novanta\w*|cento\w*|mille\w*|duemila\w*|trecento\w*|quattrocento\w*|cinquecento\w*|seicento\w*|settecento\w*|ottocento\w*|novecento\w*)\b/i;
+const DISALLOWED_LOCATION_REGEX =
+  /\b(?:museo|sala\s+[ivxlcdm\d]+|sala\b|piano\s+terra|primo\s+piano|secondo\s+piano|collezione)\b/i;
+const WRITTEN_NUMBER_REGEX =
+  /\b(?:due|tre|quattro|cinque|sei|sette|otto|nove|dieci|undici|dodici|tredici|quattordici|quindici|sedici|diciassette|diciotto|diciannove|venti\w*|trenta\w*|quaranta\w*|cinquanta\w*|sessanta\w*|settanta\w*|ottanta\w*|novanta\w*|cento\w*|mille\w*|duemila\w*|trecento\w*|quattrocento\w*|cinquecento\w*|seicento\w*|settecento\w*|ottocento\w*|novecento\w*)\b/i;
 const GENERIC_TAG_REGEX = /^(?:arte|museo|opera|opere|capolavoro|quadro|scultura)$/i;
 
 function normalizeTag(tag: string): string {
@@ -426,7 +435,10 @@ function validateAudioguideText(text: string, artworkTitle?: string): string | n
   if (DISALLOWED_LOCATION_REGEX.test(text)) {
     return 'riferimento a museo/sala/piano non consentito';
   }
-  if (ACTIVE_MUSEUM_NAME && new RegExp(`\\b${escapeRegExp(ACTIVE_MUSEUM_NAME)}\\b`, 'i').test(text)) {
+  if (
+    ACTIVE_MUSEUM_NAME &&
+    new RegExp(`\\b${escapeRegExp(ACTIVE_MUSEUM_NAME)}\\b`, 'i').test(text)
+  ) {
     return 'riferimento al nome del museo non consentito';
   }
   const textForNumbers = artworkTitle
@@ -473,7 +485,9 @@ async function generateTagsForArtworkWithAI(a: SeedArtwork): Promise<string[]> {
     a.movement ? `Movimento/Stile: ${a.movement}` : '',
     a.materials?.length ? `Materiali/Tecnica: ${a.materials.join(', ')}` : '',
     a.year ? `Anno: ${a.year}` : '',
-    a.description && a.description !== 'Scheda in compilazione.' ? `Descrizione: ${a.description}` : '',
+    a.description && a.description !== 'Scheda in compilazione.'
+      ? `Descrizione: ${a.description}`
+      : '',
     'Genera 8 tag specifici e utili per catalogazione e ricerca.',
   ]
     .filter(Boolean)
@@ -519,7 +533,10 @@ function expectedItemsCountForArtwork(): number {
   return ITEM_DURATIONS.length * ITEM_LEVELS.length;
 }
 
-function hasValidItemMatrix(items: SeedGeneratedItem[] | undefined, artworkId?: string): items is SeedGeneratedItem[] {
+function hasValidItemMatrix(
+  items: SeedGeneratedItem[] | undefined,
+  artworkId?: string,
+): items is SeedGeneratedItem[] {
   if (!items || items.length !== expectedItemsCountForArtwork()) return false;
 
   const combos = new Set(items.map((item) => `${item.duration}|${item.languageLevel}`));
@@ -530,23 +547,29 @@ function hasValidItemMatrix(items: SeedGeneratedItem[] | undefined, artworkId?: 
   return true;
 }
 
-function hasValidLengthsMatrix(items: SeedGeneratedItem[] | undefined): items is SeedGeneratedItem[] {
+function hasValidLengthsMatrix(
+  items: SeedGeneratedItem[] | undefined,
+): items is SeedGeneratedItem[] {
   if (!items) return false;
-  return items.every((item) => !validateItemLength(item) && !validateAudioguideText(item.text, item.referenceTitle));
+  return items.every(
+    (item) => !validateItemLength(item) && !validateAudioguideText(item.text, item.referenceTitle),
+  );
 }
 
 function normalizeSpokenText(value: string): string {
-  return value.replace(/https?:\/\/\S+/gi, '').replace(/\s+/g, ' ').trim();
+  return value
+    .replace(/https?:\/\/\S+/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function countWords(text: string): number {
-  return text
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean).length;
+  return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
-function validateItemLength(item: Pick<SeedGeneratedItem, 'duration' | 'languageLevel' | 'text'>): string | null {
+function validateItemLength(
+  item: Pick<SeedGeneratedItem, 'duration' | 'languageLevel' | 'text'>,
+): string | null {
   const rule = ITEM_LENGTH_RULES[item.duration];
   const words = countWords(item.text);
   const chars = item.text.length;
@@ -565,12 +588,6 @@ function splitSentences(text: string): string[] {
     .split(/(?<=[.!?])\s+/)
     .map((s) => s.trim())
     .filter(Boolean);
-}
-
-function italianArtworkType(type: string): string {
-  if (type === 'painting') return 'un dipinto';
-  if (type === 'sculpture') return 'una scultura';
-  return `un'opera ${type}`;
 }
 
 function numberToItalianWords(n: number): string {
@@ -596,7 +613,18 @@ function numberToItalianWords(n: number): string {
     'diciotto',
     'diciannove',
   ];
-  const tens = ['', '', 'venti', 'trenta', 'quaranta', 'cinquanta', 'sessanta', 'settanta', 'ottanta', 'novanta'];
+  const tens = [
+    '',
+    '',
+    'venti',
+    'trenta',
+    'quaranta',
+    'cinquanta',
+    'sessanta',
+    'settanta',
+    'ottanta',
+    'novanta',
+  ];
 
   if (n < 20) return units[n];
   if (n < 100) {
@@ -609,7 +637,7 @@ function numberToItalianWords(n: number): string {
   if (n < 1000) {
     const hundred = Math.floor(n / 100);
     const rest = n % 100;
-    let base = (hundred === 1 ? 'cento' : `${units[hundred]}cento`);
+    let base = hundred === 1 ? 'cento' : `${units[hundred]}cento`;
     if (rest >= 80 && rest < 90) base = base.slice(0, -1);
     return base + (rest ? numberToItalianWords(rest) : '');
   }
@@ -648,7 +676,18 @@ function numberToItalianParts(n: number): string[] {
     'diciotto',
     'diciannove',
   ];
-  const tens = ['', '', 'venti', 'trenta', 'quaranta', 'cinquanta', 'sessanta', 'settanta', 'ottanta', 'novanta'];
+  const tens = [
+    '',
+    '',
+    'venti',
+    'trenta',
+    'quaranta',
+    'cinquanta',
+    'sessanta',
+    'settanta',
+    'ottanta',
+    'novanta',
+  ];
 
   if (n < 20) return [units[n]];
   if (n < 100) {
@@ -701,7 +740,6 @@ function normalizeYearToDigits(a: SeedArtwork, text: string): string {
   if (!a.year || !/^\d{3,4}$/.test(a.year)) return text;
 
   const yearNum = Number(a.year);
-  const yearWords = numberToItalianWords(yearNum);
   const centuryNum = Math.floor(yearNum / 100) * 100;
   const yearPattern = buildLooseItalianNumberPattern(yearNum);
   const centuryPattern = buildLooseItalianNumberPattern(centuryNum);
@@ -713,9 +751,18 @@ function normalizeYearToDigits(a: SeedArtwork, text: string): string {
   result = result.replace(new RegExp(`\\b${yearPattern}\\b`, 'gi'), a.year);
 
   if (centuryNum !== yearNum) {
-    result = result.replace(new RegExp(`\\banno\\s+${centuryPattern}\\b`, 'gi'), `anno ${centuryNum}`);
-    result = result.replace(new RegExp(`\\bnel\\s+${centuryPattern}\\b`, 'gi'), `nel ${centuryNum}`);
-    result = result.replace(new RegExp(`\\bdel\\s+${centuryPattern}\\b`, 'gi'), `del ${centuryNum}`);
+    result = result.replace(
+      new RegExp(`\\banno\\s+${centuryPattern}\\b`, 'gi'),
+      `anno ${centuryNum}`,
+    );
+    result = result.replace(
+      new RegExp(`\\bnel\\s+${centuryPattern}\\b`, 'gi'),
+      `nel ${centuryNum}`,
+    );
+    result = result.replace(
+      new RegExp(`\\bdel\\s+${centuryPattern}\\b`, 'gi'),
+      `del ${centuryNum}`,
+    );
     result = result.replace(new RegExp(`\\b${centuryPattern}\\b`, 'gi'), String(centuryNum));
   }
 
@@ -730,7 +777,8 @@ function normalizeKnownNumbersToDigits(a: SeedArtwork, text: string): string {
   if (typeof a.dimensions?.height === 'number') knownNumbers.add(Math.round(a.dimensions.height));
   if (typeof a.dimensions?.width === 'number') knownNumbers.add(Math.round(a.dimensions.width));
   if (typeof a.dimensions?.depth === 'number') knownNumbers.add(Math.round(a.dimensions.depth));
-  if (typeof a.dimensions?.diameter === 'number') knownNumbers.add(Math.round(a.dimensions.diameter));
+  if (typeof a.dimensions?.diameter === 'number')
+    knownNumbers.add(Math.round(a.dimensions.diameter));
 
   let result = text;
   for (const value of knownNumbers) {
@@ -758,12 +806,27 @@ function normalizeCommonItalianNumbersToDigits(text: string): string {
 
 function stripLocationSentences(text: string): string {
   let result = text;
-  result = result.replace(/\b(?:alla|nella|presso)\s+galleria\s+borghese\b[^,.!?;:]*(?:[,;:]\s*)?/gi, ' ');
+  result = result.replace(
+    /\b(?:alla|nella|presso)\s+galleria\s+borghese\b[^,.!?;:]*(?:[,;:]\s*)?/gi,
+    ' ',
+  );
   result = result.replace(/\b(?:nel|nella|al|alla|in)\s+museo\b[^,.!?;:]*(?:[,;:]\s*)?/gi, ' ');
-  result = result.replace(/\b(?:si\s+trova|è\s+esposta|è\s+collocata|si\s+trova\s+collocata)\s+(?:nella|nel|alla|al|in)\s+sala\s+[ivxlcdm\d]+\b[^,.!?;:]*(?:[,;:]\s*)?/gi, ' ');
-  result = result.replace(/\b(?:nella|nel|alla|al|in)\s+sala\s+[ivxlcdm\d]+\b[^,.!?;:]*(?:[,;:]\s*)?/gi, ' ');
-  result = result.replace(/\b(?:nel|nella|al|alla|in)\s+(?:primo|secondo)\s+piano\b[^,.!?;:]*(?:[,;:]\s*)?/gi, ' ');
-  result = result.replace(/\b(?:dedicata|dedicato)\s+a\s+caravaggio\s+e\s+al\s+seicento\b[^,.!?;:]*(?:[,;:]\s*)?/gi, ' ');
+  result = result.replace(
+    /\b(?:si\s+trova|è\s+esposta|è\s+collocata|si\s+trova\s+collocata)\s+(?:nella|nel|alla|al|in)\s+sala\s+[ivxlcdm\d]+\b[^,.!?;:]*(?:[,;:]\s*)?/gi,
+    ' ',
+  );
+  result = result.replace(
+    /\b(?:nella|nel|alla|al|in)\s+sala\s+[ivxlcdm\d]+\b[^,.!?;:]*(?:[,;:]\s*)?/gi,
+    ' ',
+  );
+  result = result.replace(
+    /\b(?:nel|nella|al|alla|in)\s+(?:primo|secondo)\s+piano\b[^,.!?;:]*(?:[,;:]\s*)?/gi,
+    ' ',
+  );
+  result = result.replace(
+    /\b(?:dedicata|dedicato)\s+a\s+caravaggio\s+e\s+al\s+seicento\b[^,.!?;:]*(?:[,;:]\s*)?/gi,
+    ' ',
+  );
   result = splitSentences(result)
     .filter((sentence) => !DISALLOWED_LOCATION_REGEX.test(sentence))
     .join(' ')
@@ -785,7 +848,9 @@ function trimToMax(text: string, maxChars: number): string {
 
   const sliced = text.slice(0, maxChars);
   const lastSpace = sliced.lastIndexOf(' ');
-  return (lastSpace > 0 ? sliced.slice(0, lastSpace) : sliced).trim().replace(/[,:;\-–—\s]+$/u, '') + '.';
+  return (
+    (lastSpace > 0 ? sliced.slice(0, lastSpace) : sliced).trim().replace(/[,:;\-–—\s]+$/u, '') + '.'
+  );
 }
 
 function coerceTextToLength(
@@ -833,7 +898,9 @@ function audienceDescription(level: LanguageLevel): string {
 }
 
 function buildArtworkPrompt(a: SeedArtwork): string {
-  const dimensionsText = a.dimensions?.displayText ? `Dimensioni: ${a.dimensions.displayText}.` : '';
+  const dimensionsText = a.dimensions?.displayText
+    ? `Dimensioni: ${a.dimensions.displayText}.`
+    : '';
   const materialsText = a.materials?.length ? `Materiali/Tecnica: ${a.materials.join(', ')}.` : '';
   const movementText = a.movement ? `Movimento/Stile: ${a.movement}.` : '';
   const yearText = a.year ? `Datazione: ${a.year}.` : '';
@@ -889,11 +956,9 @@ async function generateItemsForArtworkWithAI(a: SeedArtwork): Promise<SeedGenera
         const previousWords = previousDraft ? countWords(previousDraft) : 0;
         const previousChars = previousDraft.length;
         const tooShort =
-          previousDraft &&
-          (previousWords < rule.minWords || previousChars < rule.minChars);
+          previousDraft && (previousWords < rule.minWords || previousChars < rule.minChars);
         const tooLong =
-          previousDraft &&
-          (previousWords > rule.maxWords || previousChars > rule.maxChars);
+          previousDraft && (previousWords > rule.maxWords || previousChars > rule.maxChars);
 
         const retryHint =
           attempt === 1
@@ -1012,13 +1077,17 @@ async function loadOrGenerateAllItems(seed: SeedDocument): Promise<SeedGenerated
     }
   }
 
-  console.log(`📝  Generazione AI items: ${generatedByArtwork.size}/${seed.artworks.length} opere già in cache`);
+  console.log(
+    `📝  Generazione AI items: ${generatedByArtwork.size}/${seed.artworks.length} opere già in cache`,
+  );
   if (REGENERATE_ITEMS_MODE) {
     console.log('   ♻️  Modalità rigenerazione forzata attiva');
   }
 
   for (let i = 0; i < seed.artworks.length; i += AI_ITEM_CONCURRENCY) {
-    const batch = seed.artworks.slice(i, i + AI_ITEM_CONCURRENCY).filter((artwork) => !generatedByArtwork.has(artwork.wikidataId));
+    const batch = seed.artworks
+      .slice(i, i + AI_ITEM_CONCURRENCY)
+      .filter((artwork) => !generatedByArtwork.has(artwork.wikidataId));
     if (!batch.length) continue;
 
     await Promise.all(
@@ -1033,7 +1102,9 @@ async function loadOrGenerateAllItems(seed: SeedDocument): Promise<SeedGenerated
     );
   }
 
-  const allItems = seed.artworks.flatMap((artwork) => generatedByArtwork.get(artwork.wikidataId) ?? []);
+  const allItems = seed.artworks.flatMap(
+    (artwork) => generatedByArtwork.get(artwork.wikidataId) ?? [],
+  );
   if (allItems.length !== expectedTotal) {
     throw new Error(`Items incompleti: ${allItems.length}/${expectedTotal}`);
   }
@@ -1063,7 +1134,9 @@ function buildItemsForInsert(
 async function main() {
   console.log(`🏛️  Seed ${ACTIVE_MUSEUM_NAME}\n`);
   console.log(`📄  Fonte: ${seedPath}`);
-  console.log(`📊  Meta: ${seedData._meta.totalArtworks} opere, ${seedData._meta.rooms} sale, ${seedData._meta.floors} piani\n`);
+  console.log(
+    `📊  Meta: ${seedData._meta.totalArtworks} opere, ${seedData._meta.rooms} sale, ${seedData._meta.floors} piani\n`,
+  );
 
   const generatedItems = await loadOrGenerateAllItems(seedData);
   console.log(`🧠  Items disponibili nel JSON: ${generatedItems.length}\n`);
@@ -1093,7 +1166,11 @@ async function main() {
   }
   if (!author) {
     const hashed = await bcrypt.hash('12345678', 10);
-    const seedUserBase = ACTIVE_MUSEUM_NAME.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 30) || 'museum';
+    const seedUserBase =
+      ACTIVE_MUSEUM_NAME.toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+        .slice(0, 30) || 'museum';
     const seedUser = `seed-${seedUserBase}`;
     author = await User.create({
       username: seedUser,
@@ -1113,7 +1190,9 @@ async function main() {
   const museum = await MuseumModel.create(seedData.museum);
   console.log(`   ✅  Museo creato: ${museum.name} (${museum.wikidataId})`);
   console.log(`       Piani: ${museum.floors?.length ?? 0}`);
-  console.log(`       Coordinate: ${museum.location.coordinates?.lat}, ${museum.location.coordinates?.lng}\n`);
+  console.log(
+    `       Coordinate: ${museum.location.coordinates?.lat}, ${museum.location.coordinates?.lng}\n`,
+  );
 
   // ── 4. Download immagini ────────────────────────────────────────────────────
   console.log(`🖼️  Download immagini in ${ARTWORKS_DIR}…`);
@@ -1128,26 +1207,26 @@ async function main() {
     const effectiveImage = localImage || FALLBACK_ARTWORK_IMAGE;
 
     return {
-      wikidataId:         a.wikidataId,
-      museumId:           a.museumId,
-      title:              a.title,
-      description:        a.description ?? 'Scheda in compilazione.',
-      author:             a.author ?? 'Autore sconosciuto',
-      authorWikidataId:   a.authorWikidataId ?? undefined,
-      year:               a.year ?? undefined,
-      startYear:          a.startYear ?? undefined,
-      endYear:            a.endYear ?? undefined,
-      artworkType:        a.artworkType,
-      movement:           a.movement ?? undefined,
+      wikidataId: a.wikidataId,
+      museumId: a.museumId,
+      title: a.title,
+      description: a.description ?? 'Scheda in compilazione.',
+      author: a.author ?? 'Autore sconosciuto',
+      authorWikidataId: a.authorWikidataId ?? undefined,
+      year: a.year ?? undefined,
+      startYear: a.startYear ?? undefined,
+      endYear: a.endYear ?? undefined,
+      artworkType: a.artworkType,
+      movement: a.movement ?? undefined,
       movementWikidataId: a.movementWikidataId ?? undefined,
-      dimensions:         a.dimensions ?? undefined,
-      materials:          a.materials ?? [],
-      subjects:           a.subjects ?? [],
-      image:              effectiveImage,
-      images:             [effectiveImage],
-      room:               a.room,
-      floor:              a.floor,
-      mapPosition:        a.mapPosition,
+      dimensions: a.dimensions ?? undefined,
+      materials: a.materials ?? [],
+      subjects: a.subjects ?? [],
+      image: effectiveImage,
+      images: [effectiveImage],
+      room: a.room,
+      floor: a.floor,
+      mapPosition: a.mapPosition,
     };
   });
 
@@ -1158,7 +1237,9 @@ async function main() {
   console.log('📝  Inserimento content items (16 per opera)…');
   const itemsPayload = buildItemsForInsert(generatedItems, authorId, imageMap);
   await ItemModel.insertMany(itemsPayload, { ordered: false });
-  console.log(`   ✅  Items inseriti: ${itemsPayload.length} (${seedData.artworks.length} opere × 16 combinazioni)\n`);
+  console.log(
+    `   ✅  Items inseriti: ${itemsPayload.length} (${seedData.artworks.length} opere × 16 combinazioni)\n`,
+  );
 
   // ── 7. Riepilogo sale ──────────────────────────────────────────────────────
   console.log('📋  Distribuzione opere per sala:');
@@ -1175,7 +1256,9 @@ async function main() {
   console.log(`    Opere:     ${created.length}`);
   console.log(`    Items:     ${itemsPayload.length} (4 durate × 4 linguaggi per ogni opera)`);
   console.log(`    Immagini:  ${imageMap.size} scaricate in ${ARTWORKS_DIR}`);
-  console.log(`    Sale:      ${seedData.rooms.length} (metadati in ${path.basename(seedPath)} → rooms)`);
+  console.log(
+    `    Sale:      ${seedData.rooms.length} (metadati in ${path.basename(seedPath)} → rooms)`,
+  );
 
   process.exit(0);
 }

@@ -364,7 +364,8 @@ export class ItemController {
         throw new AppError(403, 'FORBIDDEN', 'You can only update your own items');
       }
 
-      const { museumId: ignoredMuseumId, ...updateData } = req.body;
+      const updateData = { ...req.body };
+      delete updateData.museumId;
       Object.assign(item, updateData);
       if (req.body.price !== undefined) {
         item.isFree = req.body.price === 0;

@@ -52,7 +52,7 @@ export class UiScrollTop extends LitElement {
         @click=${this.scrollToTop}
         class="fixed bottom-6 right-6 z-50 flex items-center justify-center w-12 h-12 bg-brand-600 hover:bg-brand-700 text-white rounded-full shadow-lg transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
         .title=${__('Torna su')}
-        aria-label=${__('Torna all\'inizio della pagina')}
+        aria-label=${__("Torna all'inizio della pagina")}
       >
         <ui-icon name="chevron-up" size="md"></ui-icon>
       </button>

@@ -869,9 +869,12 @@ export class ImageEditor extends LitElement {
           <div class="flex items-center gap-2 flex-wrap">
             <ui-badge
               variant="secondary"
-              .label=${
-                __('Originale') + ': ' + this.originalWidth + '×' + this.originalHeight + 'px'
-              }
+              .label=${__('Originale') +
+              ': ' +
+              this.originalWidth +
+              '×' +
+              this.originalHeight +
+              'px'}
               size="sm"
             ></ui-badge>
             <ui-badge

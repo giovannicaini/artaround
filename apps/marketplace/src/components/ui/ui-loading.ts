@@ -1,6 +1,5 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { __ } from '../../services/i18n.service';
 
 /**
  * UI Loading State

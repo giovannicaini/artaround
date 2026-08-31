@@ -251,9 +251,7 @@ export class MuseumsManagementPage extends LitElement {
   @state() private geocodingLocation = false;
   @state() private geocodingStatus = '';
   @state() private museumTranslationLanguage: AppLanguage | null = null;
-  @state() private navigatorTranslationLanguageByConfig: Partial<
-    Record<string, AppLanguage>
-  > = {};
+  @state() private navigatorTranslationLanguageByConfig: Partial<Record<string, AppLanguage>> = {};
 
   private leafletModule: typeof import('leaflet') | null = null;
   private locationMap: LeafletMap | null = null;
@@ -1879,111 +1877,114 @@ export class MuseumsManagementPage extends LitElement {
         <div
           class="space-y-4 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-100/80 dark:bg-violet-900/25 p-4"
         >
-        <div class="flex items-center justify-between flex-wrap gap-2">
-          <h5 class="font-medium text-surface-900 dark:text-white">${__('Traduzioni navigator')}</h5>
-          <div class="flex items-center gap-2 flex-wrap">
-            <ui-badge
-              variant="secondary"
-              .label=${`${__('Lingua sorgente')}: ${sourceLanguageLabel}`}
-            ></ui-badge>
-            <ui-button
-              type="button"
-              variant="secondary"
-              size="xs"
-              icon="sparkles"
-              .label=${__('Traduci campi navigator mancanti con AI')}
-              .loading=${this.translatingNavigatorConfigId === config.id}
-              .disabled=${targetLanguages.length === 0}
-              @click=${() => this.translateMissingNavigatorFields(config.id)}
-            ></ui-button>
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <h5 class="font-medium text-surface-900 dark:text-white">
+              ${__('Traduzioni navigator')}
+            </h5>
+            <div class="flex items-center gap-2 flex-wrap">
+              <ui-badge
+                variant="secondary"
+                .label=${`${__('Lingua sorgente')}: ${sourceLanguageLabel}`}
+              ></ui-badge>
+              <ui-button
+                type="button"
+                variant="secondary"
+                size="xs"
+                icon="sparkles"
+                .label=${__('Traduci campi navigator mancanti con AI')}
+                .loading=${this.translatingNavigatorConfigId === config.id}
+                .disabled=${targetLanguages.length === 0}
+                @click=${() => this.translateMissingNavigatorFields(config.id)}
+              ></ui-button>
+            </div>
           </div>
-        </div>
 
-        ${targetLanguages.length === 0
-          ? html`<p class="text-xs text-surface-500 dark:text-surface-400">
-              ${__(
-                'Aggiungi almeno una lingua aggiuntiva nelle Lingue attive del museo per gestire le traduzioni navigator.',
-              )}
-            </p>`
-          : html`
-              <div class="space-y-3">
-                <ui-select
-                  .label=${__('Lingua traduzione')}
-                  .value=${selectedLanguage || ''}
-                  .options=${translationLanguageOptions}
-                  @select-change=${(e: CustomEvent<{ value: AppLanguage }>) => {
-                    this.navigatorTranslationLanguageByConfig = {
-                      ...this.navigatorTranslationLanguageByConfig,
-                      [config.id]: e.detail.value,
-                    };
-                  }}
-                ></ui-select>
+          ${targetLanguages.length === 0
+            ? html`<p class="text-xs text-surface-500 dark:text-surface-400">
+                ${__(
+                  'Aggiungi almeno una lingua aggiuntiva nelle Lingue attive del museo per gestire le traduzioni navigator.',
+                )}
+              </p>`
+            : html`
+                <div class="space-y-3">
+                  <ui-select
+                    .label=${__('Lingua traduzione')}
+                    .value=${selectedLanguage || ''}
+                    .options=${translationLanguageOptions}
+                    @select-change=${(e: CustomEvent<{ value: AppLanguage }>) => {
+                      this.navigatorTranslationLanguageByConfig = {
+                        ...this.navigatorTranslationLanguageByConfig,
+                        [config.id]: e.detail.value,
+                      };
+                    }}
+                  ></ui-select>
 
-                ${selectedLanguage
-                  ? html`
-                      <div
-                        class="p-4 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/30 space-y-3"
-                      >
-                        <h6 class="text-sm font-semibold text-surface-800 dark:text-surface-100">
-                          ${__('Traduzioni in')} ${selectedLanguageLabel || selectedLanguage.toUpperCase()}
-                        </h6>
+                  ${selectedLanguage
+                    ? html`
+                        <div
+                          class="p-4 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/30 space-y-3"
+                        >
+                          <h6 class="text-sm font-semibold text-surface-800 dark:text-surface-100">
+                            ${__('Traduzioni in')}
+                            ${selectedLanguageLabel || selectedLanguage.toUpperCase()}
+                          </h6>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <ui-input
-                            .label=${__('Titolo Home')}
-                            .value=${config.homeTitleTranslations[selectedLanguage] || ''}
-                            @input-change=${(e: CustomEvent) =>
+                          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <ui-input
+                              .label=${__('Titolo Home')}
+                              .value=${config.homeTitleTranslations[selectedLanguage] || ''}
+                              @input-change=${(e: CustomEvent) =>
+                                this.updateNavigatorTranslationField(
+                                  config.id,
+                                  'homeTitleTranslations',
+                                  selectedLanguage,
+                                  e.detail.value,
+                                )}
+                            ></ui-input>
+
+                            <ui-input
+                              .label=${__('Sottotitolo Home')}
+                              .value=${config.homeSubtitleTranslations[selectedLanguage] || ''}
+                              @input-change=${(e: CustomEvent) =>
+                                this.updateNavigatorTranslationField(
+                                  config.id,
+                                  'homeSubtitleTranslations',
+                                  selectedLanguage,
+                                  e.detail.value,
+                                )}
+                            ></ui-input>
+                          </div>
+
+                          <ui-textarea
+                            .label=${__('Testo di benvenuto')}
+                            .value=${config.welcomeTextTranslations[selectedLanguage] || ''}
+                            @textarea-change=${(e: CustomEvent) =>
                               this.updateNavigatorTranslationField(
                                 config.id,
-                                'homeTitleTranslations',
+                                'welcomeTextTranslations',
                                 selectedLanguage,
                                 e.detail.value,
                               )}
-                          ></ui-input>
+                            rows="3"
+                          ></ui-textarea>
 
-                          <ui-input
-                            .label=${__('Sottotitolo Home')}
-                            .value=${config.homeSubtitleTranslations[selectedLanguage] || ''}
-                            @input-change=${(e: CustomEvent) =>
+                          <ui-textarea
+                            .label=${__('Descrizione manifest')}
+                            .value=${config.manifestDescriptionTranslations[selectedLanguage] || ''}
+                            @textarea-change=${(e: CustomEvent) =>
                               this.updateNavigatorTranslationField(
                                 config.id,
-                                'homeSubtitleTranslations',
+                                'manifestDescriptionTranslations',
                                 selectedLanguage,
                                 e.detail.value,
                               )}
-                          ></ui-input>
+                            rows="2"
+                          ></ui-textarea>
                         </div>
-
-                        <ui-textarea
-                          .label=${__('Testo di benvenuto')}
-                          .value=${config.welcomeTextTranslations[selectedLanguage] || ''}
-                          @textarea-change=${(e: CustomEvent) =>
-                            this.updateNavigatorTranslationField(
-                              config.id,
-                              'welcomeTextTranslations',
-                              selectedLanguage,
-                              e.detail.value,
-                            )}
-                          rows="3"
-                        ></ui-textarea>
-
-                        <ui-textarea
-                          .label=${__('Descrizione manifest')}
-                          .value=${config.manifestDescriptionTranslations[selectedLanguage] || ''}
-                          @textarea-change=${(e: CustomEvent) =>
-                            this.updateNavigatorTranslationField(
-                              config.id,
-                              'manifestDescriptionTranslations',
-                              selectedLanguage,
-                              e.detail.value,
-                            )}
-                          rows="2"
-                        ></ui-textarea>
-                      </div>
-                    `
-                  : nothing}
-              </div>
-            `}
+                      `
+                    : nothing}
+                </div>
+              `}
         </div>
       </div>
     `;
@@ -1992,7 +1993,9 @@ export class MuseumsManagementPage extends LitElement {
   private renderActiveLanguagesSection() {
     return html`
       <section>
-        <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2">
+        <h3
+          class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+        >
           <ui-icon name="globe" size="sm" class="text-indigo-500"></ui-icon>
           ${__('Lingue attive')}
         </h3>
@@ -2113,7 +2116,6 @@ export class MuseumsManagementPage extends LitElement {
                   )}
                 </p>`
               : nothing}
-
             ${targetLanguages.length > 0
               ? html`
                   <div class="space-y-3">
@@ -2131,7 +2133,8 @@ export class MuseumsManagementPage extends LitElement {
                             class="p-4 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/30 space-y-4"
                           >
                             <h4 class="font-medium text-surface-900 dark:text-white">
-                              ${__('Traduzioni in')} ${selectedLanguageLabel || selectedLanguage.toUpperCase()}
+                              ${__('Traduzioni in')}
+                              ${selectedLanguageLabel || selectedLanguage.toUpperCase()}
                             </h4>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2151,7 +2154,8 @@ export class MuseumsManagementPage extends LitElement {
 
                             <ui-textarea
                               .label=${__('Descrizione')}
-                              .value=${this.formData.descriptionTranslations[selectedLanguage] || ''}
+                              .value=${this.formData.descriptionTranslations[selectedLanguage] ||
+                              ''}
                               @textarea-change=${(e: CustomEvent) =>
                                 (this.formData = {
                                   ...this.formData,
@@ -2166,9 +2170,8 @@ export class MuseumsManagementPage extends LitElement {
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <ui-textarea
                                 .label=${__('Orari di apertura')}
-                                .value=${
-                                  this.formData.openingHoursTranslations[selectedLanguage] || ''
-                                }
+                                .value=${this.formData.openingHoursTranslations[selectedLanguage] ||
+                                ''}
                                 @textarea-change=${(e: CustomEvent) =>
                                   (this.formData = {
                                     ...this.formData,
@@ -2182,9 +2185,8 @@ export class MuseumsManagementPage extends LitElement {
 
                               <ui-textarea
                                 .label=${__('Informazioni biglietti')}
-                                .value=${
-                                  this.formData.ticketInfoTranslations[selectedLanguage] || ''
-                                }
+                                .value=${this.formData.ticketInfoTranslations[selectedLanguage] ||
+                                ''}
                                 @textarea-change=${(e: CustomEvent) =>
                                   (this.formData = {
                                     ...this.formData,
@@ -2561,7 +2563,8 @@ export class MuseumsManagementPage extends LitElement {
                 .label=${__('Città *')}
                 .placeholder=${__('Città')}
                 .value=${this.formData.city}
-                @input-change=${(e: CustomEvent) => this.updateLocationField('city', e.detail.value)}
+                @input-change=${(e: CustomEvent) =>
+                  this.updateLocationField('city', e.detail.value)}
                 required
               ></ui-input>
 
@@ -2577,7 +2580,8 @@ export class MuseumsManagementPage extends LitElement {
                 .label=${__('Nazione *')}
                 .placeholder=${__('Italia')}
                 .value=${this.formData.nation}
-                @input-change=${(e: CustomEvent) => this.updateLocationField('nation', e.detail.value)}
+                @input-change=${(e: CustomEvent) =>
+                  this.updateLocationField('nation', e.detail.value)}
                 required
               ></ui-input>
 
