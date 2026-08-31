@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -1539,7 +1538,7 @@ export class MuseumsManagementPage extends LitElement {
       } else {
         this.error = result.error || "Errore durante l'aggiunta del curatore";
       }
-    } catch (e) {
+    } catch {
       this.error = __("Errore durante l'aggiunta del curatore");
     } finally {
       this.addingCurator = false;
@@ -1561,7 +1560,7 @@ export class MuseumsManagementPage extends LitElement {
       } else {
         this.error = result.error || 'Errore durante la rimozione del curatore';
       }
-    } catch (e) {
+    } catch {
       this.error = __('Errore durante la rimozione del curatore');
     } finally {
       this.removingCuratorId = null;
@@ -1713,7 +1712,7 @@ export class MuseumsManagementPage extends LitElement {
           this.error = result.error || "Errore durante l'aggiornamento";
         }
       }
-    } catch (e) {
+    } catch {
       this.error = __('Errore durante il salvataggio');
     } finally {
       this.saving = false;
@@ -1759,7 +1758,7 @@ export class MuseumsManagementPage extends LitElement {
       } else {
         this.error = result.error || "Errore durante l'eliminazione";
       }
-    } catch (e) {
+    } catch {
       this.error = __("Errore durante l'eliminazione");
     } finally {
       this.deleting = false;
