@@ -1,5 +1,6 @@
 import express, { Express } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import swaggerUi from 'swagger-ui-express';
@@ -18,6 +19,15 @@ const __dirname = path.dirname(__filename);
 const app: Express = express();
 
 // Middleware
+app.use(
+  helmet({
+    // CSP disattivata: la pagina carica immagini da origini esterne (Wikimedia Commons,
+    // tile OpenStreetMap per la mappa Leaflet) e Swagger UI usa stili/script inline.
+    // Una policy su misura per queste esigenze è un miglioramento futuro, non un requisito.
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  }),
+);
 app.use(
   cors({
     origin: config.cors.origins,
