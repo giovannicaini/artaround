@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { ItemModel, ItemPurchase, VisitModel, VisitPurchase } from '../models/index.js';
 import { AppError } from '../middleware/index.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
+import { buildMuseumIdFilterValue } from '../utils/museum-id.util.js';
 
 export class MarketplaceController {
   // Get item catalog
@@ -17,7 +18,8 @@ export class MarketplaceController {
       } = req.query;
 
       const filter: Record<string, unknown> = {};
-      if (museumId) filter.museumId = museumId;
+      const museumIdFilter = await buildMuseumIdFilterValue(museumId as string | undefined);
+      if (museumIdFilter !== undefined) filter.museumId = museumIdFilter;
       if (isFree !== undefined) filter.isFree = isFree === 'true';
       if (minRating) filter.rating = { $gte: parseFloat(minRating as string) };
 
@@ -63,7 +65,8 @@ export class MarketplaceController {
       } = req.query;
 
       const filter: Record<string, unknown> = { isPublished: true };
-      if (museumId) filter.museumId = museumId;
+      const museumIdFilter = await buildMuseumIdFilterValue(museumId as string | undefined);
+      if (museumIdFilter !== undefined) filter.museumId = museumIdFilter;
       if (isFree !== undefined) filter['metadata.isFree'] = isFree === 'true';
       if (minRating) filter['metadata.rating'] = { $gte: parseFloat(minRating as string) };
 

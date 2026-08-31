@@ -3,6 +3,7 @@ import { body, validationResult } from 'express-validator';
 import { VisitModel, MuseumModel } from '../models/index.js';
 import { AppError } from '../middleware/index.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
+import { buildMuseumIdFilterValue } from '../utils/museum-id.util.js';
 import {
   VisitStepType,
   LanguageLevel,
@@ -114,7 +115,8 @@ export class VisitController {
       } = req.query;
 
       const filter: Record<string, unknown> = {};
-      if (museumId) filter.museumId = museumId;
+      const museumIdFilter = await buildMuseumIdFilterValue(museumId as string | undefined);
+      if (museumIdFilter !== undefined) filter.museumId = museumIdFilter;
       if (authorId) filter.authorId = authorId;
       if (isPublished !== undefined) filter.isPublished = isPublished === 'true';
       if (isFree !== undefined) filter['metadata.isFree'] = isFree === 'true';
@@ -170,7 +172,8 @@ export class VisitController {
       const { museumId } = req.params;
       const { isPublished } = req.query;
 
-      const filter: Record<string, unknown> = { museumId };
+      const museumIdFilter = await buildMuseumIdFilterValue(museumId);
+      const filter: Record<string, unknown> = { museumId: museumIdFilter ?? museumId };
       if (isPublished !== undefined) filter.isPublished = isPublished === 'true';
 
       const visits = await VisitModel.find(filter).sort({ createdAt: -1 }).lean();

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import mongoose from 'mongoose';
-import { ArtworkModel, MuseumModel } from '../models/index.js';
+import { ArtworkModel } from '../models/index.js';
 import type { ArtworkFilters as SharedArtworkFilters } from '@artaround/shared';
+import { resolveMuseumIdCandidates } from '../utils/museum-id.util.js';
 
 /**
  * Artwork Controller
@@ -87,38 +87,6 @@ const parseTechnicalYearRange = (yearValue: unknown): YearRange => {
   }
 
   return {};
-};
-
-const resolveMuseumIdCandidates = async (
-  museumId: string | string[] | undefined | null,
-): Promise<string[]> => {
-  const normalized = (Array.isArray(museumId) ? museumId[0] : museumId)?.trim() || '';
-  if (!normalized) return [];
-
-  const candidates = new Set<string>([normalized]);
-
-  if (mongoose.Types.ObjectId.isValid(normalized)) {
-    const museum = await MuseumModel.findById(normalized).select('_id wikidataId').lean();
-    if (museum?._id) {
-      candidates.add(String(museum._id));
-    }
-    if (museum?.wikidataId) {
-      candidates.add(museum.wikidataId);
-    }
-    return Array.from(candidates);
-  }
-
-  const museum = await MuseumModel.findOne({ wikidataId: normalized })
-    .select('_id wikidataId')
-    .lean();
-  if (museum?._id) {
-    candidates.add(String(museum._id));
-  }
-  if (museum?.wikidataId) {
-    candidates.add(museum.wikidataId);
-  }
-
-  return Array.from(candidates);
 };
 
 // GET /api/artworks

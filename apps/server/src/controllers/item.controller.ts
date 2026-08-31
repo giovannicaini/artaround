@@ -3,6 +3,7 @@ import { body, validationResult } from 'express-validator';
 import { ItemModel, MuseumModel } from '../models/index.js';
 import { AppError } from '../middleware/index.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
+import { buildMuseumIdFilterValue } from '../utils/museum-id.util.js';
 import {
   ItemReferenceType,
   ContentDuration,
@@ -117,8 +118,9 @@ export class ItemController {
       if (languageLevel) filter['contentMatrix.languageLevel'] = languageLevel;
       if (isFree !== undefined) filter.isFree = isFree === 'true';
 
-      if (museumId) {
-        filter.museumId = museumId;
+      const museumIdFilter = await buildMuseumIdFilterValue(museumId as string | undefined);
+      if (museumIdFilter !== undefined) {
+        filter.museumId = museumIdFilter;
       }
 
       const pageNum = parseInt(page as string, 10);
@@ -232,8 +234,9 @@ export class ItemController {
       if (referenceType) filter.referenceType = referenceType;
       if (tags) filter.tags = { $in: (tags as string).split(',') };
 
-      if (museumId) {
-        filter.museumId = museumId;
+      const museumIdFilter = await buildMuseumIdFilterValue(museumId as string | undefined);
+      if (museumIdFilter !== undefined) {
+        filter.museumId = museumIdFilter;
       }
 
       if (andFilters.length > 0) {
