@@ -20,14 +20,34 @@ const navigatorConfigSchema = new Schema(
     },
     content: {
       homeTitle: String,
+      homeTitleTranslations: {
+        type: Map,
+        of: String,
+        default: undefined,
+      },
       homeSubtitle: String,
+      homeSubtitleTranslations: {
+        type: Map,
+        of: String,
+        default: undefined,
+      },
       welcomeText: String,
+      welcomeTextTranslations: {
+        type: Map,
+        of: String,
+        default: undefined,
+      },
       openingImage: String,
     },
     pwa: {
       manifestName: { type: String, required: true },
       shortName: { type: String, required: true },
       description: String,
+      descriptionTranslations: {
+        type: Map,
+        of: String,
+        default: undefined,
+      },
       themeColor: { type: String, required: true },
       backgroundColor: { type: String, required: true },
       display: {

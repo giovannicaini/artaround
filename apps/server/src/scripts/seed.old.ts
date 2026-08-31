@@ -95,8 +95,8 @@ async function seed() {
       location: {
         address: 'Piazzale Scipione Borghese, 5',
         city: 'Roma',
+        nation: 'Italia',
         country: 'Italia',
-        region: 'Lazio',
         postalCode: '00197',
         coordinates: {
           lat: 41.914167,

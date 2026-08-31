@@ -123,6 +123,42 @@ router.get('/wikidata-search', UtilsController.searchWikidata);
 
 /**
  * @swagger
+ * /api/utils/geocode:
+ *   get:
+ *     tags: [Utils]
+ *     summary: Geocodifica indirizzo
+ *     description: Risolve indirizzo/città/CAP/nazione in coordinate lat/lng usando Nominatim (OpenStreetMap)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: address
+ *         schema:
+ *           type: string
+ *         description: Indirizzo (via/piazza e numero civico)
+ *       - in: query
+ *         name: city
+ *         schema:
+ *           type: string
+ *         description: Città
+ *       - in: query
+ *         name: postalCode
+ *         schema:
+ *           type: string
+ *         description: CAP
+ *       - in: query
+ *         name: nation
+ *         schema:
+ *           type: string
+ *         description: Nazione (default Italia)
+ *     responses:
+ *       200:
+ *         description: Coordinate geocodificate
+ */
+router.get('/geocode', authMiddleware, UtilsController.geocodeAddress);
+
+/**
+ * @swagger
  * /api/utils/translate:
  *   post:
  *     tags: [Utils]

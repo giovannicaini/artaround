@@ -869,7 +869,9 @@ export class ImageEditor extends LitElement {
           <div class="flex items-center gap-2 flex-wrap">
             <ui-badge
               variant="secondary"
-              .label=${'Originale: ' + this.originalWidth + '×' + this.originalHeight + 'px'}
+              .label=${
+                __('Originale') + ': ' + this.originalWidth + '×' + this.originalHeight + 'px'
+              }
               size="sm"
             ></ui-badge>
             <ui-badge
@@ -879,7 +881,7 @@ export class ImageEditor extends LitElement {
             ></ui-badge>
             <ui-badge
               variant=${this.isEstimateOverLimit ? 'danger' : 'outline'}
-              .label=${'Stima file: ' + this.formatBytes(this.estimatedOutputSizeBytes)}
+              .label=${__('Stima file') + ': ' + this.formatBytes(this.estimatedOutputSizeBytes)}
               size="sm"
             ></ui-badge>
             ${this.maxOutputSizeBytes > 0

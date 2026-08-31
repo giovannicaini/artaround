@@ -2,18 +2,17 @@ import { ArtworkType } from '../types/artwork.types';
 import type { SelectOption } from './common';
 
 export const ARTWORK_TYPE_META: Readonly<Record<ArtworkType, { label: string; icon: string }>> = {
-  [ArtworkType.PAINTING]: { label: 'Dipinto', icon: '🖼️' },
-  [ArtworkType.SCULPTURE]: { label: 'Scultura', icon: '🗿' },
-  [ArtworkType.FRESCO]: { label: 'Affresco', icon: '🏛️' },
-  [ArtworkType.MOSAIC]: { label: 'Mosaico', icon: '🔲' },
-  [ArtworkType.DRAWING]: { label: 'Disegno', icon: '✏️' },
-  [ArtworkType.PRINT]: { label: 'Stampa', icon: '🖨️' },
-  [ArtworkType.RELIEF]: { label: 'Bassorilievo', icon: '⬜' },
-  [ArtworkType.INSTALLATION]: { label: 'Installazione', icon: '🎪' },
-  [ArtworkType.DECORATIVE]: { label: 'Arte Decorativa', icon: '🏺' },
-  [ArtworkType.TAPESTRY]: { label: 'Arazzo', icon: '🧵' },
-  [ArtworkType.OTHER]: { label: 'Altro', icon: '🎨' },
-};
+  [ArtworkType.Painting]: { label: 'Dipinto', icon: '🖼️' },
+  [ArtworkType.Drawing]: { label: 'Disegno', icon: '✏️' },
+  [ArtworkType.Sculpture]: { label: 'Scultura', icon: '🗿' },
+  [ArtworkType.Print]: { label: 'Stampa', icon: '🖨️' },
+  [ArtworkType.Photograph]: { label: 'Fotografia', icon: '📷' },
+  [ArtworkType.Installation]: { label: 'Installazione artistica', icon: '🎪' },
+  [ArtworkType.NewMedia]: { label: 'Arte digitale', icon: '🎬' },
+  [ArtworkType.ManuscriptBook]: { label: 'Manoscritto', icon: '📜' },
+  [ArtworkType.DecorativeObject]: { label: 'Arti decorative', icon: '🏺' },
+  [ArtworkType.Other]: { label: 'Altro', icon: '🎨' },
+} as const;
 
 export const ARTWORK_TYPE_OPTIONS_IT: ReadonlyArray<SelectOption<ArtworkType>> = (
   Object.values(ArtworkType) as ArtworkType[]

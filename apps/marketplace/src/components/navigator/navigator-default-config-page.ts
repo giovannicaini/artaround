@@ -1,8 +1,17 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import type { NavigatorAppConfig } from '@artaround/shared';
+import {
+  DEFAULT_APP_LANGUAGE,
+  SUPPORTED_APP_LANGUAGES,
+  type AppLanguage,
+  type NavigatorAppConfig,
+} from '@artaround/shared';
 import { navigatorDefaultConfigService } from '../../services/navigator-default-config.service';
 import { aiService } from '../../services/ai.service';
+import {
+  buildTranslationLanguageOptions,
+  isLanguageFullyTranslated,
+} from '../../utils/translation-fields';
 import '../ui/ui-page-header';
 import '../ui/ui-card';
 import '../ui/ui-button';
@@ -11,6 +20,7 @@ import '../ui/ui-textarea';
 import '../ui/ui-select';
 import '../ui/ui-alert';
 import '../ui/ui-loading';
+import '../ui/ui-badge';
 import { __ } from '../../services/i18n.service';
 
 interface NavigatorConfigFormData {
@@ -22,12 +32,16 @@ interface NavigatorConfigFormData {
   primaryColor: string;
   secondaryColor: string;
   homeTitle: string;
+  homeTitleTranslations: Partial<Record<AppLanguage, string>>;
   homeSubtitle: string;
+  homeSubtitleTranslations: Partial<Record<AppLanguage, string>>;
   welcomeText: string;
+  welcomeTextTranslations: Partial<Record<AppLanguage, string>>;
   openingImage: string;
   manifestName: string;
   shortName: string;
   manifestDescription: string;
+  manifestDescriptionTranslations: Partial<Record<AppLanguage, string>>;
   themeColor: string;
   backgroundColor: string;
   display: 'standalone' | 'fullscreen' | 'minimal-ui' | 'browser';
@@ -58,6 +72,11 @@ type NavigatorGeneralFieldKey =
   | 'homeSubtitle'
   | 'manifestName'
   | 'shortName';
+type NavigatorTranslationFieldKey =
+  | 'homeTitleTranslations'
+  | 'homeSubtitleTranslations'
+  | 'welcomeTextTranslations'
+  | 'manifestDescriptionTranslations';
 
 @customElement('navigator-default-config-page')
 export class NavigatorDefaultConfigPage extends LitElement {
@@ -70,6 +89,17 @@ export class NavigatorDefaultConfigPage extends LitElement {
   @state() private checkingAI = false;
   @state() private error = '';
   @state() private success = '';
+  @state() private translationLanguageByConfig: Partial<Record<string, AppLanguage>> = {};
+
+  private get languageOptions(): Array<{ value: AppLanguage; label: string }> {
+    return [
+      { value: 'it', label: `🇮🇹 ${__('Italiano')}` },
+      { value: 'en', label: `🇬🇧 ${__('English')}` },
+      { value: 'fr', label: `🇫🇷 ${__('Français')}` },
+      { value: 'de', label: `🇩🇪 ${__('Deutsch')}` },
+      { value: 'es', label: `🇪🇸 ${__('Español')}` },
+    ];
+  }
 
   // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
@@ -92,12 +122,16 @@ export class NavigatorDefaultConfigPage extends LitElement {
       primaryColor: '#0ea5e9',
       secondaryColor: '#1f2937',
       homeTitle: '',
+      homeTitleTranslations: {},
       homeSubtitle: '',
+      homeSubtitleTranslations: {},
       welcomeText: '',
+      welcomeTextTranslations: {},
       openingImage: '',
       manifestName: `ArtAround Navigator Default ${index}`,
       shortName: `AANav D${index}`,
       manifestDescription: '',
+      manifestDescriptionTranslations: {},
       themeColor: '#0ea5e9',
       backgroundColor: '#ffffff',
       display: 'standalone',
@@ -138,12 +172,16 @@ export class NavigatorDefaultConfigPage extends LitElement {
       primaryColor: config.branding.primaryColor,
       secondaryColor: config.branding.secondaryColor || '',
       homeTitle: config.content?.homeTitle || '',
+      homeTitleTranslations: this.normalizeTranslations(config.content?.homeTitleTranslations),
       homeSubtitle: config.content?.homeSubtitle || '',
+      homeSubtitleTranslations: this.normalizeTranslations(config.content?.homeSubtitleTranslations),
       welcomeText: config.content?.welcomeText || '',
+      welcomeTextTranslations: this.normalizeTranslations(config.content?.welcomeTextTranslations),
       openingImage: config.content?.openingImage || '',
       manifestName: config.pwa.manifestName,
       shortName: config.pwa.shortName,
       manifestDescription: config.pwa.description || '',
+      manifestDescriptionTranslations: this.normalizeTranslations(config.pwa.descriptionTranslations),
       themeColor: config.pwa.themeColor,
       backgroundColor: config.pwa.backgroundColor,
       display: config.pwa.display,
@@ -156,6 +194,27 @@ export class NavigatorDefaultConfigPage extends LitElement {
       appleTouchIcon: config.pwa.appleTouchIcon || '',
     }));
     this.loading = false;
+  }
+
+  private normalizeTranslations(
+    value: Partial<Record<AppLanguage, string>> | Map<string, string> | undefined,
+  ): Partial<Record<AppLanguage, string>> {
+    if (!value) {
+      return {};
+    }
+
+    if (value instanceof Map) {
+      return Object.fromEntries(value.entries()) as Partial<Record<AppLanguage, string>>;
+    }
+
+    return value;
+  }
+
+  private getTranslationsOrUndefined(
+    value: Partial<Record<AppLanguage, string>>,
+  ): Partial<Record<AppLanguage, string>> | undefined {
+    const hasValue = Object.values(value || {}).some((item) => String(item || '').trim().length > 0);
+    return hasValue ? value : undefined;
   }
 
   private updateConfig(id: string, patch: Partial<NavigatorConfigFormData>) {
@@ -185,6 +244,183 @@ export class NavigatorDefaultConfigPage extends LitElement {
       return normalized;
     }
     return fallback;
+  }
+
+  private getNavigatorSourceLanguage(): AppLanguage {
+    return DEFAULT_APP_LANGUAGE;
+  }
+
+  private getNavigatorTargetLanguages(): AppLanguage[] {
+    const sourceLanguage = this.getNavigatorSourceLanguage();
+    return [...SUPPORTED_APP_LANGUAGES].filter((lang) => lang !== sourceLanguage);
+  }
+
+  private updateNavigatorTranslationField(
+    configId: string,
+    fieldKey: NavigatorTranslationFieldKey,
+    language: AppLanguage,
+    value: string,
+  ) {
+    this.configs = this.configs.map((config) => {
+      if (config.id !== configId) {
+        return config;
+      }
+
+      return {
+        ...config,
+        [fieldKey]: {
+          ...(config[fieldKey] || {}),
+          [language]: value,
+        },
+      };
+    });
+  }
+
+  private isNavigatorLanguageFullyTranslated(
+    config: NavigatorConfigFormData,
+    language: AppLanguage,
+  ): boolean {
+    const fields = [
+      {
+        source: config.homeTitle,
+        translations: config.homeTitleTranslations,
+      },
+      {
+        source: config.homeSubtitle,
+        translations: config.homeSubtitleTranslations,
+      },
+      {
+        source: config.welcomeText,
+        translations: config.welcomeTextTranslations,
+      },
+      {
+        source: config.manifestDescription,
+        translations: config.manifestDescriptionTranslations,
+      },
+    ];
+
+    return isLanguageFullyTranslated(fields, language);
+  }
+
+  private renderNavigatorTranslationsForConfig(config: NavigatorConfigFormData) {
+    const sourceLanguage = this.getNavigatorSourceLanguage();
+    const targetLanguages = this.getNavigatorTargetLanguages();
+    const selectedLanguage =
+      this.translationLanguageByConfig[config.id] || targetLanguages[0] || null;
+
+    const sourceLanguageLabel =
+      this.languageOptions.find((option) => option.value === sourceLanguage)?.label ||
+      sourceLanguage.toUpperCase();
+
+    const selectedLanguageLabel = selectedLanguage
+      ? this.languageOptions.find((option) => option.value === selectedLanguage)?.label
+      : null;
+
+    const translationLanguageOptions = buildTranslationLanguageOptions(
+      targetLanguages,
+      (lang) =>
+        this.languageOptions.find((option) => option.value === lang)?.label || lang.toUpperCase(),
+      (lang) => this.isNavigatorLanguageFullyTranslated(config, lang),
+      {
+        translated: __('Tradotta'),
+        toTranslate: __('Da tradurre'),
+      },
+    );
+
+    return html`
+      <div class="pt-4 border-t border-surface-200 dark:border-surface-700">
+        <div
+          class="space-y-4 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-100/80 dark:bg-violet-900/25 p-4"
+        >
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <h5 class="font-medium text-surface-900 dark:text-white">${__('Traduzioni navigator')}</h5>
+            <ui-badge
+              variant="secondary"
+              .label=${`${__('Lingua sorgente')}: ${sourceLanguageLabel}`}
+            ></ui-badge>
+          </div>
+
+          <div class="space-y-3">
+            <ui-select
+              .label=${__('Lingua traduzione')}
+              .value=${selectedLanguage || ''}
+              .options=${translationLanguageOptions}
+              @select-change=${(e: CustomEvent<{ value: AppLanguage }>) => {
+                this.translationLanguageByConfig = {
+                  ...this.translationLanguageByConfig,
+                  [config.id]: e.detail.value,
+                };
+              }}
+            ></ui-select>
+
+            ${selectedLanguage
+              ? html`
+                  <div
+                    class="p-4 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/30 space-y-3"
+                  >
+                    <h6 class="text-sm font-semibold text-surface-800 dark:text-surface-100">
+                      ${__('Traduzioni in')}
+                      ${selectedLanguageLabel || selectedLanguage.toUpperCase()}
+                    </h6>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <ui-input
+                        .label=${__('Titolo Home')}
+                        .value=${config.homeTitleTranslations[selectedLanguage] || ''}
+                        @input-change=${(e: CustomEvent) =>
+                          this.updateNavigatorTranslationField(
+                            config.id,
+                            'homeTitleTranslations',
+                            selectedLanguage,
+                            e.detail.value,
+                          )}
+                      ></ui-input>
+
+                      <ui-input
+                        .label=${__('Sottotitolo Home')}
+                        .value=${config.homeSubtitleTranslations[selectedLanguage] || ''}
+                        @input-change=${(e: CustomEvent) =>
+                          this.updateNavigatorTranslationField(
+                            config.id,
+                            'homeSubtitleTranslations',
+                            selectedLanguage,
+                            e.detail.value,
+                          )}
+                      ></ui-input>
+                    </div>
+
+                    <ui-textarea
+                      .label=${__('Testo di benvenuto')}
+                      .value=${config.welcomeTextTranslations[selectedLanguage] || ''}
+                      @textarea-change=${(e: CustomEvent) =>
+                        this.updateNavigatorTranslationField(
+                          config.id,
+                          'welcomeTextTranslations',
+                          selectedLanguage,
+                          e.detail.value,
+                        )}
+                      rows="3"
+                    ></ui-textarea>
+
+                    <ui-textarea
+                      .label=${__('Descrizione manifest')}
+                      .value=${config.manifestDescriptionTranslations[selectedLanguage] || ''}
+                      @textarea-change=${(e: CustomEvent) =>
+                        this.updateNavigatorTranslationField(
+                          config.id,
+                          'manifestDescriptionTranslations',
+                          selectedLanguage,
+                          e.detail.value,
+                        )}
+                      rows="2"
+                    ></ui-textarea>
+                  </div>
+                `
+              : nothing}
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   // ─── Render Helpers ──────────────────────────────────────
@@ -342,14 +578,20 @@ export class NavigatorDefaultConfigPage extends LitElement {
       },
       content: {
         homeTitle: config.homeTitle || undefined,
+        homeTitleTranslations: this.getTranslationsOrUndefined(config.homeTitleTranslations),
         homeSubtitle: config.homeSubtitle || undefined,
+        homeSubtitleTranslations: this.getTranslationsOrUndefined(config.homeSubtitleTranslations),
         welcomeText: config.welcomeText || undefined,
+        welcomeTextTranslations: this.getTranslationsOrUndefined(config.welcomeTextTranslations),
         openingImage: config.openingImage || undefined,
       },
       pwa: {
         manifestName: config.manifestName,
         shortName: config.shortName,
         description: config.manifestDescription || undefined,
+        descriptionTranslations: this.getTranslationsOrUndefined(
+          config.manifestDescriptionTranslations,
+        ),
         themeColor: config.themeColor,
         backgroundColor: config.backgroundColor,
         display: config.display,
@@ -388,12 +630,16 @@ export class NavigatorDefaultConfigPage extends LitElement {
         primaryColor: config.branding.primaryColor,
         secondaryColor: config.branding.secondaryColor || '',
         homeTitle: config.content?.homeTitle || '',
+        homeTitleTranslations: this.normalizeTranslations(config.content?.homeTitleTranslations),
         homeSubtitle: config.content?.homeSubtitle || '',
+        homeSubtitleTranslations: this.normalizeTranslations(config.content?.homeSubtitleTranslations),
         welcomeText: config.content?.welcomeText || '',
+        welcomeTextTranslations: this.normalizeTranslations(config.content?.welcomeTextTranslations),
         openingImage: config.content?.openingImage || '',
         manifestName: config.pwa.manifestName,
         shortName: config.pwa.shortName,
         manifestDescription: config.pwa.description || '',
+        manifestDescriptionTranslations: this.normalizeTranslations(config.pwa.descriptionTranslations),
         themeColor: config.pwa.themeColor,
         backgroundColor: config.pwa.backgroundColor,
         display: config.pwa.display,
@@ -626,6 +872,8 @@ export class NavigatorDefaultConfigPage extends LitElement {
                             })}
                           rows="2"
                         ></ui-textarea>
+
+                        ${this.renderNavigatorTranslationsForConfig(config)}
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                           ${this.renderTextField(config, 'logo', __('URL logo'))}

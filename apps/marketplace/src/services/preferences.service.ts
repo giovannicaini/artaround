@@ -1,4 +1,13 @@
+import type { AppLanguage } from '@artaround/shared';
+
 export type Theme = 'light' | 'dark' | 'auto';
+
+export interface SelectedMuseumPreference {
+  _id: string;
+  wikidataId?: string;
+  name: string;
+  nameTranslations?: Partial<Record<AppLanguage, string>>;
+}
 
 export interface AccessibilitySettings {
   reduceMotion: boolean;
@@ -185,11 +194,7 @@ class PreferencesService {
   }
 
   // Museum selection
-  private readSelectedMuseumFromStorage(): {
-    _id: string;
-    wikidataId?: string;
-    name: string;
-  } | null {
+  private readSelectedMuseumFromStorage(): SelectedMuseumPreference | null {
     const saved = this.safeGetItem(PreferencesService.STORAGE_KEYS.selectedMuseum);
     if (!saved) return null;
     try {
@@ -204,11 +209,11 @@ class PreferencesService {
     return museum?._id || null;
   }
 
-  getSelectedMuseum(): { _id: string; wikidataId?: string; name: string } | null {
+  getSelectedMuseum(): SelectedMuseumPreference | null {
     return this.readSelectedMuseumFromStorage();
   }
 
-  setSelectedMuseum(museum: { _id: string; wikidataId?: string; name: string }) {
+  setSelectedMuseum(museum: SelectedMuseumPreference) {
     this.safeSetItem(PreferencesService.STORAGE_KEYS.selectedMuseum, JSON.stringify(museum));
     window.dispatchEvent(new CustomEvent('museum-changed', { detail: museum }));
   }

@@ -63,7 +63,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
   @state() private year = '';
 
   // Classification
-  @state() private artworkType: ArtworkType = ArtworkType.PAINTING;
+  @state() private artworkType: ArtworkType = ArtworkType.Painting;
   @state() private movement = '';
   @state() private movementWikidataId = '';
   @state() private technique = '';
@@ -574,7 +574,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     this.author = '';
     this.authorWikidataId = '';
     this.year = '';
-    this.artworkType = ArtworkType.PAINTING;
+    this.artworkType = ArtworkType.Painting;
     this.movement = '';
     this.movementWikidataId = '';
     this.technique = '';

@@ -10,6 +10,7 @@ import type {
   UserRole,
   ContextualRole,
 } from '@artaround/shared';
+import { __ } from './i18n.service';
 
 class UserService {
   async getUsers(params: GetUsersParams = {}): Promise<UsersResponse> {
@@ -108,20 +109,20 @@ class UserService {
 
   getRoleLabel(role: UserRole): string {
     const labels: Record<UserRole, string> = {
-      admin: 'Amministratore',
-      curator: 'Curatore',
-      author: 'Autore',
-      visitor: 'Visitatore',
+      admin: __('Amministratore'),
+      curator: __('Curatore'),
+      author: __('Autore'),
+      visitor: __('Visitatore'),
     };
     return labels[role] || role;
   }
 
   getContextualRoleLabel(role: ContextualRole): string {
     const labels: Record<ContextualRole, string> = {
-      owner: 'Proprietario',
-      author: 'Autore',
-      editor: 'Editor',
-      viewer: 'Visualizzatore',
+      owner: __('Proprietario'),
+      author: __('Autore'),
+      editor: __('Editor'),
+      viewer: __('Visualizzatore'),
       manager: 'Gestore',
     };
     return labels[role] || role;
@@ -129,10 +130,10 @@ class UserService {
 
   getResourceTypeLabel(type: ResourceType): string {
     const labels: Record<ResourceType, string> = {
-      item: 'Contenuto',
-      visit: 'Visita',
-      artwork: 'Opera',
-      museum: 'Museo',
+      item: __('Contenuto'),
+      visit: __('Visita'),
+      artwork: __('Opera'),
+      museum: __('Museo'),
     };
     return labels[type] || type;
   }

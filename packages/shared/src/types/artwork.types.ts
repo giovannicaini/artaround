@@ -79,7 +79,7 @@ export interface ArtworkMapPosition {
   y: number;
   rotation?: number; // 0-360 degrees
 }
-
+/*
 export enum ArtworkType {
   PAINTING = 'painting',
   SCULPTURE = 'sculpture',
@@ -92,6 +92,20 @@ export enum ArtworkType {
   DECORATIVE = 'decorative',
   TAPESTRY = 'tapestry',
   OTHER = 'other',
+}
+  
+*/
+export enum ArtworkType {
+  Painting = 'painting',
+  Drawing = 'drawing',
+  Sculpture = 'sculpture',
+  Print = 'print',
+  Photograph = 'photograph',
+  Installation = 'installation',
+  NewMedia = 'new_media',
+  ManuscriptBook = 'manuscript_book',
+  DecorativeObject = 'decorative_object',
+  Other = 'other',
 }
 
 // ========================================

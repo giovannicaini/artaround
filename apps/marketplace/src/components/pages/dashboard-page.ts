@@ -104,6 +104,7 @@ export class DashboardPage extends LitElement {
       _id: museum._id,
       wikidataId: museum.wikidataId,
       name: museum.name,
+      nameTranslations: museum.nameTranslations,
     });
   }
 
@@ -199,6 +200,7 @@ export class DashboardPage extends LitElement {
       _id: museum._id,
       wikidataId: museum.wikidataId,
       name: museum.name,
+      nameTranslations: museum.nameTranslations,
     });
   }
 
@@ -319,6 +321,7 @@ export class DashboardPage extends LitElement {
       _id: museum._id,
       wikidataId: museum.wikidataId,
       name: museum.name,
+      nameTranslations: museum.nameTranslations,
     });
     this.goToRoute('museum-edit');
   }

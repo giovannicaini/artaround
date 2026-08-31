@@ -1,8 +1,12 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { User, AppLanguage } from '@artaround/shared';
-import { preferencesService } from '../../services/preferences.service';
+import {
+  preferencesService,
+  type SelectedMuseumPreference,
+} from '../../services/preferences.service';
 import { historyService } from '../../services/history.service';
+import { museumService } from '../../services/museum.service';
 import { i18nService, __ } from '../../services/i18n.service';
 import '../ui/ui-icon';
 import '../ui/ui-avatar';
@@ -19,7 +23,7 @@ export class AdminHeader extends LitElement {
   @property({ type: Boolean }) sidebarCollapsed = false;
   @state() private darkMode = false;
   @state() private userMenuOpen = false;
-  @state() private selectedMuseum: { _id: string; name: string } | null = null;
+  @state() private selectedMuseum: SelectedMuseumPreference | null = null;
   @state() private canGoBack = false;
   @state() private canGoForward = false;
   @state() private a11yPanelOpen = false;
@@ -34,6 +38,7 @@ export class AdminHeader extends LitElement {
     super.connectedCallback();
     this.darkMode = document.documentElement.classList.contains('dark');
     this.selectedMuseum = preferencesService.getSelectedMuseum();
+    void this.hydrateSelectedMuseumLocalization();
     window.addEventListener('museum-changed', this.handleMuseumChanged as EventListener);
     window.addEventListener('history-state-changed', this.handleHistoryChanged as EventListener);
     window.addEventListener('theme-changed', this.handleThemeChanged as EventListener);
@@ -62,6 +67,7 @@ export class AdminHeader extends LitElement {
   // ─── Actions & Event Handlers ───────────────────────────
   private handleMuseumChanged = (event: CustomEvent) => {
     this.selectedMuseum = event.detail || null;
+    void this.hydrateSelectedMuseumLocalization();
   };
 
   private handleHistoryChanged = (event: CustomEvent) => {
@@ -104,6 +110,52 @@ export class AdminHeader extends LitElement {
 
   private handleClearMuseum() {
     preferencesService.clearSelectedMuseum();
+  }
+
+  private async hydrateSelectedMuseumLocalization() {
+    if (!this.selectedMuseum?._id) {
+      return;
+    }
+
+    const hasTranslations =
+      this.selectedMuseum.nameTranslations &&
+      Object.keys(this.selectedMuseum.nameTranslations).length > 0;
+
+    if (hasTranslations) {
+      return;
+    }
+
+    try {
+      const museum = await museumService.getMuseum(this.selectedMuseum._id);
+      if (!museum) {
+        return;
+      }
+
+      const localizedPreference: SelectedMuseumPreference = {
+        _id: museum._id,
+        wikidataId: museum.wikidataId,
+        name: museum.name,
+        nameTranslations: museum.nameTranslations,
+      };
+
+      this.selectedMuseum = localizedPreference;
+      preferencesService.setSelectedMuseum(localizedPreference);
+    } catch {
+      // ignore hydration errors, fallback remains base name
+    }
+  }
+
+  private getLocalizedSelectedMuseumName(): string {
+    if (!this.selectedMuseum) {
+      return __('Seleziona museo');
+    }
+
+    const currentLanguage = i18nService.getLanguage();
+    if (currentLanguage === 'it') {
+      return this.selectedMuseum.name;
+    }
+
+    return this.selectedMuseum.nameTranslations?.[currentLanguage] || this.selectedMuseum.name;
   }
 
   // ─── Render Entry ────────────────────────────────────────
@@ -159,7 +211,7 @@ export class AdminHeader extends LitElement {
                 variant="secondary"
                 size="sm"
                 icon="museum"
-                .label=${this.selectedMuseum?.name || __('Seleziona museo')}
+                .label=${this.getLocalizedSelectedMuseumName()}
                 @click=${this.handleSelectMuseum}
               ></ui-button>
               ${this.selectedMuseum
@@ -176,7 +228,7 @@ export class AdminHeader extends LitElement {
             <div class="lg:hidden flex items-center gap-1">
               <ui-icon-button
                 icon="museum"
-                .title=${this.selectedMuseum?.name || __('Seleziona museo')}
+                .title=${this.getLocalizedSelectedMuseumName()}
                 @click=${this.handleSelectMuseum}
               ></ui-icon-button>
               ${this.selectedMuseum

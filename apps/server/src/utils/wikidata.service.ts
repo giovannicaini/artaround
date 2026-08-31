@@ -385,6 +385,7 @@ export class WikidataService {
           OPTIONAL { ?item wdt:P135 ?style. }
           OPTIONAL { ?item wdt:P571 ?inception. }
           OPTIONAL { ?item wdt:P18 ?image. }
+          OPTIONAL { ?item wdt:P31 ?instanceof. }
           OPTIONAL { ?item wikibase:sitelinks ?sitelinks. }
 
           SERVICE wikibase:label { bd:serviceParam wikibase:language "it,en". }

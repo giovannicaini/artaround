@@ -28,6 +28,14 @@ type MuseumLanguageSyncResult = {
   };
 };
 
+type GeocodeResult = {
+  lat: number;
+  lng: number;
+  displayName?: string;
+  provider?: string;
+  placeId?: number;
+};
+
 export class MuseumService {
   async getMuseums(): Promise<Museum[]> {
     const response = await apiService.get<Museum[]>('/museums');
@@ -102,6 +110,36 @@ export class MuseumService {
     return {
       data: null,
       error: getErrorMessage(response, 'Errore durante sincronizzazione lingue museo'),
+    };
+  }
+
+  async geocodeMuseumLocation(params: {
+    address: string;
+    city: string;
+    postalCode?: string;
+    nation?: string;
+  }): Promise<{ data: GeocodeResult | null; error?: string }> {
+    const query = new URLSearchParams();
+    query.set('address', params.address);
+    query.set('city', params.city);
+
+    if (params.postalCode?.trim()) {
+      query.set('postalCode', params.postalCode.trim());
+    }
+
+    if (params.nation?.trim()) {
+      query.set('nation', params.nation.trim());
+    }
+
+    const response = await apiService.get<GeocodeResult>(`/utils/geocode?${query.toString()}`);
+
+    if (response.success) {
+      return { data: response.data || null };
+    }
+
+    return {
+      data: null,
+      error: getErrorMessage(response, 'Errore durante geocodifica indirizzo'),
     };
   }
 

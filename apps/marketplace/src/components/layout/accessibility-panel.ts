@@ -179,14 +179,14 @@ export class AccessibilityPanel extends LitElement {
             <h3
               class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-3"
             >
-              Tema
+              ${__('Tema')}
             </h3>
             <div class="grid grid-cols-3 gap-2">
               ${(['light', 'auto', 'dark'] as Theme[]).map((t) => {
                 const labels: Record<Theme, string> = {
-                  light: 'Chiaro',
-                  auto: 'Auto',
-                  dark: 'Scuro',
+                  light: __('Chiaro'),
+                  auto: __('Auto'),
+                  dark: __('Scuro'),
                 };
                 const icons: Record<Theme, string> = {
                   light: 'sun',
@@ -216,14 +216,14 @@ export class AccessibilityPanel extends LitElement {
             <h3
               class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-3"
             >
-              Dimensione testo
+              ${__('Dimensione testo')}
             </h3>
             <div class="grid grid-cols-3 gap-2">
               ${(
                 [
-                  ['normal', 'Aa', 'Normal'],
-                  ['large', 'Aa', 'Grande'],
-                  ['xlarge', 'Aa', 'Extra'],
+                  ['normal', 'Aa', __('Normale')],
+                  ['large', 'Aa', __('Grande')],
+                  ['xlarge', 'Aa', __('Extra')],
                 ] as [AccessibilitySettings['fontSize'], string, string][]
               ).map(([size, sample, label]) => {
                 const active = this.settings.fontSize === size;
@@ -254,13 +254,13 @@ export class AccessibilityPanel extends LitElement {
             <h3
               class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-3"
             >
-              Spaziature testo
+              ${__('Spaziature testo')}
             </h3>
             <div class="grid grid-cols-2 gap-2">
               ${(
                 [
-                  ['normal', 'Normale'],
-                  ['wide', 'Spaziata'],
+                  ['normal', __('Normale')],
+                  ['wide', __('Spaziata')],
                 ] as [AccessibilitySettings['letterSpacing'], string][]
               ).map(([spacing, label]) => {
                 const active = this.settings.letterSpacing === spacing;
@@ -291,38 +291,38 @@ export class AccessibilityPanel extends LitElement {
             <h3
               class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-3"
             >
-              Opzioni visive
+              ${__('Opzioni visive')}
             </h3>
             <div
               class="rounded-xl border border-surface-200 dark:border-surface-700 px-4 divide-y divide-surface-100 dark:divide-surface-700"
             >
               ${this.renderToggleRow(
-                'Alto contrasto',
-                'Aumenta il contrasto tra testo e sfondo',
+                __('Alto contrasto'),
+                __('Aumenta il contrasto tra testo e sfondo'),
                 'eye',
                 'highContrast',
               )}
               ${this.renderToggleRow(
-                'Riduci animazioni',
-                'Disabilita transizioni ed effetti di movimento',
+                __('Riduci animazioni'),
+                __('Disabilita transizioni ed effetti di movimento'),
                 'zap',
                 'reduceMotion',
               )}
               ${this.renderToggleRow(
-                'Font dislessici',
-                'Usa OpenDyslexic, più facile da leggere',
+                __('Font dislessici'),
+                __('Usa OpenDyslexic, più facile da leggere'),
                 'text',
                 'dyslexicFont',
               )}
               ${this.renderToggleRow(
-                'Sottolinea i link',
-                'Rende i link sempre riconoscibili',
+                __('Sottolinea i link'),
+                __('Rende i link sempre riconoscibili'),
                 'link',
                 'underlineLinks',
               )}
               ${this.renderToggleRow(
-                'Focus ben visibile',
-                'Outline più marcato su tastiera e tab',
+                __('Focus ben visibile'),
+                __('Outline più marcato su tastiera e tab'),
                 'focus',
                 'focusVisible',
               )}
@@ -337,7 +337,7 @@ export class AccessibilityPanel extends LitElement {
             @click=${this.resetAll}
             class="w-full py-2 px-4 text-sm font-medium text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 rounded-lg transition-colors"
           >
-            Ripristina impostazioni predefinite
+            ${__('Ripristina impostazioni predefinite')}
           </button>
         </div>
       </div>

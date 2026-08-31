@@ -16,7 +16,7 @@ import '../ui/ui-alert';
 import '../ui/ui-search-bar';
 import '../ui/ui-table';
 import '../ui/ui-button';
-import { __ } from '../../services/i18n.service';
+import { __, i18nService } from '../../services/i18n.service';
 
 type FilterRole = 'all' | 'curator' | 'author';
 
@@ -137,6 +137,28 @@ export class MuseumsPage extends LitElement {
     return museum.location?.country || '-';
   }
 
+  private getLocalizedMuseumName(museum: Museum): string {
+    const currentLanguage = i18nService.getLanguage();
+    if (currentLanguage === 'it') {
+      return museum.name || __('Museo');
+    }
+
+    return museum.nameTranslations?.[currentLanguage]?.trim() || museum.name || __('Museo');
+  }
+
+  private getLocalizedMuseumDescription(museum: Museum): string {
+    const currentLanguage = i18nService.getLanguage();
+    if (currentLanguage === 'it') {
+      return museum.description || __('Nessuna descrizione');
+    }
+
+    return (
+      museum.descriptionTranslations?.[currentLanguage]?.trim() ||
+      museum.description ||
+      __('Nessuna descrizione')
+    );
+  }
+
   // ─── Table Configuration ─────────────────────────────────
   private get columns(): TableColumn[] {
     return [
@@ -144,10 +166,11 @@ export class MuseumsPage extends LitElement {
         key: 'name',
         label: __('Museo'),
         width: '40%',
-        render: (value, row) => {
+        render: (_, row) => {
           const museum = row as unknown as Museum;
           const imageUrl = museum.coverImage || (museum.images && museum.images[0]);
-          const museumName = String(value || museum.name || 'Museo');
+          const museumName = this.getLocalizedMuseumName(museum);
+          const museumDescription = this.getLocalizedMuseumDescription(museum);
           const myRoles = this.getMuseumRoles(museum._id);
           return html`
             <div class="flex items-center gap-4 py-2">
@@ -166,7 +189,7 @@ export class MuseumsPage extends LitElement {
                 <p
                   class="text-sm text-surface-500 dark:text-surface-400 line-clamp-2 max-w-[300px]"
                 >
-                  ${museum.description || __('Nessuna descrizione')}
+                  ${museumDescription}
                 </p>
               </div>
             </div>
@@ -188,9 +211,9 @@ export class MuseumsPage extends LitElement {
           }
           return html`
             <div class="flex flex-col gap-1 text-sm">
-              ${this.renderMuseumStatLine('image', `${stats.artworks} opere`)}
-              ${this.renderMuseumStatLine('text', `${stats.items} contenuti`)}
-              ${this.renderMuseumStatLine('visit', `${stats.visits} visite`)}
+              ${this.renderMuseumStatLine('image', `${stats.artworks} ${__('Opere')}`)}
+              ${this.renderMuseumStatLine('text', `${stats.items} ${__('Contenuti')}`)}
+              ${this.renderMuseumStatLine('visit', `${stats.visits} ${__('Visite')}`)}
             </div>
           `;
         },
@@ -204,7 +227,7 @@ export class MuseumsPage extends LitElement {
       },
       {
         key: 'country',
-        label: __('Paese'),
+        label: __('Nazione'),
         width: '15%',
         render: (_, row) =>
           this.renderLocationCell(this.getMuseumCountry(row as unknown as Museum)),
@@ -398,10 +421,12 @@ export class MuseumsPage extends LitElement {
             ${this.user
               ? html`
                   <div class="flex items-center gap-2 flex-wrap">
-                    <span class="text-sm text-surface-500 dark:text-surface-400">Mostra:</span>
-                    ${this.renderRoleFilterButton('all', 'Tutti')}
-                    ${this.renderRoleFilterButton('curator', 'I miei (Curatore)')}
-                    ${this.renderRoleFilterButton('author', 'I miei (Autore)')}
+                    <span class="text-sm text-surface-500 dark:text-surface-400"
+                      >${__('Mostra')}:</span
+                    >
+                    ${this.renderRoleFilterButton('all', __('Tutti'))}
+                    ${this.renderRoleFilterButton('curator', __('I miei (Curatore)'))}
+                    ${this.renderRoleFilterButton('author', __('I miei (Autore)'))}
                   </div>
                 `
               : nothing}

@@ -159,13 +159,40 @@ export class MuseumController {
     }
   }
 
+  private static normalizeLocationPayload(rawLocation: unknown): Record<string, unknown> {
+    if (!rawLocation || typeof rawLocation !== 'object') {
+      throw new AppError(400, 'VALIDATION_ERROR', 'location is required');
+    }
+
+    const location = { ...(rawLocation as Record<string, unknown>) };
+    const nation = String(location.nation || location.country || '')
+      .trim()
+      .replace(/\s+/g, ' ');
+
+    if (!nation) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Nation is required');
+    }
+
+    location.nation = nation;
+    location.country = nation;
+    delete location.region;
+
+    return location;
+  }
+
   // Validation rules
   static createValidation = [
     body('name').trim().notEmpty().withMessage('Name is required'),
     body('description').trim().notEmpty().withMessage('Description is required'),
     body('location.address').notEmpty().withMessage('Address is required'),
     body('location.city').notEmpty().withMessage('City is required'),
-    body('location.country').notEmpty().withMessage('Country is required'),
+    body('location').custom((value) => {
+      const nation = value?.nation || value?.country;
+      if (!nation || !String(nation).trim()) {
+        throw new Error('Nation is required');
+      }
+      return true;
+    }),
   ];
 
   static floorValidation = [
@@ -521,9 +548,11 @@ export class MuseumController {
       MuseumController.validateNavigatorConfigsPayload(req.body.navigatorConfigs);
 
       const activeLanguages = MuseumController.normalizeActiveLanguages(req.body.activeLanguages);
+      const location = MuseumController.normalizeLocationPayload(req.body.location);
 
       const museum = new MuseumModel({
         ...req.body,
+        location,
         activeLanguages: activeLanguages ?? [DEFAULT_APP_LANGUAGE],
       });
       await museum.save();
@@ -546,9 +575,14 @@ export class MuseumController {
       MuseumController.validateNavigatorConfigsPayload(req.body.navigatorConfigs);
 
       const activeLanguages = MuseumController.normalizeActiveLanguages(req.body.activeLanguages);
+      const location =
+        req.body.location !== undefined
+          ? MuseumController.normalizeLocationPayload(req.body.location)
+          : undefined;
 
       const updatePayload = {
         ...req.body,
+        ...(location ? { location } : {}),
         ...(activeLanguages ? { activeLanguages } : {}),
       };
 

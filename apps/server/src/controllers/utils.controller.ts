@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { body, validationResult } from 'express-validator';
+import axios from 'axios';
 import { WikidataService } from '../utils/wikidata.service.js';
 import { AppConfigModel, MuseumModel } from '../models/index.js';
 import { TranslationService } from '../utils/translation.service.js';
@@ -244,6 +245,179 @@ export class UtilsController {
       res.json({
         success: true,
         data: results,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async geocodeAddress(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const address = String(req.query.address || '').trim();
+      const city = String(req.query.city || '').trim();
+      const postalCode = String(req.query.postalCode || '').trim();
+      const nation = String(req.query.nation || '').trim() || 'Italia';
+
+      const query = [address, postalCode, city, nation].filter(Boolean).join(', ');
+
+      if (!query) {
+        throw new AppError(400, 'MISSING_QUERY', 'Address query is required');
+      }
+
+      type NominatimAddress = {
+        city?: string;
+        town?: string;
+        village?: string;
+        municipality?: string;
+        hamlet?: string;
+        postcode?: string;
+      };
+
+      type NominatimResult = {
+        lat: string;
+        lon: string;
+        display_name?: string;
+        place_id?: number;
+        importance?: number;
+        address?: NominatimAddress;
+      };
+
+      const normalizeText = (value: string): string =>
+        value
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .trim();
+
+      const normalizedCity = normalizeText(city);
+      const normalizedPostalCode = postalCode.replace(/\s+/g, '').toLowerCase();
+
+      const countryCodeByNation: Record<string, string> = {
+        italia: 'it',
+        italy: 'it',
+        france: 'fr',
+        francia: 'fr',
+        germany: 'de',
+        germania: 'de',
+        spain: 'es',
+        spagna: 'es',
+      };
+
+      const normalizedNation = normalizeText(nation);
+      const nationCountryCode = countryCodeByNation[normalizedNation] || undefined;
+
+      const nominatimRequest = async (params: Record<string, string>) => {
+        const response = await axios.get<NominatimResult[]>(
+          'https://nominatim.openstreetmap.org/search',
+          {
+            params: {
+              format: 'jsonv2',
+              addressdetails: '1',
+              limit: '8',
+              ...params,
+            },
+            headers: {
+              'User-Agent': 'ArtAround/1.0 (geocoding)',
+              'Accept-Language': 'it',
+            },
+            timeout: 10000,
+          },
+        );
+
+        return Array.isArray(response.data) ? response.data : [];
+      };
+
+      const scoreResult = (result: NominatimResult): number => {
+        let score = Number(result.importance || 0) * 10;
+        const addressData = result.address || {};
+
+        const localities = [
+          addressData.city,
+          addressData.town,
+          addressData.village,
+          addressData.municipality,
+          addressData.hamlet,
+        ]
+          .filter(Boolean)
+          .map((value) => normalizeText(String(value)));
+
+        if (normalizedCity) {
+          if (localities.some((value) => value === normalizedCity)) {
+            score += 200;
+          } else if (
+            localities.some(
+              (value) => value.includes(normalizedCity) || normalizedCity.includes(value),
+            )
+          ) {
+            score += 120;
+          } else if (normalizeText(result.display_name || '').includes(normalizedCity)) {
+            score += 40;
+          }
+        }
+
+        if (normalizedPostalCode) {
+          const resultPostcode = String(addressData.postcode || '')
+            .replace(/\s+/g, '')
+            .toLowerCase();
+
+          if (resultPostcode && resultPostcode === normalizedPostalCode) {
+            score += 80;
+          } else if (resultPostcode && resultPostcode !== normalizedPostalCode) {
+            score -= 100;
+          }
+        }
+
+        return score;
+      };
+
+      let candidates: NominatimResult[] = [];
+
+      const structuredParams: Record<string, string> = {
+        street: address,
+        city,
+        country: nation,
+      };
+
+      if (postalCode) {
+        structuredParams.postalcode = postalCode;
+      }
+
+      if (nationCountryCode) {
+        structuredParams.countrycodes = nationCountryCode;
+      }
+
+      candidates = await nominatimRequest(structuredParams);
+
+      if (candidates.length === 0) {
+        const freeTextParams: Record<string, string> = { q: query };
+        if (nationCountryCode) {
+          freeTextParams.countrycodes = nationCountryCode;
+        }
+        candidates = await nominatimRequest(freeTextParams);
+      }
+
+      const bestCandidate = candidates
+        .map((result) => ({ result, score: scoreResult(result) }))
+        .sort((left, right) => right.score - left.score)[0];
+
+      if (!bestCandidate || (normalizedCity && bestCandidate.score < 100)) {
+        res.json({
+          success: true,
+          data: null,
+          message: 'No geocoding result found',
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          lat: Number(bestCandidate.result.lat),
+          lng: Number(bestCandidate.result.lon),
+          displayName: bestCandidate.result.display_name || query,
+          provider: 'nominatim',
+          placeId: bestCandidate.result.place_id,
+        },
       });
     } catch (error) {
       next(error);

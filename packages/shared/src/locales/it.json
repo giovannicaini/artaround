@@ -21,6 +21,7 @@
   "Acquisti": "Acquisti",
   "Acquisto item non riuscito": "Acquisto item non riuscito",
   "Acquisto visita non riuscito": "Acquisto visita non riuscito",
+  "Mostra": "Mostra",
   "admin": "admin",
   "Aggiorna dati e servizi del museo selezionato": "Aggiorna dati e servizi del museo selezionato",
   "Aggiorna Opera": "Aggiorna Opera",
@@ -42,6 +43,8 @@
   "Aggiungi...": "Aggiungi...",
   "AI": "AI",
   "Altezza": "Altezza",
+  "Originale": "Originale",
+  "Stima file": "Stima file",
   "Analytics": "Analytics",
   "Anno": "Anno",
   "Anno / Periodo": "Anno / Periodo",
@@ -292,6 +295,8 @@
   "https://example.com/path.jpg": "https://example.com/path.jpg",
   "I contenuti acquistati che puoi riutilizzare": "I contenuti acquistati che puoi riutilizzare",
   "I miei contenuti": "I miei contenuti",
+  "I miei (Curatore)": "I miei (Curatore)",
+  "I miei (Autore)": "I miei (Autore)",
   "I miei Item": "I miei Item",
   "I musei di cui sono curatore": "I musei di cui sono curatore",
   "I ruoli contestuali permettono permessi specifici su singole risorse": "I ruoli contestuali permettono permessi specifici su singole risorse",
@@ -334,6 +339,27 @@
   "Impossibile salvare la visita": "Impossibile salvare la visita",
   "Impostazioni": "Impostazioni",
   "Impostazioni accessibilità": "Impostazioni accessibilità",
+  "Tema": "Tema",
+  "Chiaro": "Chiaro",
+  "Scuro": "Scuro",
+  "Dimensione testo": "Dimensione testo",
+  "Normale": "Normale",
+  "Grande": "Grande",
+  "Extra": "Extra",
+  "Spaziature testo": "Spaziature testo",
+  "Spaziata": "Spaziata",
+  "Opzioni visive": "Opzioni visive",
+  "Alto contrasto": "Alto contrasto",
+  "Aumenta il contrasto tra testo e sfondo": "Aumenta il contrasto tra testo e sfondo",
+  "Riduci animazioni": "Riduci animazioni",
+  "Disabilita transizioni ed effetti di movimento": "Disabilita transizioni ed effetti di movimento",
+  "Font dislessici": "Font dislessici",
+  "Usa OpenDyslexic, più facile da leggere": "Usa OpenDyslexic, più facile da leggere",
+  "Sottolinea i link": "Sottolinea i link",
+  "Rende i link sempre riconoscibili": "Rende i link sempre riconoscibili",
+  "Focus ben visibile": "Focus ben visibile",
+  "Outline più marcato su tastiera e tab": "Outline più marcato su tastiera e tab",
+  "Ripristina impostazioni predefinite": "Ripristina impostazioni predefinite",
   "Inattivi": "Inattivi",
   "Inattivo": "Inattivo",
   "Includi solo opere del museo corrente su Wikidata": "Includi solo opere del museo corrente su Wikidata",
@@ -531,6 +557,8 @@
   "Orientamento": "Orientation",
   "Paese": "Paese",
   "Paese *": "Paese *",
+  "Nazione": "Nazione",
+  "Nazione *": "Nazione *",
   "Panoramica": "Panoramica",
   "Panoramica complessiva della piattaforma": "Panoramica complessiva della piattaforma",
   "parole": "parole",
@@ -636,6 +664,8 @@
   "Shop": "Shop",
   "Si è verificato un errore": "Si è verificato un errore",
   "Sincronizza traduzioni esistenti": "Sincronizza traduzioni esistenti",
+  "Applica le lingue attive ai contenuti e visite già presenti: rimuove traduzioni non richieste e genera con AI quelle mancanti.": "Applica le lingue attive ai contenuti e visite già presenti: rimuove traduzioni non richieste e genera con AI quelle mancanti.",
+  "Aggiungi almeno una lingua aggiuntiva per inserire o generare traduzioni del museo.": "Aggiungi almeno una lingua aggiuntiva per inserire o generare traduzioni del museo.",
   "Sito Web": "Sito Web",
   "Slug *": "Slug *",
   "Slug duplicato": "Slug duplicato",
@@ -727,5 +757,20 @@
   "Vista": "Vista",
   "Visualizza": "Visualizza",
   "WiFi": "WiFi",
-  "Zoom": "Zoom"
+  "Zoom": "Zoom",
+  "Coordinate": "Coordinate",
+  "Inserisci indirizzo, città, CAP e nazione per aggiornare la mappa": "Inserisci indirizzo, città, CAP e nazione per aggiornare la mappa",
+  "Aggiornamento mappa in corso...": "Aggiornamento mappa in corso...",
+  "Mappa aggiornata automaticamente": "Mappa aggiornata automaticamente",
+  "Posizione non trovata con i dati inseriti": "Posizione non trovata con i dati inseriti",
+  "Errore durante aggiornamento automatico della mappa": "Errore durante aggiornamento automatico della mappa"
+  ,"Traduzioni navigator": "Traduzioni navigator"
+  ,"Aggiungi almeno una lingua aggiuntiva nelle Lingue attive del museo per gestire le traduzioni navigator.": "Aggiungi almeno una lingua aggiuntiva nelle Lingue attive del museo per gestire le traduzioni navigator."
+  ,"Lingua traduzione": "Lingua traduzione"
+  ,"Tradotta": "Tradotta"
+  ,"Da tradurre": "Da tradurre"
+  ,"Traduci campi navigator mancanti con AI": "Traduci campi navigator mancanti con AI"
+  ,"Le traduzioni navigator sono già complete": "Le traduzioni navigator sono già complete"
+  ,"Traduzioni navigator generate con successo": "Traduzioni navigator generate con successo"
+  ,"Seleziona almeno una lingua aggiuntiva per tradurre il navigator": "Seleziona almeno una lingua aggiuntiva per tradurre il navigator"
 }

@@ -47,8 +47,8 @@ export interface Museum {
 export interface MuseumLocation {
   address: string;
   city: string;
-  country: string;
-  region?: string;
+  nation: string;
+  country?: string;
   postalCode?: string;
   coordinates?: {
     lat: number;
@@ -100,14 +100,18 @@ export interface NavigatorAppConfig {
   };
   content?: {
     homeTitle?: string;
+    homeTitleTranslations?: Partial<Record<AppLanguage, string>>;
     homeSubtitle?: string;
+    homeSubtitleTranslations?: Partial<Record<AppLanguage, string>>;
     welcomeText?: string;
+    welcomeTextTranslations?: Partial<Record<AppLanguage, string>>;
     openingImage?: string;
   };
   pwa: {
     manifestName: string;
     shortName: string;
     description?: string;
+    descriptionTranslations?: Partial<Record<AppLanguage, string>>;
     themeColor: string;
     backgroundColor: string;
     display: 'standalone' | 'fullscreen' | 'minimal-ui' | 'browser';

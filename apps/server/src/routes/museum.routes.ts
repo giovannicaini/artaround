@@ -121,8 +121,11 @@ router.get('/:id/config', MuseumController.getConfig);
  *                     type: string
  *                   city:
  *                     type: string
+ *                   nation:
+ *                     type: string
  *                   country:
  *                     type: string
+ *                     description: Alias legacy (deprecated)
  *                   coordinates:
  *                     type: object
  *                     properties:

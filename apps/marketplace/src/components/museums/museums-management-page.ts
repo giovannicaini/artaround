@@ -3,6 +3,7 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, state, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { TableColumn, TableAction } from '../ui/ui-table';
+import type { CircleMarker as LeafletCircleMarker, Map as LeafletMap } from 'leaflet';
 import { museumService } from '../../services/museum.service';
 import { userService } from '../../services/user.service';
 import { uploadService } from '../../services/upload.service';
@@ -31,6 +32,11 @@ import '../ui/ui-color-input';
 import '../ui/image-editor';
 import '../items/wikidata-autocomplete';
 import { __, i18nService } from '../../services/i18n.service';
+import {
+  buildTranslationLanguageOptions,
+  isLanguageFullyTranslated,
+} from '../../utils/translation-fields';
+import 'leaflet/dist/leaflet.css';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'view' | 'curators';
 type MuseumListLayout = 'grid' | 'table';
@@ -55,9 +61,10 @@ interface MuseumFormData {
   activeLanguages: AppLanguage[];
   address: string;
   city: string;
-  country: string;
-  region: string;
+  nation: string;
   postalCode: string;
+  latitude: number | null;
+  longitude: number | null;
   website: string;
   phone: string;
   email: string;
@@ -78,12 +85,16 @@ interface NavigatorConfigFormData {
   primaryColor: string;
   secondaryColor: string;
   homeTitle: string;
+  homeTitleTranslations: Partial<Record<AppLanguage, string>>;
   homeSubtitle: string;
+  homeSubtitleTranslations: Partial<Record<AppLanguage, string>>;
   welcomeText: string;
+  welcomeTextTranslations: Partial<Record<AppLanguage, string>>;
   openingImage: string;
   manifestName: string;
   shortName: string;
   manifestDescription: string;
+  manifestDescriptionTranslations: Partial<Record<AppLanguage, string>>;
   themeColor: string;
   backgroundColor: string;
   display: 'standalone' | 'fullscreen' | 'minimal-ui' | 'browser';
@@ -108,14 +119,18 @@ interface NavigatorConfigRaw {
   };
   content?: {
     homeTitle?: string;
+    homeTitleTranslations?: Partial<Record<AppLanguage, string>>;
     homeSubtitle?: string;
+    homeSubtitleTranslations?: Partial<Record<AppLanguage, string>>;
     welcomeText?: string;
+    welcomeTextTranslations?: Partial<Record<AppLanguage, string>>;
     openingImage?: string;
   };
   pwa: {
     manifestName: string;
     shortName: string;
     description?: string;
+    descriptionTranslations?: Partial<Record<AppLanguage, string>>;
     themeColor: string;
     backgroundColor: string;
     display: NavigatorConfigFormData['display'];
@@ -205,6 +220,7 @@ export class MuseumsManagementPage extends LitElement {
   @state() private saving = false;
   @state() private syncingLanguages = false;
   @state() private translatingMuseumFields = false;
+  @state() private translatingNavigatorConfigId: string | null = null;
   @state() private error = '';
   @state() private success = '';
 
@@ -232,12 +248,24 @@ export class MuseumsManagementPage extends LitElement {
   @state() private selectedUserId = '';
   @state() private addingCurator = false;
   @state() private removingCuratorId: string | null = null;
+  @state() private geocodingLocation = false;
+  @state() private geocodingStatus = '';
+  @state() private museumTranslationLanguage: AppLanguage | null = null;
+  @state() private navigatorTranslationLanguageByConfig: Partial<
+    Record<string, AppLanguage>
+  > = {};
+
+  private leafletModule: typeof import('leaflet') | null = null;
+  private locationMap: LeafletMap | null = null;
+  private locationMarker: LeafletCircleMarker | null = null;
+  private mapContainer: HTMLElement | null = null;
+  private geocodeDebounceId: number | null = null;
 
   private get listSortOptions(): Array<{ value: MuseumSortField; label: string }> {
     return [
       { value: 'name', label: __('Nome') },
       { value: 'city', label: __('Città') },
-      { value: 'country', label: __('Paese') },
+      { value: 'country', label: __('Nazione') },
       { value: 'status', label: __('Stato') },
     ];
   }
@@ -246,7 +274,7 @@ export class MuseumsManagementPage extends LitElement {
     return [
       { key: 'name', label: __('Nome') },
       { key: 'city', label: __('Città') },
-      { key: 'country', label: __('Paese') },
+      { key: 'country', label: __('Nazione') },
       { key: 'status', label: __('Stato') },
     ];
   }
@@ -287,6 +315,26 @@ export class MuseumsManagementPage extends LitElement {
     ) {
       this.loadSelectedMuseumForConfigMode();
     }
+
+    if (changedProps.has('formData') || changedProps.has('viewMode')) {
+      void this.syncLocationMapPreview();
+    }
+  }
+
+  disconnectedCallback() {
+    if (this.geocodeDebounceId) {
+      window.clearTimeout(this.geocodeDebounceId);
+      this.geocodeDebounceId = null;
+    }
+
+    if (this.locationMap) {
+      this.locationMap.remove();
+      this.locationMap = null;
+      this.locationMarker = null;
+      this.mapContainer = null;
+    }
+
+    super.disconnectedCallback();
   }
 
   // ─── Form & Navigator Helpers ────────────────────────────
@@ -301,9 +349,10 @@ export class MuseumsManagementPage extends LitElement {
       activeLanguages: ['it'],
       address: '',
       city: '',
-      country: 'Italia',
-      region: '',
+      nation: 'Italia',
       postalCode: '',
+      latitude: null,
+      longitude: null,
       website: '',
       phone: '',
       email: '',
@@ -326,12 +375,16 @@ export class MuseumsManagementPage extends LitElement {
       primaryColor: '#0ea5e9',
       secondaryColor: '#1f2937',
       homeTitle: '',
+      homeTitleTranslations: {},
       homeSubtitle: '',
+      homeSubtitleTranslations: {},
       welcomeText: '',
+      welcomeTextTranslations: {},
       openingImage: '',
       manifestName: `ArtAround Navigator ${index}`,
       shortName: `AANav ${index}`,
       manifestDescription: '',
+      manifestDescriptionTranslations: {},
       themeColor: '#0ea5e9',
       backgroundColor: '#ffffff',
       display: 'standalone',
@@ -362,12 +415,16 @@ export class MuseumsManagementPage extends LitElement {
       primaryColor: config.branding.primaryColor,
       secondaryColor: config.branding.secondaryColor || '',
       homeTitle: config.content?.homeTitle || '',
+      homeTitleTranslations: config.content?.homeTitleTranslations || {},
       homeSubtitle: config.content?.homeSubtitle || '',
+      homeSubtitleTranslations: config.content?.homeSubtitleTranslations || {},
       welcomeText: config.content?.welcomeText || '',
+      welcomeTextTranslations: config.content?.welcomeTextTranslations || {},
       openingImage: config.content?.openingImage || '',
       manifestName: config.pwa.manifestName,
       shortName: config.pwa.shortName,
       manifestDescription: config.pwa.description || '',
+      manifestDescriptionTranslations: config.pwa.descriptionTranslations || {},
       themeColor: config.pwa.themeColor,
       backgroundColor: config.pwa.backgroundColor,
       display: config.pwa.display,
@@ -381,6 +438,152 @@ export class MuseumsManagementPage extends LitElement {
     })) as NavigatorConfigFormData[];
   }
 
+  private hasRequiredLocationForGeocoding(): boolean {
+    return Boolean(
+      this.formData.address.trim() && this.formData.city.trim() && this.formData.nation.trim(),
+    );
+  }
+
+  private updateLocationField(field: 'address' | 'city' | 'postalCode' | 'nation', value: string) {
+    this.formData = {
+      ...this.formData,
+      [field]: value,
+      latitude: null,
+      longitude: null,
+    };
+    this.geocodingStatus = '';
+    this.scheduleGeocodeFromLocation();
+  }
+
+  private scheduleGeocodeFromLocation() {
+    if (this.geocodeDebounceId) {
+      window.clearTimeout(this.geocodeDebounceId);
+      this.geocodeDebounceId = null;
+    }
+
+    if (!this.hasRequiredLocationForGeocoding()) {
+      return;
+    }
+
+    this.geocodeDebounceId = window.setTimeout(() => {
+      void this.geocodeFromCurrentLocation();
+    }, 700);
+  }
+
+  private async geocodeFromCurrentLocation() {
+    if (!this.hasRequiredLocationForGeocoding()) {
+      return;
+    }
+
+    this.geocodingLocation = true;
+    this.geocodingStatus = '';
+
+    try {
+      const result = await museumService.geocodeMuseumLocation({
+        address: this.formData.address,
+        city: this.formData.city,
+        postalCode: this.formData.postalCode,
+        nation: this.formData.nation,
+      });
+
+      if (!result.data) {
+        this.formData = {
+          ...this.formData,
+          latitude: null,
+          longitude: null,
+        };
+        this.geocodingStatus = __('Posizione non trovata con i dati inseriti');
+        return;
+      }
+
+      this.formData = {
+        ...this.formData,
+        latitude: result.data.lat,
+        longitude: result.data.lng,
+      };
+      this.geocodingStatus = __('Mappa aggiornata automaticamente');
+    } catch {
+      this.geocodingStatus = __('Errore durante aggiornamento automatico della mappa');
+    } finally {
+      this.geocodingLocation = false;
+    }
+  }
+
+  private getCurrentCoordinates(): { lat: number; lng: number } | null {
+    const { latitude, longitude } = this.formData;
+
+    if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+      return null;
+    }
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return null;
+    }
+
+    return { lat: latitude, lng: longitude };
+  }
+
+  private async syncLocationMapPreview() {
+    if (this.viewMode !== 'create' && this.viewMode !== 'edit') {
+      return;
+    }
+
+    const container = document.getElementById('museum-location-map');
+    if (!container) {
+      return;
+    }
+
+    if (this.mapContainer !== container) {
+      if (this.locationMap) {
+        this.locationMap.remove();
+        this.locationMap = null;
+        this.locationMarker = null;
+      }
+      this.mapContainer = container;
+    }
+
+    if (!this.leafletModule) {
+      this.leafletModule = await import('leaflet');
+    }
+
+    const L = this.leafletModule;
+
+    if (!this.locationMap) {
+      this.locationMap = L.map(container, {
+        zoomControl: true,
+      }).setView([41.9028, 12.4964], 5);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+      }).addTo(this.locationMap);
+    }
+
+    const coordinates = this.getCurrentCoordinates();
+
+    if (!coordinates) {
+      if (this.locationMarker) {
+        this.locationMarker.remove();
+        this.locationMarker = null;
+      }
+      this.locationMap.setView([41.9028, 12.4964], 5);
+      window.requestAnimationFrame(() => this.locationMap?.invalidateSize());
+      return;
+    }
+
+    if (!this.locationMarker) {
+      this.locationMarker = L.circleMarker([coordinates.lat, coordinates.lng], {
+        radius: 8,
+        weight: 2,
+        fillOpacity: 0.75,
+      }).addTo(this.locationMap);
+    } else {
+      this.locationMarker.setLatLng([coordinates.lat, coordinates.lng]);
+    }
+
+    this.locationMap.setView([coordinates.lat, coordinates.lng], 15);
+    window.requestAnimationFrame(() => this.locationMap?.invalidateSize());
+  }
+
   private getActiveSourceLanguage(): AppLanguage {
     return this.formData.primaryLanguage || 'it';
   }
@@ -388,6 +591,29 @@ export class MuseumsManagementPage extends LitElement {
   private getMuseumTargetLanguages(): AppLanguage[] {
     const source = this.getActiveSourceLanguage();
     return this.formData.activeLanguages.filter((lang) => lang !== source);
+  }
+
+  private isMuseumLanguageFullyTranslated(language: AppLanguage): boolean {
+    const fields = [
+      {
+        source: this.formData.name,
+        translations: this.formData.nameTranslations,
+      },
+      {
+        source: this.formData.description,
+        translations: this.formData.descriptionTranslations,
+      },
+      {
+        source: this.formData.openingHours,
+        translations: this.formData.openingHoursTranslations,
+      },
+      {
+        source: this.formData.ticketInfo,
+        translations: this.formData.ticketInfoTranslations,
+      },
+    ];
+
+    return isLanguageFullyTranslated(fields, language);
   }
 
   private setPrimaryLanguage(lang: AppLanguage) {
@@ -527,6 +753,115 @@ export class MuseumsManagementPage extends LitElement {
     }
   }
 
+  private async translateMissingNavigatorFields(configId: string) {
+    const sourceLanguage = this.getActiveSourceLanguage();
+    const targets = this.getMuseumTargetLanguages();
+
+    if (targets.length === 0) {
+      this.error = __('Seleziona almeno una lingua aggiuntiva per tradurre il navigator');
+      return;
+    }
+
+    const config = this.formData.navigatorConfigs.find((item) => item.id === configId);
+    if (!config) {
+      return;
+    }
+
+    const batchItems: Array<{ key: string; text: string; targetLang: AppLanguage }> = [];
+
+    for (const lang of targets) {
+      if (config.homeTitle.trim() && !config.homeTitleTranslations[lang]?.trim()) {
+        batchItems.push({ key: `${lang}:homeTitle`, text: config.homeTitle, targetLang: lang });
+      }
+      if (config.homeSubtitle.trim() && !config.homeSubtitleTranslations[lang]?.trim()) {
+        batchItems.push({
+          key: `${lang}:homeSubtitle`,
+          text: config.homeSubtitle,
+          targetLang: lang,
+        });
+      }
+      if (config.welcomeText.trim() && !config.welcomeTextTranslations[lang]?.trim()) {
+        batchItems.push({
+          key: `${lang}:welcomeText`,
+          text: config.welcomeText,
+          targetLang: lang,
+        });
+      }
+      if (
+        config.manifestDescription.trim() &&
+        !config.manifestDescriptionTranslations[lang]?.trim()
+      ) {
+        batchItems.push({
+          key: `${lang}:manifestDescription`,
+          text: config.manifestDescription,
+          targetLang: lang,
+        });
+      }
+    }
+
+    if (batchItems.length === 0) {
+      this.success = __('Le traduzioni navigator sono già complete');
+      return;
+    }
+
+    this.translatingNavigatorConfigId = configId;
+    this.error = '';
+
+    try {
+      const translations = await translationService.translateBatch(sourceLanguage, batchItems);
+
+      const updatedConfigs = this.formData.navigatorConfigs.map((item) => {
+        if (item.id !== configId) {
+          return item;
+        }
+
+        const nextHomeTitleTranslations = { ...item.homeTitleTranslations };
+        const nextHomeSubtitleTranslations = { ...item.homeSubtitleTranslations };
+        const nextWelcomeTextTranslations = { ...item.welcomeTextTranslations };
+        const nextManifestDescriptionTranslations = { ...item.manifestDescriptionTranslations };
+
+        for (const lang of targets) {
+          const homeTitleKey = `${lang}:homeTitle`;
+          const homeSubtitleKey = `${lang}:homeSubtitle`;
+          const welcomeTextKey = `${lang}:welcomeText`;
+          const manifestDescriptionKey = `${lang}:manifestDescription`;
+
+          if (translations[homeTitleKey]) {
+            nextHomeTitleTranslations[lang] = translations[homeTitleKey];
+          }
+          if (translations[homeSubtitleKey]) {
+            nextHomeSubtitleTranslations[lang] = translations[homeSubtitleKey];
+          }
+          if (translations[welcomeTextKey]) {
+            nextWelcomeTextTranslations[lang] = translations[welcomeTextKey];
+          }
+          if (translations[manifestDescriptionKey]) {
+            nextManifestDescriptionTranslations[lang] = translations[manifestDescriptionKey];
+          }
+        }
+
+        return {
+          ...item,
+          homeTitleTranslations: nextHomeTitleTranslations,
+          homeSubtitleTranslations: nextHomeSubtitleTranslations,
+          welcomeTextTranslations: nextWelcomeTextTranslations,
+          manifestDescriptionTranslations: nextManifestDescriptionTranslations,
+        };
+      });
+
+      this.formData = {
+        ...this.formData,
+        navigatorConfigs: updatedConfigs,
+      };
+
+      this.success = __('Traduzioni navigator generate con successo');
+    } catch {
+      this.error = __('Traduzione automatica non riuscita');
+    } finally {
+      this.translatingNavigatorConfigId = null;
+    }
+  }
+
   private addNavigatorConfig() {
     const nextIndex = this.formData.navigatorConfigs.length + 1;
     this.formData = {
@@ -541,6 +876,9 @@ export class MuseumsManagementPage extends LitElement {
   private removeNavigatorConfig(id: string) {
     const remaining = this.formData.navigatorConfigs.filter((config) => config.id !== id);
     this.formData = { ...this.formData, navigatorConfigs: remaining };
+    const nextLanguageMap = { ...this.navigatorTranslationLanguageByConfig };
+    delete nextLanguageMap[id];
+    this.navigatorTranslationLanguageByConfig = nextLanguageMap;
   }
 
   private updateNavigatorConfig(id: string, patch: Partial<NavigatorConfigFormData>) {
@@ -552,6 +890,33 @@ export class MuseumsManagementPage extends LitElement {
       return {
         ...config,
         ...patch,
+      };
+    });
+
+    this.formData = { ...this.formData, navigatorConfigs: updated };
+  }
+
+  private updateNavigatorTranslationField(
+    configId: string,
+    field:
+      | 'homeTitleTranslations'
+      | 'homeSubtitleTranslations'
+      | 'welcomeTextTranslations'
+      | 'manifestDescriptionTranslations',
+    language: AppLanguage,
+    value: string,
+  ) {
+    const updated = this.formData.navigatorConfigs.map((config) => {
+      if (config.id !== configId) {
+        return config;
+      }
+
+      return {
+        ...config,
+        [field]: {
+          ...(config[field] || {}),
+          [language]: value,
+        },
       };
     });
 
@@ -761,8 +1126,8 @@ export class MuseumsManagementPage extends LitElement {
     return items.sort((left, right) => {
       const leftCity = left.location?.city || '';
       const rightCity = right.location?.city || '';
-      const leftCountry = left.location?.country || '';
-      const rightCountry = right.location?.country || '';
+      const leftCountry = left.location?.nation || left.location?.country || '';
+      const rightCountry = right.location?.nation || right.location?.country || '';
 
       let result = 0;
       if (this.sortField === 'name') {
@@ -915,7 +1280,7 @@ export class MuseumsManagementPage extends LitElement {
       columns.push({ key: 'city', label: __('Città') });
     }
     if (this.hasVisibleColumn('country')) {
-      columns.push({ key: 'country', label: __('Paese') });
+      columns.push({ key: 'country', label: __('Nazione') });
     }
     if (this.hasVisibleColumn('status')) {
       columns.push({
@@ -937,7 +1302,7 @@ export class MuseumsManagementPage extends LitElement {
     return items.map((museum) => ({
       name: museum.name,
       city: museum.location?.city || '—',
-      country: museum.location?.country || '—',
+      country: museum.location?.nation || museum.location?.country || '—',
       status: museum.isActive ? __('Attivo') : __('Inattivo'),
       __museum: museum,
     }));
@@ -1053,9 +1418,10 @@ export class MuseumsManagementPage extends LitElement {
       activeLanguages: normalizedActiveLanguages,
       address: museum.location?.address || '',
       city: museum.location?.city || '',
-      country: museum.location?.country || 'Italia',
-      region: museum.location?.region || '',
+      nation: museum.location?.nation || museum.location?.country || 'Italia',
       postalCode: museum.location?.postalCode || '',
+      latitude: museum.location?.coordinates?.lat ?? null,
+      longitude: museum.location?.coordinates?.lng ?? null,
       website: museum.services?.website || '',
       phone: museum.services?.phone || '',
       email: museum.services?.email || '',
@@ -1265,9 +1631,9 @@ export class MuseumsManagementPage extends LitElement {
         location: {
           address: this.formData.address,
           city: this.formData.city,
-          country: this.formData.country,
-          region: this.formData.region || undefined,
+          nation: this.formData.nation,
           postalCode: this.formData.postalCode || undefined,
+          coordinates: this.getCurrentCoordinates() || undefined,
         },
         coverImage: this.formData.coverImage || undefined,
         services: {
@@ -1297,14 +1663,24 @@ export class MuseumsManagementPage extends LitElement {
                 },
                 content: {
                   homeTitle: config.homeTitle || undefined,
+                  homeTitleTranslations: this.normalizeTranslationMap(config.homeTitleTranslations),
                   homeSubtitle: config.homeSubtitle || undefined,
+                  homeSubtitleTranslations: this.normalizeTranslationMap(
+                    config.homeSubtitleTranslations,
+                  ),
                   welcomeText: config.welcomeText || undefined,
+                  welcomeTextTranslations: this.normalizeTranslationMap(
+                    config.welcomeTextTranslations,
+                  ),
                   openingImage: config.openingImage || undefined,
                 },
                 pwa: {
                   manifestName: config.manifestName,
                   shortName: config.shortName,
                   description: config.manifestDescription || undefined,
+                  descriptionTranslations: this.normalizeTranslationMap(
+                    config.manifestDescriptionTranslations,
+                  ),
                   themeColor: config.themeColor,
                   backgroundColor: config.backgroundColor,
                   display: config.display,
@@ -1449,6 +1825,389 @@ export class MuseumsManagementPage extends LitElement {
     );
   }
 
+  private isNavigatorLanguageFullyTranslated(
+    config: NavigatorConfigFormData,
+    language: AppLanguage,
+  ): boolean {
+    const fields = [
+      {
+        source: config.homeTitle,
+        translations: config.homeTitleTranslations,
+      },
+      {
+        source: config.homeSubtitle,
+        translations: config.homeSubtitleTranslations,
+      },
+      {
+        source: config.welcomeText,
+        translations: config.welcomeTextTranslations,
+      },
+      {
+        source: config.manifestDescription,
+        translations: config.manifestDescriptionTranslations,
+      },
+    ];
+
+    return isLanguageFullyTranslated(fields, language);
+  }
+
+  private renderNavigatorTranslationsForConfig(
+    config: NavigatorConfigFormData,
+    sourceLanguageLabel: string,
+  ) {
+    const targetLanguages = this.getMuseumTargetLanguages();
+    const selectedLanguage =
+      this.navigatorTranslationLanguageByConfig[config.id] || targetLanguages[0] || null;
+
+    const selectedLanguageLabel = selectedLanguage
+      ? this.languageOptions.find((option) => option.value === selectedLanguage)?.label
+      : null;
+
+    const translationLanguageOptions = buildTranslationLanguageOptions(
+      targetLanguages,
+      (lang) =>
+        this.languageOptions.find((option) => option.value === lang)?.label || lang.toUpperCase(),
+      (lang) => this.isNavigatorLanguageFullyTranslated(config, lang),
+      {
+        translated: __('Tradotta'),
+        toTranslate: __('Da tradurre'),
+      },
+    );
+
+    return html`
+      <div class="pt-4 border-t border-surface-200 dark:border-surface-700">
+        <div
+          class="space-y-4 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-100/80 dark:bg-violet-900/25 p-4"
+        >
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <h5 class="font-medium text-surface-900 dark:text-white">${__('Traduzioni navigator')}</h5>
+          <div class="flex items-center gap-2 flex-wrap">
+            <ui-badge
+              variant="secondary"
+              .label=${`${__('Lingua sorgente')}: ${sourceLanguageLabel}`}
+            ></ui-badge>
+            <ui-button
+              type="button"
+              variant="secondary"
+              size="xs"
+              icon="sparkles"
+              .label=${__('Traduci campi navigator mancanti con AI')}
+              .loading=${this.translatingNavigatorConfigId === config.id}
+              .disabled=${targetLanguages.length === 0}
+              @click=${() => this.translateMissingNavigatorFields(config.id)}
+            ></ui-button>
+          </div>
+        </div>
+
+        ${targetLanguages.length === 0
+          ? html`<p class="text-xs text-surface-500 dark:text-surface-400">
+              ${__(
+                'Aggiungi almeno una lingua aggiuntiva nelle Lingue attive del museo per gestire le traduzioni navigator.',
+              )}
+            </p>`
+          : html`
+              <div class="space-y-3">
+                <ui-select
+                  .label=${__('Lingua traduzione')}
+                  .value=${selectedLanguage || ''}
+                  .options=${translationLanguageOptions}
+                  @select-change=${(e: CustomEvent<{ value: AppLanguage }>) => {
+                    this.navigatorTranslationLanguageByConfig = {
+                      ...this.navigatorTranslationLanguageByConfig,
+                      [config.id]: e.detail.value,
+                    };
+                  }}
+                ></ui-select>
+
+                ${selectedLanguage
+                  ? html`
+                      <div
+                        class="p-4 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/30 space-y-3"
+                      >
+                        <h6 class="text-sm font-semibold text-surface-800 dark:text-surface-100">
+                          ${__('Traduzioni in')} ${selectedLanguageLabel || selectedLanguage.toUpperCase()}
+                        </h6>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <ui-input
+                            .label=${__('Titolo Home')}
+                            .value=${config.homeTitleTranslations[selectedLanguage] || ''}
+                            @input-change=${(e: CustomEvent) =>
+                              this.updateNavigatorTranslationField(
+                                config.id,
+                                'homeTitleTranslations',
+                                selectedLanguage,
+                                e.detail.value,
+                              )}
+                          ></ui-input>
+
+                          <ui-input
+                            .label=${__('Sottotitolo Home')}
+                            .value=${config.homeSubtitleTranslations[selectedLanguage] || ''}
+                            @input-change=${(e: CustomEvent) =>
+                              this.updateNavigatorTranslationField(
+                                config.id,
+                                'homeSubtitleTranslations',
+                                selectedLanguage,
+                                e.detail.value,
+                              )}
+                          ></ui-input>
+                        </div>
+
+                        <ui-textarea
+                          .label=${__('Testo di benvenuto')}
+                          .value=${config.welcomeTextTranslations[selectedLanguage] || ''}
+                          @textarea-change=${(e: CustomEvent) =>
+                            this.updateNavigatorTranslationField(
+                              config.id,
+                              'welcomeTextTranslations',
+                              selectedLanguage,
+                              e.detail.value,
+                            )}
+                          rows="3"
+                        ></ui-textarea>
+
+                        <ui-textarea
+                          .label=${__('Descrizione manifest')}
+                          .value=${config.manifestDescriptionTranslations[selectedLanguage] || ''}
+                          @textarea-change=${(e: CustomEvent) =>
+                            this.updateNavigatorTranslationField(
+                              config.id,
+                              'manifestDescriptionTranslations',
+                              selectedLanguage,
+                              e.detail.value,
+                            )}
+                          rows="2"
+                        ></ui-textarea>
+                      </div>
+                    `
+                  : nothing}
+              </div>
+            `}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderActiveLanguagesSection() {
+    return html`
+      <section>
+        <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2">
+          <ui-icon name="globe" size="sm" class="text-indigo-500"></ui-icon>
+          ${__('Lingue attive')}
+        </h3>
+        <ui-card padding="none">
+          <div class="p-6 space-y-4">
+            <ui-select
+              .label=${__('Lingua principale del museo')}
+              .value=${this.formData.primaryLanguage}
+              .options=${this.languageOptions}
+              @select-change=${(e: CustomEvent<{ value: AppLanguage }>) =>
+                this.setPrimaryLanguage(e.detail.value)}
+            ></ui-select>
+
+            <label class="block text-sm font-medium text-surface-700 dark:text-surface-300"
+              >${__('Lingue aggiuntive del museo')}</label
+            >
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+              ${this.languageOptions
+                .filter((option) => option.value !== this.formData.primaryLanguage)
+                .map(
+                  (option) => html`
+                    <ui-checkbox
+                      .label=${option.label}
+                      .checked=${this.formData.activeLanguages.includes(option.value)}
+                      @checkbox-change=${(e: CustomEvent) =>
+                        this.toggleActiveLanguage(option.value, Boolean(e.detail.checked))}
+                    ></ui-checkbox>
+                  `,
+                )}
+            </div>
+            <p class="text-xs text-surface-500 dark:text-surface-400">
+              ${__(
+                'La lingua principale è quella usata per scrivere i contenuti di base. Le lingue aggiuntive saranno usate per traduzioni e contenuti multilingua.',
+              )}
+            </p>
+
+            ${this.viewMode === 'edit' && this.selectedMuseum
+              ? html`
+                  <div class="pt-2 border-t border-surface-200 dark:border-surface-700">
+                    <ui-button
+                      type="button"
+                      variant="secondary"
+                      icon="sparkles"
+                      .label=${__('Sincronizza traduzioni esistenti')}
+                      .loading=${this.syncingLanguages}
+                      @click=${this.syncMuseumLanguages}
+                    ></ui-button>
+                    <p class="mt-2 text-xs text-surface-500 dark:text-surface-400">
+                      ${__(
+                        'Applica le lingue attive ai contenuti e visite già presenti: rimuove traduzioni non richieste e genera con AI quelle mancanti.',
+                      )}
+                    </p>
+                  </div>
+                `
+              : nothing}
+          </div>
+        </ui-card>
+      </section>
+    `;
+  }
+
+  private renderMuseumTranslationsSection(sourceLanguageLabel: string) {
+    const targetLanguages = this.getMuseumTargetLanguages();
+    const selectedLanguage = this.museumTranslationLanguage || targetLanguages[0] || null;
+    const selectedLanguageLabel = selectedLanguage
+      ? this.languageOptions.find((option) => option.value === selectedLanguage)?.label
+      : null;
+    const translationLanguageOptions = buildTranslationLanguageOptions(
+      targetLanguages,
+      (lang) =>
+        this.languageOptions.find((option) => option.value === lang)?.label || lang.toUpperCase(),
+      (lang) => this.isMuseumLanguageFullyTranslated(lang),
+      {
+        translated: __('Tradotta'),
+        toTranslate: __('Da tradurre'),
+      },
+    );
+
+    return html`
+      <section>
+        <h3
+          class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+        >
+          <ui-icon name="languages" size="sm" class="text-violet-500"></ui-icon>
+          ${__('Traduzioni museo')}
+        </h3>
+        <ui-card padding="none">
+          <div
+            class="p-6 space-y-5 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-100/80 dark:bg-violet-900/25"
+          >
+            <div
+              class="flex flex-wrap items-center gap-3 p-3 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/30"
+            >
+              <ui-button
+                type="button"
+                variant="secondary"
+                icon="sparkles"
+                .label=${__('Traduci campi mancanti con AI')}
+                .loading=${this.translatingMuseumFields}
+                .disabled=${this.getMuseumTargetLanguages().length === 0}
+                @click=${this.translateMissingMuseumFields}
+              ></ui-button>
+              <ui-badge
+                variant="secondary"
+                .label=${`${__('Lingua sorgente')}: ${sourceLanguageLabel}`}
+              ></ui-badge>
+              <p class="text-xs text-surface-500 dark:text-surface-400">
+                ${__(
+                  'Compila automaticamente nome, descrizione, orari e biglietti per le lingue aggiuntive non ancora tradotte.',
+                )}
+              </p>
+            </div>
+
+            ${targetLanguages.length === 0
+              ? html`<p class="text-sm text-surface-600 dark:text-surface-300">
+                  ${__(
+                    'Aggiungi almeno una lingua aggiuntiva per inserire o generare traduzioni del museo.',
+                  )}
+                </p>`
+              : nothing}
+
+            ${targetLanguages.length > 0
+              ? html`
+                  <div class="space-y-3">
+                    <ui-select
+                      .label=${__('Lingua traduzione')}
+                      .value=${selectedLanguage || ''}
+                      .options=${translationLanguageOptions}
+                      @select-change=${(e: CustomEvent<{ value: AppLanguage }>) =>
+                        (this.museumTranslationLanguage = e.detail.value)}
+                    ></ui-select>
+
+                    ${selectedLanguage
+                      ? html`
+                          <div
+                            class="p-4 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/30 space-y-4"
+                          >
+                            <h4 class="font-medium text-surface-900 dark:text-white">
+                              ${__('Traduzioni in')} ${selectedLanguageLabel || selectedLanguage.toUpperCase()}
+                            </h4>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <ui-input
+                                .label=${__('Nome museo')}
+                                .value=${this.formData.nameTranslations[selectedLanguage] || ''}
+                                @input-change=${(e: CustomEvent) =>
+                                  (this.formData = {
+                                    ...this.formData,
+                                    nameTranslations: {
+                                      ...this.formData.nameTranslations,
+                                      [selectedLanguage]: e.detail.value,
+                                    },
+                                  })}
+                              ></ui-input>
+                            </div>
+
+                            <ui-textarea
+                              .label=${__('Descrizione')}
+                              .value=${this.formData.descriptionTranslations[selectedLanguage] || ''}
+                              @textarea-change=${(e: CustomEvent) =>
+                                (this.formData = {
+                                  ...this.formData,
+                                  descriptionTranslations: {
+                                    ...this.formData.descriptionTranslations,
+                                    [selectedLanguage]: e.detail.value,
+                                  },
+                                })}
+                              rows="3"
+                            ></ui-textarea>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <ui-textarea
+                                .label=${__('Orari di apertura')}
+                                .value=${
+                                  this.formData.openingHoursTranslations[selectedLanguage] || ''
+                                }
+                                @textarea-change=${(e: CustomEvent) =>
+                                  (this.formData = {
+                                    ...this.formData,
+                                    openingHoursTranslations: {
+                                      ...this.formData.openingHoursTranslations,
+                                      [selectedLanguage]: e.detail.value,
+                                    },
+                                  })}
+                                rows="3"
+                              ></ui-textarea>
+
+                              <ui-textarea
+                                .label=${__('Informazioni biglietti')}
+                                .value=${
+                                  this.formData.ticketInfoTranslations[selectedLanguage] || ''
+                                }
+                                @textarea-change=${(e: CustomEvent) =>
+                                  (this.formData = {
+                                    ...this.formData,
+                                    ticketInfoTranslations: {
+                                      ...this.formData.ticketInfoTranslations,
+                                      [selectedLanguage]: e.detail.value,
+                                    },
+                                  })}
+                                rows="3"
+                              ></ui-textarea>
+                            </div>
+                          </div>
+                        `
+                      : nothing}
+                  </div>
+                `
+              : nothing}
+          </div>
+        </ui-card>
+      </section>
+    `;
+  }
+
   // ─── Render Entry ────────────────────────────────────────
   render() {
     const isFocusedConfigMode = this.configMode !== 'full';
@@ -1578,7 +2337,9 @@ export class MuseumsManagementPage extends LitElement {
                 <p class="text-sm text-surface-500 dark:text-surface-400 mb-3">
                   ${this.hasVisibleColumn('city') ? museum.location?.city || '' : ''}
                   ${this.hasVisibleColumn('city') && this.hasVisibleColumn('country') ? ', ' : ''}
-                  ${this.hasVisibleColumn('country') ? museum.location?.country || '' : ''}
+                  ${this.hasVisibleColumn('country')
+                    ? museum.location?.nation || museum.location?.country || ''
+                    : ''}
                 </p>
               `
             : nothing}
@@ -1733,7 +2494,7 @@ export class MuseumsManagementPage extends LitElement {
           </ui-card>
         </section>
 
-        <section>
+        <section ?hidden=${!showBaseSections}>
           <h3
             class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
           >
@@ -1778,188 +2539,7 @@ export class MuseumsManagementPage extends LitElement {
           </ui-card>
         </section>
 
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="globe" size="sm" class="text-indigo-500"></ui-icon>
-            ${__('Lingue attive')}
-          </h3>
-          <ui-card padding="none">
-            <div class="p-6 space-y-4">
-              <ui-select
-                .label=${__('Lingua principale del museo')}
-                .value=${this.formData.primaryLanguage}
-                .options=${this.languageOptions}
-                @select-change=${(e: CustomEvent<{ value: AppLanguage }>) =>
-                  this.setPrimaryLanguage(e.detail.value)}
-              ></ui-select>
-
-              <label class="block text-sm font-medium text-surface-700 dark:text-surface-300"
-                >${__('Lingue aggiuntive del museo')}</label
-              >
-              <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                ${this.languageOptions
-                  .filter((option) => option.value !== this.formData.primaryLanguage)
-                  .map(
-                    (option) => html`
-                      <ui-checkbox
-                        .label=${option.label}
-                        .checked=${this.formData.activeLanguages.includes(option.value)}
-                        @checkbox-change=${(e: CustomEvent) =>
-                          this.toggleActiveLanguage(option.value, Boolean(e.detail.checked))}
-                      ></ui-checkbox>
-                    `,
-                  )}
-              </div>
-              <p class="text-xs text-surface-500 dark:text-surface-400">
-                ${__(
-                  'La lingua principale è quella usata per scrivere i contenuti di base. Le lingue aggiuntive saranno usate per traduzioni e contenuti multilingua.',
-                )}
-              </p>
-
-              ${this.viewMode === 'edit' && this.selectedMuseum
-                ? html`
-                    <div class="pt-2 border-t border-surface-200 dark:border-surface-700">
-                      <ui-button
-                        type="button"
-                        variant="secondary"
-                        icon="sparkles"
-                        .label=${__('Sincronizza traduzioni esistenti')}
-                        .loading=${this.syncingLanguages}
-                        @click=${this.syncMuseumLanguages}
-                      ></ui-button>
-                      <p class="mt-2 text-xs text-surface-500 dark:text-surface-400">
-                        ${__(
-                          'Applica le lingue attive ai contenuti e visite già presenti: rimuove traduzioni non richieste e genera con AI quelle mancanti.',
-                        )}
-                      </p>
-                    </div>
-                  `
-                : nothing}
-            </div>
-          </ui-card>
-        </section>
-
-        <section>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="languages" size="sm" class="text-violet-500"></ui-icon>
-            ${__('Traduzioni museo')}
-          </h3>
-          <ui-card padding="none">
-            <div class="p-6 space-y-5">
-              <div class="flex flex-wrap items-center gap-3">
-                <ui-button
-                  type="button"
-                  variant="secondary"
-                  icon="sparkles"
-                  .label=${__('Traduci campi mancanti con AI')}
-                  .loading=${this.translatingMuseumFields}
-                  .disabled=${this.getMuseumTargetLanguages().length === 0}
-                  @click=${this.translateMissingMuseumFields}
-                ></ui-button>
-                <ui-badge
-                  variant="secondary"
-                  .label=${`${__('Lingua sorgente')}: ${sourceLanguageLabel}`}
-                ></ui-badge>
-                <p class="text-xs text-surface-500 dark:text-surface-400">
-                  ${__(
-                    'Compila automaticamente nome, descrizione, orari e biglietti per le lingue aggiuntive non ancora tradotte.',
-                  )}
-                </p>
-              </div>
-
-              ${this.getMuseumTargetLanguages().length === 0
-                ? html`<p class="text-sm text-surface-600 dark:text-surface-300">
-                    ${__(
-                      'Aggiungi almeno una lingua aggiuntiva per inserire o generare traduzioni del museo.',
-                    )}
-                  </p>`
-                : nothing}
-
-              <div class="space-y-6">
-                ${this.getMuseumTargetLanguages().map((lang) => {
-                  const languageLabel = this.languageOptions.find(
-                    (option) => option.value === lang,
-                  )?.label;
-
-                  return html`
-                    <div
-                      class="p-4 rounded-lg border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/50 space-y-4"
-                    >
-                      <h4 class="font-medium text-surface-900 dark:text-white">
-                        ${__('Traduzioni in')} ${languageLabel || lang.toUpperCase()}
-                      </h4>
-
-                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <ui-input
-                          .label=${__('Nome museo')}
-                          .value=${this.formData.nameTranslations[lang] || ''}
-                          @input-change=${(e: CustomEvent) =>
-                            (this.formData = {
-                              ...this.formData,
-                              nameTranslations: {
-                                ...this.formData.nameTranslations,
-                                [lang]: e.detail.value,
-                              },
-                            })}
-                        ></ui-input>
-                      </div>
-
-                      <ui-textarea
-                        .label=${__('Descrizione')}
-                        .value=${this.formData.descriptionTranslations[lang] || ''}
-                        @textarea-change=${(e: CustomEvent) =>
-                          (this.formData = {
-                            ...this.formData,
-                            descriptionTranslations: {
-                              ...this.formData.descriptionTranslations,
-                              [lang]: e.detail.value,
-                            },
-                          })}
-                        rows="3"
-                      ></ui-textarea>
-
-                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <ui-textarea
-                          .label=${__('Orari di apertura')}
-                          .value=${this.formData.openingHoursTranslations[lang] || ''}
-                          @textarea-change=${(e: CustomEvent) =>
-                            (this.formData = {
-                              ...this.formData,
-                              openingHoursTranslations: {
-                                ...this.formData.openingHoursTranslations,
-                                [lang]: e.detail.value,
-                              },
-                            })}
-                          rows="3"
-                        ></ui-textarea>
-
-                        <ui-textarea
-                          .label=${__('Informazioni biglietti')}
-                          .value=${this.formData.ticketInfoTranslations[lang] || ''}
-                          @textarea-change=${(e: CustomEvent) =>
-                            (this.formData = {
-                              ...this.formData,
-                              ticketInfoTranslations: {
-                                ...this.formData.ticketInfoTranslations,
-                                [lang]: e.detail.value,
-                              },
-                            })}
-                          rows="3"
-                        ></ui-textarea>
-                      </div>
-                    </div>
-                  `;
-                })}
-              </div>
-            </div>
-          </ui-card>
-        </section>
-
-        <section>
+        <section ?hidden=${!showBaseSections}>
           <h3
             class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
           >
@@ -1973,7 +2553,7 @@ export class MuseumsManagementPage extends LitElement {
                 .placeholder=${__('Via...')}
                 .value=${this.formData.address}
                 @input-change=${(e: CustomEvent) =>
-                  (this.formData = { ...this.formData, address: e.detail.value })}
+                  this.updateLocationField('address', e.detail.value)}
                 required
               ></ui-input>
 
@@ -1981,17 +2561,8 @@ export class MuseumsManagementPage extends LitElement {
                 .label=${__('Città *')}
                 .placeholder=${__('Città')}
                 .value=${this.formData.city}
-                @input-change=${(e: CustomEvent) =>
-                  (this.formData = { ...this.formData, city: e.detail.value })}
+                @input-change=${(e: CustomEvent) => this.updateLocationField('city', e.detail.value)}
                 required
-              ></ui-input>
-
-              <ui-input
-                .label=${__('Regione')}
-                .placeholder=${__('Regione')}
-                .value=${this.formData.region}
-                @input-change=${(e: CustomEvent) =>
-                  (this.formData = { ...this.formData, region: e.detail.value })}
               ></ui-input>
 
               <ui-input
@@ -1999,22 +2570,42 @@ export class MuseumsManagementPage extends LitElement {
                 .placeholder=${__('00000')}
                 .value=${this.formData.postalCode}
                 @input-change=${(e: CustomEvent) =>
-                  (this.formData = { ...this.formData, postalCode: e.detail.value })}
+                  this.updateLocationField('postalCode', e.detail.value)}
               ></ui-input>
 
               <ui-input
-                .label=${__('Paese *')}
+                .label=${__('Nazione *')}
                 .placeholder=${__('Italia')}
-                .value=${this.formData.country}
-                @input-change=${(e: CustomEvent) =>
-                  (this.formData = { ...this.formData, country: e.detail.value })}
+                .value=${this.formData.nation}
+                @input-change=${(e: CustomEvent) => this.updateLocationField('nation', e.detail.value)}
                 required
               ></ui-input>
+
+              <div class="md:col-span-2 space-y-2">
+                <div
+                  id="museum-location-map"
+                  class="h-72 rounded-lg border border-surface-200 dark:border-surface-700 overflow-hidden"
+                ></div>
+                <div
+                  class="flex flex-wrap items-center justify-between gap-2 text-xs text-surface-500 dark:text-surface-400"
+                >
+                  <span>
+                    ${this.formData.latitude !== null && this.formData.longitude !== null
+                      ? `${__('Coordinate')}: ${this.formData.latitude.toFixed(6)}, ${this.formData.longitude.toFixed(6)}`
+                      : __('Inserisci indirizzo, città, CAP e nazione per aggiornare la mappa')}
+                  </span>
+                  <span>
+                    ${this.geocodingLocation
+                      ? __('Aggiornamento mappa in corso...')
+                      : this.geocodingStatus}
+                  </span>
+                </div>
+              </div>
             </div>
           </ui-card>
         </section>
 
-        <section>
+        <section ?hidden=${!showBaseSections}>
           <h3
             class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
           >
@@ -2253,6 +2844,8 @@ export class MuseumsManagementPage extends LitElement {
                       rows="2"
                     ></ui-textarea>
 
+                    ${this.renderNavigatorTranslationsForConfig(config, sourceLanguageLabel)}
+
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       ${this.renderNavigatorImageEditors(config)}
                     </div>
@@ -2262,6 +2855,9 @@ export class MuseumsManagementPage extends LitElement {
             )}
           </div>
         </section>
+
+        ${showBaseSections ? this.renderActiveLanguagesSection() : nothing}
+        ${showBaseSections ? this.renderMuseumTranslationsSection(sourceLanguageLabel) : nothing}
 
         <div class="flex justify-end gap-3">
           <ui-button

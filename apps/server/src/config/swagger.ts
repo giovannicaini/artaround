@@ -85,7 +85,8 @@ const swaggerDefinition = {
             properties: {
               address: { type: 'string' },
               city: { type: 'string' },
-              country: { type: 'string' },
+              nation: { type: 'string' },
+              country: { type: 'string', description: 'Deprecated alias of nation' },
               coordinates: {
                 type: 'object',
                 properties: {
