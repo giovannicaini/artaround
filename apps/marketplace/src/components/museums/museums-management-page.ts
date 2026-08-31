@@ -35,12 +35,22 @@ import {
   buildTranslationLanguageOptions,
   isLanguageFullyTranslated,
 } from '../../utils/translation-fields';
+import {
+  HEX_COLOR_REGEX,
+  SLUG_REGEX,
+  sanitizeSlug,
+  normalizeHexColor,
+  isNavigatorConfigLanguageFullyTranslated,
+  updateNavigatorConfigTranslationField,
+  type NavigatorConfigFormData,
+  type NavigatorColorFieldKey,
+  type NavigatorTranslationFieldKey,
+} from '../../utils/navigator-config';
 import 'leaflet/dist/leaflet.css';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'view' | 'curators';
 type MuseumListLayout = 'grid' | 'table';
 type MuseumSortField = 'name' | 'city' | 'country' | 'status';
-type NavigatorColorFieldKey = 'primaryColor' | 'secondaryColor' | 'themeColor' | 'backgroundColor';
 type NavigatorImageFieldKey =
   | 'logo'
   | 'splashImage'
@@ -73,37 +83,6 @@ interface MuseumFormData {
   ticketInfoTranslations: Partial<Record<AppLanguage, string>>;
   coverImage: string;
   navigatorConfigs: NavigatorConfigFormData[];
-}
-
-interface NavigatorConfigFormData {
-  id: string;
-  name: string;
-  slug: string;
-  logo: string;
-  splashImage: string;
-  primaryColor: string;
-  secondaryColor: string;
-  homeTitle: string;
-  homeTitleTranslations: Partial<Record<AppLanguage, string>>;
-  homeSubtitle: string;
-  homeSubtitleTranslations: Partial<Record<AppLanguage, string>>;
-  welcomeText: string;
-  welcomeTextTranslations: Partial<Record<AppLanguage, string>>;
-  openingImage: string;
-  manifestName: string;
-  shortName: string;
-  manifestDescription: string;
-  manifestDescriptionTranslations: Partial<Record<AppLanguage, string>>;
-  themeColor: string;
-  backgroundColor: string;
-  display: 'standalone' | 'fullscreen' | 'minimal-ui' | 'browser';
-  orientation: 'any' | 'natural' | 'landscape' | 'portrait';
-  startUrl: string;
-  scope: string;
-  icon192: string;
-  icon512: string;
-  iconMaskable: string;
-  appleTouchIcon: string;
 }
 
 interface NavigatorConfigRaw {
@@ -160,8 +139,6 @@ interface NavigatorImageEditorDefinition {
  */
 @customElement('museums-management-page')
 export class MuseumsManagementPage extends LitElement {
-  private static readonly HEX_COLOR_REGEX = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
-  private static readonly SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
   private readonly navigatorImageEditors: NavigatorImageEditorDefinition[] = [
     { key: 'logo', label: __('Logo'), maxWidth: 512, maxHeight: 512, defaultFormat: 'png' },
     {
@@ -895,47 +872,19 @@ export class MuseumsManagementPage extends LitElement {
 
   private updateNavigatorTranslationField(
     configId: string,
-    field:
-      | 'homeTitleTranslations'
-      | 'homeSubtitleTranslations'
-      | 'welcomeTextTranslations'
-      | 'manifestDescriptionTranslations',
+    field: NavigatorTranslationFieldKey,
     language: AppLanguage,
     value: string,
   ) {
-    const updated = this.formData.navigatorConfigs.map((config) => {
-      if (config.id !== configId) {
-        return config;
-      }
-
-      return {
-        ...config,
-        [field]: {
-          ...(config[field] || {}),
-          [language]: value,
-        },
-      };
-    });
+    const updated = updateNavigatorConfigTranslationField(
+      this.formData.navigatorConfigs,
+      configId,
+      field,
+      language,
+      value,
+    );
 
     this.formData = { ...this.formData, navigatorConfigs: updated };
-  }
-
-  private sanitizeSlug(value: string): string {
-    return value
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
-  }
-
-  private normalizeHexColor(value: string, fallback = '#000000'): string {
-    const normalized = value.trim();
-    if (MuseumsManagementPage.HEX_COLOR_REGEX.test(normalized)) {
-      return normalized;
-    }
-    return fallback;
   }
 
   private updateNavigatorColor(
@@ -961,8 +910,8 @@ export class MuseumsManagementPage extends LitElement {
         return __('Ogni configurazione deve avere ID e nome');
       }
 
-      const slug = this.sanitizeSlug(config.slug);
-      if (!slug || !MuseumsManagementPage.SLUG_REGEX.test(slug)) {
+      const slug = sanitizeSlug(config.slug);
+      if (!slug || !SLUG_REGEX.test(slug)) {
         return `${__('Slug non valido per')} "${config.name}" (${__('usa solo lettere minuscole, numeri e trattini')})`;
       }
 
@@ -994,7 +943,7 @@ export class MuseumsManagementPage extends LitElement {
       }
 
       for (const color of colors) {
-        if (!MuseumsManagementPage.HEX_COLOR_REGEX.test(color.value.trim())) {
+        if (!HEX_COLOR_REGEX.test(color.value.trim())) {
           return `${color.label} ${__('non valido in')} "${config.name}". ${__('Usa formato HEX (es. #0ea5e9)')}`;
         }
       }
@@ -1651,7 +1600,7 @@ export class MuseumsManagementPage extends LitElement {
             ? this.formData.navigatorConfigs.map((config) => ({
                 id: config.id,
                 name: config.name,
-                slug: this.sanitizeSlug(config.slug),
+                slug: sanitizeSlug(config.slug),
                 branding: {
                   logo: config.logo || undefined,
                   splashImage: config.splashImage || undefined,
@@ -1779,7 +1728,7 @@ export class MuseumsManagementPage extends LitElement {
         </label>
         <div class="flex items-center gap-2">
           <ui-color-input
-            .value=${this.normalizeHexColor(config[key], fallback)}
+            .value=${normalizeHexColor(config[key], fallback)}
             @input-change=${(e: CustomEvent) =>
               this.updateNavigatorColor(config.id, key, e.detail.value)}
           ></ui-color-input>
@@ -1822,32 +1771,6 @@ export class MuseumsManagementPage extends LitElement {
     );
   }
 
-  private isNavigatorLanguageFullyTranslated(
-    config: NavigatorConfigFormData,
-    language: AppLanguage,
-  ): boolean {
-    const fields = [
-      {
-        source: config.homeTitle,
-        translations: config.homeTitleTranslations,
-      },
-      {
-        source: config.homeSubtitle,
-        translations: config.homeSubtitleTranslations,
-      },
-      {
-        source: config.welcomeText,
-        translations: config.welcomeTextTranslations,
-      },
-      {
-        source: config.manifestDescription,
-        translations: config.manifestDescriptionTranslations,
-      },
-    ];
-
-    return isLanguageFullyTranslated(fields, language);
-  }
-
   private renderNavigatorTranslationsForConfig(
     config: NavigatorConfigFormData,
     sourceLanguageLabel: string,
@@ -1864,7 +1787,7 @@ export class MuseumsManagementPage extends LitElement {
       targetLanguages,
       (lang) =>
         this.languageOptions.find((option) => option.value === lang)?.label || lang.toUpperCase(),
-      (lang) => this.isNavigatorLanguageFullyTranslated(config, lang),
+      (lang) => isNavigatorConfigLanguageFullyTranslated(config, lang),
       {
         translated: __('Tradotta'),
         toTranslate: __('Da tradurre'),
@@ -2735,7 +2658,7 @@ export class MuseumsManagementPage extends LitElement {
                         .value=${config.slug}
                         @input-change=${(e: CustomEvent) =>
                           this.updateNavigatorConfig(config.id, {
-                            slug: this.sanitizeSlug(e.detail.value),
+                            slug: sanitizeSlug(e.detail.value),
                           })}
                         required
                       ></ui-input>

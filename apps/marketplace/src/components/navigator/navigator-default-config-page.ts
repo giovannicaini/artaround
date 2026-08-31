@@ -8,10 +8,18 @@ import {
 } from '@artaround/shared';
 import { navigatorDefaultConfigService } from '../../services/navigator-default-config.service';
 import { aiService } from '../../services/ai.service';
+import { buildTranslationLanguageOptions } from '../../utils/translation-fields';
 import {
-  buildTranslationLanguageOptions,
-  isLanguageFullyTranslated,
-} from '../../utils/translation-fields';
+  HEX_COLOR_REGEX,
+  SLUG_REGEX,
+  sanitizeSlug,
+  normalizeHexColor,
+  isNavigatorConfigLanguageFullyTranslated,
+  updateNavigatorConfigTranslationField,
+  type NavigatorConfigFormData,
+  type NavigatorColorFieldKey,
+  type NavigatorTranslationFieldKey,
+} from '../../utils/navigator-config';
 import '../ui/ui-page-header';
 import '../ui/ui-card';
 import '../ui/ui-button';
@@ -23,38 +31,6 @@ import '../ui/ui-loading';
 import '../ui/ui-badge';
 import { __ } from '../../services/i18n.service';
 
-interface NavigatorConfigFormData {
-  id: string;
-  name: string;
-  slug: string;
-  logo: string;
-  splashImage: string;
-  primaryColor: string;
-  secondaryColor: string;
-  homeTitle: string;
-  homeTitleTranslations: Partial<Record<AppLanguage, string>>;
-  homeSubtitle: string;
-  homeSubtitleTranslations: Partial<Record<AppLanguage, string>>;
-  welcomeText: string;
-  welcomeTextTranslations: Partial<Record<AppLanguage, string>>;
-  openingImage: string;
-  manifestName: string;
-  shortName: string;
-  manifestDescription: string;
-  manifestDescriptionTranslations: Partial<Record<AppLanguage, string>>;
-  themeColor: string;
-  backgroundColor: string;
-  display: 'standalone' | 'fullscreen' | 'minimal-ui' | 'browser';
-  orientation: 'any' | 'natural' | 'landscape' | 'portrait';
-  startUrl: string;
-  scope: string;
-  icon192: string;
-  icon512: string;
-  iconMaskable: string;
-  appleTouchIcon: string;
-}
-
-type NavigatorColorFieldKey = 'primaryColor' | 'secondaryColor' | 'themeColor' | 'backgroundColor';
 type NavigatorTextFieldKey =
   | 'logo'
   | 'splashImage'
@@ -72,17 +48,8 @@ type NavigatorGeneralFieldKey =
   | 'homeSubtitle'
   | 'manifestName'
   | 'shortName';
-type NavigatorTranslationFieldKey =
-  | 'homeTitleTranslations'
-  | 'homeSubtitleTranslations'
-  | 'welcomeTextTranslations'
-  | 'manifestDescriptionTranslations';
-
 @customElement('navigator-default-config-page')
 export class NavigatorDefaultConfigPage extends LitElement {
-  private static readonly HEX_COLOR_REGEX = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
-  private static readonly SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
   @state() private configs: NavigatorConfigFormData[] = [];
   @state() private loading = true;
   @state() private saving = false;
@@ -234,24 +201,6 @@ export class NavigatorDefaultConfigPage extends LitElement {
     );
   }
 
-  private sanitizeSlug(value: string): string {
-    return value
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
-  }
-
-  private normalizeHexColor(value: string, fallback = '#000000'): string {
-    const normalized = value.trim();
-    if (NavigatorDefaultConfigPage.HEX_COLOR_REGEX.test(normalized)) {
-      return normalized;
-    }
-    return fallback;
-  }
-
   private getNavigatorSourceLanguage(): AppLanguage {
     return DEFAULT_APP_LANGUAGE;
   }
@@ -267,45 +216,13 @@ export class NavigatorDefaultConfigPage extends LitElement {
     language: AppLanguage,
     value: string,
   ) {
-    this.configs = this.configs.map((config) => {
-      if (config.id !== configId) {
-        return config;
-      }
-
-      return {
-        ...config,
-        [fieldKey]: {
-          ...(config[fieldKey] || {}),
-          [language]: value,
-        },
-      };
-    });
-  }
-
-  private isNavigatorLanguageFullyTranslated(
-    config: NavigatorConfigFormData,
-    language: AppLanguage,
-  ): boolean {
-    const fields = [
-      {
-        source: config.homeTitle,
-        translations: config.homeTitleTranslations,
-      },
-      {
-        source: config.homeSubtitle,
-        translations: config.homeSubtitleTranslations,
-      },
-      {
-        source: config.welcomeText,
-        translations: config.welcomeTextTranslations,
-      },
-      {
-        source: config.manifestDescription,
-        translations: config.manifestDescriptionTranslations,
-      },
-    ];
-
-    return isLanguageFullyTranslated(fields, language);
+    this.configs = updateNavigatorConfigTranslationField(
+      this.configs,
+      configId,
+      fieldKey,
+      language,
+      value,
+    );
   }
 
   private renderNavigatorTranslationsForConfig(config: NavigatorConfigFormData) {
@@ -326,7 +243,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
       targetLanguages,
       (lang) =>
         this.languageOptions.find((option) => option.value === lang)?.label || lang.toUpperCase(),
-      (lang) => this.isNavigatorLanguageFullyTranslated(config, lang),
+      (lang) => isNavigatorConfigLanguageFullyTranslated(config, lang),
       {
         translated: __('Tradotta'),
         toTranslate: __('Da tradurre'),
@@ -447,7 +364,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
           <input
             type="color"
             class="h-10 w-14 rounded border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 p-1"
-            .value=${this.normalizeHexColor(config[fieldKey], fallback)}
+            .value=${normalizeHexColor(config[fieldKey], fallback)}
             @input=${(e: Event) =>
               this.updateConfig(config.id, {
                 [fieldKey]: (e.target as HTMLInputElement).value,
@@ -534,8 +451,8 @@ export class NavigatorDefaultConfigPage extends LitElement {
         return __('Ogni configurazione deve avere ID e nome');
       }
 
-      const slug = this.sanitizeSlug(config.slug);
-      if (!slug || !NavigatorDefaultConfigPage.SLUG_REGEX.test(slug)) {
+      const slug = sanitizeSlug(config.slug);
+      if (!slug || !SLUG_REGEX.test(slug)) {
         return `${__('Slug non valido per')} "${config.name}"`;
       }
 
@@ -564,7 +481,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
       ].filter(Boolean);
 
       for (const color of colors) {
-        if (!NavigatorDefaultConfigPage.HEX_COLOR_REGEX.test(color.trim())) {
+        if (!HEX_COLOR_REGEX.test(color.trim())) {
           return `Colore non valido in "${config.name}". Usa formato HEX (es. #0ea5e9)`;
         }
       }
@@ -577,7 +494,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
     return this.configs.map((config) => ({
       id: config.id,
       name: config.name,
-      slug: this.sanitizeSlug(config.slug),
+      slug: sanitizeSlug(config.slug),
       branding: {
         logo: config.logo || undefined,
         splashImage: config.splashImage || undefined,
@@ -801,7 +718,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
                           })}
                           ${this.renderGeneralField(config, 'slug', __('Slug *'), {
                             required: true,
-                            transform: (value) => this.sanitizeSlug(value),
+                            transform: (value) => sanitizeSlug(value),
                           })}
                           ${this.renderGeneralField(config, 'homeTitle', __('Titolo Home'))}
                         </div>
