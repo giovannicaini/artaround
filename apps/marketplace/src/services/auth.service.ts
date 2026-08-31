@@ -1,7 +1,12 @@
-import { apiService } from './api.service';
+import { apiService, getErrorMessage } from './api.service';
 import { historyService } from './history.service';
 import { preferencesService } from './preferences.service';
-import type { User, LoginRequest, RegisterRequest } from '@artaround/shared';
+import type { User, LoginRequest, RegisterRequest, UserPreferences } from '@artaround/shared';
+
+export type UpdateProfileData = {
+  email?: string;
+  preferences?: Partial<UserPreferences>;
+};
 
 export class AuthService {
   private static readonly PRESERVED_STORAGE_KEYS = ['theme', 'accessibility'];
@@ -66,6 +71,29 @@ export class AuthService {
     // Token non valido, rimuovilo
     this.logout();
     return null;
+  }
+
+  async updateProfile(data: UpdateProfileData): Promise<{ user: User | null; error?: string }> {
+    const response = await apiService.put<User>('/auth/me', data);
+
+    if (response.success && response.data) {
+      return { user: response.data };
+    }
+
+    return { user: null, error: getErrorMessage(response, 'Aggiornamento profilo non riuscito') };
+  }
+
+  async changePassword(
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    const response = await apiService.put('/auth/me/password', { currentPassword, newPassword });
+
+    if (response.success) {
+      return { success: true };
+    }
+
+    return { success: false, error: getErrorMessage(response, 'Cambio password non riuscito') };
   }
 
   logout(): void {

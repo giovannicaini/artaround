@@ -31,6 +31,7 @@ const PAGE_LOADERS: Record<string, () => Promise<unknown>> = {
   contents: () => import('./components/pages/contents-page'),
   visits: () => import('./components/visits/visits-page'),
   users: () => import('./components/pages/users-page'),
+  settings: () => import('./components/pages/settings-page'),
 };
 
 @customElement('app-root')
@@ -102,7 +103,6 @@ export class AppRoot extends LitElement {
       users: 'Gestione Utenti',
       categories: 'Categorie',
       tags: 'Tag',
-      analytics: 'Analytics',
       settings: 'Impostazioni',
     };
 
@@ -288,6 +288,8 @@ export class AppRoot extends LitElement {
         return html`<visits-page .user=${this.currentUser}></visits-page>`;
       case 'users':
         return html`<users-page .currentUser=${this.currentUser}></users-page>`;
+      case 'settings':
+        return html`<settings-page .user=${this.currentUser}></settings-page>`;
       default:
         return html`
           <div class="flex items-center justify-center min-h-[400px]">
@@ -374,6 +376,7 @@ export class AppRoot extends LitElement {
             @select-museum=${this.handleSelectMuseum}
             @open-artwork-detail=${this.handleOpenArtworkDetail}
             @page-state-changed=${this.handlePageStateChanged}
+            @user-updated=${this.handleUserUpdated}
           >
             ${this.renderPage()}
           </div>
@@ -394,6 +397,10 @@ export class AppRoot extends LitElement {
     if (sidebar) {
       sidebar.toggleMobile();
     }
+  }
+
+  private handleUserUpdated(e: CustomEvent<User>) {
+    this.currentUser = e.detail;
   }
 
   private handleMuseumConfirmed(e: CustomEvent) {

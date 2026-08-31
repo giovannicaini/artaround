@@ -5,7 +5,6 @@ import '../ui/ui-button';
 import '../ui/ui-input';
 import '../ui/ui-card';
 import '../ui/ui-alert';
-import '../ui/ui-checkbox';
 import '../ui/ui-brand-mark';
 import { __ } from '../../services/i18n.service';
 
@@ -113,16 +112,6 @@ export class LoginPage extends LitElement {
                 required
                 @input-change=${(e: CustomEvent) => (this.password = e.detail.value)}
               ></ui-input>
-
-              <div class="flex items-center justify-between">
-                <ui-checkbox .label=${__('Ricordami')}></ui-checkbox>
-                <a
-                  href="#"
-                  class="text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
-                >
-                  ${__('Password dimenticata?')}
-                </a>
-              </div>
 
               <ui-button
                 type="submit"

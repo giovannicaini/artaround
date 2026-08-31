@@ -53,6 +53,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
   @state() private translatedTitles: Partial<Record<AppLanguage, string>> = {};
   @state() private translatedTexts: Partial<Record<AppLanguage, string>> = {};
   @state() private translationModeByLang: Partial<Record<AppLanguage, 'ai' | 'manual'>> = {};
+  @state() private isSpeaking = false;
 
   // Characteristics
   @state() private duration: ContentDuration = ContentDuration.MEDIUM;
@@ -101,6 +102,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
 
   disconnectedCallback() {
     window.removeEventListener('ui-language-changed', this.handleLanguageChanged as EventListener);
+    window.speechSynthesis?.cancel();
     super.disconnectedCallback();
   }
 
@@ -253,6 +255,35 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     return remainingSeconds > 0 ? `~${minutes}m ${remainingSeconds}s` : `~${minutes}m`;
+  }
+
+  // ─── Text-to-Speech Preview ──────────────────────────────
+  // Anteprima con l'API Web Speech nativa del browser (nessun servizio esterno,
+  // nessuna chiamata al server): fa sentire all'autore come suonerebbe il testo
+  // letto ad alta voce nel Navigator, prima ancora di salvare l'item.
+  private toggleSpeechPreview() {
+    if (!window.speechSynthesis) return;
+
+    if (this.isSpeaking) {
+      window.speechSynthesis.cancel();
+      this.isSpeaking = false;
+      return;
+    }
+
+    if (!this.text.trim()) return;
+
+    const utterance = new SpeechSynthesisUtterance(this.text);
+    utterance.lang = `${this.sourceLanguage}-${this.sourceLanguage.toUpperCase()}`;
+    utterance.onend = () => {
+      this.isSpeaking = false;
+    };
+    utterance.onerror = () => {
+      this.isSpeaking = false;
+    };
+
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+    this.isSpeaking = true;
   }
 
   private validateForm(): string | null {
@@ -530,9 +561,17 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
                     this.text = (e.target as HTMLTextAreaElement).value;
                   }}
                 ></textarea>
-                <div class="mt-2 flex justify-between text-xs text-surface-500">
+                <div class="mt-2 flex items-center justify-between text-xs text-surface-500">
                   <span>${this.getWordCount()} ${__('parole')}</span>
                   <span>${__('Tempo stimato')}: ${this.getEstimatedReadTime()}</span>
+                  <ui-button
+                    size="sm"
+                    variant="ghost"
+                    icon=${this.isSpeaking ? 'pause' : 'play'}
+                    .label=${this.isSpeaking ? __('Interrompi') : __('Ascolta anteprima')}
+                    ?disabled=${!this.text.trim()}
+                    @click=${this.toggleSpeechPreview}
+                  ></ui-button>
                 </div>
               </div>
 

@@ -97,12 +97,6 @@ export class AdminSidebar extends LitElement {
         roles: ['admin' as UserRole],
       },
       { id: 'users', label: __('Gestione Utenti'), icon: 'users', roles: ['admin' as UserRole] },
-      {
-        id: 'analytics',
-        label: __('Analytics'),
-        icon: 'chart',
-        roles: ['admin' as UserRole, 'curator' as UserRole],
-      },
     ];
   }
 
