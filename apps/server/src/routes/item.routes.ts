@@ -17,7 +17,9 @@ const router = Router();
  *       required:
  *         - referenceType
  *         - title
- *         - contentMatrix
+ *         - text
+ *         - duration
+ *         - languageLevel
  *         - license
  *       properties:
  *         referenceType:
@@ -31,33 +33,24 @@ const router = Router();
  *           type: string
  *         titleTranslations:
  *           type: object
- *         contentMatrix:
- *           type: array
- *           items:
- *             type: object
- *             properties:
- *               duration:
- *                 type: string
- *                 enum: ['3s', '15s', '1min', '4min', '10min']
- *               languageLevel:
- *                 type: string
- *                 enum: [infantile, elementare, medio, specialistico]
- *               content:
- *                 type: object
- *                 properties:
- *                   type:
- *                     type: string
- *                     enum: [text, audio, video, image, ar]
- *                   text:
- *                     type: string
- *                   audioUrl:
- *                     type: string
+ *         text:
+ *           type: string
+ *           description: Testo descrittivo, sia per lo schermo sia per la sintesi vocale
+ *         translatedTexts:
+ *           type: object
+ *         duration:
+ *           type: string
+ *           enum: ['3s', '15s', '1min', '4min', '10min']
+ *           description: Un item = una combinazione durata×livello linguistico
+ *         languageLevel:
+ *           type: string
+ *           enum: [infantile, elementare, medio, specialistico]
  *         authorId:
  *           type: string
  *           description: User ID of the content creator
  *         license:
  *           type: string
- *           enum: [free, cc-by, cc-by-nc, commercial]
+ *           enum: [CC0, CC-BY, CC-BY-SA, CC-BY-NC, CC-BY-NC-SA, proprietary]
  *         price:
  *           type: number
  *         tags:

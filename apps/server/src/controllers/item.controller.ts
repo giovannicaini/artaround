@@ -83,15 +83,12 @@ export class ItemController {
       .isObject()
       .withMessage('translatedTitles must be an object'),
     body('translatedTexts').optional().isObject().withMessage('translatedTexts must be an object'),
-    body('contentMatrix')
-      .isArray({ min: 1 })
-      .withMessage('At least one content matrix entry required'),
-    body('contentMatrix.*.duration')
-      .isIn(Object.values(ContentDuration))
-      .withMessage('Invalid duration'),
-    body('contentMatrix.*.languageLevel')
-      .isIn(Object.values(LanguageLevel))
-      .withMessage('Invalid language level'),
+    // duration/languageLevel sono campi diretti dell'Item (un item = una combinazione
+    // durata×livello). "contentMatrix" era il nome di un vecchio modello ad array
+    // annidato, mai più esistito nello schema: questa validazione lo richiedeva
+    // comunque, quindi ogni creazione di item falliva sempre con 400.
+    body('duration').isIn(Object.values(ContentDuration)).withMessage('Invalid duration'),
+    body('languageLevel').isIn(Object.values(LanguageLevel)).withMessage('Invalid language level'),
     body('license').notEmpty().withMessage('License is required'),
   ];
 
@@ -171,8 +168,8 @@ export class ItemController {
         referenceId: artworkId,
       };
 
-      if (duration) filter['contentMatrix.duration'] = duration;
-      if (languageLevel) filter['contentMatrix.languageLevel'] = languageLevel;
+      if (duration) filter.duration = duration;
+      if (languageLevel) filter.languageLevel = languageLevel;
 
       const items = await ItemModel.find(filter).sort({ createdAt: -1 }).lean();
 
@@ -237,10 +234,7 @@ export class ItemController {
 
       if (q) {
         andFilters.push({
-          $or: [
-            { title: { $regex: q, $options: 'i' } },
-            { 'contentMatrix.content.text': { $regex: q, $options: 'i' } },
-          ],
+          $or: [{ title: { $regex: q, $options: 'i' } }, { text: { $regex: q, $options: 'i' } }],
         });
       }
 
