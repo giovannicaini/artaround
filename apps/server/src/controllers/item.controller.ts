@@ -362,8 +362,11 @@ export class ItemController {
         throw new AppError(404, 'ITEM_NOT_FOUND', 'Item not found');
       }
 
-      // Check ownership
-      if (item.authorId !== req.user.id && req.user.role !== 'admin') {
+      // Autore proprietario, admin o curatore (gestisce tutto il contenuto del suo museo,
+      // stesso criterio già usato per gli artwork) possono modificare l'item.
+      const canManage =
+        item.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
+      if (!canManage) {
         throw new AppError(403, 'FORBIDDEN', 'You can only update your own items');
       }
 
@@ -399,8 +402,10 @@ export class ItemController {
         throw new AppError(404, 'ITEM_NOT_FOUND', 'Item not found');
       }
 
-      // Check ownership
-      if (item.authorId !== req.user.id && req.user.role !== 'admin') {
+      // Stesso criterio dell'update: autore proprietario, admin o curatore.
+      const canManage =
+        item.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
+      if (!canManage) {
         throw new AppError(403, 'FORBIDDEN', 'You can only delete your own items');
       }
 

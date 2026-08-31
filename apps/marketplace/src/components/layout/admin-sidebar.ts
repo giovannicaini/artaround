@@ -74,6 +74,7 @@ export class AdminSidebar extends LitElement {
     return [
       { id: 'museum-edit', label: __('Modifica Museo'), icon: 'edit' },
       { id: 'artworks', label: __('Gestione Opere'), icon: 'image' },
+      { id: 'contents', label: __('Contenuti'), icon: 'document' },
       {
         id: 'navigator-customizations',
         label: __('Configurazioni Navigator'),

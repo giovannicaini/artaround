@@ -6,10 +6,15 @@ import {
   getContentDurationLabel,
   getLanguageLevelLabel,
   getReferenceTypeLabel,
+  UserRole,
   type Item,
   type User,
 } from '@artaround/shared';
-import { getPermissions, type PermissionSet } from '../../services/permissions.service';
+import {
+  getPermissions,
+  canEditOwnItem,
+  type PermissionSet,
+} from '../../services/permissions.service';
 import '../ui/ui-button';
 import '../ui/ui-card';
 import '../ui/ui-icon';
@@ -175,9 +180,23 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     this.viewMode = 'view';
   }
 
+  /**
+   * Permesso reale di modificare/eliminare QUESTO item: rispecchia esattamente il
+   * controllo server-side (item.controller.ts) — proprio contenuto, oppure
+   * curatore/admin che gestiscono tutto il contenuto del museo. this.permissions
+   * (PermissionSet) dice solo "il ruolo può modificare contenuti in generale",
+   * non basta per decidere se mostrare il bottone su un item altrui.
+   */
+  private canManageItem(item: Item): boolean {
+    if (this.user?.role === UserRole.CURATOR) {
+      return true;
+    }
+    return canEditOwnItem(this.user, item.authorId);
+  }
+
   private handleEditItem(item: Item) {
-    if (!this.permissions.canEditItem) {
-      this.error = __('Non hai i permessi per modificare i contenuti.');
+    if (!this.canManageItem(item)) {
+      this.error = __('Non hai i permessi per modificare questo contenuto.');
       return;
     }
     this.selectedItem = item;
@@ -185,8 +204,8 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
   }
 
   private handleDeleteItem(item: Item) {
-    if (!this.permissions.canDeleteItem) {
-      this.error = __('Non hai i permessi per eliminare i contenuti.');
+    if (!this.canManageItem(item)) {
+      this.error = __('Non hai i permessi per eliminare questo contenuto.');
       return;
     }
     this.itemToDelete = item;
@@ -474,17 +493,13 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
               .title=${__('Visualizza')}
               @click=${() => this.handleViewItem(item)}
             ></ui-icon-button>
-            ${this.permissions.canEditItem
+            ${this.canManageItem(item)
               ? html`
                   <ui-icon-button
                     icon="edit"
                     .title=${__('Modifica')}
                     @click=${() => this.handleEditItem(item)}
                   ></ui-icon-button>
-                `
-              : nothing}
-            ${this.permissions.canDeleteItem
-              ? html`
                   <ui-icon-button
                     icon="trash"
                     variant="danger"
@@ -511,7 +526,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
           showBack
           @back=${this.backToListView}
         >
-          ${this.permissions.canEditItem
+          ${this.canManageItem(this.selectedItem)
             ? html`
                 <ui-button
                   slot="actions"
