@@ -6,7 +6,13 @@ import {
   getContentDurationLabel,
   getLanguageLevelLabel,
   getReferenceTypeLabel,
+  CONTENT_DURATION_OPTIONS_IT,
+  ITEM_REFERENCE_TYPE_OPTIONS_IT,
+  LANGUAGE_LEVEL_OPTIONS_IT,
   UserRole,
+  ItemReferenceType,
+  ContentDuration,
+  LanguageLevel,
   type Item,
   type User,
 } from '@artaround/shared';
@@ -27,12 +33,13 @@ import '../ui/ui-loading';
 import '../ui/ui-empty';
 import '../ui/ui-alert';
 import '../ui/ui-pagination';
-import '../ui/ui-search-bar';
 import '../ui/ui-icon-button';
 import '../ui/ui-data-grid';
 import '../ui/ui-media-card';
 import '../ui/ui-museum-required-notice';
 import '../ui/ui-panel-section';
+import '../ui/ui-select';
+import '../ui/ui-list-controls';
 import '../items/item-creator';
 import { __ } from '../../services/i18n.service';
 
@@ -65,9 +72,40 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
   @state() private deleting = false;
   @state() private ownItemsCache: Item[] = [];
 
+  // Filtri (stesso pattern collassabile usato in artworks-page.ts)
+  @state() private controlsCollapsed = true;
+  @state() private filterReferenceType: ItemReferenceType | '' = '';
+  @state() private filterDuration: ContentDuration | '' = '';
+  @state() private filterLanguageLevel: LanguageLevel | '' = '';
+  @state() private filterIsFree: 'true' | 'false' | '' = '';
+
   // ─── Computed State ──────────────────────────────────────
   private get permissions(): PermissionSet {
     return getPermissions(this.user);
+  }
+
+  private get activeFilterCount(): number {
+    return [
+      this.filterReferenceType,
+      this.filterDuration,
+      this.filterLanguageLevel,
+      this.filterIsFree,
+    ].filter(Boolean).length;
+  }
+
+  private get referenceTypeFilterOptions() {
+    return ITEM_REFERENCE_TYPE_OPTIONS_IT.map((option) => ({
+      ...option,
+      label: __(option.label),
+    }));
+  }
+
+  private get durationFilterOptions() {
+    return CONTENT_DURATION_OPTIONS_IT.map((option) => ({ ...option, label: __(option.label) }));
+  }
+
+  private get languageLevelFilterOptions() {
+    return LANGUAGE_LEVEL_OPTIONS_IT.map((option) => ({ ...option, label: __(option.label) }));
   }
 
   // ─── Lifecycle ───────────────────────────────────────────
@@ -88,6 +126,35 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
   }
 
   // ─── Data Loading ────────────────────────────────────────
+  /**
+   * Applica i filtri attivi (tipo riferimento, durata, livello, gratuito/a
+   * pagamento) + ricerca testuale a un array di item in memoria — usato in
+   * modalità authorOnly, dove "i miei item" arrivano già tutti insieme e si
+   * filtrano lato client invece che con una nuova richiesta al server.
+   */
+  private applyFiltersInMemory(items: Item[]): Item[] {
+    const query = this.searchQuery.trim().toLowerCase();
+
+    return items.filter((item) => {
+      if (this.filterReferenceType && item.referenceType !== this.filterReferenceType) {
+        return false;
+      }
+      if (this.filterDuration && item.duration !== this.filterDuration) {
+        return false;
+      }
+      if (this.filterLanguageLevel && item.languageLevel !== this.filterLanguageLevel) {
+        return false;
+      }
+      if (this.filterIsFree && item.isFree !== (this.filterIsFree === 'true')) {
+        return false;
+      }
+      if (query) {
+        return item.title.toLowerCase().includes(query) || item.text.toLowerCase().includes(query);
+      }
+      return true;
+    });
+  }
+
   private async loadItems() {
     this.loading = true;
     this.error = '';
@@ -100,12 +167,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
           : myItems;
 
         this.ownItemsCache = filteredByMuseum;
-        const visibleItems = this.searchQuery.trim()
-          ? filteredByMuseum.filter((item) => {
-              const q = this.searchQuery.toLowerCase();
-              return item.title.toLowerCase().includes(q) || item.text.toLowerCase().includes(q);
-            })
-          : filteredByMuseum;
+        const visibleItems = this.applyFiltersInMemory(filteredByMuseum);
 
         this.items = visibleItems;
         this.pagination = {
@@ -121,6 +183,11 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
         page: this.pagination.page,
         limit: this.pagination.limit,
         museumId: this.selectedMuseumId || undefined,
+        referenceType: this.filterReferenceType || undefined,
+        duration: this.filterDuration || undefined,
+        languageLevel: this.filterLanguageLevel || undefined,
+        isFree: this.filterIsFree ? this.filterIsFree === 'true' : undefined,
+        search: this.searchQuery.trim() || undefined,
       });
       this.items = result.items;
       this.pagination = result.pagination;
@@ -132,46 +199,35 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
-  private async handleSearch() {
+  /**
+   * In modalità authorOnly non c'è bisogno di ricontattare il server: gli item
+   * dell'autore sono già tutti in ownItemsCache, si rifiltra solo in memoria.
+   */
+  private applyFilters() {
+    this.pagination.page = 1;
+
     if (this.authorOnly) {
-      const query = this.searchQuery.trim().toLowerCase();
-      this.items = query
-        ? this.ownItemsCache.filter(
-            (item) =>
-              item.title.toLowerCase().includes(query) || item.text.toLowerCase().includes(query),
-          )
-        : [...this.ownItemsCache];
+      const visibleItems = this.applyFiltersInMemory(this.ownItemsCache);
+      this.items = visibleItems;
       this.pagination = {
         page: 1,
-        limit: Math.max(this.items.length, 1),
-        total: this.items.length,
+        limit: Math.max(visibleItems.length, 1),
+        total: visibleItems.length,
         totalPages: 1,
       };
       return;
     }
 
-    if (!this.searchQuery.trim()) {
-      this.loadItems();
-      return;
-    }
+    this.loadItems();
+  }
 
-    this.loading = true;
-    this.error = '';
-
-    try {
-      const result = await itemService.searchItems(this.searchQuery, {
-        page: 1,
-        limit: this.pagination.limit,
-        museumId: this.selectedMuseumId || undefined,
-      });
-      this.items = result.items;
-      this.pagination = result.pagination;
-    } catch (e) {
-      console.error('Error searching items:', e);
-      this.error = __('Errore durante la ricerca');
-    } finally {
-      this.loading = false;
-    }
+  private handleResetFilters() {
+    this.searchQuery = '';
+    this.filterReferenceType = '';
+    this.filterDuration = '';
+    this.filterLanguageLevel = '';
+    this.filterIsFree = '';
+    this.applyFilters();
   }
 
   // ─── List / Form Actions ─────────────────────────────────
@@ -290,6 +346,93 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
+  private renderControlsSummary() {
+    return html`
+      <ui-badge
+        variant=${this.activeFilterCount > 0 ? 'primary' : 'secondary'}
+        .label=${`${this.activeFilterCount} ${__('filtri')}`}
+      ></ui-badge>
+    `;
+  }
+
+  private renderControlsContent() {
+    return html`
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <ui-input
+          .label=${__('Ricerca')}
+          .placeholder=${__('Cerca contenuti...')}
+          .value=${this.searchQuery}
+          @input-change=${(e: CustomEvent<{ value: string }>) => {
+            this.searchQuery = e.detail.value;
+          }}
+        ></ui-input>
+
+        <ui-select
+          .label=${__('Tipo di riferimento')}
+          .placeholder=${__('Tutti i tipi')}
+          clearable
+          .value=${this.filterReferenceType}
+          .options=${this.referenceTypeFilterOptions}
+          @select-change=${(e: CustomEvent<{ value: ItemReferenceType | '' }>) => {
+            this.filterReferenceType = e.detail.value;
+          }}
+        ></ui-select>
+
+        <ui-select
+          .label=${__('Durata')}
+          .placeholder=${__('Tutte le durate')}
+          clearable
+          .value=${this.filterDuration}
+          .options=${this.durationFilterOptions}
+          @select-change=${(e: CustomEvent<{ value: ContentDuration | '' }>) => {
+            this.filterDuration = e.detail.value;
+          }}
+        ></ui-select>
+
+        <ui-select
+          .label=${__('Livello linguistico')}
+          .placeholder=${__('Tutti i livelli')}
+          clearable
+          .value=${this.filterLanguageLevel}
+          .options=${this.languageLevelFilterOptions}
+          @select-change=${(e: CustomEvent<{ value: LanguageLevel | '' }>) => {
+            this.filterLanguageLevel = e.detail.value;
+          }}
+        ></ui-select>
+
+        <ui-select
+          .label=${__('Prezzo')}
+          .placeholder=${__('Gratuiti e a pagamento')}
+          clearable
+          .value=${this.filterIsFree}
+          .options=${[
+            { value: 'true', label: __('Solo gratuiti') },
+            { value: 'false', label: __('Solo a pagamento') },
+          ]}
+          @select-change=${(e: CustomEvent<{ value: 'true' | 'false' | '' }>) => {
+            this.filterIsFree = e.detail.value;
+          }}
+        ></ui-select>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <ui-button
+          variant="primary"
+          size="sm"
+          icon="search"
+          .label=${__('Applica filtri')}
+          @click=${() => this.applyFilters()}
+        ></ui-button>
+        <ui-button
+          variant="secondary"
+          size="sm"
+          .label=${__('Reset')}
+          @click=${this.handleResetFilters}
+        ></ui-button>
+      </div>
+    `;
+  }
+
   private renderListView() {
     return html`
       <div class="space-y-6">
@@ -301,12 +444,6 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
           .description=${__('Testi descrittivi per opere, autori, movimenti')}
         >
           <div slot="actions" class="flex items-center gap-3">
-            <ui-search-bar
-              .placeholder=${__('Cerca contenuti...')}
-              .value=${this.searchQuery}
-              @input-change=${(e: CustomEvent) => (this.searchQuery = e.detail.value)}
-              @search=${this.handleSearch}
-            ></ui-search-bar>
             ${this.permissions.canCreateItem
               ? html`
                   <ui-button
@@ -326,6 +463,17 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
               @select-museum=${this.emitSelectMuseum}
             ></ui-museum-required-notice>`
           : nothing}
+
+        <!-- Filtri -->
+        <ui-list-controls
+          .title=${__('Filtri e ricerca')}
+          .description=${__('Espandi per filtrare per tipo, durata, livello e ricercare per testo')}
+          .collapsed=${this.controlsCollapsed}
+          .renderSummary=${() => this.renderControlsSummary()}
+          .renderContent=${() => this.renderControlsContent()}
+          @collapsed-change=${(e: CustomEvent<{ collapsed: boolean }>) =>
+            (this.controlsCollapsed = e.detail.collapsed)}
+        ></ui-list-controls>
 
         <!-- Content -->
         ${this.loading

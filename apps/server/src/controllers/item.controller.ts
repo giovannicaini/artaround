@@ -106,6 +106,7 @@ export class ItemController {
         duration,
         languageLevel,
         isFree,
+        search,
         page = '1',
         limit = '50',
       } = req.query;
@@ -114,9 +115,21 @@ export class ItemController {
       if (referenceType) filter.referenceType = referenceType;
       if (referenceId) filter.referenceId = referenceId;
       if (authorId) filter.authorId = authorId;
-      if (duration) filter['contentMatrix.duration'] = duration;
-      if (languageLevel) filter['contentMatrix.languageLevel'] = languageLevel;
+      // NB: duration/languageLevel sono campi diretti dell'Item, non annidati sotto
+      // "contentMatrix" (quel path non esiste più nello schema: prima di questo fix
+      // questi due filtri non trovavano mai nulla).
+      if (duration) filter.duration = duration;
+      if (languageLevel) filter.languageLevel = languageLevel;
       if (isFree !== undefined) filter.isFree = isFree === 'true';
+      if (search) {
+        const q = String(search).trim();
+        if (q) {
+          filter.$or = [
+            { title: { $regex: q, $options: 'i' } },
+            { text: { $regex: q, $options: 'i' } },
+          ];
+        }
+      }
 
       const museumIdFilter = await buildMuseumIdFilterValue(museumId as string | undefined);
       if (museumIdFilter !== undefined) {
