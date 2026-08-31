@@ -10,6 +10,7 @@ import {
   ContentDuration,
   LanguageLevel,
   type CreateItemData,
+  type UpdateItemData,
   type AppLanguage,
   isSupportedAppLanguage,
 } from '@artaround/shared';
@@ -30,12 +31,14 @@ import '../ui/ui-badge';
 import '../ui/ui-panel-section';
 import '../ui/ui-tag-input';
 import '../ui/ui-museum-required-notice';
+import '../ui/ui-loading';
 
 @customElement('item-creator')
 export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
   @property({ type: String }) itemId = ''; // For edit mode
 
   @state() private loading = false;
+  @state() private loadingItem = false;
   @state() private translating = false;
   @state() private error = '';
   @state() private success = '';
@@ -98,6 +101,48 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     super.connectedCallback();
     window.addEventListener('ui-language-changed', this.handleLanguageChanged as EventListener);
     void this.loadMuseumLanguages();
+    if (this.itemId) {
+      void this.loadExistingItem();
+    }
+  }
+
+  // In modalità modifica (itemId valorizzato) precarica il contenuto esistente:
+  // prima di questo fix il form si apriva vuoto e il salvataggio creava sempre
+  // un item nuovo invece di aggiornare quello che si stava "modificando".
+  private async loadExistingItem(): Promise<void> {
+    this.loadingItem = true;
+    this.error = '';
+
+    try {
+      const item = await itemService.getItem(this.itemId);
+      if (!item) {
+        this.error = __('Contenuto non trovato');
+        return;
+      }
+
+      this.referenceType = item.referenceType;
+      this.referenceId = item.referenceId || '';
+      this.referenceTitle = item.referenceTitle || '';
+      this.itemTitle = item.title;
+      this.text = item.text;
+      this.sourceLanguage = item.sourceLanguage;
+      this.translatedTitles = item.translatedTitles || {};
+      this.translatedTexts = item.translatedTexts || {};
+      this.translationModeByLang = Object.fromEntries(
+        Object.keys(item.translatedTexts || {}).map((lang) => [lang, 'manual' as const]),
+      );
+      this.duration = item.duration;
+      this.languageLevel = item.languageLevel;
+      this.license = item.license;
+      this.price = item.price ?? 0;
+      this.tags = item.tags || [];
+      this.image = item.image || '';
+    } catch (err) {
+      this.error =
+        err instanceof Error ? err.message : __('Impossibile caricare il contenuto da modificare');
+    } finally {
+      this.loadingItem = false;
+    }
   }
 
   disconnectedCallback() {
@@ -338,7 +383,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     this.success = '';
 
     try {
-      const itemData: CreateItemData = {
+      const itemData: CreateItemData | UpdateItemData = {
         museumId,
         sourceLanguage: this.sourceLanguage,
         referenceType: this.referenceType,
@@ -356,9 +401,15 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
         image: this.image || undefined,
       };
 
-      await itemService.createItem(itemData);
+      const isEditMode = Boolean(this.itemId);
 
-      this.success = __('Contenuto creato con successo!');
+      if (isEditMode) {
+        await itemService.updateItem(this.itemId, itemData);
+        this.success = __('Contenuto aggiornato con successo!');
+      } else {
+        await itemService.createItem(itemData as CreateItemData);
+        this.success = __('Contenuto creato con successo!');
+      }
 
       // Dispatch success event
       this.dispatchEvent(
@@ -368,14 +419,17 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
         }),
       );
 
-      // Reset form after short delay
-      setTimeout(() => {
-        this.resetForm();
-      }, 2000);
+      // Reset form after short delay (solo in creazione: in modifica il form
+      // sparisce comunque perché il chiamante torna alla lista sull'evento sopra)
+      if (!isEditMode) {
+        setTimeout(() => {
+          this.resetForm();
+        }, 2000);
+      }
     } catch (err) {
-      console.error('Error creating item:', err);
+      console.error('Error saving item:', err);
       this.error =
-        err instanceof Error ? err.message : __('Errore durante la creazione del contenuto');
+        err instanceof Error ? err.message : __('Errore durante il salvataggio del contenuto');
     } finally {
       this.loading = false;
     }
@@ -445,6 +499,10 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
       ItemReferenceType.MOVEMENT,
       ItemReferenceType.MUSEUM,
     ].includes(this.referenceType);
+
+    if (this.loadingItem) {
+      return html`<ui-loading .text=${__('Caricamento contenuto...')}></ui-loading>`;
+    }
 
     return html`
       <form @submit=${this.handleSubmit} class="space-y-8">
@@ -719,7 +777,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
           <ui-button
             type="submit"
             variant="primary"
-            .label=${__('Crea Contenuto')}
+            .label=${this.itemId ? __('Salva modifiche') : __('Crea Contenuto')}
             icon="save"
             .loading=${this.loading}
           ></ui-button>
