@@ -9,6 +9,86 @@ type SeedOptions = {
   exitOnComplete?: boolean;
 };
 
+type SeedUser = {
+  username: string;
+  email: string;
+  role: UserRole;
+  isActive: true;
+  profile?: {
+    displayName: string;
+    bio?: string;
+    competenceLevel: CompetenceLevel;
+    preferredLanguageLevel: LanguageLevel;
+    timePreference: TimePreference;
+  };
+};
+
+/**
+ * Account richiesti dalle specifiche di progetto: "Nel marketplace sono già creati 4
+ * account: autore1, autore2, visitatore1 e visitatore2, tutti con password 12345678."
+ * "admin" è aggiuntivo, necessario per le funzionalità riservate all'amministratore.
+ */
+function getRequiredUsers(): SeedUser[] {
+  return [
+    {
+      username: 'admin',
+      email: 'admin@artaround.app',
+      role: UserRole.ADMIN,
+      isActive: true,
+    },
+    {
+      username: 'autore1',
+      email: 'autore1@artaround.app',
+      role: UserRole.AUTHOR,
+      isActive: true,
+      profile: {
+        displayName: 'Autore 1',
+        bio: 'Autore di contenuti culturali per musei e percorsi di visita.',
+        competenceLevel: CompetenceLevel.AVANZATO,
+        preferredLanguageLevel: LanguageLevel.MEDIUM,
+        timePreference: TimePreference.NORMALE,
+      },
+    },
+    {
+      username: 'autore2',
+      email: 'autore2@artaround.app',
+      role: UserRole.AUTHOR,
+      isActive: true,
+      profile: {
+        displayName: 'Autore 2',
+        bio: 'Autrice/autore di contenuti culturali, focus su linguaggio divulgativo.',
+        competenceLevel: CompetenceLevel.MEDIO,
+        preferredLanguageLevel: LanguageLevel.ELEMENTARY,
+        timePreference: TimePreference.NORMALE,
+      },
+    },
+    {
+      username: 'visitatore1',
+      email: 'visitatore1@artaround.app',
+      role: UserRole.VISITOR,
+      isActive: true,
+      profile: {
+        displayName: 'Visitatore 1',
+        competenceLevel: CompetenceLevel.SEMPLICE,
+        preferredLanguageLevel: LanguageLevel.ELEMENTARY,
+        timePreference: TimePreference.VELOCE,
+      },
+    },
+    {
+      username: 'visitatore2',
+      email: 'visitatore2@artaround.app',
+      role: UserRole.VISITOR,
+      isActive: true,
+      profile: {
+        displayName: 'Visitatore 2',
+        competenceLevel: CompetenceLevel.AVANZATO,
+        preferredLanguageLevel: LanguageLevel.SPECIALIST,
+        timePreference: TimePreference.APPROFONDITO,
+      },
+    },
+  ];
+}
+
 export async function seedDatabase(options: SeedOptions = {}): Promise<void> {
   const { connect = true, exitOnComplete = true } = options;
 
@@ -19,51 +99,26 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<void> {
       await connectDB();
     }
 
-    console.log('🗑️ Clearing users...');
-    await User.deleteMany({});
-    console.log('✅ Users cleared\n');
-
-    console.log('👥 Creating users...');
+    console.log('👥 Ensuring required users exist...');
     const hashedPassword = await bcrypt.hash('12345678', 10);
 
-    await User.create([
-      {
-        username: 'admin',
-        email: 'admin@artaround.app',
-        password: hashedPassword,
-        role: UserRole.ADMIN,
-        isActive: true,
-      },
-      {
-        username: 'autore1',
-        email: 'autore1@artaround.app',
-        password: hashedPassword,
-        role: UserRole.AUTHOR,
-        isActive: true,
-        profile: {
-          displayName: 'Autore 1',
-          bio: 'Autore di contenuti culturali per musei e percorsi di visita.',
-          competenceLevel: CompetenceLevel.AVANZATO,
-          preferredLanguageLevel: LanguageLevel.MEDIUM,
-          timePreference: TimePreference.NORMALE,
-        },
-      },
-      {
-        username: 'utente1',
-        email: 'utente1@artaround.app',
-        password: hashedPassword,
-        role: UserRole.VISITOR,
-        isActive: true,
-        profile: {
-          displayName: 'Utente 1',
-          competenceLevel: CompetenceLevel.SEMPLICE,
-          preferredLanguageLevel: LanguageLevel.ELEMENTARY,
-          timePreference: TimePreference.VELOCE,
-        },
-      },
-    ]);
+    let created = 0;
+    let skipped = 0;
 
-    console.log('✅ Users created\n');
+    for (const user of getRequiredUsers()) {
+      const existing = await User.findOne({ username: user.username }).select('_id').lean();
+      if (existing) {
+        skipped += 1;
+        console.log(`   ⏭️  ${user.username} già esistente, non toccato`);
+        continue;
+      }
+
+      await User.create({ ...user, password: hashedPassword });
+      created += 1;
+      console.log(`   ✅  ${user.username} creato`);
+    }
+
+    console.log(`\n✅ Users ensured (creati: ${created}, già esistenti: ${skipped})\n`);
     console.log('🎉 Base seed completed successfully!');
 
     if (exitOnComplete) {
