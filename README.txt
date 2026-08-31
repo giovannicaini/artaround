@@ -127,8 +127,20 @@ ciascun workspace, oltre a quelli preinstallati con Node/npm.
 - `turbo` — orchestrazione build/dev/test su tutti i workspace
 - `typescript` (condivisa dai workspace)
 
+## Funzionalità distintive rispetto alle specifiche
+
+Oltre ai requisiti di base, il progetto include:
+
+- **Contenuti reali, non solo dati di esempio**: pipeline automatica che unisce query SPARQL su Wikidata e scraping del sito ufficiale per popolare il DB con musei reali — Galleria Borghese completa (20 sale, 84 opere con sala/piano/descrizione/materiali) e Uffizi in corso — invece dei soliti pochi record fittizi.
+- **Traduzione assistita da AI a due livelli**: non solo i contenuti (nome/descrizione museo, testi della app Navigator) tramite un editor a tab-lingua con stato "tradotto/da tradurre", ma anche le stringhe dell'interfaccia stessa, ritradotte in blocco in 5 lingue con un glossario di dominio e verifica automatica che i placeholder (`{name}`, `%s`) sopravvivano alla traduzione.
+- **Geocoding e mappa live nell'editor museo**: l'indirizzo inserito dal curatore viene risolto in coordinate via Nominatim/OpenStreetMap e mostrato su una mappa Leaflet in tempo reale, senza dover conoscere lat/lng a mano.
+- **Editor di piantine museali**: strumento SVG per disegnare piani e posizionare marker (opere, uscite, bagni, ascensori, ostacoli di accessibilità, punti audioguida...) invece della sola visualizzazione statica richiesta dalle specifiche.
+- **Permessi contestuali per risorsa**: oltre ai ruoli globali (admin/curator/creator/user), un utente può avere ruoli diversi su musei diversi (es. curatore del museo A, semplice autore sul museo B) tramite assegnazioni per risorsa.
+- **Pipeline immagini robusta**: download automatico da Wikimedia Commons con retry e 7 profili di compressione a cascata (via `sharp`) per restare sotto un budget di dimensione senza perdere qualità visibile.
+- **Prestazioni**: le pagine del marketplace sono caricate on-demand (`import()` dinamico per route) invece che tutte insieme, per ridurre il bundle JS iniziale scaricato dal browser.
+
 ## Contributo individuale
 
 #### persona1: Giovanni Caini: tutto, tra cui analisi dei requisiti, architettura del monorepo, backend (API, autenticazione, integrazione Wikidata/Nominatim, seed dei contenuti reali), frontend marketplace e navigator, internazionalizzazione, deployment e configurazione del dominio.
 
-#### LLM: Claude Code (Claude Sonnet 5, Anthropic) — assistenza alla programmazione, soprattutto in compiti ripetitivi (es. replicazione dei vari component della ui), verifica di uniformità tra i vari file di progetto, controllo aggiuntivo sulla correttezza del codice (già di per sè abbastanza "controllato" dalla rigida transpilazione di TypeScript)
+#### LLM: Claude Code (Claude Sonnet 5, Anthropic) — assistenza alla programmazione, soprattutto in compiti ripetitivi (es. replicazione dei vari component della ui, generazione documentazione, elenco directory in questo file, ...), verifica di uniformità tra i vari file di progetto, controllo aggiuntivo sulla correttezza del codice (già di per sè abbastanza "controllato" dalla rigida transpilazione di TypeScript)
