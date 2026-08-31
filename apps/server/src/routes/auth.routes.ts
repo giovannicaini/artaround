@@ -131,4 +131,43 @@ router.post('/login', AuthController.loginValidation, AuthController.login);
  */
 router.get('/me', authMiddleware, AuthController.me);
 
+/**
+ * @swagger
+ * /api/auth/me:
+ *   put:
+ *     tags: [Auth]
+ *     summary: Aggiorna il proprio profilo
+ *     description: Self-service — l'utente autenticato aggiorna email e/o preferenze proprie. Non tocca ruolo, roleAssignments, username o isActive (quelli restano riservati agli admin via PUT /api/users/:id).
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profilo aggiornato
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
+router.put('/me', authMiddleware, AuthController.updateMeValidation, AuthController.updateMe);
+
+/**
+ * @swagger
+ * /api/auth/me/password:
+ *   put:
+ *     tags: [Auth]
+ *     summary: Cambia la propria password
+ *     description: Richiede la password attuale per verifica prima di impostarne una nuova.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Password cambiata
+ *       401:
+ *         description: Password attuale errata o non autenticato
+ */
+router.put(
+  '/me/password',
+  authMiddleware,
+  AuthController.changePasswordValidation,
+  AuthController.changePassword,
+);
+
 export default router;
