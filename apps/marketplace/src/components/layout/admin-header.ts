@@ -112,6 +112,17 @@ export class AdminHeader extends LitElement {
     preferencesService.clearSelectedMuseum();
   }
 
+  private handleGoToAccount() {
+    this.userMenuOpen = false;
+    this.dispatchEvent(
+      new CustomEvent('navigate', {
+        detail: { route: 'settings' },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
   private async hydrateSelectedMuseumLocalization() {
     if (!this.selectedMuseum?._id) {
       return;
@@ -300,10 +311,11 @@ export class AdminHeader extends LitElement {
                       </div>
                       <div class="p-1.5">
                         <button
+                          @click=${this.handleGoToAccount}
                           class="flex items-center gap-2 w-full px-3 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-md transition-colors"
                         >
                           <ui-icon name="cog" size="xs"></ui-icon>
-                          ${__('Impostazioni')}
+                          ${__('Il mio account')}
                         </button>
                         <button
                           @click=${() =>

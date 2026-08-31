@@ -101,7 +101,7 @@ export class AdminSidebar extends LitElement {
   }
 
   private get bottomItems(): MenuItem[] {
-    return [{ id: 'settings', label: __('Impostazioni'), icon: 'cog' }];
+    return [{ id: 'settings', label: __('Il mio account'), icon: 'cog' }];
   }
 
   private handleNavigate(route: string) {

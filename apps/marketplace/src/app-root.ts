@@ -103,7 +103,7 @@ export class AppRoot extends LitElement {
       users: 'Gestione Utenti',
       categories: 'Categorie',
       tags: 'Tag',
-      settings: 'Impostazioni',
+      settings: 'Il mio account',
     };
 
     const label = labelByRoute[route] || 'Homepage';
@@ -368,6 +368,7 @@ export class AppRoot extends LitElement {
           @history-back=${this.handleHistoryBack}
           @history-forward=${this.handleHistoryForward}
           @logout=${this.handleLogout}
+          @navigate=${this.handleNavigate}
         ></admin-header>
 
         <main class="${marginClass} pt-16 min-h-screen transition-all duration-300">

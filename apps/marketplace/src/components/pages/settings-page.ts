@@ -144,7 +144,7 @@ export class SettingsPage extends LitElement {
     return html`
       <div class="max-w-2xl space-y-6">
         <ui-page-header
-          .title=${__('Impostazioni')}
+          .title=${__('Il mio account')}
           .description=${__('Gestisci il tuo profilo e la tua password')}
         ></ui-page-header>
 
