@@ -6,23 +6,32 @@ import { historyService, type HistoryState } from './services/history.service';
 import { __ } from './services/i18n.service';
 import { ContextualRole, ResourceType, UserRole, type User } from '@artaround/shared';
 
-// Import components
+// Import components sempre necessari nella shell iniziale (login, layout)
 import './components/auth/login-page';
 import './components/layout/admin-sidebar';
 import './components/layout/admin-header';
-import './components/pages/dashboard-page';
-import './components/pages/museums-page';
-import './components/pages/artworks-page';
-import './components/pages/contents-page';
-import './components/pages/author-area-page';
-import './components/pages/marketplace-page';
-import './components/pages/purchases-page';
-import './components/pages/users-page';
-import './components/visits/visits-page';
-import './components/museums/museum-map-page';
-import './components/museums/museums-management-page';
-import './components/navigator/navigator-default-config-page';
 import './components/ui/ui-scroll-top';
+
+// Le pagine vere e proprie vengono caricate on-demand (vedi PAGE_LOADERS più sotto):
+// evita di mettere ~700KB di componenti nel bundle iniziale quando l'utente ne visita
+// solo uno o due per sessione. Stesso pattern già usato per Leaflet in
+// museums-management-page.ts (import() dinamico -> chunk separato).
+const PAGE_LOADERS: Record<string, () => Promise<unknown>> = {
+  dashboard: () => import('./components/pages/dashboard-page'),
+  museums: () => import('./components/pages/museums-page'),
+  'museums-management': () => import('./components/museums/museums-management-page'),
+  'museum-edit': () => import('./components/museums/museums-management-page'),
+  'navigator-customizations': () => import('./components/museums/museums-management-page'),
+  'navigator-default-config': () => import('./components/navigator/navigator-default-config-page'),
+  'museum-maps': () => import('./components/museums/museum-map-page'),
+  artworks: () => import('./components/pages/artworks-page'),
+  'author-area': () => import('./components/pages/author-area-page'),
+  marketplace: () => import('./components/pages/marketplace-page'),
+  purchases: () => import('./components/pages/purchases-page'),
+  contents: () => import('./components/pages/contents-page'),
+  visits: () => import('./components/visits/visits-page'),
+  users: () => import('./components/pages/users-page'),
+};
 
 @customElement('app-root')
 export class AppRoot extends LitElement {
@@ -52,6 +61,10 @@ export class AppRoot extends LitElement {
 
   // Flag per evitare cicli durante la navigazione dalla history
   private isNavigatingFromHistory = false;
+
+  // Tracking dei moduli-pagina caricati on-demand (vedi PAGE_LOADERS)
+  private loadedPageModules = new Set<string>();
+  private pendingPageModules = new Set<string>();
 
   connectedCallback() {
     super.connectedCallback();
@@ -176,7 +189,51 @@ export class AppRoot extends LitElement {
   }
 
   // ─── Route Renderers ─────────────────────────────────────
+  /**
+   * Assicura che il componente della pagina richiesta sia caricato prima di renderizzarla.
+   * Ritorna true se già disponibile (nessuna pagina da caricare, o già caricata),
+   * false se il caricamento è in corso: in quel caso renderPage() mostra uno spinner
+   * e si aggiorna da sola (requestUpdate) appena il chunk arriva.
+   */
+  private ensurePageLoaded(route: string): boolean {
+    const loader = PAGE_LOADERS[route];
+    if (!loader || this.loadedPageModules.has(route)) {
+      return true;
+    }
+
+    if (!this.pendingPageModules.has(route)) {
+      this.pendingPageModules.add(route);
+      loader()
+        .then(() => {
+          this.loadedPageModules.add(route);
+        })
+        .catch((error) => {
+          console.error(`Errore nel caricamento della pagina "${route}":`, error);
+        })
+        .finally(() => {
+          this.pendingPageModules.delete(route);
+          this.requestUpdate();
+        });
+    }
+
+    return false;
+  }
+
+  private renderPageLoading() {
+    return html`
+      <div class="flex items-center justify-center min-h-[300px]">
+        <div
+          class="w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin"
+        ></div>
+      </div>
+    `;
+  }
+
   renderPage() {
+    if (!this.ensurePageLoaded(this.currentRoute)) {
+      return this.renderPageLoading();
+    }
+
     switch (this.currentRoute) {
       case 'dashboard':
         return html`<dashboard-page .user=${this.currentUser}></dashboard-page>`;
