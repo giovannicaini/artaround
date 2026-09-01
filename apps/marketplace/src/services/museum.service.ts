@@ -234,7 +234,7 @@ export class MuseumService {
 
   async createRoom(
     museumId: string,
-    room: { id: string; name: string },
+    room: { id: string; title: string; subtitle?: string },
   ): Promise<{ data: MuseumRoom | null; error?: string }> {
     const response = await apiService.post<MuseumRoom>(`/museums/${museumId}/rooms`, room);
     if (response.success && response.data) {
@@ -246,10 +246,12 @@ export class MuseumService {
   async renameRoom(
     museumId: string,
     roomId: string,
-    name: string,
+    title: string,
+    subtitle?: string,
   ): Promise<{ data: MuseumRoom | null; error?: string }> {
     const response = await apiService.put<MuseumRoom>(`/museums/${museumId}/rooms/${roomId}`, {
-      name,
+      title,
+      subtitle,
     });
     if (response.success && response.data) {
       return { data: response.data };

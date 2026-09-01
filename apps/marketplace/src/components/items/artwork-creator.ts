@@ -1027,7 +1027,10 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                       .label=${`${__('Sala')} *`}
                       .placeholder=${__('Seleziona la sala')}
                       .value=${this.roomId}
-                      .options=${this.availableRooms.map((r) => ({ value: r.id, label: r.name }))}
+                      .options=${this.availableRooms.map((r) => ({
+                        value: r.id,
+                        label: r.subtitle ? `${r.title} — ${r.subtitle}` : r.title,
+                      }))}
                       @select-change=${(e: CustomEvent) => (this.roomId = e.detail.value)}
                     ></ui-select>
                   </div>

@@ -848,11 +848,13 @@ export class MuseumController {
 
   static roomValidation = [
     body('id').trim().notEmpty().withMessage('Room ID is required'),
-    body('name').trim().notEmpty().withMessage('Room name is required'),
+    body('title').trim().notEmpty().withMessage('Room title is required'),
+    body('subtitle').optional({ values: 'falsy' }).trim(),
   ];
 
   static roomRenameValidation = [
-    body('name').trim().notEmpty().withMessage('Room name is required'),
+    body('title').trim().notEmpty().withMessage('Room title is required'),
+    body('subtitle').optional({ values: 'falsy' }).trim(),
   ];
 
   static roomOutlineValidation = [
@@ -883,7 +885,7 @@ export class MuseumController {
     }
   }
 
-  // Create a new room (solo id/name: il contorno si aggiunge dopo)
+  // Create a new room (solo id/title/subtitle: il contorno si aggiunge dopo)
   static async createRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -892,7 +894,11 @@ export class MuseumController {
       }
 
       const { id } = req.params;
-      const roomData: MuseumRoom = { id: req.body.id, name: req.body.name };
+      const roomData: MuseumRoom = {
+        id: req.body.id,
+        title: req.body.title,
+        subtitle: req.body.subtitle || undefined,
+      };
 
       const museum = await MuseumModel.findById(id);
       if (!museum) {
@@ -919,7 +925,7 @@ export class MuseumController {
     }
   }
 
-  // Rinomina una sala (solo name — non tocca floorId/polygon)
+  // Rinomina una sala (solo title/subtitle — non tocca floorId/polygon)
   static async updateRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -939,7 +945,8 @@ export class MuseumController {
         throw new AppError(404, 'ROOM_NOT_FOUND', 'Room not found');
       }
 
-      room.name = req.body.name;
+      room.title = req.body.title;
+      room.subtitle = req.body.subtitle || undefined;
       await museum.save();
 
       res.json({

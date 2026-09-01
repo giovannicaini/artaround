@@ -1,9 +1,10 @@
 import { LitElement, html, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import type { MuseumRoom } from '@artaround/shared';
 import '../ui/ui-button';
 import '../ui/ui-badge';
 import '../ui/ui-icon-button';
+import '../ui/ui-icon';
 import { __ } from '../../services/i18n.service';
 
 /**
@@ -42,6 +43,13 @@ export class RoomOutlineEditor extends LitElement {
 
   @property({ type: String })
   generatingMarkersRoomId: string | null = null;
+
+  @state()
+  private collapsed = false;
+
+  private roomLabel(room: MuseumRoom): string {
+    return room.subtitle ? `${room.title} — ${room.subtitle}` : room.title;
+  }
 
   private get roomsForThisFloor(): MuseumRoom[] {
     return this.rooms.filter((room) => !room.floorId || room.floorId === this.currentFloorId);
@@ -96,17 +104,34 @@ export class RoomOutlineEditor extends LitElement {
   }
 
   render() {
+    // In fase di disegno il pannello resta sempre aperto: non ha senso
+    // poterlo nascondere mentre si sta contornando una sala.
+    const showContent = this.drawMode || !this.collapsed;
+
     return html`
       <div
         class="bg-surface-800 dark:bg-surface-800 rounded-lg overflow-hidden border border-surface-700"
       >
-        <div
-          class="flex justify-between items-center p-4 bg-surface-700 border-b border-surface-600"
+        <button
+          type="button"
+          class="w-full flex justify-between items-center p-4 bg-surface-700 border-b border-surface-600 ${showContent
+            ? ''
+            : 'border-b-0'}"
+          @click=${() => (this.collapsed = !this.collapsed)}
         >
           <h3 class="text-white font-medium text-base m-0">📐 ${__('Sale')}</h3>
-        </div>
+          <ui-icon
+            name=${this.collapsed ? 'chevron-down' : 'chevron-up'}
+            size="sm"
+            class="text-surface-400"
+          ></ui-icon>
+        </button>
 
-        ${this.drawMode ? this.renderDrawingPanel() : this.renderRoomsList()}
+        ${showContent
+          ? this.drawMode
+            ? this.renderDrawingPanel()
+            : this.renderRoomsList()
+          : nothing}
       </div>
     `;
   }
@@ -117,7 +142,8 @@ export class RoomOutlineEditor extends LitElement {
     return html`
       <div class="p-4 space-y-3">
         <p class="text-sm text-surface-300">
-          ${__('Contornando')}: <span class="font-semibold text-white">${room?.name}</span>
+          ${__('Contornando')}:
+          <span class="font-semibold text-white">${room ? this.roomLabel(room) : ''}</span>
         </p>
         <p class="text-xs text-surface-400">
           ${__(
@@ -168,12 +194,13 @@ export class RoomOutlineEditor extends LitElement {
     }
 
     return html`
-      <div class="max-h-96 overflow-y-auto">
+      <div class="max-h-[32rem] overflow-y-auto">
         ${rooms.map((room) => this.renderRoomRow(room))}
         ${elsewhere.length > 0
           ? html`
               <div class="p-3 text-xs text-surface-500 border-t border-surface-700">
-                ${__('Contornate su altri piani')}: ${elsewhere.map((r) => r.name).join(', ')}
+                ${__('Contornate su altri piani')}:
+                ${elsewhere.map((r) => this.roomLabel(r)).join(', ')}
               </div>
             `
           : nothing}
@@ -190,7 +217,10 @@ export class RoomOutlineEditor extends LitElement {
       <div class="p-3 border-b border-surface-600 last:border-0 space-y-2">
         <div class="flex items-center justify-between gap-2">
           <div class="min-w-0">
-            <p class="text-white text-sm font-medium truncate m-0">${room.name}</p>
+            <p class="text-white text-sm font-medium truncate m-0">${room.title}</p>
+            ${room.subtitle
+              ? html`<p class="text-surface-400 text-xs truncate m-0">${room.subtitle}</p>`
+              : nothing}
             ${isOutlined
               ? html`<ui-badge variant="success" size="sm" .label=${__('Contornata')}></ui-badge>`
               : html`<ui-badge

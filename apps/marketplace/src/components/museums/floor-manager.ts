@@ -4,6 +4,7 @@ import type { MuseumFloor } from '@artaround/shared';
 import { modalService } from '../../services/modal.service';
 import '../ui/ui-button';
 import '../ui/ui-input';
+import '../ui/ui-icon-button';
 import { __ } from '../../services/i18n.service';
 
 /**
@@ -31,6 +32,9 @@ export class FloorManager extends LitElement {
   private showAddForm = false;
 
   @state()
+  private collapsed = false;
+
+  @state()
   private editingFloor: MuseumFloor | null = null;
 
   @state()
@@ -44,6 +48,10 @@ export class FloorManager extends LitElement {
 
   // ─── Render Entry ────────────────────────────────────────
   render() {
+    // Con il form di aggiunta aperto il pannello resta visibile: non ha senso
+    // poterlo nascondere mentre si sta compilando.
+    const showContent = this.showAddForm || !this.collapsed;
+
     return html`
       <div
         class="bg-surface-800 dark:bg-surface-800 rounded-lg overflow-hidden border border-surface-700"
@@ -53,22 +61,34 @@ export class FloorManager extends LitElement {
           class="flex justify-between items-center p-4 bg-surface-700 border-b border-surface-600"
         >
           <h3 class="text-white font-medium text-base m-0">📐 ${__('Piani del Museo')}</h3>
-          <ui-button
-            variant="primary"
-            size="sm"
-            .label=${this.showAddForm ? `✕ ${__('Annulla')}` : `➕ ${__('Aggiungi Piano')}`}
-            @click=${() => (this.showAddForm = !this.showAddForm)}
-          ></ui-button>
+          <div class="flex items-center gap-1">
+            <ui-button
+              variant="primary"
+              size="sm"
+              .label=${this.showAddForm ? `✕ ${__('Annulla')}` : `➕ ${__('Aggiungi Piano')}`}
+              @click=${() => (this.showAddForm = !this.showAddForm)}
+            ></ui-button>
+            <ui-icon-button
+              icon=${this.collapsed ? 'chevron-down' : 'chevron-up'}
+              size="sm"
+              .title=${this.collapsed ? __('Espandi') : __('Comprimi')}
+              @click=${() => (this.collapsed = !this.collapsed)}
+            ></ui-icon-button>
+          </div>
         </div>
 
-        ${this.showAddForm ? this.renderAddForm() : nothing}
+        ${showContent
+          ? html`
+              ${this.showAddForm ? this.renderAddForm() : nothing}
 
-        <!-- Floor List -->
-        <div class="max-h-96 overflow-y-auto">
-          ${this.floors.length > 0
-            ? this.floors.map((floor) => this.renderFloorItem(floor))
-            : this.renderEmptyState()}
-        </div>
+              <!-- Floor List -->
+              <div class="max-h-[32rem] overflow-y-auto">
+                ${this.floors.length > 0
+                  ? this.floors.map((floor) => this.renderFloorItem(floor))
+                  : this.renderEmptyState()}
+              </div>
+            `
+          : nothing}
       </div>
     `;
   }

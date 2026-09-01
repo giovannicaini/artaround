@@ -366,6 +366,7 @@ export class SvgMapEditor extends LitElement {
         ${outlinedRooms.map((room) => {
           const isSelected = this.selectedRoomId === room.id;
           const points = (room.polygon || []).map((p) => `${p.x},${p.y}`).join(' ');
+          const roomLabel = room.subtitle ? `${room.title} — ${room.subtitle}` : room.title;
           return html`
             <polygon
               points="${points}"
@@ -384,7 +385,9 @@ export class SvgMapEditor extends LitElement {
                   }),
                 );
               }}
-            ></polygon>
+            >
+              <title>${roomLabel}</title>
+            </polygon>
           `;
         })}
 

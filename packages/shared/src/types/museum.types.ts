@@ -190,7 +190,8 @@ export interface MuseumFloor {
  */
 export interface MuseumRoom {
   id: string;
-  name: string;
+  title: string; // Es. "Sala I"
+  subtitle?: string; // Es. "Sala del Gladiatore"
   floorId?: string; // valorizzato solo dopo il contorno sulla piantina
   polygon?: MapPoint[]; // vertici del poligono chiuso (primo punto === ultimo)
 }

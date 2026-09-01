@@ -123,12 +123,13 @@ const mapPointSchema = new Schema<MapPoint>(
 );
 
 // Sala del museo: gestione parallela ai marker (vedi MuseumRoom). Creata con
-// solo id/name da "Modifica Museo"; floorId/polygon valorizzati in un secondo
-// momento da "Piantina e mappa" quando viene contornata.
+// solo id/title(/subtitle) da "Modifica Museo"; floorId/polygon valorizzati
+// in un secondo momento da "Piantina e mappa" quando viene contornata.
 const roomSchema = new Schema<MuseumRoom>(
   {
     id: { type: String, required: true },
-    name: { type: String, required: true },
+    title: { type: String, required: true },
+    subtitle: String,
     floorId: String,
     polygon: [mapPointSchema],
   },

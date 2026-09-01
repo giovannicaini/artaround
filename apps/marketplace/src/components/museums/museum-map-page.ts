@@ -21,6 +21,7 @@ import './room-outline-editor';
 import '../ui/ui-button';
 import '../ui/ui-card';
 import '../ui/ui-image-placeholder';
+import '../ui/ui-icon';
 import { __ } from '../../services/i18n.service';
 
 /**
@@ -89,6 +90,9 @@ export class MuseumMapPage extends LitElement {
 
   @state()
   private generatingMarkersRoomId: string | null = null;
+
+  @state()
+  private artworksListCollapsed = true;
 
   // Per ogni sala, quante opere assegnate lì (Artwork.roomId) non hanno
   // ancora un marker su nessun piano — usato dal pulsante "Crea marker opere".
@@ -257,20 +261,36 @@ export class MuseumMapPage extends LitElement {
 
             <!-- Artworks List -->
             <div class="bg-surface-800 rounded-lg overflow-hidden border border-surface-700">
-              <div class="p-4 bg-surface-700 border-b border-surface-600">
+              <button
+                type="button"
+                class="w-full flex justify-between items-center p-4 bg-surface-700 ${this
+                  .artworksListCollapsed
+                  ? ''
+                  : 'border-b border-surface-600'}"
+                @click=${() => (this.artworksListCollapsed = !this.artworksListCollapsed)}
+              >
                 <h3 class="text-white font-medium text-base m-0">
                   🖼️ ${__('Opere')} (${this.artworks.length})
                 </h3>
-              </div>
-              <div class="max-h-64 overflow-y-auto">
-                ${this.artworks.length > 0
-                  ? this.artworks.map((artwork) => this.renderArtworkItem(artwork))
-                  : html`
-                      <div class="p-4 text-center text-surface-400">
-                        <p class="m-0">${__('Nessuna opera nel museo')}</p>
-                      </div>
-                    `}
-              </div>
+                <ui-icon
+                  name=${this.artworksListCollapsed ? 'chevron-down' : 'chevron-up'}
+                  size="sm"
+                  class="text-surface-400"
+                ></ui-icon>
+              </button>
+              ${this.artworksListCollapsed
+                ? nothing
+                : html`
+                    <div class="max-h-[32rem] overflow-y-auto">
+                      ${this.artworks.length > 0
+                        ? this.artworks.map((artwork) => this.renderArtworkItem(artwork))
+                        : html`
+                            <div class="p-4 text-center text-surface-400">
+                              <p class="m-0">${__('Nessuna opera nel museo')}</p>
+                            </div>
+                          `}
+                    </div>
+                  `}
             </div>
           </div>
 
@@ -625,7 +645,7 @@ export class MuseumMapPage extends LitElement {
 
     const confirmed = await modalService.confirm({
       title: __('Rimuovi contorno'),
-      message: `${__('Rimuovere il contorno di')} "${room.name}"? ${__('La sala resterà, senza forma sulla piantina.')}`,
+      message: `${__('Rimuovere il contorno di')} "${room.title}"? ${__('La sala resterà, senza forma sulla piantina.')}`,
       confirmLabel: __('Rimuovi'),
       variant: 'danger',
     });
@@ -705,7 +725,7 @@ export class MuseumMapPage extends LitElement {
 
       this.floors = this.floors.map((f) => (f.id === room.floorId ? { ...f, markers: saved } : f));
 
-      await modalService.success(`${newMarkers.length} ${__('marker creati per')} "${room.name}"`);
+      await modalService.success(`${newMarkers.length} ${__('marker creati per')} "${room.title}"`);
     } catch (err) {
       console.error('Error generating room markers:', err);
       await modalService.error(__('Errore di connessione durante la creazione dei marker'));

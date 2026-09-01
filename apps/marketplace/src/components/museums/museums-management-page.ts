@@ -208,12 +208,15 @@ export class MuseumsManagementPage extends LitElement {
   @state() private error = '';
   @state() private success = '';
 
-  // Sale (gestione parallela ai marker: nome qui, contorno in Piantina e mappa)
+  // Sale (gestione parallela ai marker: titolo/sottotitolo qui, contorno in
+  // Piantina e mappa). Es. titolo "Sala I", sottotitolo "Sala del Gladiatore".
   @state() private rooms: MuseumRoom[] = [];
-  @state() private newRoomName = '';
+  @state() private newRoomTitle = '';
+  @state() private newRoomSubtitle = '';
   @state() private savingRoom = false;
   @state() private renamingRoomId: string | null = null;
-  @state() private renameRoomValue = '';
+  @state() private renameRoomTitle = '';
+  @state() private renameRoomSubtitle = '';
 
   // Search
   @state() private searchQuery = '';
@@ -1929,18 +1932,27 @@ export class MuseumsManagementPage extends LitElement {
   }
 
   // ─── Sale (gestione parallela ai marker) ─────────────────
+  private roomLabel(room: MuseumRoom): string {
+    return room.subtitle ? `${room.title} — ${room.subtitle}` : room.title;
+  }
+
   private async handleAddRoom() {
-    const name = this.newRoomName.trim();
-    if (!name || !this.selectedMuseum) return;
+    const title = this.newRoomTitle.trim();
+    if (!title || !this.selectedMuseum) return;
 
     this.savingRoom = true;
     this.error = '';
     try {
       const id = `room-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      const result = await museumService.createRoom(this.selectedMuseum._id, { id, name });
+      const result = await museumService.createRoom(this.selectedMuseum._id, {
+        id,
+        title,
+        subtitle: this.newRoomSubtitle.trim() || undefined,
+      });
       if (result.data) {
         this.rooms = [...this.rooms, result.data];
-        this.newRoomName = '';
+        this.newRoomTitle = '';
+        this.newRoomSubtitle = '';
       } else {
         this.error = result.error || __('Errore durante la creazione della sala');
       }
@@ -1953,22 +1965,29 @@ export class MuseumsManagementPage extends LitElement {
 
   private startRenameRoom(room: MuseumRoom) {
     this.renamingRoomId = room.id;
-    this.renameRoomValue = room.name;
+    this.renameRoomTitle = room.title;
+    this.renameRoomSubtitle = room.subtitle || '';
   }
 
   private cancelRenameRoom() {
     this.renamingRoomId = null;
-    this.renameRoomValue = '';
+    this.renameRoomTitle = '';
+    this.renameRoomSubtitle = '';
   }
 
   private async handleRenameRoom(roomId: string) {
-    const name = this.renameRoomValue.trim();
-    if (!name || !this.selectedMuseum) return;
+    const title = this.renameRoomTitle.trim();
+    if (!title || !this.selectedMuseum) return;
 
     this.savingRoom = true;
     this.error = '';
     try {
-      const result = await museumService.renameRoom(this.selectedMuseum._id, roomId, name);
+      const result = await museumService.renameRoom(
+        this.selectedMuseum._id,
+        roomId,
+        title,
+        this.renameRoomSubtitle.trim() || undefined,
+      );
       if (result.data) {
         this.rooms = this.rooms.map((r) => (r.id === roomId ? result.data! : r));
         this.cancelRenameRoom();
@@ -1987,7 +2006,7 @@ export class MuseumsManagementPage extends LitElement {
 
     const confirmed = await modalService.confirm({
       title: __('Elimina sala'),
-      message: `${__('Sei sicuro di voler eliminare la sala')} "${room.name}"? ${__('Le opere assegnate resteranno senza sala.')}`,
+      message: `${__('Sei sicuro di voler eliminare la sala')} "${this.roomLabel(room)}"? ${__('Le opere assegnate resteranno senza sala.')}`,
       confirmLabel: __('Elimina'),
       variant: 'danger',
     });
@@ -2018,31 +2037,43 @@ export class MuseumsManagementPage extends LitElement {
           <div class="p-6 space-y-4">
             <p class="text-sm text-surface-500 dark:text-surface-400">
               ${__(
-                'Crea qui le sale del museo con il nome che preferisci. Il contorno sulla piantina si disegna dopo, in "Piantina e mappa". Ogni opera va assegnata a una di queste sale.',
+                'Crea qui le sale del museo: un titolo (es. "Sala I") e un sottotitolo facoltativo (es. "Sala del Gladiatore"). Il contorno sulla piantina si disegna dopo, in "Piantina e mappa". Ogni opera va assegnata a una di queste sale.',
               )}
             </p>
 
-            <div class="flex items-end gap-2">
-              <div class="flex-1">
-                <ui-input
-                  .label=${__('Nome sala')}
-                  .placeholder=${__('Es. Sala del Bernini')}
-                  .value=${this.newRoomName}
-                  @input-change=${(e: CustomEvent) => (this.newRoomName = e.detail.value)}
-                  @keydown=${(e: KeyboardEvent) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      this.handleAddRoom();
-                    }
-                  }}
-                ></ui-input>
-              </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+              <ui-input
+                .label=${__('Titolo sala')}
+                .placeholder=${__('Es. Sala I')}
+                .value=${this.newRoomTitle}
+                @input-change=${(e: CustomEvent) => (this.newRoomTitle = e.detail.value)}
+                @keydown=${(e: KeyboardEvent) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.handleAddRoom();
+                  }
+                }}
+              ></ui-input>
+              <ui-input
+                .label=${__('Sottotitolo (facoltativo)')}
+                .placeholder=${__('Es. Sala del Gladiatore')}
+                .value=${this.newRoomSubtitle}
+                @input-change=${(e: CustomEvent) => (this.newRoomSubtitle = e.detail.value)}
+                @keydown=${(e: KeyboardEvent) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.handleAddRoom();
+                  }
+                }}
+              ></ui-input>
+            </div>
+            <div class="flex justify-end">
               <ui-button
                 type="button"
                 variant="primary"
                 icon="plus"
                 .label=${__('Aggiungi sala')}
-                ?disabled=${!this.newRoomName.trim()}
+                ?disabled=${!this.newRoomTitle.trim()}
                 .loading=${this.savingRoom}
                 @click=${this.handleAddRoom}
               ></ui-button>
@@ -2055,49 +2086,66 @@ export class MuseumsManagementPage extends LitElement {
                   </p>
                 `
               : html`
-                  <ul class="divide-y divide-surface-200 dark:divide-surface-700">
+                  <ul
+                    class="max-h-[28rem] overflow-y-auto divide-y divide-surface-200 dark:divide-surface-700"
+                  >
                     ${this.rooms.map(
                       (room) => html`
                         <li class="flex items-center justify-between gap-3 py-2.5">
                           ${this.renamingRoomId === room.id
                             ? html`
-                                <div class="flex-1 flex items-center gap-2">
+                                <div class="flex-1 grid grid-cols-2 gap-2 items-center">
                                   <ui-input
-                                    .value=${this.renameRoomValue}
+                                    .label=${__('Titolo')}
+                                    .value=${this.renameRoomTitle}
                                     @input-change=${(e: CustomEvent) =>
-                                      (this.renameRoomValue = e.detail.value)}
+                                      (this.renameRoomTitle = e.detail.value)}
                                   ></ui-input>
-                                  <ui-icon-button
-                                    icon="check"
-                                    variant="brand"
-                                    .title=${__('Salva')}
-                                    .loading=${this.savingRoom}
-                                    @click=${() => this.handleRenameRoom(room.id)}
-                                  ></ui-icon-button>
-                                  <ui-icon-button
-                                    icon="x"
-                                    .title=${__('Annulla')}
-                                    @click=${this.cancelRenameRoom}
-                                  ></ui-icon-button>
+                                  <ui-input
+                                    .label=${__('Sottotitolo')}
+                                    .value=${this.renameRoomSubtitle}
+                                    @input-change=${(e: CustomEvent) =>
+                                      (this.renameRoomSubtitle = e.detail.value)}
+                                  ></ui-input>
                                 </div>
+                                <ui-icon-button
+                                  icon="check"
+                                  variant="brand"
+                                  .title=${__('Salva')}
+                                  .loading=${this.savingRoom}
+                                  @click=${() => this.handleRenameRoom(room.id)}
+                                ></ui-icon-button>
+                                <ui-icon-button
+                                  icon="x"
+                                  .title=${__('Annulla')}
+                                  @click=${this.cancelRenameRoom}
+                                ></ui-icon-button>
                               `
                             : html`
-                                <div class="flex items-center gap-2 min-w-0">
-                                  <span
-                                    class="font-medium text-surface-900 dark:text-white truncate"
-                                    >${room.name}</span
-                                  >
-                                  ${room.polygon && room.polygon.length > 0
-                                    ? html`<ui-badge
-                                        variant="success"
-                                        size="sm"
-                                        .label=${__('Contornata')}
-                                      ></ui-badge>`
-                                    : html`<ui-badge
-                                        variant="secondary"
-                                        size="sm"
-                                        .label=${__('Da contornare')}
-                                      ></ui-badge>`}
+                                <div class="min-w-0">
+                                  <div class="flex items-center gap-2">
+                                    <span class="font-medium text-surface-900 dark:text-white"
+                                      >${room.title}</span
+                                    >
+                                    ${room.polygon && room.polygon.length > 0
+                                      ? html`<ui-badge
+                                          variant="success"
+                                          size="sm"
+                                          .label=${__('Contornata')}
+                                        ></ui-badge>`
+                                      : html`<ui-badge
+                                          variant="secondary"
+                                          size="sm"
+                                          .label=${__('Da contornare')}
+                                        ></ui-badge>`}
+                                  </div>
+                                  ${room.subtitle
+                                    ? html`<p
+                                        class="text-sm text-surface-500 dark:text-surface-400 truncate m-0"
+                                      >
+                                        ${room.subtitle}
+                                      </p>`
+                                    : nothing}
                                 </div>
                                 <div class="flex items-center gap-1 flex-shrink-0">
                                   <ui-icon-button
