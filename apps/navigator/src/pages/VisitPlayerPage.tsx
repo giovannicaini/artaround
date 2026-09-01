@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeft,
   Play,
@@ -54,6 +55,21 @@ import {
 } from '../components/ui';
 import MapView from '../components/MapView';
 import { buildVisitRoutePoints, type RoutePoint } from '../lib/mapRoute';
+
+// Transizione tra una tappa e l'altra (avanti/indietro): un fade con un
+// piccolo scivolamento nel verso di navigazione, invece del cambio secco
+// di immagine/testo — "custom" riceve la direzione (1 avanti, -1 indietro).
+const stepImageVariants = {
+  enter: { opacity: 0, scale: 0.97 },
+  center: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 0.97 },
+};
+const stepTextVariants = {
+  enter: (dir: number) => ({ opacity: 0, x: dir * 18 }),
+  center: { opacity: 1, x: 0 },
+  exit: (dir: number) => ({ opacity: 0, x: -dir * 18 }),
+};
+const stepTransition = { duration: 0.22, ease: 'easeOut' as const };
 
 async function loadVisitData(visitId: string): Promise<{
   visit: Visit;
@@ -234,6 +250,19 @@ export default function VisitPlayerPage() {
   }, [data]);
 
   const currentStep = steps[currentStepIndex] ?? null;
+
+  // Verso della transizione tra tappe (1 avanti, -1 indietro): dedotto dal
+  // confronto con l'indice precedente invece di doverlo passare a mano da
+  // ogni singolo punto che cambia tappa (bottoni, tastiera, comandi vocali,
+  // lista tappe, click sulla mappa...).
+  const prevStepIndexRef = useRef(currentStepIndex);
+  const [stepDirection, setStepDirection] = useState(1);
+  useEffect(() => {
+    if (currentStepIndex !== prevStepIndexRef.current) {
+      setStepDirection(currentStepIndex > prevStepIndexRef.current ? 1 : -1);
+      prevStepIndexRef.current = currentStepIndex;
+    }
+  }, [currentStepIndex]);
 
   // Salva l'avanzamento per la card "Riprendi" in Home.
   useEffect(() => {
@@ -480,22 +509,32 @@ export default function VisitPlayerPage() {
         </header>
 
         <div className="flex-1 relative" onClick={() => setShowControls((v) => !v)}>
-          <div className="absolute inset-0">
-            {heroImage ? (
-              <img src={heroImage} alt={heroTitle} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-surface-900 to-surface-950 flex items-center justify-center">
-                {isArtwork ? (
-                  <span className="text-8xl opacity-20">🖼️</span>
-                ) : currentStep?.kind === 'navigation' ? (
-                  <NavigationIcon className="w-20 h-20 text-brand-800" />
-                ) : (
-                  <Info className="w-20 h-20 text-brand-800" />
-                )}
-              </div>
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/25 to-surface-950/45" />
-          </div>
+          <AnimatePresence initial={false}>
+            <motion.div
+              key={currentStep?.id}
+              className="absolute inset-0"
+              variants={stepImageVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={stepTransition}
+            >
+              {heroImage ? (
+                <img src={heroImage} alt={heroTitle} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-surface-900 to-surface-950 flex items-center justify-center">
+                  {isArtwork ? (
+                    <span className="text-8xl opacity-20">🖼️</span>
+                  ) : currentStep?.kind === 'navigation' ? (
+                    <NavigationIcon className="w-20 h-20 text-brand-800" />
+                  ) : (
+                    <Info className="w-20 h-20 text-brand-800" />
+                  )}
+                </div>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/25 to-surface-950/45" />
+            </motion.div>
+          </AnimatePresence>
 
           <div className="absolute top-20 left-4 right-4">
             <ProgressDots total={steps.length} current={currentStepIndex} onSelect={goToStep} />
@@ -529,12 +568,23 @@ export default function VisitPlayerPage() {
         <div
           className={`relative z-10 transition-transform duration-300 ${showControls ? 'translate-y-0' : 'translate-y-[calc(100%-4rem)]'}`}
         >
-          <div className="px-5 pb-4">
-            <h1 className="font-display text-xl font-bold text-surface-50 mb-1 drop-shadow-lg">
-              {heroTitle}
-            </h1>
-            <p className="text-surface-400 text-sm">{heroSubtitle}</p>
-          </div>
+          <AnimatePresence mode="wait" custom={stepDirection} initial={false}>
+            <motion.div
+              key={currentStep?.id}
+              className="px-5 pb-4"
+              custom={stepDirection}
+              variants={stepTextVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={stepTransition}
+            >
+              <h1 className="font-display text-xl font-bold text-surface-50 mb-1 drop-shadow-lg">
+                {heroTitle}
+              </h1>
+              <p className="text-surface-400 text-sm">{heroSubtitle}</p>
+            </motion.div>
+          </AnimatePresence>
 
           <div className="bg-surface-900 border-t border-surface-800 rounded-t-3xl px-5 pt-5 pb-6 safe-bottom shadow-2xl">
             {isArtwork && (
@@ -555,11 +605,22 @@ export default function VisitPlayerPage() {
               </div>
             )}
 
-            <div className="bg-surface-950 rounded-2xl p-4 mb-5 max-h-28 overflow-y-auto border border-surface-800">
-              <p className="text-surface-300 text-sm leading-relaxed">
-                {currentText || t('Nessun contenuto disponibile per questa tappa.')}
-              </p>
-            </div>
+            <AnimatePresence mode="wait" custom={stepDirection} initial={false}>
+              <motion.div
+                key={currentStep?.id}
+                className="bg-surface-950 rounded-2xl p-4 mb-5 max-h-28 overflow-y-auto border border-surface-800"
+                custom={stepDirection}
+                variants={stepTextVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={stepTransition}
+              >
+                <p className="text-surface-300 text-sm leading-relaxed">
+                  {currentText || t('Nessun contenuto disponibile per questa tappa.')}
+                </p>
+              </motion.div>
+            </AnimatePresence>
 
             <div className="flex items-center justify-center gap-5 mb-4">
               <button
@@ -634,23 +695,33 @@ export default function VisitPlayerPage() {
             </div>
           </div>
 
-          <div className="h-full flex items-center justify-center p-12">
-            {heroImage ? (
-              <img
-                src={heroImage}
-                alt={heroTitle}
-                className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
-              />
-            ) : (
-              <div className="w-96 h-96 bg-surface-800 rounded-2xl flex items-center justify-center">
-                {currentStep?.kind === 'navigation' ? (
-                  <NavigationIcon className="w-24 h-24 text-brand-800" />
-                ) : (
-                  <Info className="w-24 h-24 text-brand-800" />
-                )}
-              </div>
-            )}
-          </div>
+          <AnimatePresence initial={false}>
+            <motion.div
+              key={currentStep?.id}
+              className="absolute inset-0 flex items-center justify-center p-12"
+              variants={stepImageVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={stepTransition}
+            >
+              {heroImage ? (
+                <img
+                  src={heroImage}
+                  alt={heroTitle}
+                  className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
+                />
+              ) : (
+                <div className="w-96 h-96 bg-surface-800 rounded-2xl flex items-center justify-center">
+                  {currentStep?.kind === 'navigation' ? (
+                    <NavigationIcon className="w-24 h-24 text-brand-800" />
+                  ) : (
+                    <Info className="w-24 h-24 text-brand-800" />
+                  )}
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
 
           <div className="absolute bottom-0 left-0 right-0 p-6">
             <ProgressDots
@@ -671,12 +742,23 @@ export default function VisitPlayerPage() {
         <div className="w-1/2 xl:w-2/5 h-full bg-surface-950 flex flex-col">
           <div className="p-6 border-b border-surface-800">
             <div className="flex items-start justify-between gap-4 mb-4">
-              <div className="flex-1 min-w-0">
-                <h1 className="font-display text-2xl font-bold text-surface-50 mb-2 leading-tight">
-                  {heroTitle}
-                </h1>
-                <p className="text-sm text-surface-500">{heroSubtitle}</p>
-              </div>
+              <AnimatePresence mode="wait" custom={stepDirection} initial={false}>
+                <motion.div
+                  key={currentStep?.id}
+                  className="flex-1 min-w-0"
+                  custom={stepDirection}
+                  variants={stepTextVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={stepTransition}
+                >
+                  <h1 className="font-display text-2xl font-bold text-surface-50 mb-2 leading-tight">
+                    {heroTitle}
+                  </h1>
+                  <p className="text-sm text-surface-500">{heroSubtitle}</p>
+                </motion.div>
+              </AnimatePresence>
               <IconTile
                 icon={<Settings />}
                 variant="panel"
@@ -746,9 +828,20 @@ export default function VisitPlayerPage() {
           )}
 
           <div className="flex-1 overflow-y-auto p-6">
-            <p className="text-surface-300 text-base leading-relaxed">
-              {currentText || t('Nessun contenuto disponibile per questa tappa.')}
-            </p>
+            <AnimatePresence mode="wait" custom={stepDirection} initial={false}>
+              <motion.p
+                key={currentStep?.id}
+                className="text-surface-300 text-base leading-relaxed"
+                custom={stepDirection}
+                variants={stepTextVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={stepTransition}
+              >
+                {currentText || t('Nessun contenuto disponibile per questa tappa.')}
+              </motion.p>
+            </AnimatePresence>
           </div>
 
           <div className="p-6 border-t border-surface-800 bg-surface-900">

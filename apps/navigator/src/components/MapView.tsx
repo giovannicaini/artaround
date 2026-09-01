@@ -97,6 +97,9 @@ export default function MapView({
   // Marker-opera cliccato in attesa di conferma prima di saltare a
   // quell'opera nella guida — mai un salto diretto senza chiedere.
   const [pendingMarker, setPendingMarker] = useState<MapMarker | null>(null);
+  // Marker di servizio (bagni, ascensori...) cliccato: niente etichetta
+  // sempre visibile sulla mappa, la descrizione si apre solo al click.
+  const [infoMarker, setInfoMarker] = useState<MapMarker | null>(null);
 
   const floors = map.floors || [];
 
@@ -325,8 +328,12 @@ export default function MapView({
                     y={center.y}
                     textAnchor="middle"
                     dominantBaseline="central"
-                    className="text-[11px] font-semibold fill-surface-300"
-                    style={{ paintOrder: 'stroke', stroke: 'rgb(9 8 19 / 0.7)', strokeWidth: 3 }}
+                    className="text-[11px] font-bold fill-surface-950"
+                    style={{
+                      paintOrder: 'stroke',
+                      stroke: 'rgb(255 255 255 / 0.9)',
+                      strokeWidth: 3.5,
+                    }}
                   >
                     {room.title}
                   </text>
@@ -403,6 +410,12 @@ export default function MapView({
                         r={radius + 9}
                         className="animate-ping"
                         fill="rgb(139 63 252 / 0.35)"
+                        // Senza transform-box:fill-box lo scale() dell'animazione
+                        // parte dall'origine del viewport SVG (0,0) e non dal
+                        // centro del cerchio: sembrava un'animazione che ogni
+                        // volta "scattava" verso il basso a destra invece di
+                        // pulsare simmetricamente sul marker.
+                        style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
                       />
                     )}
 
@@ -488,7 +501,7 @@ export default function MapView({
                 <g
                   key={marker.id}
                   className="pointer-events-auto cursor-pointer"
-                  onClick={() => onMarkerClick?.(marker)}
+                  onClick={() => setInfoMarker(marker)}
                 >
                   <circle
                     cx={marker.x}
@@ -506,21 +519,6 @@ export default function MapView({
                   >
                     {config.icon}
                   </text>
-                  {marker.label && (
-                    <text
-                      x={marker.x}
-                      y={marker.y + 28}
-                      textAnchor="middle"
-                      className="text-xs fill-white font-medium"
-                      style={{
-                        paintOrder: 'stroke',
-                        stroke: 'rgb(9 8 19 / 0.8)',
-                        strokeWidth: 3,
-                      }}
-                    >
-                      {marker.label}
-                    </text>
-                  )}
                 </g>
               );
             })}
@@ -631,6 +629,20 @@ export default function MapView({
               </div>
             );
           })()}
+      </Sheet>
+
+      {/* Descrizione di un marker di servizio (bagni, ascensori...): niente
+          etichetta sempre visibile sulla mappa, compare solo al click. */}
+      <Sheet
+        open={!!infoMarker}
+        onClose={() => setInfoMarker(null)}
+        title={infoMarker ? infoMarker.label || markerIcons[infoMarker.type].label : ''}
+      >
+        {infoMarker && (
+          <p className="text-sm text-surface-300">
+            {infoMarker.description || t('Nessuna descrizione disponibile.')}
+          </p>
+        )}
       </Sheet>
     </div>
   );
