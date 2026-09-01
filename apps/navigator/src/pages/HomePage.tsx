@@ -4,10 +4,20 @@ import { useQuery } from '@tanstack/react-query';
 import { MapPin, ChevronRight, Compass, ExternalLink, Sparkles, Play } from 'lucide-react';
 import { api } from '../lib/apiClient';
 import { useAuthStore } from '../stores/authStore';
+import { useI18nStore } from '../stores/i18nStore';
+import { useT } from '../hooks/useT';
 import { useMuseumTheme } from '../hooks/useMuseumTheme';
 import { interestAffinity } from '../lib/personalization';
+import { localizedField } from '../lib/i18n';
 import { loadVisitProgress, type VisitProgress } from '../lib/visitProgress';
-import { LoadingState, ErrorState, EmptyState, PressableCard, Badge } from '../components/ui';
+import {
+  LoadingState,
+  ErrorState,
+  EmptyState,
+  PressableCard,
+  Badge,
+  LanguageSwitcher,
+} from '../components/ui';
 import type { Museum, Visit } from '@artaround/shared';
 
 /**
@@ -18,6 +28,8 @@ import type { Museum, Visit } from '@artaround/shared';
 export default function HomePage() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
+  const language = useI18nStore((state) => state.language);
+  const t = useT();
   const { config } = useMuseumTheme(undefined); // solo per i default di piattaforma
   // Letto una sola volta all'avvio della schermata: uno stato locale con
   // inizializzatore lazy evita un giro extra di render rispetto a un
@@ -72,7 +84,7 @@ export default function HomePage() {
   if (isLoading) {
     return (
       <div className="h-full bg-surface-950">
-        <LoadingState message="Cerco i musei disponibili..." />
+        <LoadingState message={t('Cerco i musei disponibili...')} />
       </div>
     );
   }
@@ -81,7 +93,7 @@ export default function HomePage() {
     return (
       <div className="h-full bg-surface-950">
         <ErrorState
-          message={error instanceof Error ? error.message : 'Impossibile caricare i musei.'}
+          message={error instanceof Error ? error.message : t('Impossibile caricare i musei.')}
           onRetry={() => refetch()}
         />
       </div>
@@ -93,8 +105,8 @@ export default function HomePage() {
       <div className="h-full bg-surface-950">
         <EmptyState
           icon={<Compass />}
-          title="Nessun museo disponibile"
-          message="Non ci sono musei disponibili al momento. Riprova più tardi."
+          title={t('Nessun museo disponibile')}
+          message={t('Non ci sono musei disponibili al momento. Riprova più tardi.')}
         />
       </div>
     );
@@ -117,13 +129,16 @@ export default function HomePage() {
               ArtAround
             </span>
           </div>
-          <a
-            href="/marketplace"
-            className="hidden lg:flex items-center gap-2 px-4 py-2 text-sm font-medium text-brand-300 hover:text-brand-200 bg-brand-500/10 hover:bg-brand-500/15 border border-brand-500/20 rounded-full transition-colors"
-          >
-            <ExternalLink className="w-4 h-4" />
-            Marketplace
-          </a>
+          <div className="flex items-center gap-2">
+            <a
+              href="/marketplace"
+              className="hidden lg:flex items-center gap-2 px-4 py-2 text-sm font-medium text-brand-300 hover:text-brand-200 bg-brand-500/10 hover:bg-brand-500/15 border border-brand-500/20 rounded-full transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Marketplace
+            </a>
+            <LanguageSwitcher />
+          </div>
         </div>
       </header>
 
@@ -149,17 +164,17 @@ export default function HomePage() {
             <div className="absolute bottom-0 left-0 right-0 p-6 lg:p-10">
               <div className="lg:max-w-6xl lg:mx-auto">
                 <Badge variant="brand" icon={<Sparkles className="w-3 h-3" />}>
-                  In evidenza
+                  {t('In evidenza')}
                 </Badge>
                 <h1 className="font-display text-3xl lg:text-5xl font-bold text-white mt-3 mb-2 max-w-xl leading-[1.1]">
-                  {featured.name}
+                  {localizedField(language, featured.name, featured.nameTranslations)}
                 </h1>
                 <p className="text-surface-200 text-sm lg:text-base max-w-lg mb-5 line-clamp-2">
-                  {featured.description}
+                  {localizedField(language, featured.description, featured.descriptionTranslations)}
                 </p>
                 <div className="inline-flex items-center gap-2 px-5 py-3 rounded-full gradient-aurora text-white font-bold text-sm shadow-glow">
                   <Play className="w-4 h-4" fill="currentColor" />
-                  Esplora il museo
+                  {t('Esplora il museo')}
                 </div>
               </div>
             </div>
@@ -180,7 +195,7 @@ export default function HomePage() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="gradient-aurora-text text-[0.68rem] font-bold uppercase tracking-wide">
-                  Riprendi da dove eri
+                  {t('Riprendi da dove eri')}
                 </p>
                 <p className="text-surface-50 font-semibold truncate">{progress.visitTitle}</p>
               </div>
@@ -193,15 +208,19 @@ export default function HomePage() {
 
         {/* ── Blocco: riga "Per te" ──────────────────────────────── */}
         {recommended.length > 0 && (
-          <FeedRow title="Per te" icon={<Sparkles className="w-4 h-4 text-brand-400" />}>
+          <FeedRow title={t('Per te')} icon={<Sparkles className="w-4 h-4 text-brand-400" />}>
             {recommended.map((visit) => (
               <PressableCard
                 key={visit._id}
                 onClick={() => handleSelectVisit(visit)}
                 className="flex-shrink-0 w-64 lg:w-80 p-4"
               >
-                <p className="text-surface-50 font-semibold truncate mb-1">{visit.title}</p>
-                <p className="text-surface-500 text-xs line-clamp-2">{visit.description}</p>
+                <p className="text-surface-50 font-semibold truncate mb-1">
+                  {localizedField(language, visit.title, visit.titleTranslations)}
+                </p>
+                <p className="text-surface-500 text-xs line-clamp-2">
+                  {localizedField(language, visit.description, visit.descriptionTranslations)}
+                </p>
               </PressableCard>
             ))}
           </FeedRow>
@@ -209,7 +228,7 @@ export default function HomePage() {
 
         {/* ── Blocco: riga musei ─────────────────────────────────── */}
         {museums && museums.length > 0 && (
-          <FeedRow title="Tutti i musei" icon={<Compass className="w-4 h-4 text-brand-400" />}>
+          <FeedRow title={t('Tutti i musei')} icon={<Compass className="w-4 h-4 text-brand-400" />}>
             {museums.map((museum) => (
               <PressableCard
                 key={museum._id}
@@ -228,7 +247,7 @@ export default function HomePage() {
                 </div>
                 <div className="p-3.5">
                   <h3 className="font-display font-semibold text-surface-50 text-sm leading-tight truncate mb-1.5">
-                    {museum.name}
+                    {localizedField(language, museum.name, museum.nameTranslations)}
                   </h3>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1 text-surface-500 text-xs min-w-0">

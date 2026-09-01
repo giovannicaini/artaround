@@ -26,10 +26,13 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/apiClient';
 import { useAuthStore } from '../stores/authStore';
+import { useI18nStore } from '../stores/i18nStore';
+import { useT } from '../hooks/useT';
 import { useMuseumTheme } from '../hooks/useMuseumTheme';
 import { useVisitSessionStore, type PlayerStep } from '../stores/visitSessionStore';
 import { speechService, voiceRecognitionService, parseVoiceCommand } from '../services/speech';
 import { getStepText } from '../lib/content';
+import { format, toSpeechLocale } from '../lib/i18n';
 import { defaultLanguageLevel, defaultContentDuration } from '../lib/personalization';
 import { saveVisitProgress } from '../lib/visitProgress';
 import {
@@ -41,25 +44,15 @@ import {
   type Visit,
   type Artwork,
 } from '@artaround/shared';
-import { IconTile, Sheet, ProgressDots, LoadingState, ErrorState } from '../components/ui';
+import {
+  IconTile,
+  Sheet,
+  ProgressDots,
+  LoadingState,
+  ErrorState,
+  LanguageSwitcher,
+} from '../components/ui';
 import MapView from '../components/MapView';
-
-const DURATION_META: Record<ContentDuration, { emoji: string; label: string }> = {
-  [ContentDuration.FLASH]: { emoji: '⚡', label: 'Flash' },
-  [ContentDuration.SHORT]: { emoji: '📝', label: 'Breve' },
-  [ContentDuration.MEDIUM]: { emoji: '📖', label: 'Medio' },
-  [ContentDuration.LONG]: { emoji: '📚', label: 'Lungo' },
-  [ContentDuration.EXTENDED]: { emoji: '🎓', label: 'Completo' },
-};
-const DURATION_ORDER = Object.values(ContentDuration);
-
-const LEVEL_META: Record<LanguageLevel, { emoji: string; label: string }> = {
-  [LanguageLevel.CHILDREN]: { emoji: '👶', label: 'Bambini' },
-  [LanguageLevel.ELEMENTARY]: { emoji: '🌱', label: 'Base' },
-  [LanguageLevel.MEDIUM]: { emoji: '🌿', label: 'Intermedio' },
-  [LanguageLevel.SPECIALIST]: { emoji: '🌳', label: 'Esperto' },
-};
-const LEVEL_ORDER = Object.values(LanguageLevel);
 
 async function loadVisitData(visitId: string): Promise<{
   visit: Visit;
@@ -171,6 +164,8 @@ export default function VisitPlayerPage() {
   const navigate = useNavigate();
   const { visitId } = useParams();
   const user = useAuthStore((state) => state.user);
+  const language = useI18nStore((state) => state.language);
+  const t = useT();
   const {
     visit,
     steps,
@@ -189,6 +184,23 @@ export default function VisitPlayerPage() {
     setListening,
   } = useVisitSessionStore();
   useMuseumTheme(visit?.museumId as string | undefined);
+
+  const DURATION_META: Record<ContentDuration, { emoji: string; label: string }> = {
+    [ContentDuration.FLASH]: { emoji: '⚡', label: t('Flash') },
+    [ContentDuration.SHORT]: { emoji: '📝', label: t('Breve') },
+    [ContentDuration.MEDIUM]: { emoji: '📖', label: t('Medio') },
+    [ContentDuration.LONG]: { emoji: '📚', label: t('Lungo') },
+    [ContentDuration.EXTENDED]: { emoji: '🎓', label: t('Completo') },
+  };
+  const DURATION_ORDER = Object.values(ContentDuration);
+
+  const LEVEL_META: Record<LanguageLevel, { emoji: string; label: string }> = {
+    [LanguageLevel.CHILDREN]: { emoji: '👶', label: t('Bambini') },
+    [LanguageLevel.ELEMENTARY]: { emoji: '🌱', label: t('Base') },
+    [LanguageLevel.MEDIUM]: { emoji: '🌿', label: t('Intermedio') },
+    [LanguageLevel.SPECIALIST]: { emoji: '🌳', label: t('Esperto') },
+  };
+  const LEVEL_ORDER = Object.values(LanguageLevel);
 
   const [showControls, setShowControls] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
@@ -230,7 +242,19 @@ export default function VisitPlayerPage() {
     });
   }, [visit, currentStep, currentStepIndex, steps.length]);
 
-  const currentText = currentStep ? getStepText(currentStep, languageLevel, contentDuration) : '';
+  const currentText = currentStep
+    ? getStepText(currentStep, languageLevel, contentDuration, language)
+    : '';
+
+  const speak = useCallback(
+    (text: string) => {
+      speechService.stop();
+      speechService.onEnd(() => setSpeaking(false));
+      speechService.speak(text, { lang: toSpeechLocale(language) });
+      setSpeaking(true);
+    },
+    [setSpeaking, language],
+  );
 
   const handlePlay = useCallback(() => {
     if (!currentText) return;
@@ -238,21 +262,9 @@ export default function VisitPlayerPage() {
       speechService.stop();
       setSpeaking(false);
     } else {
-      speechService.onEnd(() => setSpeaking(false));
-      speechService.speak(currentText);
-      setSpeaking(true);
+      speak(currentText);
     }
-  }, [currentText, isSpeaking, setSpeaking]);
-
-  const speak = useCallback(
-    (text: string) => {
-      speechService.stop();
-      speechService.onEnd(() => setSpeaking(false));
-      speechService.speak(text);
-      setSpeaking(true);
-    },
-    [setSpeaking],
-  );
+  }, [currentText, isSpeaking, setSpeaking, speak]);
 
   const shiftLevel = useCallback(
     (delta: number) => {
@@ -260,7 +272,7 @@ export default function VisitPlayerPage() {
       const next = LEVEL_ORDER[Math.min(LEVEL_ORDER.length - 1, Math.max(0, idx + delta))];
       setLanguageLevel(next);
     },
-    [languageLevel, setLanguageLevel],
+    [languageLevel, setLanguageLevel, LEVEL_ORDER],
   );
 
   const shiftDuration = useCallback(
@@ -269,7 +281,7 @@ export default function VisitPlayerPage() {
       const next = DURATION_ORDER[Math.min(DURATION_ORDER.length - 1, Math.max(0, idx + delta))];
       setContentDuration(next);
     },
-    [contentDuration, setContentDuration],
+    [contentDuration, setContentDuration, DURATION_ORDER],
   );
 
   const handleVoiceCommand = useCallback(
@@ -291,7 +303,7 @@ export default function VisitPlayerPage() {
         case 'whatIsThis':
           if (currentStep?.kind === 'artwork') {
             const { title, author } = currentStep.artwork;
-            speak(author ? `${title}, di ${author}.` : title);
+            speak(author ? format(t('{title}, di {author}.'), { title, author }) : title);
           } else if (currentText) {
             speak(currentText);
           }
@@ -312,19 +324,22 @@ export default function VisitPlayerPage() {
           if (currentStep?.kind === 'artwork') {
             speak(
               currentStep.artwork.author
-                ? `L'autore è ${currentStep.artwork.author}.`
-                : "Non ho informazioni sull'autore di quest'opera.",
+                ? format(t("L'autore è {author}."), { author: currentStep.artwork.author })
+                : t("Non ho informazioni sull'autore di quest'opera."),
             );
           }
           break;
-        case 'style':
+        case 'style': {
           if (currentStep?.kind === 'artwork') {
             const style = currentStep.artwork.style || currentStep.artwork.movement;
             speak(
-              style ? `Lo stile è ${style}.` : 'Non ho informazioni sullo stile di quest’opera.',
+              style
+                ? format(t('Lo stile è {style}.'), { style })
+                : t("Non ho informazioni sullo stile di quest'opera."),
             );
           }
           break;
+        }
         case 'repeat':
           speechService.stop();
           setTimeout(() => handlePlay(), 100);
@@ -348,6 +363,7 @@ export default function VisitPlayerPage() {
       shiftDuration,
       shiftLevel,
       speak,
+      t,
     ],
   );
 
@@ -395,14 +411,14 @@ export default function VisitPlayerPage() {
   const sessionReady = !!data && visit?._id === data.visit._id && !!currentStep;
 
   if (isLoading || (data && !sessionReady)) {
-    return <LoadingState message="Preparo la visita..." />;
+    return <LoadingState message={t('Preparo la visita...')} />;
   }
 
   if (isError || !data) {
     return (
       <div className="h-full flex items-center justify-center bg-surface-950 px-6">
         <ErrorState
-          message={error instanceof Error ? error.message : 'Impossibile caricare la visita.'}
+          message={error instanceof Error ? error.message : t('Impossibile caricare la visita.')}
           onRetry={() => refetch()}
         />
       </div>
@@ -416,14 +432,14 @@ export default function VisitPlayerPage() {
     ? artworkStep.artwork.title
     : currentStep?.kind === 'logistic'
       ? currentStep.title
-      : 'Indicazioni';
+      : t('Indicazioni');
   const heroSubtitle = artworkStep
     ? [artworkStep.artwork.author, artworkStep.artwork.style || artworkStep.artwork.movement]
         .filter(Boolean)
         .join(' • ')
     : currentStep?.kind === 'logistic'
-      ? 'Informazioni sulla visita'
-      : 'Dove andare ora';
+      ? t('Informazioni sulla visita')
+      : t('Dove andare ora');
 
   return (
     <div className="h-full bg-surface-950">
@@ -434,20 +450,21 @@ export default function VisitPlayerPage() {
             <IconTile
               icon={<ArrowLeft />}
               variant="glass"
-              label="Torna indietro"
+              label={t('Torna indietro')}
               onClick={() => navigate(-1)}
             />
             <div className="flex items-center gap-2">
+              <LanguageSwitcher variant="glass" />
               <IconTile
                 icon={<List />}
                 variant="glass"
-                label="Lista tappe"
+                label={t('Lista tappe')}
                 onClick={() => setShowItemList(true)}
               />
               <IconTile
                 icon={<Settings />}
                 variant="glass"
-                label="Impostazioni"
+                label={t('Impostazioni')}
                 onClick={() => setShowSettings(true)}
               />
             </div>
@@ -475,7 +492,10 @@ export default function VisitPlayerPage() {
           <div className="absolute top-20 left-4 right-4">
             <ProgressDots total={steps.length} current={currentStepIndex} onSelect={goToStep} />
             <p className="text-surface-400 text-xs mt-2 text-center font-medium">
-              {currentStepIndex + 1} di {steps.length}
+              {format(t('{current} di {total}'), {
+                current: String(currentStepIndex + 1),
+                total: String(steps.length),
+              })}
             </p>
           </div>
 
@@ -490,7 +510,9 @@ export default function VisitPlayerPage() {
                     />
                   ))}
                 </div>
-                <span className="text-surface-950 text-xs font-semibold">In riproduzione</span>
+                <span className="text-surface-950 text-xs font-semibold">
+                  {t('In riproduzione')}
+                </span>
               </div>
             </div>
           )}
@@ -527,7 +549,7 @@ export default function VisitPlayerPage() {
 
             <div className="bg-surface-950 rounded-2xl p-4 mb-5 max-h-28 overflow-y-auto border border-surface-800">
               <p className="text-surface-300 text-sm leading-relaxed">
-                {currentText || 'Nessun contenuto disponibile per questa tappa.'}
+                {currentText || t('Nessun contenuto disponibile per questa tappa.')}
               </p>
             </div>
 
@@ -567,7 +589,7 @@ export default function VisitPlayerPage() {
                 }`}
               >
                 {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                <span>{isListening ? 'Termina' : 'Voce'}</span>
+                <span>{isListening ? t('Termina') : t('Voce')}</span>
               </button>
 
               <button
@@ -575,7 +597,7 @@ export default function VisitPlayerPage() {
                 className="flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium bg-surface-800 text-surface-300 hover:bg-surface-700 transition-all"
               >
                 <MapPin className="w-4 h-4" />
-                <span>Servizi</span>
+                <span>{t('Servizi')}</span>
               </button>
             </div>
           </div>
@@ -591,9 +613,17 @@ export default function VisitPlayerPage() {
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-950/45 backdrop-blur-md text-surface-100 hover:bg-surface-950/65 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
-              <span className="font-medium">Indietro</span>
+              <span className="font-medium">{t('Indietro')}</span>
             </button>
-            <IconTile icon={<Home />} variant="glass" label="Home" onClick={() => navigate('/')} />
+            <div className="flex items-center gap-2">
+              <LanguageSwitcher variant="glass" />
+              <IconTile
+                icon={<Home />}
+                variant="glass"
+                label={t('Home')}
+                onClick={() => navigate('/')}
+              />
+            </div>
           </div>
 
           <div className="h-full flex items-center justify-center p-12">
@@ -622,7 +652,10 @@ export default function VisitPlayerPage() {
               tone="onSurface"
             />
             <p className="text-surface-500 text-sm text-center mt-2">
-              Tappa {currentStepIndex + 1} di {steps.length}
+              {format(t('Tappa {current} di {total}'), {
+                current: String(currentStepIndex + 1),
+                total: String(steps.length),
+              })}
             </p>
           </div>
         </div>
@@ -639,7 +672,7 @@ export default function VisitPlayerPage() {
               <IconTile
                 icon={<Settings />}
                 variant="panel"
-                label="Impostazioni"
+                label={t('Impostazioni')}
                 onClick={() => setShowSettings(true)}
               />
             </div>
@@ -651,7 +684,9 @@ export default function VisitPlayerPage() {
                     <div key={i} className="w-0.5 h-full bg-brand-400 rounded-full speaking-bar" />
                   ))}
                 </div>
-                <span className="text-brand-300 text-sm font-medium">In riproduzione...</span>
+                <span className="text-brand-300 text-sm font-medium">
+                  {t('In riproduzione...')}
+                </span>
               </div>
             )}
           </div>
@@ -660,7 +695,7 @@ export default function VisitPlayerPage() {
             <>
               <div className="px-6 py-4 border-b border-surface-800">
                 <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">
-                  Livello contenuto
+                  {t('Livello contenuto')}
                 </p>
                 <div className="flex gap-2">
                   {Object.values(LanguageLevel).map((level) => (
@@ -681,7 +716,7 @@ export default function VisitPlayerPage() {
 
               <div className="px-6 py-4 border-b border-surface-800">
                 <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">
-                  Durata descrizione
+                  {t('Durata descrizione')}
                 </p>
                 <div className="flex gap-2">
                   {Object.values(ContentDuration).map((dur) => (
@@ -704,7 +739,7 @@ export default function VisitPlayerPage() {
 
           <div className="flex-1 overflow-y-auto p-6">
             <p className="text-surface-300 text-base leading-relaxed">
-              {currentText || 'Nessun contenuto disponibile per questa tappa.'}
+              {currentText || t('Nessun contenuto disponibile per questa tappa.')}
             </p>
           </div>
 
@@ -745,7 +780,7 @@ export default function VisitPlayerPage() {
                 }`}
               >
                 {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                <span>{isListening ? 'Termina' : 'Comandi vocali'}</span>
+                <span>{isListening ? t('Termina') : t('Comandi vocali')}</span>
               </button>
 
               <button
@@ -753,7 +788,7 @@ export default function VisitPlayerPage() {
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-surface-950 border border-surface-800 text-surface-300 hover:bg-surface-800 transition-all"
               >
                 <List className="w-4 h-4" />
-                <span>Tutte le tappe</span>
+                <span>{t('Tutte le tappe')}</span>
               </button>
 
               <button
@@ -761,19 +796,23 @@ export default function VisitPlayerPage() {
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-surface-950 border border-surface-800 text-surface-300 hover:bg-surface-800 transition-all"
               >
                 <MapPin className="w-4 h-4" />
-                <span>Servizi</span>
+                <span>{t('Servizi')}</span>
               </button>
             </div>
 
             <p className="text-xs text-surface-600 text-center mt-4">
-              Frecce ← → per navigare, Spazio per play/pausa
+              {t('Frecce ← → per navigare, Spazio per play/pausa')}
             </p>
           </div>
         </div>
       </div>
 
       {/* Lista tappe */}
-      <Sheet open={showItemList} onClose={() => setShowItemList(false)} title="Tappe della visita">
+      <Sheet
+        open={showItemList}
+        onClose={() => setShowItemList(false)}
+        title={t('Tappe della visita')}
+      >
         <div className="space-y-2">
           {steps.map((step, idx) => {
             const label =
@@ -781,13 +820,13 @@ export default function VisitPlayerPage() {
                 ? step.artwork.title
                 : step.kind === 'logistic'
                   ? step.title
-                  : 'Indicazioni';
+                  : t('Indicazioni');
             const sub =
               step.kind === 'artwork'
                 ? step.artwork.author
                 : step.kind === 'logistic'
-                  ? 'Info pratiche'
-                  : 'Come muoversi';
+                  ? t('Info pratiche')
+                  : t('Come muoversi');
             return (
               <button
                 key={step.id}
@@ -836,24 +875,24 @@ export default function VisitPlayerPage() {
       <Sheet
         open={showQuickActions}
         onClose={() => setShowQuickActions(false)}
-        title="Servizi del museo"
+        title={t('Servizi del museo')}
       >
         <div className="grid grid-cols-3 gap-3">
           {[
             {
               icon: MapIcon,
-              label: 'Mappa',
+              label: t('Mappa'),
               action: () => {
                 setShowQuickActions(false);
                 setShowMap(true);
               },
             },
-            { icon: DoorOpen, label: 'Uscita' },
-            { icon: MapPin, label: 'Toilette' },
-            { icon: Coffee, label: 'Bar' },
-            { icon: ShoppingBag, label: 'Shop' },
-            { icon: Accessibility, label: 'Accessibilità' },
-            { icon: HelpCircle, label: 'Info' },
+            { icon: DoorOpen, label: t('Uscita') },
+            { icon: MapPin, label: t('Toilette') },
+            { icon: Coffee, label: t('Bar') },
+            { icon: ShoppingBag, label: t('Shop') },
+            { icon: Accessibility, label: t('Accessibilità') },
+            { icon: HelpCircle, label: t('Info') },
           ].map(({ icon: Icon, label, action }) => (
             <button
               key={label}
@@ -868,9 +907,14 @@ export default function VisitPlayerPage() {
       </Sheet>
 
       {/* Impostazioni */}
-      <Sheet open={showSettings} onClose={() => setShowSettings(false)} title="Impostazioni">
+      <Sheet open={showSettings} onClose={() => setShowSettings(false)} title={t('Impostazioni')}>
         <div className="mb-5">
-          <p className="text-sm font-medium text-surface-300 mb-2">Livello contenuto</p>
+          <p className="text-sm font-medium text-surface-300 mb-2">{t('Lingua')}</p>
+          <LanguageSwitcher />
+        </div>
+
+        <div className="mb-5">
+          <p className="text-sm font-medium text-surface-300 mb-2">{t('Livello contenuto')}</p>
           <div className="flex gap-2">
             {Object.values(LanguageLevel).map((level) => (
               <button
@@ -889,34 +933,42 @@ export default function VisitPlayerPage() {
         </div>
 
         <div>
-          <p className="text-sm font-medium text-surface-300 mb-2">Comandi vocali disponibili</p>
+          <p className="text-sm font-medium text-surface-300 mb-2">
+            {t('Comandi vocali disponibili')}
+          </p>
           <div className="bg-surface-800 rounded-xl p-4 text-sm text-surface-400 space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <p>
-                <span className="font-semibold text-surface-200">"Prossimo"</span> — Avanti
+                <span className="font-semibold text-surface-200">{t('"Prossimo"')}</span> —{' '}
+                {t('Avanti')}
               </p>
               <p>
-                <span className="font-semibold text-surface-200">"Precedente"</span> — Indietro
+                <span className="font-semibold text-surface-200">{t('"Precedente"')}</span> —{' '}
+                {t('Indietro')}
               </p>
               <p>
-                <span className="font-semibold text-surface-200">"Cos'è questo"</span> — Titolo e
-                autore
+                <span className="font-semibold text-surface-200">{t('"Cos\'è questo"')}</span> —{' '}
+                {t('Titolo e autore')}
               </p>
               <p>
-                <span className="font-semibold text-surface-200">"Chi è l'autore"</span> — Autore
+                <span className="font-semibold text-surface-200">{t('"Chi è l\'autore"')}</span> —{' '}
+                {t('Autore')}
               </p>
               <p>
-                <span className="font-semibold text-surface-200">"Dimmi di più/meno"</span> — Durata
+                <span className="font-semibold text-surface-200">{t('"Dimmi di più/meno"')}</span> —{' '}
+                {t('Durata')}
               </p>
               <p>
-                <span className="font-semibold text-surface-200">"Non capisco"</span> — Livello più
-                semplice
+                <span className="font-semibold text-surface-200">{t('"Non capisco"')}</span> —{' '}
+                {t('Livello più semplice')}
               </p>
               <p>
-                <span className="font-semibold text-surface-200">"Dov'è l'uscita"</span> — Servizi
+                <span className="font-semibold text-surface-200">{t('"Dov\'è l\'uscita"')}</span> —{' '}
+                {t('Servizi')}
               </p>
               <p>
-                <span className="font-semibold text-surface-200">"Stop"</span> — Ferma audio
+                <span className="font-semibold text-surface-200">{t('"Stop"')}</span> —{' '}
+                {t('Ferma audio')}
               </p>
             </div>
           </div>

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { ZoomIn, ZoomOut, Maximize2, Navigation, X } from 'lucide-react';
 import type { MuseumMap, MapMarker } from '@artaround/shared';
 import { MarkerType } from '@artaround/shared';
+import { useT } from '../hooks/useT';
 
 interface MapViewProps {
   map: MuseumMap;
@@ -11,41 +12,46 @@ interface MapViewProps {
   onClose?: () => void;
 }
 
-// Icon mapping for marker types
-const markerIcons: Record<MarkerType, { icon: string; color: string; label: string }> = {
-  [MarkerType.ARTWORK]: { icon: '🖼️', color: 'bg-brand-500', label: 'Opera' },
-  [MarkerType.ENTRANCE]: { icon: '🚪', color: 'bg-green-500', label: 'Ingresso' },
-  [MarkerType.EXIT]: { icon: '🚶', color: 'bg-blue-500', label: 'Uscita' },
-  [MarkerType.TOILETTE]: { icon: '🚻', color: 'bg-cyan-500', label: 'Bagni' },
-  [MarkerType.ACCESSIBLE_TOILETTE]: {
-    icon: '♿',
-    color: 'bg-cyan-600',
-    label: 'Bagni accessibili',
-  },
-  [MarkerType.BAR]: { icon: '☕', color: 'bg-amber-500', label: 'Bar' },
-  [MarkerType.SHOP]: { icon: '🛍️', color: 'bg-pink-500', label: 'Shop' },
-  [MarkerType.EMERGENCY_EXIT]: { icon: '🚨', color: 'bg-red-500', label: 'Uscita emergenza' },
-  [MarkerType.ELEVATOR]: { icon: '🛗', color: 'bg-purple-500', label: 'Ascensore' },
-  [MarkerType.STAIRS]: { icon: '🪜', color: 'bg-orange-500', label: 'Scale' },
-  [MarkerType.ACCESSIBILITY]: { icon: '♿', color: 'bg-blue-600', label: 'Accessibilità' },
-  [MarkerType.ROOM]: { icon: '🏛️', color: 'bg-surface-500', label: 'Sala' },
-  [MarkerType.INFO_POINT]: { icon: 'ℹ️', color: 'bg-blue-400', label: 'Info' },
-  [MarkerType.OBSTACLE]: { icon: '⚠️', color: 'bg-yellow-500', label: 'Ostacolo' },
-  [MarkerType.BENCH]: { icon: '🪑', color: 'bg-lime-500', label: 'Panchina' },
-  [MarkerType.AUDIO_GUIDE]: { icon: '🎧', color: 'bg-indigo-500', label: 'Audioguida' },
-  [MarkerType.WIFI]: { icon: '📶', color: 'bg-teal-500', label: 'Wi-Fi' },
-  [MarkerType.RESTAURANT]: { icon: '🍽️', color: 'bg-amber-600', label: 'Ristorante' },
-  [MarkerType.CLOAKROOM]: { icon: '🧥', color: 'bg-rose-500', label: 'Guardaroba' },
-  [MarkerType.LOCKER]: { icon: '🗄️', color: 'bg-fuchsia-500', label: 'Armadio' },
-  [MarkerType.SCULPTURE]: { icon: '🗿', color: 'bg-brand-400', label: 'Scultura' },
-  [MarkerType.PAINTING]: { icon: '🖌️', color: 'bg-brand-300', label: 'Dipinto' },
-  [MarkerType.ESCALATOR]: { icon: '🎢', color: 'bg-orange-600', label: 'Scala mobile' },
-  [MarkerType.RAMP]: { icon: '🛤️', color: 'bg-yellow-600', label: 'Rampa' },
-  [MarkerType.GALLERY]: { icon: '🖼️', color: 'bg-surface-600', label: 'Galleria' },
-  // Non è un punto di interesse: serve solo a far piegare il percorso disegnato sulla
-  // mappa (vedi getVisitPath), non va mai reso come marker cliccabile per il visitatore.
-  [MarkerType.WAYPOINT]: { icon: '', color: 'bg-transparent', label: 'Waypoint' },
-};
+// Icon mapping for marker types — funzione (non costante di modulo) perché
+// le etichette vanno tradotte con la lingua corrente.
+function buildMarkerIcons(
+  t: (text: string) => string,
+): Record<MarkerType, { icon: string; color: string; label: string }> {
+  return {
+    [MarkerType.ARTWORK]: { icon: '🖼️', color: 'bg-brand-500', label: t('Opera') },
+    [MarkerType.ENTRANCE]: { icon: '🚪', color: 'bg-green-500', label: t('Ingresso') },
+    [MarkerType.EXIT]: { icon: '🚶', color: 'bg-blue-500', label: t('Uscita') },
+    [MarkerType.TOILETTE]: { icon: '🚻', color: 'bg-cyan-500', label: t('Bagni') },
+    [MarkerType.ACCESSIBLE_TOILETTE]: {
+      icon: '♿',
+      color: 'bg-cyan-600',
+      label: t('Bagni accessibili'),
+    },
+    [MarkerType.BAR]: { icon: '☕', color: 'bg-amber-500', label: t('Bar') },
+    [MarkerType.SHOP]: { icon: '🛍️', color: 'bg-pink-500', label: t('Shop') },
+    [MarkerType.EMERGENCY_EXIT]: { icon: '🚨', color: 'bg-red-500', label: t('Uscita emergenza') },
+    [MarkerType.ELEVATOR]: { icon: '🛗', color: 'bg-purple-500', label: t('Ascensore') },
+    [MarkerType.STAIRS]: { icon: '🪜', color: 'bg-orange-500', label: t('Scale') },
+    [MarkerType.ACCESSIBILITY]: { icon: '♿', color: 'bg-blue-600', label: t('Accessibilità') },
+    [MarkerType.ROOM]: { icon: '🏛️', color: 'bg-surface-500', label: t('Sala') },
+    [MarkerType.INFO_POINT]: { icon: 'ℹ️', color: 'bg-blue-400', label: t('Info') },
+    [MarkerType.OBSTACLE]: { icon: '⚠️', color: 'bg-yellow-500', label: t('Ostacolo') },
+    [MarkerType.BENCH]: { icon: '🪑', color: 'bg-lime-500', label: t('Panchina') },
+    [MarkerType.AUDIO_GUIDE]: { icon: '🎧', color: 'bg-indigo-500', label: t('Audioguida') },
+    [MarkerType.WIFI]: { icon: '📶', color: 'bg-teal-500', label: 'Wi-Fi' },
+    [MarkerType.RESTAURANT]: { icon: '🍽️', color: 'bg-amber-600', label: t('Ristorante') },
+    [MarkerType.CLOAKROOM]: { icon: '🧥', color: 'bg-rose-500', label: t('Guardaroba') },
+    [MarkerType.LOCKER]: { icon: '🗄️', color: 'bg-fuchsia-500', label: t('Armadio') },
+    [MarkerType.SCULPTURE]: { icon: '🗿', color: 'bg-brand-400', label: t('Scultura') },
+    [MarkerType.PAINTING]: { icon: '🖌️', color: 'bg-brand-300', label: t('Dipinto') },
+    [MarkerType.ESCALATOR]: { icon: '🎢', color: 'bg-orange-600', label: t('Scala mobile') },
+    [MarkerType.RAMP]: { icon: '🛤️', color: 'bg-yellow-600', label: t('Rampa') },
+    [MarkerType.GALLERY]: { icon: '🖼️', color: 'bg-surface-600', label: t('Galleria') },
+    // Non è un punto di interesse: serve solo a far piegare il percorso disegnato sulla
+    // mappa (vedi getVisitPath), non va mai reso come marker cliccabile per il visitatore.
+    [MarkerType.WAYPOINT]: { icon: '', color: 'bg-transparent', label: t('Waypoint') },
+  };
+}
 
 export default function MapView({
   map,
@@ -54,6 +60,8 @@ export default function MapView({
   onMarkerClick,
   onClose,
 }: MapViewProps) {
+  const t = useT();
+  const markerIcons = buildMarkerIcons(t);
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -155,12 +163,12 @@ export default function MapView({
     <div className="fixed inset-0 z-50 bg-surface-900/95 flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-surface-700">
-        <h2 className="text-lg font-semibold text-white">Mappa del Museo</h2>
+        <h2 className="text-lg font-semibold text-white">{t('Mappa del Museo')}</h2>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowLegend(!showLegend)}
             className="p-2 text-surface-300 hover:text-white hover:bg-surface-700 rounded-lg transition-colors"
-            title="Legenda"
+            title={t('Legenda')}
           >
             <Navigation size={20} />
           </button>
@@ -303,7 +311,7 @@ export default function MapView({
         {/* Legend Panel */}
         {showLegend && (
           <div className="absolute top-4 right-4 bg-surface-800/95 backdrop-blur rounded-lg p-4 min-w-48 shadow-xl">
-            <h3 className="text-sm font-semibold text-white mb-3">Legenda</h3>
+            <h3 className="text-sm font-semibold text-white mb-3">{t('Legenda')}</h3>
             <div className="space-y-2">
               {legendItems.map((type) => {
                 const config = markerIcons[type];
@@ -323,7 +331,7 @@ export default function MapView({
                   <span className="w-6 h-6 rounded-full bg-brand-500 flex items-center justify-center text-xs text-white font-bold">
                     !
                   </span>
-                  <span className="text-surface-300">Posizione attuale</span>
+                  <span className="text-surface-300">{t('Posizione attuale')}</span>
                 </div>
               </div>
             </div>
@@ -355,7 +363,7 @@ export default function MapView({
         {/* Current position indicator */}
         {currentArtworkId && (
           <div className="absolute bottom-4 left-4 bg-brand-500/90 backdrop-blur text-white px-4 py-2 rounded-lg shadow-lg">
-            <span className="text-sm font-medium">📍 Sei qui</span>
+            <span className="text-sm font-medium">📍 {t('Sei qui')}</span>
           </div>
         )}
       </div>

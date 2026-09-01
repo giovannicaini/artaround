@@ -1,4 +1,5 @@
 import { Compass } from 'lucide-react';
+import { useT } from '../../hooks/useT';
 
 interface LoadingStateProps {
   message?: string;
@@ -9,7 +10,8 @@ interface LoadingStateProps {
  * Stato di caricamento centralizzato — prima riscritto quasi identico in
  * ogni pagina (HomePage, MuseumPage, VisitPlayerPage).
  */
-export function LoadingState({ message = 'Caricamento...', fullHeight = true }: LoadingStateProps) {
+export function LoadingState({ message, fullHeight = true }: LoadingStateProps) {
+  const t = useT();
   return (
     <div
       className={`flex items-center justify-center ${fullHeight ? 'min-h-full' : 'py-16'}`}
@@ -23,7 +25,7 @@ export function LoadingState({ message = 'Caricamento...', fullHeight = true }: 
             <Compass className="w-7 h-7 text-brand-300 animate-[spin_2.5s_linear_infinite]" />
           </div>
         </div>
-        <p className="text-surface-400 text-sm">{message}</p>
+        <p className="text-surface-400 text-sm">{message || t('Caricamento...')}</p>
       </div>
     </div>
   );
