@@ -101,11 +101,10 @@ export class MarketplacePage extends LitElement {
 
   private canBuyVisit(visit: Visit): boolean {
     if (!this.user) return false;
-    // Stesso vincolo di canBuyItem: il marketplace serve agli autori per riacquistare
-    // contenuti da riutilizzare. Mancava qui, per cui chiunque fosse loggato (curatori,
-    // visitatori) vedeva il pulsante "Acquista" sulle visite pur non potendolo mai fare
-    // per gli item — ora anche il backend rifiuta l'acquisto a chi non è autore.
-    if (this.user.role !== UserRole.AUTHOR) return false;
+    // A differenza degli item (riusati dagli autori per costruire nuove visite), le visite
+    // sono il prodotto finito destinato al visitatore finale: per specifica il Navigator
+    // fornisce "accesso al marketplace" per scegliere/acquistare la visita da eseguire,
+    // quindi qui NON va ristretto agli autori.
     if (visit.authorId === this.user._id) return false;
     return !this.purchasedVisitIds.has(visit._id);
   }
@@ -215,9 +214,7 @@ export class MarketplacePage extends LitElement {
                       ? __('Creata da te')
                       : isPurchased
                         ? __('Già acquistata')
-                        : this.user?.role !== UserRole.AUTHOR
-                          ? __('Acquistabile solo dagli autori')
-                          : __('Non acquistabile')}
+                        : __('Non acquistabile')}
                   </span>
                 `}
           </div>
