@@ -71,6 +71,36 @@ export class MarkerEditor extends LitElement {
     }
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    window.addEventListener('keydown', this.handleGlobalKeydown);
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener('keydown', this.handleGlobalKeydown);
+    super.disconnectedCallback();
+  }
+
+  // Invio aggiunge subito il marker in coda a un click sulla mappa, senza
+  // dover cliccare "Aggiungi Marker" ogni volta: utile per piazzare tante
+  // svolte una via l'altra. Non intercetta Invio dentro una textarea (deve
+  // poter andare a capo) né dentro campi di ALTRI pannelli della pagina
+  // (es. il nome di un piano) — solo dal proprio campo Etichetta o da un
+  // focus generico (es. subito dopo aver cliccato la mappa).
+  private handleGlobalKeydown = (e: KeyboardEvent) => {
+    if (e.key !== 'Enter') return;
+    if (this.activeTab !== 'add' || !this.clickPosition) return;
+
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'TEXTAREA' || target.closest('ui-textarea')) return;
+    if ((target.tagName === 'INPUT' || target.closest('ui-input')) && !this.contains(target)) {
+      return;
+    }
+
+    e.preventDefault();
+    this.addMarker();
+  };
+
   // ─── Render Entry ────────────────────────────────────────
   render() {
     return html`
@@ -125,6 +155,9 @@ export class MarkerEditor extends LitElement {
               <div class="text-green-400 text-sm font-medium mb-1">📍 Posizione selezionata</div>
               <div class="text-surface-300 text-xs">
                 X: ${Math.round(this.clickPosition.x)} • Y: ${Math.round(this.clickPosition.y)}
+              </div>
+              <div class="text-surface-400 text-xs mt-1">
+                ⏎ ${__('Premi Invio per aggiungerlo subito')}
               </div>
             </div>
           `
