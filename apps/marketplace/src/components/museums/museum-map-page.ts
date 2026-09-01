@@ -3,13 +3,16 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { museumService } from '../../services/museum.service';
 import { artworkService } from '../../services/artwork.service';
 import { modalService } from '../../services/modal.service';
-import type {
-  Museum,
-  MuseumFloor,
-  MapMarker,
-  MuseumRoom,
-  MapPoint,
-  Artwork,
+import { randomPointInPolygon } from '../../utils/polygon-utils';
+import {
+  MarkerType,
+  ArtworkType,
+  type Museum,
+  type MuseumFloor,
+  type MapMarker,
+  type MuseumRoom,
+  type MapPoint,
+  type Artwork,
 } from '@artaround/shared';
 import './svg-map-editor';
 import './floor-manager';
@@ -83,6 +86,23 @@ export class MuseumMapPage extends LitElement {
 
   @state()
   private selectedRoomId: string | null = null;
+
+  @state()
+  private generatingMarkersRoomId: string | null = null;
+
+  // Per ogni sala, quante opere assegnate lì (Artwork.roomId) non hanno
+  // ancora un marker su nessun piano — usato dal pulsante "Crea marker opere".
+  private get pendingMarkerCountsByRoom(): Record<string, number> {
+    const markedWikidataIds = new Set(
+      this.floors.flatMap((f) => (f.markers || []).map((m) => m.artworkId).filter(Boolean)),
+    );
+    const counts: Record<string, number> = {};
+    for (const artwork of this.artworks) {
+      if (!artwork.roomId || markedWikidataIds.has(artwork.wikidataId)) continue;
+      counts[artwork.roomId] = (counts[artwork.roomId] || 0) + 1;
+    }
+    return counts;
+  }
 
   async connectedCallback() {
     super.connectedCallback();
@@ -225,11 +245,14 @@ export class MuseumMapPage extends LitElement {
               .drawMode=${this.roomDrawMode}
               .drawingRoomId=${this.drawingRoomId}
               .pointCount=${this.roomDrawPoints.length}
+              .pendingCounts=${this.pendingMarkerCountsByRoom}
+              .generatingMarkersRoomId=${this.generatingMarkersRoomId}
               @room-outline-start=${this.handleRoomOutlineStart}
               @room-outline-undo-point=${this.handleRoomOutlineUndoPoint}
               @room-outline-finish=${this.handleRoomOutlineFinish}
               @room-outline-cancel=${this.handleRoomOutlineCancel}
               @room-outline-remove=${this.handleRoomOutlineRemove}
+              @room-generate-markers=${this.handleGenerateRoomMarkers}
             ></room-outline-editor>
 
             <!-- Artworks List -->
@@ -620,6 +643,74 @@ export class MuseumMapPage extends LitElement {
     } catch (err) {
       console.error('Error removing room outline:', err);
       await modalService.error(__('Errore di connessione durante la rimozione del contorno'));
+    }
+  }
+
+  private markerTypeForArtwork(artwork: Artwork): MarkerType {
+    switch (artwork.artworkType) {
+      case ArtworkType.Sculpture:
+        return MarkerType.SCULPTURE;
+      case ArtworkType.Painting:
+      case ArtworkType.Drawing:
+      case ArtworkType.Print:
+      case ArtworkType.Photograph:
+        return MarkerType.PAINTING;
+      default:
+        return MarkerType.ARTWORK;
+    }
+  }
+
+  private async handleGenerateRoomMarkers(e: CustomEvent) {
+    const room = e.detail as MuseumRoom;
+    if (!room.floorId || !room.polygon || room.polygon.length < 3) return;
+
+    const floor = this.floors.find((f) => f.id === room.floorId);
+    if (!floor) return;
+
+    const markedWikidataIds = new Set(
+      this.floors.flatMap((f) => (f.markers || []).map((m) => m.artworkId).filter(Boolean)),
+    );
+    const pendingArtworks = this.artworks.filter(
+      (a) => a.roomId === room.id && a.wikidataId && !markedWikidataIds.has(a.wikidataId),
+    );
+    if (pendingArtworks.length === 0) return;
+
+    this.generatingMarkersRoomId = room.id;
+    try {
+      // Distribuiti a caso dentro il contorno della sala, tenuti a distanza
+      // minima l'uno dall'altro perché non finiscano sovrapposti.
+      const placedPoints: MapPoint[] = [];
+      const newMarkers: MapMarker[] = pendingArtworks.map((artwork) => {
+        const point = randomPointInPolygon(room.polygon!, placedPoints);
+        placedPoints.push(point);
+        return {
+          id: `marker-${artwork.wikidataId}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          floorId: room.floorId!,
+          x: point.x,
+          y: point.y,
+          type: this.markerTypeForArtwork(artwork),
+          label: artwork.title,
+          artworkId: artwork.wikidataId,
+          isVisible: true,
+        };
+      });
+
+      const allMarkers = [...(floor.markers || []), ...newMarkers];
+      const saved = await museumService.updateMarkers(this.museumId, room.floorId, allMarkers);
+
+      if (saved.length !== allMarkers.length) {
+        await modalService.error(__('Errore durante la creazione dei marker'));
+        return;
+      }
+
+      this.floors = this.floors.map((f) => (f.id === room.floorId ? { ...f, markers: saved } : f));
+
+      await modalService.success(`${newMarkers.length} ${__('marker creati per')} "${room.name}"`);
+    } catch (err) {
+      console.error('Error generating room markers:', err);
+      await modalService.error(__('Errore di connessione durante la creazione dei marker'));
+    } finally {
+      this.generatingMarkersRoomId = null;
     }
   }
 

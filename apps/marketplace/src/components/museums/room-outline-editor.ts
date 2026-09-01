@@ -35,6 +35,14 @@ export class RoomOutlineEditor extends LitElement {
   @property({ type: Number })
   pointCount = 0;
 
+  // Numero di opere di ciascuna sala che non hanno ancora un marker sulla
+  // piantina (calcolato dal genitore, che ha sia le opere sia i marker).
+  @property({ type: Object })
+  pendingCounts: Record<string, number> = {};
+
+  @property({ type: String })
+  generatingMarkersRoomId: string | null = null;
+
   private get roomsForThisFloor(): MuseumRoom[] {
     return this.rooms.filter((room) => !room.floorId || room.floorId === this.currentFloorId);
   }
@@ -70,6 +78,16 @@ export class RoomOutlineEditor extends LitElement {
   private removeOutline(room: MuseumRoom) {
     this.dispatchEvent(
       new CustomEvent('room-outline-remove', {
+        detail: room,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  private generateMarkers(room: MuseumRoom) {
+    this.dispatchEvent(
+      new CustomEvent('room-generate-markers', {
         detail: room,
         bubbles: true,
         composed: true,
@@ -165,40 +183,55 @@ export class RoomOutlineEditor extends LitElement {
 
   private renderRoomRow(room: MuseumRoom) {
     const isOutlined = Boolean(room.polygon && room.polygon.length > 0);
+    const pending = this.pendingCounts[room.id] || 0;
+    const isGenerating = this.generatingMarkersRoomId === room.id;
 
     return html`
-      <div
-        class="flex items-center justify-between gap-2 p-3 border-b border-surface-600 last:border-0"
-      >
-        <div class="min-w-0">
-          <p class="text-white text-sm font-medium truncate m-0">${room.name}</p>
-          ${isOutlined
-            ? html`<ui-badge variant="success" size="sm" .label=${__('Contornata')}></ui-badge>`
-            : html`<ui-badge
-                variant="secondary"
-                size="sm"
-                .label=${__('Da contornare')}
-              ></ui-badge>`}
-        </div>
-        <div class="flex items-center gap-1 flex-shrink-0">
-          <ui-button
-            variant="secondary"
-            size="xs"
-            .label=${isOutlined ? __('Ridisegna') : __('Disegna contorno')}
-            @click=${() => this.startDrawing(room)}
-          ></ui-button>
-          ${isOutlined
-            ? html`
-                <ui-icon-button
-                  icon="trash"
+      <div class="p-3 border-b border-surface-600 last:border-0 space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <p class="text-white text-sm font-medium truncate m-0">${room.name}</p>
+            ${isOutlined
+              ? html`<ui-badge variant="success" size="sm" .label=${__('Contornata')}></ui-badge>`
+              : html`<ui-badge
+                  variant="secondary"
                   size="sm"
-                  variant="danger"
-                  .title=${__('Rimuovi contorno')}
-                  @click=${() => this.removeOutline(room)}
-                ></ui-icon-button>
-              `
-            : nothing}
+                  .label=${__('Da contornare')}
+                ></ui-badge>`}
+          </div>
+          <div class="flex items-center gap-1 flex-shrink-0">
+            <ui-button
+              variant="secondary"
+              size="xs"
+              .label=${isOutlined ? __('Ridisegna') : __('Disegna contorno')}
+              @click=${() => this.startDrawing(room)}
+            ></ui-button>
+            ${isOutlined
+              ? html`
+                  <ui-icon-button
+                    icon="trash"
+                    size="sm"
+                    variant="danger"
+                    .title=${__('Rimuovi contorno')}
+                    @click=${() => this.removeOutline(room)}
+                  ></ui-icon-button>
+                `
+              : nothing}
+          </div>
         </div>
+
+        ${isOutlined && pending > 0
+          ? html`
+              <ui-button
+                variant="ghost"
+                size="xs"
+                icon="sparkles"
+                .label=${`${__('Crea marker opere')} (${pending})`}
+                .loading=${isGenerating}
+                @click=${() => this.generateMarkers(room)}
+              ></ui-button>
+            `
+          : nothing}
       </div>
     `;
   }
