@@ -55,13 +55,4 @@
   <rect x="460.0" y="468" width="80" height="4" fill="#faf6ee"/> <!-- Salone-Portico -->
   <rect x="385.0" y="245" width="50" height="4" fill="#faf6ee"/> <!-- V-Salone -->
   <rect x="565.0" y="245" width="50" height="4" fill="#faf6ee"/> <!-- IV-Salone -->
-
-  <!-- Vano scale/ascensore verso il primo piano (etichette dai marker) -->
-  <rect x="880" y="450" width="50" height="80" fill="#e9ded0" stroke="#8c7a5e" stroke-width="2"/>
-  <line x1="880" y1="462" x2="930" y2="462" stroke="#8c7a5e" stroke-width="1.2"/>
-  <line x1="880" y1="474" x2="930" y2="474" stroke="#8c7a5e" stroke-width="1.2"/>
-  <line x1="880" y1="486" x2="930" y2="486" stroke="#8c7a5e" stroke-width="1.2"/>
-  <line x1="880" y1="498" x2="930" y2="498" stroke="#8c7a5e" stroke-width="1.2"/>
-  <line x1="880" y1="510" x2="930" y2="510" stroke="#8c7a5e" stroke-width="1.2"/>
-  <line x1="880" y1="522" x2="930" y2="522" stroke="#8c7a5e" stroke-width="1.2"/>
 </svg>
