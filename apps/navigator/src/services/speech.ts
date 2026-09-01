@@ -149,20 +149,29 @@ class VoiceRecognitionService {
 
 export const voiceRecognitionService = new VoiceRecognitionService();
 
-// Command parser for voice commands
+// Command parser for voice commands — vocabolario allineato 1:1 alla lista
+// di specifica ("prossimo, precedente, Cos'è questo, dimmi di più, dimmi
+// di meno, Non capisco, troppo semplice, Chi è l'autore, qual è lo stile,
+// Dov'è l'uscita/toilette/bar/shop, ci sono ostacoli").
 export function parseVoiceCommand(text: string): string | null {
   const commands: Record<string, string[]> = {
     next: ['prossimo', 'avanti', 'successivo', 'vai avanti', 'next'],
     prev: ['precedente', 'indietro', 'torna indietro', 'previous', 'back'],
-    play: ['leggi', 'ascolta', 'play', 'parla', 'dimmi'],
+    play: ['leggi', 'ascolta', 'play', 'parla'],
     stop: ['stop', 'ferma', 'basta', 'silenzio'],
+    whatIsThis: ['cos è questo', "cos'è questo", 'cosa sto guardando', 'cosa vedo'],
     more: ['dimmi di più', 'più dettagli', 'approfondisci', 'more'],
-    less: ['dimmi di meno', 'più semplice', 'riassumi', 'less'],
+    less: ['dimmi di meno', 'più breve', 'riassumi', 'less'],
+    tooHard: ['non capisco', 'troppo difficile', 'troppo complicato'],
+    tooSimple: ['troppo semplice', 'so già questo', 'lo sapevo già'],
+    author: ["chi è l'autore", 'chi ha fatto', 'chi lo ha dipinto', 'chi lo ha scolpito'],
+    style: ['qual è lo stile', 'che stile è', 'che corrente è', 'che movimento è'],
     repeat: ['ripeti', 'ancora', 'di nuovo', 'repeat'],
-    exit: ['uscita', "dov'è l'uscita", 'esci', 'exit'],
-    toilette: ['toilette', 'bagno', 'toilet', 'wc'],
-    bar: ['bar', 'caffè', 'ristorante'],
-    shop: ['shop', 'negozio', 'souvenir'],
+    exit: ["dov'è l'uscita", 'uscita', 'esci', 'exit'],
+    toilette: ["dov'è il bagno", "dov'è la toilette", 'toilette', 'bagno', 'wc'],
+    bar: ["dov'è il bar", 'bar', 'caffè'],
+    shop: ["dov'è lo shop", "dov'è il negozio", 'shop', 'negozio', 'souvenir'],
+    obstacles: ['ci sono ostacoli', "c'è un ostacolo", 'è accessibile', 'ostacoli'],
     help: ['aiuto', 'help', 'cosa posso dire'],
   };
 

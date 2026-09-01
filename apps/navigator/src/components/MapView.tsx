@@ -194,18 +194,30 @@ export default function MapView({
             transformOrigin: '0 0',
           }}
         >
-          {/* Map Image */}
-          {map.imageUrl && (
-            <img
-              src={map.imageUrl}
-              alt="Mappa museo"
-              className="max-w-none"
-              style={{
-                width: map.dimensions.width,
-                height: map.dimensions.height,
-              }}
-              draggable={false}
+          {/* Piano: contenuto SVG reale del piano quando disponibile (caso
+              attuale per tutti i musei), altrimenti un'immagine raster
+              legacy. La ricostruzione completa (sale, percorso spezzato sui
+              waypoint) è pianificata nella Fase 3 del piano — questo è il
+              fix minimo perché la mappa mostri qualcosa di vero nel
+              frattempo, invece dello sfondo vuoto di prima. */}
+          {map.svgContent ? (
+            <div
+              style={{ width: map.dimensions.width, height: map.dimensions.height }}
+              dangerouslySetInnerHTML={{ __html: map.svgContent }}
             />
+          ) : (
+            map.imageUrl && (
+              <img
+                src={map.imageUrl}
+                alt="Mappa museo"
+                className="max-w-none"
+                style={{
+                  width: map.dimensions.width,
+                  height: map.dimensions.height,
+                }}
+                draggable={false}
+              />
+            )
           )}
 
           {/* SVG Overlay for markers and path */}

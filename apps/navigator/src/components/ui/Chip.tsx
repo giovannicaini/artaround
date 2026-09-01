@@ -1,0 +1,30 @@
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
+
+interface ChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  selected?: boolean;
+  icon?: ReactNode;
+}
+
+/**
+ * Pillola selezionabile: filtri livello/durata/interessi, ovunque servano.
+ * Un solo look per "selezionato" in tutta l'app.
+ */
+export function Chip({ selected = false, icon, className = '', children, ...rest }: ChipProps) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap px-3.5 py-2 rounded-full
+        text-sm font-medium border transition-all duration-150 active:scale-95
+        ${
+          selected
+            ? 'bg-brand-500 border-brand-500 text-surface-950'
+            : 'bg-surface-900 border-surface-700 text-surface-300 hover:border-surface-500 hover:text-surface-100'
+        } ${className}`}
+      {...rest}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
