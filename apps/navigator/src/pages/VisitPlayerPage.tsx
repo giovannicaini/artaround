@@ -53,11 +53,13 @@ import {
   LanguageSwitcher,
 } from '../components/ui';
 import MapView from '../components/MapView';
+import { buildVisitRoutePoints, type RoutePoint } from '../lib/mapRoute';
 
 async function loadVisitData(visitId: string): Promise<{
   visit: Visit;
   steps: PlayerStep[];
   museumMap: MuseumMap | null;
+  routePoints: RoutePoint[];
 }> {
   const visit = await api.getVisit(visitId);
   if (!visit.steps || visit.steps.length === 0) {
@@ -65,6 +67,7 @@ async function loadVisitData(visitId: string): Promise<{
   }
 
   let museumMap: MuseumMap | null = null;
+  let routePoints: RoutePoint[] = [];
   if (visit.museumId) {
     try {
       const museum = await api.getMuseum(visit.museumId as string);
@@ -76,7 +79,9 @@ async function loadVisitData(visitId: string): Promise<{
           dimensions: firstFloor.dimensions,
           markers: firstFloor.markers,
           floors: museum.floors,
+          rooms: museum.rooms,
         };
+        routePoints = buildVisitRoutePoints(visit.steps, museum.floors || []);
       }
     } catch {
       // La mappa è un'aggiunta, non un requisito: la visita resta fruibile senza.
@@ -157,7 +162,7 @@ async function loadVisitData(visitId: string): Promise<{
     throw new Error('Impossibile caricare le tappe di questa visita.');
   }
 
-  return { visit, steps, museumMap };
+  return { visit, steps, museumMap, routePoints };
 }
 
 export default function VisitPlayerPage() {
@@ -836,7 +841,7 @@ export default function VisitPlayerPage() {
                 }}
                 className={`w-full flex items-center gap-4 p-4 rounded-xl text-left transition-all ${
                   idx === currentStepIndex
-                    ? 'bg-brand-500/12 border-2 border-brand-500/40'
+                    ? 'bg-brand-500/[.12] border-2 border-brand-500/40'
                     : 'bg-surface-800 border-2 border-transparent hover:bg-surface-700'
                 }`}
               >
@@ -986,6 +991,7 @@ export default function VisitPlayerPage() {
               markers: [],
             }
           }
+          routePoints={data.routePoints}
           currentArtworkId={artworkStep?.artwork.wikidataId}
           visitArtworkIds={steps
             .filter((s): s is Extract<PlayerStep, { kind: 'artwork' }> => s.kind === 'artwork')

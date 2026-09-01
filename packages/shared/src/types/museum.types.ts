@@ -159,6 +159,9 @@ export interface MuseumMap {
   };
   markers?: MapMarker[];
   floors?: MuseumFloor[];
+  // Sale contornate del museo (tutti i piani): il Navigator le filtra per
+  // piano corrente quando le mostra come riferimento sulla piantina.
+  rooms?: MuseumRoom[];
 }
 
 // ========================================

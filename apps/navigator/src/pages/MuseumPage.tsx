@@ -216,7 +216,7 @@ export default function MuseumPage() {
             <section className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
               {practicalInfo.map(({ icon: Icon, label, value }) => (
                 <Card key={label} className="p-4 flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-brand-500/12 flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-brand-500/[.12] flex items-center justify-center flex-shrink-0">
                     <Icon className="w-[18px] h-[18px] text-brand-300" />
                   </div>
                   <div className="min-w-0">

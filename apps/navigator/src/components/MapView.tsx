@@ -1,11 +1,14 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { ZoomIn, ZoomOut, Maximize2, Navigation, X } from 'lucide-react';
 import type { MuseumMap, MapMarker } from '@artaround/shared';
 import { MarkerType } from '@artaround/shared';
 import { useT } from '../hooks/useT';
+import { polygonCentroid } from '../lib/geometry';
+import type { RoutePoint } from '../lib/mapRoute';
 
 interface MapViewProps {
   map: MuseumMap;
+  routePoints?: RoutePoint[]; // percorso opere+waypoint, già risolto su tutti i piani
   currentArtworkId?: string; // The artwork currently being viewed (Wikidata ID)
   visitArtworkIds?: string[]; // All artworks in the visit, in order (Wikidata IDs)
   onMarkerClick?: (marker: MapMarker) => void;
@@ -48,13 +51,14 @@ function buildMarkerIcons(
     [MarkerType.RAMP]: { icon: '🛤️', color: 'bg-yellow-600', label: t('Rampa') },
     [MarkerType.GALLERY]: { icon: '🖼️', color: 'bg-surface-600', label: t('Galleria') },
     // Non è un punto di interesse: serve solo a far piegare il percorso disegnato sulla
-    // mappa (vedi getVisitPath), non va mai reso come marker cliccabile per il visitatore.
+    // mappa, non va mai reso come marker cliccabile per il visitatore.
     [MarkerType.WAYPOINT]: { icon: '', color: 'bg-transparent', label: t('Waypoint') },
   };
 }
 
 export default function MapView({
   map,
+  routePoints = [],
   currentArtworkId,
   visitArtworkIds = [],
   onMarkerClick,
@@ -69,20 +73,59 @@ export default function MapView({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showLegend, setShowLegend] = useState(false);
 
+  const floors = map.floors || [];
+
+  // Il piano di apertura è quello dell'opera che si stava guardando, se la
+  // mappa ha più di un piano — altrimenti il primo disponibile.
+  const [selectedFloorId, setSelectedFloorId] = useState<string>(() => {
+    if (currentArtworkId) {
+      const floorWithArtwork = floors.find((f) =>
+        f.markers?.some((m) => m.type === MarkerType.ARTWORK && m.artworkId === currentArtworkId),
+      );
+      if (floorWithArtwork) return floorWithArtwork.id;
+    }
+    return floors[0]?.id || '';
+  });
+
+  const currentFloor = floors.find((f) => f.id === selectedFloorId) || floors[0];
+  const floorMarkers = currentFloor?.markers || map.markers || [];
+  const dimensions = currentFloor?.dimensions || map.dimensions;
+
+  const floorRooms = useMemo(
+    () =>
+      (map.rooms || []).filter(
+        (r) => r.floorId === selectedFloorId && (r.polygon?.length || 0) >= 3,
+      ),
+    [map.rooms, selectedFloorId],
+  );
+
+  const floorRoutePoints = useMemo(
+    () => routePoints.filter((p) => p.floorId === selectedFloorId),
+    [routePoints, selectedFloorId],
+  );
+
+  // Cambiare piano ricentra la vista: dimensioni e contenuto sono diversi.
+  function handleSelectFloor(floorId: string) {
+    setSelectedFloorId(floorId);
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+  }
+
   // Find current artwork marker and center on it
   useEffect(() => {
-    if (currentArtworkId && map.markers) {
-      const currentMarker = map.markers.find(
+    if (currentArtworkId && containerRef.current) {
+      const currentMarker = floorMarkers.find(
         (m) => m.type === MarkerType.ARTWORK && m.artworkId === currentArtworkId,
       );
-      if (currentMarker && containerRef.current) {
+      if (currentMarker) {
         const container = containerRef.current;
         const centerX = container.clientWidth / 2 - currentMarker.x * scale;
         const centerY = container.clientHeight / 2 - currentMarker.y * scale;
         setPosition({ x: centerX, y: centerY });
       }
     }
-  }, [currentArtworkId, map.markers, scale]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentArtworkId, selectedFloorId]);
 
   const handleZoomIn = () => setScale((s) => Math.min(s + 0.25, 3));
   const handleZoomOut = () => setScale((s) => Math.max(s - 0.25, 0.5));
@@ -123,51 +166,28 @@ export default function MapView({
 
   const handleTouchEnd = () => setIsDragging(false);
 
-  // Get visit path (line connecting artworks in order)
-  const getVisitPath = () => {
-    if (!visitArtworkIds.length || !map.markers) return null;
-    const markers = map.markers;
-
-    const pathPoints: { x: number; y: number }[] = [];
-    visitArtworkIds.forEach((artworkId) => {
-      const marker = markers.find(
-        (m) => m.type === MarkerType.ARTWORK && m.artworkId === artworkId,
-      );
-      if (marker) {
-        pathPoints.push({ x: marker.x, y: marker.y });
-      }
-    });
-
-    if (pathPoints.length < 2) return null;
-
-    const pathD = pathPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-
-    return (
-      <path
-        d={pathD}
-        fill="none"
-        stroke="rgba(139, 92, 246, 0.5)"
-        strokeWidth="3"
-        strokeDasharray="8,4"
-        strokeLinecap="round"
-      />
-    );
-  };
+  // Linea del percorso sul piano corrente: passa anche per i waypoint (le
+  // svolte mute intorno ai muri), ma solo le opere ricevono un marker
+  // numerato cliccabile — un waypoint non è mai una tappa per il visitatore.
+  const visitPath =
+    floorRoutePoints.length >= 2
+      ? floorRoutePoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+      : null;
 
   // Get unique marker types for legend
   const legendItems = [
-    ...new Set(map.markers?.filter((m) => m.type !== MarkerType.WAYPOINT).map((m) => m.type) || []),
+    ...new Set(floorMarkers.filter((m) => m.type !== MarkerType.WAYPOINT).map((m) => m.type)),
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-surface-900/95 flex flex-col">
+    <div className="fixed inset-0 z-50 bg-surface-950/[.97] flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-surface-700">
-        <h2 className="text-lg font-semibold text-white">{t('Mappa del Museo')}</h2>
+      <div className="flex items-center justify-between p-4 border-b border-surface-800">
+        <h2 className="font-display text-base font-semibold text-white">{t('Mappa del Museo')}</h2>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowLegend(!showLegend)}
-            className="p-2 text-surface-300 hover:text-white hover:bg-surface-700 rounded-lg transition-colors"
+            className="p-2 text-surface-300 hover:text-white hover:bg-surface-800 rounded-lg transition-colors"
             title={t('Legenda')}
           >
             <Navigation size={20} />
@@ -175,13 +195,32 @@ export default function MapView({
           {onClose && (
             <button
               onClick={onClose}
-              className="p-2 text-surface-300 hover:text-white hover:bg-surface-700 rounded-lg transition-colors"
+              className="p-2 text-surface-300 hover:text-white hover:bg-surface-800 rounded-lg transition-colors"
             >
               <X size={20} />
             </button>
           )}
         </div>
       </div>
+
+      {/* Floor tabs */}
+      {floors.length > 1 && (
+        <div className="flex gap-1.5 px-4 py-2.5 border-b border-surface-800 overflow-x-auto">
+          {floors.map((floor) => (
+            <button
+              key={floor.id}
+              onClick={() => handleSelectFloor(floor.id)}
+              className={`px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                floor.id === selectedFloorId
+                  ? 'gradient-aurora text-white'
+                  : 'bg-surface-800 text-surface-300 hover:bg-surface-700'
+              }`}
+            >
+              {floor.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Map Container */}
       <div
@@ -203,44 +242,72 @@ export default function MapView({
           }}
         >
           {/* Piano: contenuto SVG reale del piano quando disponibile (caso
-              attuale per tutti i musei), altrimenti un'immagine raster
-              legacy. La ricostruzione completa (sale, percorso spezzato sui
-              waypoint) è pianificata nella Fase 3 del piano — questo è il
-              fix minimo perché la mappa mostri qualcosa di vero nel
-              frattempo, invece dello sfondo vuoto di prima. */}
-          {map.svgContent ? (
+              attuale per tutti i musei), altrimenti un'immagine raster legacy. */}
+          {currentFloor?.svgContent || map.svgContent ? (
             <div
-              style={{ width: map.dimensions.width, height: map.dimensions.height }}
-              dangerouslySetInnerHTML={{ __html: map.svgContent }}
+              style={{ width: dimensions.width, height: dimensions.height }}
+              dangerouslySetInnerHTML={{ __html: currentFloor?.svgContent || map.svgContent! }}
             />
           ) : (
             map.imageUrl && (
               <img
                 src={map.imageUrl}
-                alt="Mappa museo"
+                alt=""
                 className="max-w-none"
-                style={{
-                  width: map.dimensions.width,
-                  height: map.dimensions.height,
-                }}
+                style={{ width: dimensions.width, height: dimensions.height }}
                 draggable={false}
               />
             )
           )}
 
-          {/* SVG Overlay for markers and path */}
+          {/* SVG Overlay: sale, percorso, marker */}
           <svg
-            className="absolute top-0 left-0 pointer-events-none"
-            width={map.dimensions.width}
-            height={map.dimensions.height}
+            className="absolute top-0 left-0 pointer-events-none overflow-visible"
+            width={dimensions.width}
+            height={dimensions.height}
           >
-            {/* Visit path */}
-            {getVisitPath()}
+            {/* Sale già contornate — solo un riferimento visivo, mai interattive:
+                stessa lezione del marketplace, qui non c'è nulla da editare. */}
+            {floorRooms.map((room) => {
+              const center = polygonCentroid(room.polygon!);
+              return (
+                <g key={room.id}>
+                  <polygon
+                    points={room.polygon!.map((p) => `${p.x},${p.y}`).join(' ')}
+                    fill="rgb(139 63 252 / 0.08)"
+                    stroke="rgb(139 63 252 / 0.3)"
+                    strokeWidth={1.5}
+                  />
+                  <text
+                    x={center.x}
+                    y={center.y}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    className="text-[11px] font-semibold fill-surface-300"
+                    style={{ paintOrder: 'stroke', stroke: 'rgb(9 8 19 / 0.7)', strokeWidth: 3 }}
+                  >
+                    {room.title}
+                  </text>
+                </g>
+              );
+            })}
 
-            {/* Markers (i waypoint non sono punti di interesse: servono solo a
-                disegnare il percorso, vedi getVisitPath, mai mostrati come marker) */}
-            {map.markers
-              ?.filter((marker) => marker.type !== MarkerType.WAYPOINT)
+            {/* Percorso della visita, piegato sui waypoint */}
+            {visitPath && (
+              <path
+                d={visitPath}
+                fill="none"
+                stroke="rgb(236 72 153 / 0.55)"
+                strokeWidth={3}
+                strokeDasharray="8,4"
+                strokeLinecap="round"
+              />
+            )}
+
+            {/* Marker (i waypoint non sono punti di interesse: servono solo a
+                disegnare il percorso, mai mostrati come marker) */}
+            {floorMarkers
+              .filter((marker) => marker.type !== MarkerType.WAYPOINT)
               .map((marker) => {
                 const isCurrentArtwork =
                   marker.type === MarkerType.ARTWORK && marker.artworkId === currentArtworkId;
@@ -258,26 +325,26 @@ export default function MapView({
                     className="pointer-events-auto cursor-pointer"
                     onClick={() => onMarkerClick?.(marker)}
                   >
-                    {/* Pulse animation for current artwork */}
+                    {/* Anello che pulsa sulla tappa corrente — non è una posizione
+                        reale dell'utente (non prevista da specifica), solo
+                        l'evidenza di dove ci si è fermati nell'ascolto. */}
                     {isCurrentArtwork && (
                       <circle
                         cx={marker.x}
                         cy={marker.y}
                         r="24"
                         className="animate-ping"
-                        fill="rgba(139, 92, 246, 0.3)"
+                        fill="rgb(139 63 252 / 0.3)"
                       />
                     )}
 
-                    {/* Marker circle */}
                     <circle
                       cx={marker.x}
                       cy={marker.y}
                       r={isCurrentArtwork ? 20 : 16}
-                      className={`${isCurrentArtwork ? 'fill-brand-500' : isInVisit ? 'fill-brand-400' : 'fill-surface-600'} stroke-white stroke-2`}
+                      className={`${isCurrentArtwork ? 'fill-brand-500' : isInVisit ? 'fill-brand-700' : 'fill-surface-600'} stroke-white stroke-2`}
                     />
 
-                    {/* Icon or number */}
                     <text
                       x={marker.x}
                       y={marker.y}
@@ -291,13 +358,17 @@ export default function MapView({
                         : config.icon}
                     </text>
 
-                    {/* Label on hover (shown for non-artwork markers) */}
                     {marker.label && marker.type !== MarkerType.ARTWORK && (
                       <text
                         x={marker.x}
                         y={marker.y + 28}
                         textAnchor="middle"
                         className="text-xs fill-white font-medium"
+                        style={{
+                          paintOrder: 'stroke',
+                          stroke: 'rgb(9 8 19 / 0.8)',
+                          strokeWidth: 3,
+                        }}
                       >
                         {marker.label}
                       </text>
@@ -310,7 +381,7 @@ export default function MapView({
 
         {/* Legend Panel */}
         {showLegend && (
-          <div className="absolute top-4 right-4 bg-surface-800/95 backdrop-blur rounded-lg p-4 min-w-48 shadow-xl">
+          <div className="absolute top-4 right-4 bg-surface-900/95 backdrop-blur border border-surface-800 rounded-xl p-4 min-w-48 shadow-2xl">
             <h3 className="text-sm font-semibold text-white mb-3">{t('Legenda')}</h3>
             <div className="space-y-2">
               {legendItems.map((type) => {
@@ -328,10 +399,10 @@ export default function MapView({
               })}
               <div className="pt-2 mt-2 border-t border-surface-700">
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="w-6 h-6 rounded-full bg-brand-500 flex items-center justify-center text-xs text-white font-bold">
+                  <span className="w-6 h-6 rounded-full gradient-aurora flex items-center justify-center text-xs text-white font-bold">
                     !
                   </span>
-                  <span className="text-surface-300">{t('Posizione attuale')}</span>
+                  <span className="text-surface-300">{t('Tappa corrente')}</span>
                 </div>
               </div>
             </div>
@@ -342,28 +413,28 @@ export default function MapView({
         <div className="absolute bottom-4 right-4 flex flex-col gap-2">
           <button
             onClick={handleZoomIn}
-            className="p-3 bg-surface-800/90 backdrop-blur text-white rounded-lg hover:bg-surface-700 transition-colors shadow-lg"
+            className="p-3 bg-surface-900/90 backdrop-blur text-white rounded-lg hover:bg-surface-800 transition-colors shadow-lg border border-surface-800"
           >
             <ZoomIn size={20} />
           </button>
           <button
             onClick={handleZoomOut}
-            className="p-3 bg-surface-800/90 backdrop-blur text-white rounded-lg hover:bg-surface-700 transition-colors shadow-lg"
+            className="p-3 bg-surface-900/90 backdrop-blur text-white rounded-lg hover:bg-surface-800 transition-colors shadow-lg border border-surface-800"
           >
             <ZoomOut size={20} />
           </button>
           <button
             onClick={handleReset}
-            className="p-3 bg-surface-800/90 backdrop-blur text-white rounded-lg hover:bg-surface-700 transition-colors shadow-lg"
+            className="p-3 bg-surface-900/90 backdrop-blur text-white rounded-lg hover:bg-surface-800 transition-colors shadow-lg border border-surface-800"
           >
             <Maximize2 size={20} />
           </button>
         </div>
 
-        {/* Current position indicator */}
-        {currentArtworkId && (
-          <div className="absolute bottom-4 left-4 bg-brand-500/90 backdrop-blur text-white px-4 py-2 rounded-lg shadow-lg">
-            <span className="text-sm font-medium">📍 {t('Sei qui')}</span>
+        {/* Tappa corrente */}
+        {currentArtworkId && floorMarkers.some((m) => m.artworkId === currentArtworkId) && (
+          <div className="absolute bottom-4 left-4 gradient-aurora backdrop-blur text-white px-4 py-2 rounded-full shadow-lg">
+            <span className="text-sm font-medium">📍 {t('Tappa corrente')}</span>
           </div>
         )}
       </div>

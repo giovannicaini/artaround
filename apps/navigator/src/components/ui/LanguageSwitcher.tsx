@@ -94,7 +94,7 @@ export function LanguageSwitcher({ languages, variant = 'panel' }: LanguageSwitc
               }}
               className={`w-full px-3 py-2 text-sm text-left flex items-center gap-2.5 transition-colors ${
                 option.value === language
-                  ? 'bg-brand-500/12 text-brand-300'
+                  ? 'bg-brand-500/[.12] text-brand-300'
                   : 'text-surface-300 hover:bg-surface-800'
               }`}
             >
