@@ -35,6 +35,9 @@ const visitStepSchema = new Schema<VisitStep>(
     navigationImage: String,
     fromRoom: String,
     toRoom: String,
+    // For WAYPOINT steps: punto di svolta muto, riferisce un MapMarker di tipo
+    // WAYPOINT sulla piantina del piano (vedi Museum.ts -> floors[].markers).
+    mapMarkerId: String,
     // Common
     isOptional: { type: Boolean, default: false },
     estimatedDuration: Number,

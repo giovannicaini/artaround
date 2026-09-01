@@ -6,6 +6,7 @@ import {
   VisitStepType,
   LanguageLevel,
   LicenseType,
+  MarkerType,
   getVisitStepTypeLabel,
   type Artwork,
   type Item,
@@ -15,6 +16,7 @@ import {
   type VisitGeneralInfo,
   type TargetAudience,
   type Museum,
+  type MuseumFloor,
   type AppLanguage,
   isSupportedAppLanguage,
 } from '@artaround/shared';
@@ -41,8 +43,9 @@ import '../ui/ui-icon-button';
 import '../ui/ui-tag-input';
 import '../ui/ui-panel-section';
 import '../ui/ui-language-select';
+import '../museums/svg-map-editor';
 
-type EditorTab = 'info' | 'steps' | 'audience' | 'settings';
+type EditorTab = 'info' | 'steps' | 'map' | 'audience' | 'settings';
 
 /**
  * Visit Editor Component
@@ -77,6 +80,14 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
   @state() private dragOverIndex: number | null = null;
   @state() private artworks: Artwork[] = [];
   @state() private loadingArtworks = false;
+  @state() private floors: MuseumFloor[] = [];
+  @state() private loadingFloors = false;
+  // Piano su cui si sta scegliendo il waypoint per lo step in modifica (non è salvato
+  // sullo step: si ricava dal marker una volta scelto, questo serve solo a filtrare
+  // la lista finché non l'ha ancora scelto).
+  @state() private waypointFloorId = '';
+  // Piano mostrato nella tab "Mappa" (anteprima del percorso).
+  @state() private mapTabFloorId = '';
   @state() private availableItems: Item[] = [];
   // General Info
   @state() private costs = '';
@@ -138,6 +149,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       this.museumId = this.selectedMuseumId;
       await this.loadMuseumLanguages();
       await this.loadArtworksForMuseum();
+      await this.loadFloorsForMuseum();
     }
 
     if (this.visitId) {
@@ -162,6 +174,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     this.museumId = this.selectedMuseumId;
     void this.loadMuseumLanguages();
     void this.loadArtworksForMuseum();
+    void this.loadFloorsForMuseum();
   }
 
   // ─── Data Loading ────────────────────────────────────────
@@ -224,6 +237,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         if (this.museumId) {
           await this.loadMuseumLanguages();
           await this.loadArtworksForMuseum();
+          await this.loadFloorsForMuseum();
         }
       }
     } catch (e) {
@@ -246,6 +260,86 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     } finally {
       this.loadingArtworks = false;
     }
+  }
+
+  private async loadFloorsForMuseum() {
+    if (!this.museumId) {
+      this.floors = [];
+      return;
+    }
+
+    this.loadingFloors = true;
+    try {
+      this.floors = await museumService.getFloors(this.museumId);
+    } catch (e) {
+      console.error('Error loading floors:', e);
+      this.floors = [];
+    } finally {
+      this.loadingFloors = false;
+    }
+  }
+
+  /** Marker di tipo waypoint disponibili su un piano, per lo step editor. */
+  private getWaypointOptions(floorId: string): Array<{ value: string; label: string }> {
+    const floor = this.floors.find((f) => f.id === floorId);
+    return (floor?.markers || [])
+      .filter((marker) => marker.type === MarkerType.WAYPOINT)
+      .map((marker) => ({
+        value: marker.id,
+        label:
+          marker.label || `${__('Waypoint')} (${Math.round(marker.x)}, ${Math.round(marker.y)})`,
+      }));
+  }
+
+  private findWaypointMarker(mapMarkerId?: string): { floorId: string; label: string } | null {
+    if (!mapMarkerId) return null;
+    for (const floor of this.floors) {
+      const marker = floor.markers?.find((m) => m.id === mapMarkerId);
+      if (marker) {
+        return { floorId: floor.id, label: marker.label || floor.name };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Risolve gli step ARTWORK/WAYPOINT (nell'ordine della visita) in punti con
+   * coordinate reali sulla mappa, per l'anteprima del percorso. Gli step senza
+   * posizione (LOGISTIC, NAVIGATION testuale, opera non ancora scelta...) sono
+   * saltati: la numerazione dei punti resta quindi consecutiva (1, 2, 3...) come
+   * si vede davvero camminando, non l'indice grezzo dello step nella visita.
+   */
+  private getVisitRoutePoints(): Array<{ x: number; y: number; floorId: string; order: number }> {
+    const points: Array<{ x: number; y: number; floorId: string; order: number }> = [];
+    const orderedSteps = [...this.steps].sort((a, b) => a.order - b.order);
+
+    for (const step of orderedSteps) {
+      let resolved: { x: number; y: number; floorId: string } | null = null;
+
+      if (step.type === VisitStepType.ARTWORK && step.artworkId) {
+        for (const floor of this.floors) {
+          const marker = floor.markers?.find((m) => m.artworkId === step.artworkId);
+          if (marker) {
+            resolved = { x: marker.x, y: marker.y, floorId: floor.id };
+            break;
+          }
+        }
+      } else if (step.type === VisitStepType.WAYPOINT && step.mapMarkerId) {
+        for (const floor of this.floors) {
+          const marker = floor.markers?.find((m) => m.id === step.mapMarkerId);
+          if (marker) {
+            resolved = { x: marker.x, y: marker.y, floorId: floor.id };
+            break;
+          }
+        }
+      }
+
+      if (resolved) {
+        points.push({ ...resolved, order: points.length });
+      }
+    }
+
+    return points;
   }
 
   private async loadMuseumLanguages() {
@@ -388,9 +482,11 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     if (this.museumId) {
       await this.loadMuseumLanguages();
       await this.loadArtworksForMuseum();
+      await this.loadFloorsForMuseum();
     } else {
       this.artworks = [];
       this.activeLanguages = ['it'];
+      this.floors = [];
     }
   }
 
@@ -415,6 +511,8 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       newStep.navigationText = '';
       newStep.fromRoom = '';
       newStep.toRoom = '';
+    } else if (type === VisitStepType.WAYPOINT) {
+      this.waypointFloorId = this.floors[0]?.id || '';
     }
 
     this.steps = [...this.steps, newStep];
@@ -629,6 +727,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
               icon: 'list',
               badge: this.steps.length || undefined,
             },
+            { id: 'map', label: __('Mappa'), icon: 'location' },
             { id: 'audience', label: __('Pubblico'), icon: 'users' },
             { id: 'settings', label: __('Impostazioni'), icon: 'cog' },
           ]}
@@ -668,6 +767,8 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         return this.renderInfoTab();
       case 'steps':
         return this.renderStepsTab();
+      case 'map':
+        return this.renderMapTab();
       case 'audience':
         return this.renderAudienceTab();
       case 'settings':
@@ -914,9 +1015,80 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
             .label=${__('Indicazioni')}
             @click=${() => this.addStep(VisitStepType.NAVIGATION)}
           ></ui-button>
+          <ui-button
+            type="button"
+            variant="outline"
+            size="sm"
+            icon="location"
+            .label=${__('Svolta percorso')}
+            .title=${__(
+              'Punto muto per far piegare la linea del percorso sulla mappa (es. una porta su un corridoio): nessun audio, non è una tappa.',
+            )}
+            @click=${() => this.addStep(VisitStepType.WAYPOINT)}
+            ?disabled=${this.loadingFloors || this.floors.length === 0}
+          ></ui-button>
         </div>
 
         ${this.renderStepsContent()}
+      </div>
+    `;
+  }
+
+  private renderMapTab() {
+    if (this.loadingFloors) {
+      return html`<ui-loading .text=${__('Caricamento piantina...')}></ui-loading>`;
+    }
+
+    if (this.floors.length === 0) {
+      return html`
+        <div class="text-center py-8 text-surface-500 dark:text-surface-400">
+          <ui-icon name="location" size="lg" class="mb-2 opacity-50"></ui-icon>
+          <p>${__('Nessuna piantina disponibile per questo museo')}</p>
+        </div>
+      `;
+    }
+
+    const floorId = this.mapTabFloorId || this.floors[0].id;
+    const allPoints = this.getVisitRoutePoints();
+    const floorPoints = allPoints.filter((p) => p.floorId === floorId);
+
+    return html`
+      <div class="space-y-4">
+        <p class="text-sm text-surface-500 dark:text-surface-400">
+          ${__(
+            "Anteprima di sola lettura: il percorso segue l'ordine delle tappe nella tab Percorso.",
+          )}
+        </p>
+
+        ${this.floors.length > 1
+          ? html`
+              <ui-select
+                .label=${__('Piano')}
+                .value=${floorId}
+                .options=${this.floors.map((f) => ({ value: f.id, label: f.name }))}
+                @select-change=${(e: CustomEvent) => (this.mapTabFloorId = e.detail.value)}
+              ></ui-select>
+            `
+          : nothing}
+
+        <svg-map-editor
+          .floors=${this.floors}
+          .selectedFloorId=${floorId}
+          .artworks=${this.artworks}
+          .routeStops=${floorPoints}
+          ?editMode=${false}
+        ></svg-map-editor>
+
+        ${allPoints.length < 2
+          ? html`
+              <ui-alert
+                variant="info"
+                .message=${__(
+                  'Aggiungi almeno due tappe con una posizione sulla mappa (opere o waypoint) per vedere il percorso disegnato.',
+                )}
+              ></ui-alert>
+            `
+          : nothing}
       </div>
     `;
   }
@@ -1104,7 +1276,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       <ui-icon-button
         icon="edit"
         .title=${__('Modifica')}
-        @click=${() => (this.editingStepIndex = index)}
+        @click=${() => this.startEditingStep(index)}
       ></ui-icon-button>
       <ui-icon-button
         icon="trash"
@@ -1113,6 +1285,15 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         @click=${() => this.removeStep(index)}
       ></ui-icon-button>
     `;
+  }
+
+  private startEditingStep(index: number) {
+    this.editingStepIndex = index;
+    const step = this.steps[index];
+    if (step?.type === VisitStepType.WAYPOINT) {
+      this.waypointFloorId =
+        this.findWaypointMarker(step.mapMarkerId)?.floorId || this.floors[0]?.id || '';
+    }
   }
 
   private renderStepPreview(step: VisitStep, _index: number) {
@@ -1182,6 +1363,20 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
               : nothing}
           </div>
         `;
+      case VisitStepType.WAYPOINT: {
+        const waypoint = this.findWaypointMarker(step.mapMarkerId);
+        const floorName = waypoint
+          ? this.floors.find((f) => f.id === waypoint.floorId)?.name || waypoint.floorId
+          : null;
+        return html`
+          <div>
+            <p class="font-medium text-surface-900 dark:text-white">
+              ${waypoint ? waypoint.label : __('Seleziona un waypoint sulla mappa')}
+            </p>
+            ${floorName ? html`<p class="text-sm text-surface-500">${floorName}</p>` : nothing}
+          </div>
+        `;
+      }
     }
   }
 
@@ -1193,6 +1388,8 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         return this.renderLogisticStepEditor(step, index);
       case VisitStepType.NAVIGATION:
         return this.renderNavigationStepEditor(step, index);
+      case VisitStepType.WAYPOINT:
+        return this.renderWaypointStepEditor(step, index);
     }
   }
 
@@ -1379,6 +1576,50 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
           @checkbox-change=${(e: CustomEvent) =>
             this.updateStep(index, { isOptional: e.detail.checked })}
         ></ui-checkbox>
+      </div>
+    `;
+  }
+
+  private renderWaypointStepEditor(step: VisitStep, index: number) {
+    const waypointOptions = this.waypointFloorId
+      ? this.getWaypointOptions(this.waypointFloorId)
+      : [];
+
+    return html`
+      <div class="space-y-4 mt-3 pt-3 border-t border-surface-200 dark:border-surface-700">
+        <p class="text-sm text-surface-500 dark:text-surface-400">
+          ${__(
+            'Punto muto, senza audio: serve solo a far piegare la linea del percorso sulla mappa (es. una porta su un corridoio) invece di tagliare dritto attraverso un muro.',
+          )}
+        </p>
+
+        ${this.floors.length > 1
+          ? html`
+              <ui-select
+                .label=${__('Piano')}
+                .value=${this.waypointFloorId}
+                .options=${this.floors.map((f) => ({ value: f.id, label: f.name }))}
+                @select-change=${(e: CustomEvent) => {
+                  this.waypointFloorId = e.detail.value;
+                  this.updateStep(index, { mapMarkerId: undefined });
+                }}
+              ></ui-select>
+            `
+          : nothing}
+
+        <ui-select
+          .label=${__('Waypoint')}
+          .value=${step.mapMarkerId || ''}
+          .options=${waypointOptions}
+          placeholder=${this.loadingFloors
+            ? __('Caricamento piani...')
+            : waypointOptions.length === 0
+              ? __('Nessun waypoint su questo piano: creane uno da Piantina e mappa')
+              : __('Seleziona un waypoint')}
+          ?disabled=${this.loadingFloors || waypointOptions.length === 0}
+          @select-change=${(e: CustomEvent) =>
+            this.updateStep(index, { mapMarkerId: e.detail.value })}
+        ></ui-select>
       </div>
     `;
   }

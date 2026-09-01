@@ -6,6 +6,7 @@ export const VISIT_STEP_TYPE_META: Readonly<
   [VisitStepType.ARTWORK]: { label: 'Opera', icon: '🖼️' },
   [VisitStepType.LOGISTIC]: { label: 'Info', icon: 'ℹ️' },
   [VisitStepType.NAVIGATION]: { label: 'Direzioni', icon: '➡️' },
+  [VisitStepType.WAYPOINT]: { label: 'Svolta percorso', icon: '•' },
 };
 
 export function getVisitStepTypeLabel(type: VisitStepType): string {

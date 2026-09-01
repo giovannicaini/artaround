@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
-import type { MuseumFloor, MapMarker, Artwork } from '@artaround/shared';
+import { MarkerType, type MuseumFloor, type MapMarker, type Artwork } from '@artaround/shared';
 import '../ui/ui-image-placeholder';
 import { __ } from '../../services/i18n.service';
 
@@ -42,6 +42,13 @@ export class SvgMapEditor extends LitElement {
 
   @property({ type: Array })
   artworks: Artwork[] = [];
+
+  // Punti del percorso di una visita da disegnare sopra la mappa (sola anteprima,
+  // non modificabile qui): coordinate già risolte sul piano corrente, con il numero
+  // di tappa GLOBALE della visita (può non partire da 1 se le tappe precedenti sono
+  // su un altro piano).
+  @property({ type: Array })
+  routeStops: Array<{ x: number; y: number; order: number }> = [];
 
   @state()
   private zoom = 1;
@@ -171,6 +178,9 @@ export class SvgMapEditor extends LitElement {
                     ${unsafeHTML(floor.svgContent)}
                   </div>
 
+                  <!-- Percorso visita (anteprima) -->
+                  ${this.routeStops.length > 1 ? this.renderRouteOverlay() : nothing}
+
                   <!-- Markers Overlay -->
                   <div class="absolute inset-0 pointer-events-none">
                     ${floor.markers?.map((marker) => this.renderMarker(marker))}
@@ -227,6 +237,29 @@ export class SvgMapEditor extends LitElement {
     const offsetY = (50 - focalY) * focalZoom;
 
     const markerSize = isSelected ? 48 : 32;
+    // I waypoint non sono un punto di interesse ma solo una svolta del percorso: un
+    // pallino piccolo e discreto invece dell'icona grande, per non confonderli con le
+    // tappe vere sulla mappa.
+    const isWaypoint = marker.type === MarkerType.WAYPOINT;
+
+    if (isWaypoint) {
+      return html`
+        <div
+          class="absolute pointer-events-auto cursor-pointer z-10"
+          style="left: ${marker.x}px; top: ${marker.y}px; transform: translate(-50%, -50%);"
+          @click=${(e: Event) => this.handleMarkerClick(e, marker)}
+          @mousedown=${(e: MouseEvent) => this.handleMarkerDragStart(e, marker)}
+          title="${marker.label || __('Svolta percorso')}"
+        >
+          <div
+            class="rounded-full border-2 border-white/70 shadow transition-all duration-150 ${isSelected
+              ? 'bg-brand-500 ring-2 ring-brand-400/60'
+              : 'bg-surface-400 hover:bg-surface-300'}"
+            style="width: ${isSelected ? 14 : 9}px; height: ${isSelected ? 14 : 9}px;"
+          ></div>
+        </div>
+      `;
+    }
 
     return html`
       <div
@@ -286,6 +319,48 @@ export class SvgMapEditor extends LitElement {
             : nothing}
         </div>
       </div>
+    `;
+  }
+
+  private renderRouteOverlay() {
+    const points = [...this.routeStops].sort((a, b) => a.order - b.order);
+    const polylinePoints = points.map((p) => `${p.x},${p.y}`).join(' ');
+
+    return html`
+      <svg class="absolute inset-0 pointer-events-none overflow-visible" style="z-index: 5;">
+        <polyline
+          points="${polylinePoints}"
+          fill="none"
+          stroke="#a855f7"
+          stroke-width="3"
+          stroke-dasharray="10 6"
+          stroke-linecap="round"
+          opacity="0.75"
+        ></polyline>
+        ${points.map(
+          (point) => html`
+            <circle
+              cx="${point.x}"
+              cy="${point.y}"
+              r="11"
+              fill="#a855f7"
+              stroke="white"
+              stroke-width="2"
+            ></circle>
+            <text
+              x="${point.x}"
+              y="${point.y}"
+              text-anchor="middle"
+              dominant-baseline="central"
+              font-size="11"
+              font-weight="700"
+              fill="white"
+            >
+              ${point.order + 1}
+            </text>
+          `,
+        )}
+      </svg>
     `;
   }
 

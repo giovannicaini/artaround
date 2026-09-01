@@ -42,6 +42,9 @@ const markerIcons: Record<MarkerType, { icon: string; color: string; label: stri
   [MarkerType.ESCALATOR]: { icon: '🎢', color: 'bg-orange-600', label: 'Scala mobile' },
   [MarkerType.RAMP]: { icon: '🛤️', color: 'bg-yellow-600', label: 'Rampa' },
   [MarkerType.GALLERY]: { icon: '🖼️', color: 'bg-surface-600', label: 'Galleria' },
+  // Non è un punto di interesse: serve solo a far piegare il percorso disegnato sulla
+  // mappa (vedi getVisitPath), non va mai reso come marker cliccabile per il visitatore.
+  [MarkerType.WAYPOINT]: { icon: '', color: 'bg-transparent', label: 'Waypoint' },
 };
 
 export default function MapView({
@@ -144,7 +147,9 @@ export default function MapView({
   };
 
   // Get unique marker types for legend
-  const legendItems = [...new Set(map.markers?.map((m) => m.type) || [])];
+  const legendItems = [
+    ...new Set(map.markers?.filter((m) => m.type !== MarkerType.WAYPOINT).map((m) => m.type) || []),
+  ];
 
   return (
     <div className="fixed inset-0 z-50 bg-surface-900/95 flex flex-col">
@@ -212,69 +217,74 @@ export default function MapView({
             {/* Visit path */}
             {getVisitPath()}
 
-            {/* Markers */}
-            {map.markers?.map((marker) => {
-              const isCurrentArtwork =
-                marker.type === MarkerType.ARTWORK && marker.artworkId === currentArtworkId;
-              const isInVisit =
-                marker.type === MarkerType.ARTWORK &&
-                visitArtworkIds.includes(marker.artworkId || '');
-              const visitIndex = marker.artworkId ? visitArtworkIds.indexOf(marker.artworkId) : -1;
-              const config = markerIcons[marker.type];
+            {/* Markers (i waypoint non sono punti di interesse: servono solo a
+                disegnare il percorso, vedi getVisitPath, mai mostrati come marker) */}
+            {map.markers
+              ?.filter((marker) => marker.type !== MarkerType.WAYPOINT)
+              .map((marker) => {
+                const isCurrentArtwork =
+                  marker.type === MarkerType.ARTWORK && marker.artworkId === currentArtworkId;
+                const isInVisit =
+                  marker.type === MarkerType.ARTWORK &&
+                  visitArtworkIds.includes(marker.artworkId || '');
+                const visitIndex = marker.artworkId
+                  ? visitArtworkIds.indexOf(marker.artworkId)
+                  : -1;
+                const config = markerIcons[marker.type];
 
-              return (
-                <g
-                  key={marker.id}
-                  className="pointer-events-auto cursor-pointer"
-                  onClick={() => onMarkerClick?.(marker)}
-                >
-                  {/* Pulse animation for current artwork */}
-                  {isCurrentArtwork && (
+                return (
+                  <g
+                    key={marker.id}
+                    className="pointer-events-auto cursor-pointer"
+                    onClick={() => onMarkerClick?.(marker)}
+                  >
+                    {/* Pulse animation for current artwork */}
+                    {isCurrentArtwork && (
+                      <circle
+                        cx={marker.x}
+                        cy={marker.y}
+                        r="24"
+                        className="animate-ping"
+                        fill="rgba(139, 92, 246, 0.3)"
+                      />
+                    )}
+
+                    {/* Marker circle */}
                     <circle
                       cx={marker.x}
                       cy={marker.y}
-                      r="24"
-                      className="animate-ping"
-                      fill="rgba(139, 92, 246, 0.3)"
+                      r={isCurrentArtwork ? 20 : 16}
+                      className={`${isCurrentArtwork ? 'fill-brand-500' : isInVisit ? 'fill-brand-400' : 'fill-surface-600'} stroke-white stroke-2`}
                     />
-                  )}
 
-                  {/* Marker circle */}
-                  <circle
-                    cx={marker.x}
-                    cy={marker.y}
-                    r={isCurrentArtwork ? 20 : 16}
-                    className={`${isCurrentArtwork ? 'fill-brand-500' : isInVisit ? 'fill-brand-400' : 'fill-surface-600'} stroke-white stroke-2`}
-                  />
-
-                  {/* Icon or number */}
-                  <text
-                    x={marker.x}
-                    y={marker.y}
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    className="text-sm select-none"
-                    fill="white"
-                  >
-                    {marker.type === MarkerType.ARTWORK && visitIndex >= 0
-                      ? visitIndex + 1
-                      : config.icon}
-                  </text>
-
-                  {/* Label on hover (shown for non-artwork markers) */}
-                  {marker.label && marker.type !== MarkerType.ARTWORK && (
+                    {/* Icon or number */}
                     <text
                       x={marker.x}
-                      y={marker.y + 28}
+                      y={marker.y}
                       textAnchor="middle"
-                      className="text-xs fill-white font-medium"
+                      dominantBaseline="central"
+                      className="text-sm select-none"
+                      fill="white"
                     >
-                      {marker.label}
+                      {marker.type === MarkerType.ARTWORK && visitIndex >= 0
+                        ? visitIndex + 1
+                        : config.icon}
                     </text>
-                  )}
-                </g>
-              );
-            })}
+
+                    {/* Label on hover (shown for non-artwork markers) */}
+                    {marker.label && marker.type !== MarkerType.ARTWORK && (
+                      <text
+                        x={marker.x}
+                        y={marker.y + 28}
+                        textAnchor="middle"
+                        className="text-xs fill-white font-medium"
+                      >
+                        {marker.label}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
           </svg>
         </div>
 

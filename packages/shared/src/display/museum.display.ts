@@ -27,6 +27,7 @@ export const MARKER_TYPE_META: Readonly<Record<MarkerType, { label: string; icon
   [MarkerType.BENCH]: { label: 'Panchina', icon: '🪑' },
   [MarkerType.AUDIO_GUIDE]: { label: 'Audioguida', icon: '🎧' },
   [MarkerType.WIFI]: { label: 'WiFi', icon: '📶' },
+  [MarkerType.WAYPOINT]: { label: 'Punto di svolta percorso', icon: '•' },
 };
 
 export const MARKER_TYPE_OPTIONS_IT: ReadonlyArray<
@@ -64,6 +65,7 @@ export const MARKER_TYPE_EDITOR_OPTIONS_IT: ReadonlyArray<
   MarkerType.BENCH,
   MarkerType.AUDIO_GUIDE,
   MarkerType.WIFI,
+  MarkerType.WAYPOINT,
 ].map((type) => ({
   type,
   value: type,

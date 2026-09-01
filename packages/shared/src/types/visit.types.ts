@@ -82,6 +82,14 @@ export interface VisitStep {
   fromRoom?: string; // Starting room/area
   toRoom?: string; // Destination room/area
 
+  // ===== FOR WAYPOINT STEPS =====
+  // Punto di svolta muto sulla mappa (nessun audio, nessuna sosta per il visitatore):
+  // serve solo a disegnare correttamente il percorso tra due tappe quando la linea
+  // diretta taglierebbe un muro (es. una porta su un corridoio -> un waypoint appena
+  // dentro la stanza, uno a metà del corridoio). Punta a un MapMarker di tipo WAYPOINT
+  // già posizionato sulla piantina del piano.
+  mapMarkerId?: string;
+
   // ===== COMMON =====
   isOptional: boolean; // Can be skipped if time is short
   estimatedDuration?: number; // in seconds
@@ -91,6 +99,7 @@ export enum VisitStepType {
   ARTWORK = 'artwork', // Stop at an artwork
   LOGISTIC = 'logistic', // General logistic info
   NAVIGATION = 'navigation', // Directions between artworks
+  WAYPOINT = 'waypoint', // Punto di svolta muto per il disegno del percorso sulla mappa
 }
 
 // ========================================

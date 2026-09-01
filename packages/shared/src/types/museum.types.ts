@@ -234,6 +234,12 @@ export enum MarkerType {
   BENCH = 'bench',
   AUDIO_GUIDE = 'audio_guide',
   WIFI = 'wifi',
+
+  // Percorso (non è un punto di interesse: serve solo a far piegare la linea del
+  // percorso di una visita attorno a muri/corridoi, es. una porta su un corridoio -
+  // un waypoint appena dentro la stanza, uno a metà del corridoio fuori. Non va mai
+  // mostrato al visitatore come tappa cliccabile: vedi MapMarker.isVisible).
+  WAYPOINT = 'waypoint',
 }
 
 export interface MapMarker {
