@@ -65,7 +65,7 @@ export default function MuseumPage() {
     : visits || [];
 
   return (
-    <div className="min-h-full overflow-y-auto bg-surface-950">
+    <div className="h-full overflow-y-auto scroll-smooth bg-surface-950">
       <div className="lg:max-w-6xl lg:mx-auto">
         {/* Header con copertina museo */}
         <header className="relative">

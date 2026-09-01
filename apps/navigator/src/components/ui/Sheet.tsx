@@ -48,7 +48,7 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
                 <IconTile icon={<X />} variant="panel" size="sm" label="Chiudi" onClick={onClose} />
               </div>
             )}
-            <div className="overflow-y-auto px-5 py-5">{children}</div>
+            <div className="overflow-y-auto scroll-smooth px-5 py-5">{children}</div>
           </motion.div>
         </motion.div>
       )}

@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 /*
- * Design tokens — identità di default del Navigator ("targa da museo"):
- * fondo inchiostro caldo, un solo accento bronzo. Espressi come triplette
- * RGB "R G B" (senza virgole) perché Tailwind li ricompone con
+ * Design tokens — stessa palette del marketplace (blu #3b82f6 di brand,
+ * grigi neutri "zinc"), applicata qui in chiave dark-first. Espressi come
+ * triplette RGB "R G B" (senza virgole) perché Tailwind le ricompone con
  * rgb(var(--x) / <alpha-value>) — questo è ciò che permette a bg-brand-500/40
  * ecc. di funzionare E a un museo di sovrascrivere l'accento a runtime
  * (vedi hooks/useMuseumTheme) senza ricompilare nulla.
@@ -14,29 +14,17 @@
   --safe-area-inset-top: env(safe-area-inset-top, 0px);
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
 
-  --color-brand-50: 251 243 228;
-  --color-brand-100: 245 230 201;
-  --color-brand-200: 234 209 160;
-  --color-brand-300: 221 184 119;
-  --color-brand-400: 210 164 104;
-  --color-brand-500: 203 154 82;
-  --color-brand-600: 176 127 62;
-  --color-brand-700: 143 101 49;
-  --color-brand-800: 110 77 38;
-  --color-brand-900: 76 53 26;
-  --color-brand-950: 44 31 16;
-
-  --color-surface-50: 248 246 241;
-  --color-surface-100: 236 232 223;
-  --color-surface-200: 214 208 195;
-  --color-surface-300: 184 177 163;
-  --color-surface-400: 148 141 128;
-  --color-surface-500: 112 106 96;
-  --color-surface-600: 83 78 71;
-  --color-surface-700: 60 57 52;
-  --color-surface-800: 41 39 36;
-  --color-surface-900: 26 25 23;
-  --color-surface-950: 16 15 14;
+  --color-brand-50: 239 246 255;
+  --color-brand-100: 219 234 254;
+  --color-brand-200: 191 219 254;
+  --color-brand-300: 147 197 253;
+  --color-brand-400: 96 165 250;
+  --color-brand-500: 59 130 246;
+  --color-brand-600: 37 99 235;
+  --color-brand-700: 29 78 216;
+  --color-brand-800: 30 64 175;
+  --color-brand-900: 30 58 138;
+  --color-brand-950: 23 37 84;
 }
 
 * {
@@ -55,14 +43,14 @@ body,
 
 body {
   font-family:
-    'IBM Plex Sans',
+    'Inter',
     system-ui,
     -apple-system,
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: rgb(var(--color-surface-950));
-  color: rgb(var(--color-surface-50));
+  background: #09090b;
+  color: #fafafa;
   overscroll-behavior: none;
 }
 
@@ -91,7 +79,7 @@ h3 {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgb(var(--color-surface-600));
+  background: #52525b;
   border-radius: 2px;
 }
 

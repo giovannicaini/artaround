@@ -61,7 +61,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-full overflow-y-auto bg-surface-950">
+    <div className="h-full overflow-y-auto scroll-smooth bg-surface-950">
       <div className="lg:max-w-6xl lg:mx-auto lg:px-8 lg:py-10">
         {/* Header */}
         <header className="safe-top px-5 pt-6 pb-2 lg:px-0 lg:pt-0">
