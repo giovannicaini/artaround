@@ -3,6 +3,7 @@ import { ItemModel, ItemPurchase, VisitModel, VisitPurchase } from '../models/in
 import { AppError } from '../middleware/index.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import { buildMuseumIdFilterValue } from '../utils/museum-id.util.js';
+import { UserRole } from '@artaround/shared';
 
 export class MarketplaceController {
   // Get item catalog
@@ -109,6 +110,18 @@ export class MarketplaceController {
         throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
       }
 
+      // Il marketplace è pensato per gli autori che riacquistano contenuti da riutilizzare
+      // nelle proprie visite (vedi label "Acquistabile solo dagli autori" lato frontend):
+      // prima questo vincolo esisteva solo lato client, chiunque poteva comprare chiamando
+      // direttamente l'API.
+      if (req.user.role !== UserRole.AUTHOR) {
+        throw new AppError(
+          403,
+          'FORBIDDEN',
+          'Solo gli autori possono acquistare contenuti dal marketplace',
+        );
+      }
+
       const visit = await VisitModel.findById(visitId);
       if (!visit) {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
@@ -163,6 +176,16 @@ export class MarketplaceController {
 
       if (!req.user) {
         throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      }
+
+      // Stesso vincolo di purchaseVisit: solo gli autori possono acquistare, applicato
+      // finora solo lato frontend (canBuyItem) e quindi aggirabile chiamando l'API.
+      if (req.user.role !== UserRole.AUTHOR) {
+        throw new AppError(
+          403,
+          'FORBIDDEN',
+          'Solo gli autori possono acquistare contenuti dal marketplace',
+        );
       }
 
       const item = await ItemModel.findById(itemId);
