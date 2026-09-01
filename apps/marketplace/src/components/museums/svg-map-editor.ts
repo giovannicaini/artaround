@@ -1,4 +1,4 @@
-import { LitElement, html, nothing } from 'lit';
+import { LitElement, html, svg, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import {
@@ -361,14 +361,14 @@ export class SvgMapEditor extends LitElement {
       return nothing;
     }
 
-    return html`
-      <svg class="absolute inset-0 pointer-events-none overflow-visible" style="z-index: 3;">
+    return svg`
+      <svg class="absolute inset-0 w-full h-full pointer-events-none overflow-visible" style="z-index: 3;">
         <!-- Sale già contornate -->
         ${outlinedRooms.map((room) => {
           const isSelected = this.selectedRoomId === room.id;
           const points = (room.polygon || []).map((p) => `${p.x},${p.y}`).join(' ');
           const roomLabel = room.subtitle ? `${room.title} — ${room.subtitle}` : room.title;
-          return html`
+          return svg`
             <polygon
               points="${points}"
               fill="${isSelected ? '#6366f1' : '#38bdf8'}"
@@ -400,7 +400,7 @@ export class SvgMapEditor extends LitElement {
           // reale del testo (richiederebbe un giro di getBBox dopo il
           // render), ma basta a dare all'etichetta uno sfondo leggibile.
           const boxWidth = room.title.length * 6.6 + 16;
-          return html`
+          return svg`
             <g class="pointer-events-none">
               <rect
                 x="${center.x - boxWidth / 2}"
@@ -426,8 +426,9 @@ export class SvgMapEditor extends LitElement {
         })}
 
         <!-- Contorno in corso di disegno -->
-        ${this.roomDrawMode && this.roomDrawPoints.length > 0
-          ? html`
+        ${
+          this.roomDrawMode && this.roomDrawPoints.length > 0
+            ? svg`
               <polyline
                 points="${this.roomDrawPoints.map((p) => `${p.x},${p.y}`).join(' ')}"
                 fill="none"
@@ -436,7 +437,7 @@ export class SvgMapEditor extends LitElement {
                 stroke-dasharray="6 4"
               ></polyline>
               ${this.roomDrawPoints.map(
-                (p, i) => html`
+                (p, i) => svg`
                   <circle
                     cx="${p.x}"
                     cy="${p.y}"
@@ -448,7 +449,8 @@ export class SvgMapEditor extends LitElement {
                 `,
               )}
             `
-          : nothing}
+            : nothing
+        }
       </svg>
     `;
   }
@@ -457,8 +459,8 @@ export class SvgMapEditor extends LitElement {
     const points = [...this.routeStops].sort((a, b) => a.order - b.order);
     const polylinePoints = points.map((p) => `${p.x},${p.y}`).join(' ');
 
-    return html`
-      <svg class="absolute inset-0 pointer-events-none overflow-visible" style="z-index: 5;">
+    return svg`
+      <svg class="absolute inset-0 w-full h-full pointer-events-none overflow-visible" style="z-index: 5;">
         <polyline
           points="${polylinePoints}"
           fill="none"
@@ -469,7 +471,7 @@ export class SvgMapEditor extends LitElement {
           opacity="0.75"
         ></polyline>
         ${points.map(
-          (point) => html`
+          (point) => svg`
             <circle
               cx="${point.x}"
               cy="${point.y}"
