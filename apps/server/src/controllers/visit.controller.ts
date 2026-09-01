@@ -296,7 +296,11 @@ export class VisitController {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
-      if (visit.authorId !== req.user.id && req.user.role !== 'admin') {
+      // Stesso criterio già applicato a artwork/item: proprietario, admin o curatore
+      // (gestisce tutto il contenuto del museo assegnato, non solo il proprio).
+      const canManage =
+        visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
+      if (!canManage) {
         throw new AppError(403, 'FORBIDDEN', 'You can only update your own visits');
       }
 
@@ -334,7 +338,10 @@ export class VisitController {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
-      if (visit.authorId !== req.user.id && req.user.role !== 'admin') {
+      // Proprietario, admin o curatore (stesso criterio di update/delete).
+      const canManageStep =
+        visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
+      if (!canManageStep) {
         throw new AppError(403, 'FORBIDDEN', 'You can only modify your own visits');
       }
 
@@ -374,7 +381,10 @@ export class VisitController {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
-      if (visit.authorId !== req.user.id && req.user.role !== 'admin') {
+      // Proprietario, admin o curatore (stesso criterio di update/delete).
+      const canManageStep =
+        visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
+      if (!canManageStep) {
         throw new AppError(403, 'FORBIDDEN', 'You can only modify your own visits');
       }
 
@@ -411,7 +421,10 @@ export class VisitController {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
-      if (visit.authorId !== req.user.id && req.user.role !== 'admin') {
+      // Proprietario, admin o curatore (stesso criterio di update/delete).
+      const canManageStep =
+        visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
+      if (!canManageStep) {
         throw new AppError(403, 'FORBIDDEN', 'You can only modify your own visits');
       }
 
@@ -449,7 +462,10 @@ export class VisitController {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
-      if (visit.authorId !== req.user.id && req.user.role !== 'admin') {
+      // Proprietario, admin o curatore (stesso criterio di update/delete).
+      const canManageStep =
+        visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
+      if (!canManageStep) {
         throw new AppError(403, 'FORBIDDEN', 'You can only modify your own visits');
       }
 
@@ -488,7 +504,10 @@ export class VisitController {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
-      if (visit.authorId !== req.user.id && req.user.role !== 'admin') {
+      // Proprietario, admin o curatore (stesso criterio di update/delete).
+      const canManageStep =
+        visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
+      if (!canManageStep) {
         throw new AppError(403, 'FORBIDDEN', 'You can only publish your own visits');
       }
 
@@ -530,7 +549,10 @@ export class VisitController {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
-      if (visit.authorId !== req.user.id && req.user.role !== 'admin') {
+      // Proprietario, admin o curatore (stesso criterio di update/delete).
+      const canManageStep =
+        visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
+      if (!canManageStep) {
         throw new AppError(403, 'FORBIDDEN', 'You can only unpublish your own visits');
       }
 
@@ -561,7 +583,10 @@ export class VisitController {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
-      if (visit.authorId !== req.user.id && req.user.role !== 'admin') {
+      // Stesso criterio dell'update: proprietario, admin o curatore.
+      const canManage =
+        visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
+      if (!canManage) {
         throw new AppError(403, 'FORBIDDEN', 'You can only delete your own visits');
       }
 

@@ -2,8 +2,12 @@ import { html, nothing } from 'lit';
 import { customElement, state, property } from 'lit/decorators.js';
 import { MuseumAwareMixin, AppBaseElement } from '../../base';
 import { visitService } from '../../services/visit.service';
-import type { User, Visit } from '@artaround/shared';
-import { getPermissions, type PermissionSet } from '../../services/permissions.service';
+import { UserRole, type User, type Visit } from '@artaround/shared';
+import {
+  getPermissions,
+  canEditOwnItem,
+  type PermissionSet,
+} from '../../services/permissions.service';
 import '../ui/ui-button';
 import '../ui/ui-card';
 import '../ui/ui-icon';
@@ -127,12 +131,34 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     this.selectedVisit = null;
   }
 
+  /**
+   * Permesso reale di modificare/eliminare QUESTA visita: rispecchia il controllo
+   * server-side (visit.controller.ts) — proprio contenuto, oppure curatore/admin
+   * che gestiscono tutto il contenuto del museo. this.permissions.canEditVisit dice
+   * solo "il ruolo può modificare visite in generale", non basta per decidere se
+   * mostrare il bottone su una visita altrui (stesso bug già corretto per gli item).
+   */
+  private canManageVisit(visit: Visit): boolean {
+    if (this.user?.role === UserRole.CURATOR) {
+      return true;
+    }
+    return canEditOwnItem(this.user, visit.authorId);
+  }
+
   private handleEditVisit(visit: Visit) {
+    if (!this.canManageVisit(visit)) {
+      this.error = __('Non hai i permessi per modificare questa visita.');
+      return;
+    }
     this.selectedVisit = visit;
     this.viewMode = 'edit';
   }
 
   private handleDeleteClick(visit: Visit) {
+    if (!this.canManageVisit(visit)) {
+      this.error = __('Non hai i permessi per eliminare questa visita.');
+      return;
+    }
     this.visitToDelete = visit;
     this.deleteModalOpen = true;
   }
@@ -254,7 +280,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
           <div
             class="flex items-center justify-end gap-2 pt-3 border-t border-surface-100 dark:border-surface-800"
           >
-            ${this.permissions.canEditVisit
+            ${this.canManageVisit(visit)
               ? html`
                   <ui-icon-button
                     icon=${visit.isPublished ? 'eye-off' : 'eye'}
@@ -267,10 +293,6 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
                     .title=${__('Modifica')}
                     @click=${() => this.handleEditVisit(visit)}
                   ></ui-icon-button>
-                `
-              : nothing}
-            ${this.permissions.canDeleteVisit
-              ? html`
                   <ui-icon-button
                     icon="trash"
                     variant="danger"

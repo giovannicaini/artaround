@@ -559,6 +559,17 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       this.activeTab = 'steps';
       return false;
     }
+    // Uno step "opera" appena aggiunto non ha ancora un'opera selezionata (si sceglie
+    // da un select subito dopo): senza questo controllo il form lascia passare uno
+    // step incompleto e l'errore arriva solo dal server, generico, a salvataggio fatto.
+    const incompleteArtworkStepIndex = this.steps.findIndex(
+      (step) => step.type === VisitStepType.ARTWORK && !step.artworkId,
+    );
+    if (incompleteArtworkStepIndex !== -1) {
+      this.error = `${__("Seleziona un'opera per il passaggio")} ${incompleteArtworkStepIndex + 1}`;
+      this.activeTab = 'steps';
+      return false;
+    }
     if (this.languageLevels.length === 0) {
       this.error = __('Seleziona almeno un livello di linguaggio');
       this.activeTab = 'audience';
