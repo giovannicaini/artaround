@@ -86,9 +86,6 @@ export class MuseumMapPage extends LitElement {
   private drawingRoomId: string | null = null;
 
   @state()
-  private selectedRoomId: string | null = null;
-
-  @state()
   private generatingMarkersRoomId: string | null = null;
 
   @state()
@@ -304,7 +301,7 @@ export class MuseumMapPage extends LitElement {
               .selectedMarkerId=${this.selectedMarker?.id || null}
               .artworks=${this.artworks}
               .rooms=${this.rooms}
-              .selectedRoomId=${this.drawingRoomId || this.selectedRoomId}
+              .selectedRoomId=${this.drawingRoomId}
               .roomDrawMode=${this.roomDrawMode}
               .roomDrawPoints=${this.roomDrawPoints}
               editMode
@@ -313,7 +310,6 @@ export class MuseumMapPage extends LitElement {
               @marker-select=${this.handleMarkerSelect}
               @marker-drag=${this.handleMarkerDrag}
               @room-point-add=${this.handleRoomPointAdd}
-              @room-select=${(e: CustomEvent) => (this.selectedRoomId = e.detail.id)}
             ></svg-map-editor>
           </div>
 

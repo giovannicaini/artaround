@@ -374,11 +374,15 @@ export class SvgMapEditor extends LitElement {
 
     return svg`
       <svg class="absolute inset-0 w-full h-full pointer-events-none overflow-visible" style="z-index: 3;">
-        <!-- Sale già contornate -->
+        <!-- Sale già contornate: solo un riferimento visivo, MAI cliccabili qui
+             (pointer-events-none) — altrimenti un click per aggiungere un
+             marker/svolta dentro una sala verrebbe intercettato dal contorno
+             invece di raggiungere la piantina, rendendo impossibile piazzare
+             marker in sequenza rapida dentro le sale. La selezione/evidenza
+             resta pilotata solo da "Disegna/Ridisegna" nel pannello Sale. -->
         ${outlinedRooms.map((room) => {
           const isSelected = this.selectedRoomId === room.id;
           const points = (room.polygon || []).map((p) => `${p.x},${p.y}`).join(' ');
-          const roomLabel = room.subtitle ? `${room.title} — ${room.subtitle}` : room.title;
           return svg`
             <polygon
               points="${points}"
@@ -386,20 +390,7 @@ export class SvgMapEditor extends LitElement {
               fill-opacity="${isSelected ? '0.28' : '0.14'}"
               stroke="${isSelected ? '#6366f1' : '#38bdf8'}"
               stroke-width="${isSelected ? 3 : 2}"
-              class="pointer-events-auto cursor-pointer"
-              @click=${(e: Event) => {
-                e.stopPropagation();
-                this.dispatchEvent(
-                  new CustomEvent('room-select', {
-                    detail: room,
-                    bubbles: true,
-                    composed: true,
-                  }),
-                );
-              }}
-            >
-              <title>${roomLabel}</title>
-            </polygon>
+            ></polygon>
           `;
         })}
 
