@@ -9,6 +9,7 @@ import {
   type MapPoint,
   type Artwork,
 } from '@artaround/shared';
+import { polygonCentroid } from '../../utils/polygon-utils';
 import '../ui/ui-image-placeholder';
 import { __ } from '../../services/i18n.service';
 
@@ -388,6 +389,39 @@ export class SvgMapEditor extends LitElement {
             >
               <title>${roomLabel}</title>
             </polygon>
+          `;
+        })}
+
+        <!-- Etichetta col solo titolo, al centro del contorno -->
+        ${outlinedRooms.map((room) => {
+          if (!room.polygon) return nothing;
+          const center = polygonCentroid(room.polygon);
+          // Larghezza approssimata dal numero di caratteri: niente misura
+          // reale del testo (richiederebbe un giro di getBBox dopo il
+          // render), ma basta a dare all'etichetta uno sfondo leggibile.
+          const boxWidth = room.title.length * 6.6 + 16;
+          return html`
+            <g class="pointer-events-none">
+              <rect
+                x="${center.x - boxWidth / 2}"
+                y="${center.y - 11}"
+                width="${boxWidth}"
+                height="22"
+                rx="5"
+                fill="rgba(15, 15, 20, 0.62)"
+              ></rect>
+              <text
+                x="${center.x}"
+                y="${center.y}"
+                text-anchor="middle"
+                dominant-baseline="central"
+                font-size="12"
+                font-weight="700"
+                fill="#ffffff"
+              >
+                ${room.title}
+              </text>
+            </g>
           `;
         })}
 
