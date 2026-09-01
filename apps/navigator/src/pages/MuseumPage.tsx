@@ -1,9 +1,22 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Clock, Users, Star, Play, ShoppingBag, CheckCircle2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Clock,
+  Users,
+  Star,
+  Play,
+  ShoppingBag,
+  CheckCircle2,
+  Ticket,
+  Accessibility,
+  Sparkles,
+} from 'lucide-react';
 import { api } from '../lib/apiClient';
 import { useAuthStore } from '../stores/authStore';
+import { useMuseumTheme } from '../hooks/useMuseumTheme';
+import { interestAffinity } from '../lib/personalization';
 import { LanguageLevel, type Visit } from '@artaround/shared';
 import {
   IconTile,
@@ -13,6 +26,7 @@ import {
   ErrorState,
   EmptyState,
   PressableCard,
+  Card,
 } from '../components/ui';
 
 const LEVEL_META: Record<LanguageLevel, { emoji: string; label: string }> = {
@@ -22,10 +36,16 @@ const LEVEL_META: Record<LanguageLevel, { emoji: string; label: string }> = {
   [LanguageLevel.SPECIALIST]: { emoji: '🌳', label: 'Avanzato' },
 };
 
+/**
+ * Museo come sequenza di blocchi con scopi diversi — copertina, info
+ * pratiche, una visita in evidenza (se combacia con gli interessi
+ * salvati), poi l'elenco completo filtrabile — non un'unica lista.
+ */
 export default function MuseumPage() {
   const navigate = useNavigate();
   const { museumId } = useParams();
   const user = useAuthStore((state) => state.user);
+  const { config } = useMuseumTheme(museumId);
   const [filterLevel, setFilterLevel] = useState<LanguageLevel | null>(null);
 
   const { data: museum, isLoading: museumLoading } = useQuery({
@@ -56,67 +76,167 @@ export default function MuseumPage() {
     [purchases],
   );
 
+  const interests = user?.preferences?.interests;
+  const spotlight = useMemo(() => {
+    if (!visits || !interests?.length) return null;
+    const scored = visits
+      .map((visit) => ({
+        visit,
+        score: interestAffinity(interests, visit.targetAudience?.interests),
+      }))
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score);
+    return scored[0]?.visit ?? null;
+  }, [visits, interests]);
+
   function handleSelectVisit(visit: Visit) {
     navigate(`/visit/${visit._id}`);
   }
 
-  const filteredVisits = filterLevel
-    ? (visits || []).filter((v) => v.targetAudience?.languageLevels?.includes(filterLevel))
-    : visits || [];
+  const filteredVisits = (
+    filterLevel
+      ? (visits || []).filter((v) => v.targetAudience?.languageLevels?.includes(filterLevel))
+      : visits || []
+  ).filter((v) => v._id !== spotlight?._id);
+
+  const practicalInfo = [
+    museum?.services?.openingHours && {
+      icon: Clock,
+      label: 'Orari',
+      value: museum.services.openingHours,
+    },
+    museum?.services?.ticketInfo && {
+      icon: Ticket,
+      label: 'Biglietti',
+      value: museum.services.ticketInfo,
+    },
+    museum?.services?.accessibility && {
+      icon: Accessibility,
+      label: 'Accessibilità',
+      value: museum.services.accessibility,
+    },
+  ].filter((v): v is { icon: typeof Clock; label: string; value: string } => Boolean(v));
+
+  if (isLoading || museumLoading) {
+    return (
+      <div className="h-full bg-surface-950">
+        <LoadingState message="Cerco le visite del museo..." />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="h-full bg-surface-950">
+        <ErrorState
+          message={error instanceof Error ? error.message : 'Impossibile caricare le visite.'}
+          onRetry={() => refetch()}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="h-full overflow-y-auto scroll-smooth bg-surface-950">
-      <div className="lg:max-w-6xl lg:mx-auto">
-        {/* Header con copertina museo */}
-        <header className="relative">
-          <div className="h-52 lg:h-64 bg-surface-900 relative overflow-hidden">
-            {museum?.images?.[0] && (
-              <img
-                src={museum.images[0]}
-                alt={museum.name}
-                className="w-full h-full object-cover opacity-45"
+      {/* ── Blocco: copertina ──────────────────────────────────── */}
+      <header className="relative">
+        <div className="h-64 lg:h-80 bg-surface-900 relative overflow-hidden">
+          {museum?.images?.[0] && (
+            <img
+              src={museum.images[0]}
+              alt={museum.name}
+              className="w-full h-full object-cover opacity-45"
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/50 to-brand-900/20" />
+
+          <div className="absolute top-0 left-0 right-0 safe-top">
+            <div className="flex items-center justify-between px-4 lg:px-8 py-4">
+              <IconTile
+                icon={<ArrowLeft />}
+                variant="glass"
+                label="Torna indietro"
+                onClick={() => navigate('/')}
               />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/50 to-brand-900/20" />
-
-            <div className="absolute top-0 left-0 right-0 safe-top">
-              <div className="flex items-center justify-between px-4 lg:px-8 py-4">
-                <IconTile
-                  icon={<ArrowLeft />}
-                  variant="glass"
-                  label="Torna indietro"
-                  onClick={() => navigate('/')}
+              {config?.branding.logo && (
+                <img
+                  src={config.branding.logo}
+                  alt=""
+                  className="w-9 h-9 rounded-full object-cover border border-white/20"
                 />
-              </div>
-            </div>
-
-            <div className="absolute bottom-0 left-0 right-0 p-5 lg:p-8">
-              <div className="lg:max-w-3xl">
-                <h1 className="font-display text-2xl lg:text-4xl font-semibold text-surface-50 mb-1.5">
-                  {museum?.name || (museumLoading ? '' : 'Museo')}
-                </h1>
-                <p className="text-surface-400 text-sm lg:text-base">
-                  {museum?.location?.address}
-                  {museum?.location?.address && museum?.location?.city ? ', ' : ''}
-                  {museum?.location?.city}
-                </p>
-              </div>
+              )}
             </div>
           </div>
-        </header>
 
-        <main className="px-5 py-6 lg:px-8 lg:py-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <div>
-              <h2 className="font-display text-xl lg:text-2xl font-semibold text-surface-50 mb-1">
-                Visite disponibili
-              </h2>
-              <p className="text-sm text-surface-500">
-                {filteredVisits.length}{' '}
-                {filteredVisits.length === 1 ? 'percorso disponibile' : 'percorsi disponibili'}
+          <div className="absolute bottom-0 left-0 right-0 p-5 lg:p-8">
+            <div className="lg:max-w-6xl lg:mx-auto">
+              <h1 className="font-display text-3xl lg:text-5xl font-bold text-surface-50 mb-1.5 max-w-2xl">
+                {museum?.name}
+              </h1>
+              <p className="text-surface-400 text-sm lg:text-base">
+                {museum?.location?.address}
+                {museum?.location?.address && museum?.location?.city ? ', ' : ''}
+                {museum?.location?.city}
               </p>
             </div>
+          </div>
+        </div>
+      </header>
 
+      <div className="lg:max-w-6xl lg:mx-auto">
+        <main className="px-5 py-6 lg:px-8 lg:py-8">
+          {/* ── Blocco: info pratiche ────────────────────────────── */}
+          {practicalInfo.length > 0 && (
+            <section className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {practicalInfo.map(({ icon: Icon, label, value }) => (
+                <Card key={label} className="p-4 flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-brand-500/12 flex items-center justify-center flex-shrink-0">
+                    <Icon className="w-[18px] h-[18px] text-brand-300" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[0.68rem] font-bold uppercase tracking-wide text-surface-500 mb-0.5">
+                      {label}
+                    </p>
+                    <p className="text-sm text-surface-200 line-clamp-2">{value}</p>
+                  </div>
+                </Card>
+              ))}
+            </section>
+          )}
+
+          {/* ── Blocco: visita in evidenza per te ─────────────────── */}
+          {spotlight && (
+            <section className="mb-9">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="w-4 h-4 text-brand-400" />
+                <h2 className="font-display text-base font-semibold text-surface-50">
+                  Consigliata per te
+                </h2>
+              </div>
+              <PressableCard
+                onClick={() => handleSelectVisit(spotlight)}
+                className="relative overflow-hidden p-6 border-brand-500/30"
+              >
+                <div className="absolute -top-16 -right-16 w-48 h-48 gradient-aurora opacity-20 blur-3xl rounded-full" />
+                <div className="relative">
+                  <h3 className="font-display font-bold text-surface-50 text-xl mb-2 max-w-md">
+                    {spotlight.title}
+                  </h3>
+                  <p className="text-sm text-surface-400 mb-4 max-w-md line-clamp-2">
+                    {spotlight.description}
+                  </p>
+                  <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full gradient-aurora text-white font-bold text-sm">
+                    <Play className="w-3.5 h-3.5" fill="currentColor" />
+                    Inizia questa visita
+                  </div>
+                </div>
+              </PressableCard>
+            </section>
+          )}
+
+          {/* ── Blocco: tutte le visite, filtrabili ───────────────── */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+            <h2 className="font-display text-xl font-semibold text-surface-50">Tutte le visite</h2>
             <div className="flex items-center gap-2 overflow-x-auto pb-1">
               {Object.values(LanguageLevel).map((level) => (
                 <Chip
@@ -130,14 +250,7 @@ export default function MuseumPage() {
             </div>
           </div>
 
-          {isLoading ? (
-            <LoadingState fullHeight={false} message="Cerco le visite del museo..." />
-          ) : isError ? (
-            <ErrorState
-              message={error instanceof Error ? error.message : 'Impossibile caricare le visite.'}
-              onRetry={() => refetch()}
-            />
-          ) : !visits || visits.length === 0 ? (
+          {!visits || visits.length === 0 ? (
             <EmptyState
               icon={<Play />}
               title="Nessuna visita disponibile"
@@ -158,14 +271,13 @@ export default function MuseumPage() {
             />
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
-              {filteredVisits.map((visit, index) => {
+              {filteredVisits.map((visit) => {
                 const owned = ownedVisitIds.has(visit._id);
                 return (
                   <PressableCard
                     key={visit._id}
                     onClick={() => handleSelectVisit(visit)}
-                    className="p-5 lg:p-6 animate-slide-up"
-                    style={{ animationDelay: `${index * 70}ms` }}
+                    className="p-5 lg:p-6"
                   >
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <h3 className="font-display font-semibold text-surface-50 text-lg leading-tight">

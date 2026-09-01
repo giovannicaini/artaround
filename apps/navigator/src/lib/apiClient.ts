@@ -1,6 +1,7 @@
 import type {
   Museum,
   MuseumConfigResponse,
+  NavigatorAppConfig,
   Visit,
   Item,
   Artwork,
@@ -101,6 +102,11 @@ export const api = {
 
   getMuseumConfig: (id: string): Promise<MuseumConfigResponse> =>
     request<MuseumConfigResponse>(`/museums/${id}/config`),
+
+  // Default di piattaforma per il tema del Navigator, usati quando un museo
+  // non ha un proprio navigatorConfig (vedi hooks/useMuseumTheme).
+  getNavigatorDefaultConfigs: (): Promise<NavigatorAppConfig[]> =>
+    request<NavigatorAppConfig[]>('/utils/navigator-default-config'),
 
   // Visits
   getVisits: (museumId?: string, options?: { isFree?: boolean }): Promise<Visit[]> => {

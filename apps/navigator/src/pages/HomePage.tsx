@@ -1,17 +1,24 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { MapPin, ChevronRight, Compass, ExternalLink, Sparkles, Play } from 'lucide-react';
 import { api } from '../lib/apiClient';
 import { useAuthStore } from '../stores/authStore';
+import { useMuseumTheme } from '../hooks/useMuseumTheme';
 import { interestAffinity } from '../lib/personalization';
 import { loadVisitProgress, type VisitProgress } from '../lib/visitProgress';
 import { LoadingState, ErrorState, EmptyState, PressableCard, Badge } from '../components/ui';
 import type { Museum, Visit } from '@artaround/shared';
 
+/**
+ * Home come un feed di blocchi diversi tra loro (non la stessa card
+ * ripetuta) — vetrina in evidenza, ripresa visita, righe a scorrimento
+ * orizzontale — stile Spotify/Netflix invece di un'unica griglia.
+ */
 export default function HomePage() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
+  const { config } = useMuseumTheme(undefined); // solo per i default di piattaforma
   // Letto una sola volta all'avvio della schermata: uno stato locale con
   // inizializzatore lazy evita un giro extra di render rispetto a un
   // useEffect che chiama setState in modo sincrono.
@@ -44,9 +51,11 @@ export default function HomePage() {
       }))
       .filter((entry) => entry.score > 0)
       .sort((a, b) => b.score - a.score)
-      .slice(0, 3)
+      .slice(0, 6)
       .map((entry) => entry.visit);
   }, [allVisits, interests]);
+
+  const featured = museums?.[0];
 
   function handleSelectMuseum(museum: Museum) {
     navigate(`/museum/${museum._id}`);
@@ -60,180 +69,212 @@ export default function HomePage() {
     navigate(`/visit/${visit._id}`);
   }
 
+  if (isLoading) {
+    return (
+      <div className="h-full bg-surface-950">
+        <LoadingState message="Cerco i musei disponibili..." />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="h-full bg-surface-950">
+        <ErrorState
+          message={error instanceof Error ? error.message : 'Impossibile caricare i musei.'}
+          onRetry={() => refetch()}
+        />
+      </div>
+    );
+  }
+
+  if (!museums || museums.length === 0) {
+    return (
+      <div className="h-full bg-surface-950">
+        <EmptyState
+          icon={<Compass />}
+          title="Nessun museo disponibile"
+          message="Non ci sono musei disponibili al momento. Riprova più tardi."
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="h-full overflow-y-auto scroll-smooth bg-surface-950">
-      <div className="lg:max-w-6xl lg:mx-auto lg:px-8 lg:py-10">
-        {/* Header */}
-        <header className="safe-top relative px-5 pt-6 pb-2 lg:px-0 lg:pt-0 overflow-hidden">
-          <div className="aurora-glow opacity-60 lg:opacity-40" />
-          <div className="relative flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl gradient-aurora shadow-glow flex items-center justify-center">
-                <Compass className="w-6 h-6 text-white" />
+      {/* ── Blocco: barra superiore ─────────────────────────────── */}
+      <header className="sticky top-0 z-20 safe-top bg-surface-950/85 backdrop-blur-md border-b border-surface-800/60">
+        <div className="flex items-center justify-between px-5 lg:px-8 py-3 lg:max-w-6xl lg:mx-auto">
+          <div className="flex items-center gap-2.5">
+            {config?.branding.logo ? (
+              <img src={config.branding.logo} alt="" className="w-8 h-8 rounded-xl object-cover" />
+            ) : (
+              <div className="w-8 h-8 rounded-xl gradient-aurora flex items-center justify-center">
+                <Compass className="w-[18px] h-[18px] text-white" />
               </div>
-              <div>
-                <h1 className="font-display text-lg font-semibold text-surface-50 leading-none tracking-tight">
-                  ArtAround
+            )}
+            <span className="font-display text-sm font-semibold text-surface-50 tracking-tight">
+              ArtAround
+            </span>
+          </div>
+          <a
+            href="/marketplace"
+            className="hidden lg:flex items-center gap-2 px-4 py-2 text-sm font-medium text-brand-300 hover:text-brand-200 bg-brand-500/10 hover:bg-brand-500/15 border border-brand-500/20 rounded-full transition-colors"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Marketplace
+          </a>
+        </div>
+      </header>
+
+      {/* ── Blocco: vetrina in evidenza ─────────────────────────── */}
+      {featured && (
+        <section className="relative">
+          <button
+            onClick={() => handleSelectMuseum(featured)}
+            className="w-full text-left relative h-[68vh] max-h-[560px] min-h-[420px] overflow-hidden group"
+          >
+            {featured.images?.[0] ? (
+              <img
+                src={featured.images[0]}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+            ) : (
+              <div className="absolute inset-0 gradient-aurora opacity-30" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/55 to-surface-950/10" />
+            <div className="absolute inset-0 bg-gradient-to-r from-surface-950/70 via-transparent to-transparent" />
+
+            <div className="absolute bottom-0 left-0 right-0 p-6 lg:p-10">
+              <div className="lg:max-w-6xl lg:mx-auto">
+                <Badge variant="brand" icon={<Sparkles className="w-3 h-3" />}>
+                  In evidenza
+                </Badge>
+                <h1 className="font-display text-3xl lg:text-5xl font-bold text-white mt-3 mb-2 max-w-xl leading-[1.1]">
+                  {featured.name}
                 </h1>
-                <p className="text-surface-500 text-xs mt-1.5">Navigator</p>
+                <p className="text-surface-200 text-sm lg:text-base max-w-lg mb-5 line-clamp-2">
+                  {featured.description}
+                </p>
+                <div className="inline-flex items-center gap-2 px-5 py-3 rounded-full gradient-aurora text-white font-bold text-sm shadow-glow">
+                  <Play className="w-4 h-4" fill="currentColor" />
+                  Esplora il museo
+                </div>
               </div>
             </div>
+          </button>
+        </section>
+      )}
 
-            <a
-              href="/marketplace"
-              className="hidden lg:flex items-center gap-2 px-4 py-2 text-sm font-medium text-brand-300 hover:text-brand-200 bg-brand-500/10 hover:bg-brand-500/15 border border-brand-500/20 rounded-xl transition-colors"
+      <main className="pb-10 safe-bottom">
+        {/* ── Blocco: riprendi visita (riga slim) ───────────────── */}
+        {progress && (
+          <section className="px-5 lg:px-8 lg:max-w-6xl lg:mx-auto -mt-6 relative z-10 mb-8">
+            <button
+              onClick={handleResumeVisit}
+              className="w-full flex items-center gap-4 p-4 rounded-2xl bg-surface-900/95 backdrop-blur border border-brand-500/30 hover:border-brand-500/60 transition-colors shadow-glow text-left"
             >
-              <ExternalLink className="w-4 h-4" />
+              <div className="w-11 h-11 rounded-full gradient-aurora flex items-center justify-center flex-shrink-0">
+                <Play className="w-4 h-4 text-white ml-0.5" fill="currentColor" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="gradient-aurora-text text-[0.68rem] font-bold uppercase tracking-wide">
+                  Riprendi da dove eri
+                </p>
+                <p className="text-surface-50 font-semibold truncate">{progress.visitTitle}</p>
+              </div>
+              <span className="text-surface-500 text-xs flex-shrink-0">
+                {progress.stepIndex + 1}/{progress.stepsTotal}
+              </span>
+            </button>
+          </section>
+        )}
+
+        {/* ── Blocco: riga "Per te" ──────────────────────────────── */}
+        {recommended.length > 0 && (
+          <FeedRow title="Per te" icon={<Sparkles className="w-4 h-4 text-brand-400" />}>
+            {recommended.map((visit) => (
+              <PressableCard
+                key={visit._id}
+                onClick={() => handleSelectVisit(visit)}
+                className="flex-shrink-0 w-64 lg:w-80 p-4"
+              >
+                <p className="text-surface-50 font-semibold truncate mb-1">{visit.title}</p>
+                <p className="text-surface-500 text-xs line-clamp-2">{visit.description}</p>
+              </PressableCard>
+            ))}
+          </FeedRow>
+        )}
+
+        {/* ── Blocco: riga musei ─────────────────────────────────── */}
+        {museums && museums.length > 0 && (
+          <FeedRow title="Tutti i musei" icon={<Compass className="w-4 h-4 text-brand-400" />}>
+            {museums.map((museum) => (
+              <PressableCard
+                key={museum._id}
+                onClick={() => handleSelectMuseum(museum)}
+                className="flex-shrink-0 w-56 lg:w-72 overflow-hidden p-0"
+              >
+                <div className="relative h-36 bg-surface-800 overflow-hidden">
+                  {museum.images?.[0] ? (
+                    <img src={museum.images[0]} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand-900/40 to-surface-900">
+                      <Compass className="w-10 h-10 text-brand-700" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/10 to-transparent" />
+                </div>
+                <div className="p-3.5">
+                  <h3 className="font-display font-semibold text-surface-50 text-sm leading-tight truncate mb-1.5">
+                    {museum.name}
+                  </h3>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1 text-surface-500 text-xs min-w-0">
+                      <MapPin className="w-3 h-3 flex-shrink-0" />
+                      <span className="truncate">{museum.location?.city}</span>
+                    </div>
+                    <ChevronRight className="w-3.5 h-3.5 text-brand-400 flex-shrink-0" />
+                  </div>
+                </div>
+              </PressableCard>
+            ))}
+          </FeedRow>
+        )}
+
+        {/* ── Blocco: chiusura ───────────────────────────────────── */}
+        <div className="px-5 lg:px-8 lg:max-w-6xl lg:mx-auto mt-4">
+          <div className="flex items-center justify-between text-xs text-surface-600 pt-6 border-t border-surface-800">
+            <p>© 2026 ArtAround</p>
+            <a href="/marketplace" className="hover:text-brand-400 transition-colors lg:hidden">
               Marketplace
             </a>
           </div>
-        </header>
-
-        <main className="px-5 py-6 lg:px-0">
-          {/* Riprendi visita */}
-          {progress && (
-            <button
-              onClick={handleResumeVisit}
-              className="w-full text-left mb-7 rounded-2xl overflow-hidden relative group animate-fade-in"
-            >
-              <div className="relative h-28 bg-surface-900 border border-brand-500/25 hover:border-brand-500/50 transition-colors">
-                {progress.coverImage && (
-                  <img
-                    src={progress.coverImage}
-                    alt=""
-                    className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-50 transition-opacity"
-                  />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-r from-surface-950 via-surface-950/70 to-transparent" />
-                <div className="relative h-full flex items-center justify-between px-5">
-                  <div className="min-w-0">
-                    <p className="gradient-aurora-text text-xs font-bold uppercase tracking-wide mb-1">
-                      Riprendi da dove eri
-                    </p>
-                    <p className="text-surface-50 font-display font-semibold truncate max-w-xs">
-                      {progress.visitTitle}
-                    </p>
-                    <p className="text-surface-400 text-xs mt-0.5">
-                      Opera {progress.stepIndex + 1} di {progress.stepsTotal} ·{' '}
-                      {progress.artworkTitle}
-                    </p>
-                  </div>
-                  <div className="w-11 h-11 rounded-full gradient-aurora shadow-glow flex items-center justify-center flex-shrink-0 ml-3">
-                    <Play className="w-4 h-4 text-white ml-0.5" fill="currentColor" />
-                  </div>
-                </div>
-              </div>
-            </button>
-          )}
-
-          {/* Per te */}
-          {recommended.length > 0 && (
-            <section className="mb-8">
-              <div className="flex items-center gap-2 mb-3">
-                <Sparkles className="w-4 h-4 text-brand-400" />
-                <h2 className="font-display text-base font-semibold text-surface-50">Per te</h2>
-              </div>
-              <div className="flex gap-3 overflow-x-auto pb-1 -mx-5 px-5 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-3">
-                {recommended.map((visit) => (
-                  <PressableCard
-                    key={visit._id}
-                    onClick={() => handleSelectVisit(visit)}
-                    className="flex-shrink-0 w-64 lg:w-auto p-4"
-                  >
-                    <p className="text-surface-50 font-medium truncate mb-1">{visit.title}</p>
-                    <p className="text-surface-500 text-xs line-clamp-2">{visit.description}</p>
-                  </PressableCard>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Title */}
-          <div className="flex items-start justify-between mb-5">
-            <div>
-              <h2 className="font-display text-xl lg:text-2xl font-semibold text-surface-50 mb-1">
-                Scegli un museo
-              </h2>
-              <p className="text-sm text-surface-500">Seleziona dove vuoi iniziare la visita</p>
-            </div>
-          </div>
-
-          {isLoading ? (
-            <LoadingState fullHeight={false} message="Cerco i musei disponibili..." />
-          ) : isError ? (
-            <ErrorState
-              message={error instanceof Error ? error.message : 'Impossibile caricare i musei.'}
-              onRetry={() => refetch()}
-            />
-          ) : !museums || museums.length === 0 ? (
-            <EmptyState
-              icon={<Compass />}
-              title="Nessun museo disponibile"
-              message="Non ci sono musei disponibili al momento. Riprova più tardi."
-            />
-          ) : (
-            <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-              {museums.map((museum, index) => (
-                <PressableCard
-                  key={museum._id}
-                  onClick={() => handleSelectMuseum(museum)}
-                  className="overflow-hidden animate-slide-up p-0"
-                  style={{ animationDelay: `${index * 80}ms` }}
-                >
-                  <div className="relative h-40 lg:h-44 bg-surface-800 overflow-hidden">
-                    {museum.images?.[0] ? (
-                      <img
-                        src={museum.images[0]}
-                        alt={museum.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand-900/40 to-surface-900">
-                        <Compass className="w-14 h-14 text-brand-700" />
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/10 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-4">
-                      <h3 className="font-display font-semibold text-white text-lg leading-tight drop-shadow">
-                        {museum.name}
-                      </h3>
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <p className="text-sm text-surface-400 line-clamp-2 mb-4 min-h-[2.5rem]">
-                      {museum.description}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-surface-500">
-                        <MapPin className="w-4 h-4" />
-                        <span className="text-sm">{museum.location?.city}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-brand-400 font-semibold text-sm">
-                        <span>Esplora</span>
-                        <ChevronRight className="w-4 h-4" />
-                      </div>
-                    </div>
-                  </div>
-                </PressableCard>
-              ))}
-            </div>
-          )}
-
-          <div className="h-8 safe-bottom lg:hidden" />
-
-          <div className="hidden lg:flex items-center justify-between text-sm text-surface-600 py-8 border-t border-surface-800 mt-8">
-            <p>© 2026 ArtAround</p>
-            <div className="flex items-center gap-6">
-              <a href="/marketplace" className="hover:text-brand-400 transition-colors">
-                Marketplace
-              </a>
-              <Badge variant="brand" icon={<Sparkles className="w-3 h-3" />}>
-                Audioguide incluse
-              </Badge>
-            </div>
-          </div>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
+  );
+}
+
+function FeedRow({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="mb-9">
+      <div className="flex items-center gap-2 mb-3 px-5 lg:px-8 lg:max-w-6xl lg:mx-auto">
+        {icon}
+        <h2 className="font-display text-base font-semibold text-surface-50">{title}</h2>
+      </div>
+      <div className="flex gap-3 overflow-x-auto scroll-smooth pb-1 px-5 lg:px-8 lg:max-w-6xl lg:mx-auto">
+        {children}
+      </div>
+    </section>
   );
 }

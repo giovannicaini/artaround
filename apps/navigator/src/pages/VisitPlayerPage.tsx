@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/apiClient';
 import { useAuthStore } from '../stores/authStore';
+import { useMuseumTheme } from '../hooks/useMuseumTheme';
 import { useVisitSessionStore, type PlayerStep } from '../stores/visitSessionStore';
 import { speechService, voiceRecognitionService, parseVoiceCommand } from '../services/speech';
 import { getStepText } from '../lib/content';
@@ -187,6 +188,7 @@ export default function VisitPlayerPage() {
     setSpeaking,
     setListening,
   } = useVisitSessionStore();
+  useMuseumTheme(visit?.museumId as string | undefined);
 
   const [showControls, setShowControls] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
