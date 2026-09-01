@@ -1,5 +1,10 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import type { Artwork, ArtworkDimensions, ArtworkMapPosition } from '@artaround/shared';
+import {
+  ArtworkType,
+  type Artwork,
+  type ArtworkDimensions,
+  type ArtworkMapPosition,
+} from '@artaround/shared';
 
 export interface ArtworkDocument extends Omit<Artwork, '_id'>, Document {}
 
@@ -57,19 +62,11 @@ const artworkSchema = new Schema<ArtworkDocument>(
     // Classification
     artworkType: {
       type: String,
-      enum: [
-        'painting',
-        'sculpture',
-        'fresco',
-        'mosaic',
-        'drawing',
-        'print',
-        'relief',
-        'installation',
-        'decorative',
-        'tapestry',
-        'other',
-      ],
+      // Derivato dall'enum condiviso invece di duplicarlo qui a mano: un elenco
+      // hardcoded era rimasto disallineato dopo il redesign dell'enum (4 categorie
+      // su 10 - photograph, new_media, manuscript_book, decorative_object - non
+      // erano mai salvabili, fallivano sempre con un errore di validazione Mongoose).
+      enum: Object.values(ArtworkType),
       required: true,
     },
     movement: String,
