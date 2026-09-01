@@ -20,7 +20,7 @@ import { translationService } from '../../services/translation.service';
 import { __ } from '../../services/i18n.service';
 import { MuseumAwareMixin, AppBaseElement } from '../../base';
 import './wikidata-autocomplete';
-import './image-uploader';
+import '../ui/image-editor';
 import '../ui/ui-input';
 import '../ui/ui-select';
 import '../ui/ui-language-select';
@@ -278,10 +278,6 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     if (e.detail.imageUrl && !this.image) {
       this.image = e.detail.imageUrl;
     }
-  }
-
-  private handleImageChange(e: CustomEvent) {
-    this.image = e.detail.value;
   }
 
   private handlePriceChange(e: CustomEvent) {
@@ -713,14 +709,21 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
           .title=${__('Immagine (opzionale)')}
           icon="image"
           .renderContent=${() => html`
-            <image-uploader
+            <p class="text-xs text-surface-500 dark:text-surface-400 mb-2">
+              ${__('Se non specificata, verrà usata quella del riferimento')}
+            </p>
+            <image-editor
               .label=${__('Immagine di copertina')}
-              .hint=${__(
-                'PNG, JPG fino a 5MB. Se non specificata, verrà usata quella del riferimento',
-              )}
+              category="items"
               .value=${this.image}
-              @image-change=${this.handleImageChange}
-            ></image-uploader>
+              maxWidth=${1200}
+              maxHeight=${1200}
+              .maxOutputSizeMb=${0.5}
+              defaultFormat="webp"
+              @image-saved=${(e: CustomEvent) => {
+                this.image = e.detail.path || '';
+              }}
+            ></image-editor>
           `}
         ></ui-panel-section>
 

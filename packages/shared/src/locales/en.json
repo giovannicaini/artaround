@@ -669,6 +669,7 @@
   "Scrivi il testo descrittivo...": "Write the descriptive text...",
   "Scuro": "Dark",
   "Se disattivo, l'utente non potrà accedere al sistema": "If disabled, the user will not be able to access the system",
+  "Se non specificata, verrà usata quella del riferimento": "If not specified, the reference one will be used",
   "Sei sicuro di voler disattivare l'utente": "Are you sure you want to deactivate the user",
   "Sei sicuro di voler eliminare la visita": "Are you sure you want to delete the visit",
   "Sei sicuro di voler eliminare questa opera? Tutti i contenuti associati rimarranno ma perderanno il riferimento a questa opera.": "Are you sure you want to delete this artwork? All associated content will remain but will lose the reference to this artwork.",
