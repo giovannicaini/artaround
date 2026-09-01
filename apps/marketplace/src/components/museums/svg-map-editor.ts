@@ -1,7 +1,14 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
-import { MarkerType, type MuseumFloor, type MapMarker, type Artwork } from '@artaround/shared';
+import {
+  MarkerType,
+  type MuseumFloor,
+  type MapMarker,
+  type MuseumRoom,
+  type MapPoint,
+  type Artwork,
+} from '@artaround/shared';
 import '../ui/ui-image-placeholder';
 import { __ } from '../../services/i18n.service';
 
@@ -49,6 +56,22 @@ export class SvgMapEditor extends LitElement {
   // su un altro piano).
   @property({ type: Array })
   routeStops: Array<{ x: number; y: number; order: number }> = [];
+
+  // Sale già contornate del piano corrente (gestione parallela ai marker):
+  // renderizzate come poligoni pieni semi-trasparenti sotto ai marker.
+  @property({ type: Array })
+  rooms: MuseumRoom[] = [];
+
+  @property({ type: String })
+  selectedRoomId: string | null = null;
+
+  // Quando true, i click sulla mappa aggiungono vertici al poligono in corso
+  // (roomDrawPoints, gestito dal genitore) invece di aggiungere un marker.
+  @property({ type: Boolean })
+  roomDrawMode = false;
+
+  @property({ type: Array })
+  roomDrawPoints: MapPoint[] = [];
 
   @state()
   private zoom = 1;
@@ -174,9 +197,15 @@ export class SvgMapEditor extends LitElement {
                   style="transform: translate(${this.panX}px, ${this.panY}px) scale(${this.zoom});"
                 >
                   <!-- SVG Map -->
-                  <div class="map-svg-container" @click=${this.handleMapClick}>
+                  <div
+                    class="map-svg-container ${this.roomDrawMode ? 'cursor-crosshair' : ''}"
+                    @click=${this.handleMapClick}
+                  >
                     ${unsafeHTML(floor.svgContent)}
                   </div>
+
+                  <!-- Sale (contorni poligonali) -->
+                  ${this.renderRoomsOverlay(floor.id)}
 
                   <!-- Percorso visita (anteprima) -->
                   ${this.routeStops.length > 1 ? this.renderRouteOverlay() : nothing}
@@ -322,6 +351,71 @@ export class SvgMapEditor extends LitElement {
     `;
   }
 
+  private renderRoomsOverlay(floorId: string) {
+    const outlinedRooms = this.rooms.filter(
+      (room) => room.floorId === floorId && room.polygon && room.polygon.length >= 3,
+    );
+
+    if (outlinedRooms.length === 0 && !(this.roomDrawMode && this.roomDrawPoints.length > 0)) {
+      return nothing;
+    }
+
+    return html`
+      <svg class="absolute inset-0 pointer-events-none overflow-visible" style="z-index: 3;">
+        <!-- Sale già contornate -->
+        ${outlinedRooms.map((room) => {
+          const isSelected = this.selectedRoomId === room.id;
+          const points = (room.polygon || []).map((p) => `${p.x},${p.y}`).join(' ');
+          return html`
+            <polygon
+              points="${points}"
+              fill="${isSelected ? '#6366f1' : '#38bdf8'}"
+              fill-opacity="${isSelected ? '0.28' : '0.14'}"
+              stroke="${isSelected ? '#6366f1' : '#38bdf8'}"
+              stroke-width="${isSelected ? 3 : 2}"
+              class="pointer-events-auto cursor-pointer"
+              @click=${(e: Event) => {
+                e.stopPropagation();
+                this.dispatchEvent(
+                  new CustomEvent('room-select', {
+                    detail: room,
+                    bubbles: true,
+                    composed: true,
+                  }),
+                );
+              }}
+            ></polygon>
+          `;
+        })}
+
+        <!-- Contorno in corso di disegno -->
+        ${this.roomDrawMode && this.roomDrawPoints.length > 0
+          ? html`
+              <polyline
+                points="${this.roomDrawPoints.map((p) => `${p.x},${p.y}`).join(' ')}"
+                fill="none"
+                stroke="#6366f1"
+                stroke-width="2.5"
+                stroke-dasharray="6 4"
+              ></polyline>
+              ${this.roomDrawPoints.map(
+                (p, i) => html`
+                  <circle
+                    cx="${p.x}"
+                    cy="${p.y}"
+                    r="${i === 0 ? 8 : 5}"
+                    fill="${i === 0 ? '#fff' : '#6366f1'}"
+                    stroke="#6366f1"
+                    stroke-width="2"
+                  ></circle>
+                `,
+              )}
+            `
+          : nothing}
+      </svg>
+    `;
+  }
+
   private renderRouteOverlay() {
     const points = [...this.routeStops].sort((a, b) => a.order - b.order);
     const polylinePoints = points.map((p) => `${p.x},${p.y}`).join(' ');
@@ -421,6 +515,17 @@ export class SvgMapEditor extends LitElement {
     // Calculate position relative to the SVG, accounting for zoom
     const x = (e.clientX - rect.left) / this.zoom;
     const y = (e.clientY - rect.top) / this.zoom;
+
+    if (this.roomDrawMode) {
+      this.dispatchEvent(
+        new CustomEvent('room-point-add', {
+          detail: { x, y },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      return;
+    }
 
     this.dispatchEvent(
       new CustomEvent('map-click', {

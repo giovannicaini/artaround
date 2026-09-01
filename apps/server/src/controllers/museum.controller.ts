@@ -14,6 +14,7 @@ import {
   SUPPORTED_APP_LANGUAGES,
   DEFAULT_APP_LANGUAGE,
   type AppLanguage,
+  type MuseumRoom,
 } from '@artaround/shared';
 
 export class MuseumController {
@@ -835,6 +836,217 @@ export class MuseumController {
       res.json({
         success: true,
         message: 'Floor deleted successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ========================================
+  // ROOM MANAGEMENT (gestione parallela ai marker: vedi MuseumRoom)
+  // ========================================
+
+  static roomValidation = [
+    body('id').trim().notEmpty().withMessage('Room ID is required'),
+    body('name').trim().notEmpty().withMessage('Room name is required'),
+  ];
+
+  static roomRenameValidation = [
+    body('name').trim().notEmpty().withMessage('Room name is required'),
+  ];
+
+  static roomOutlineValidation = [
+    body('floorId').trim().notEmpty().withMessage('Floor ID is required'),
+    body('polygon')
+      .isArray({ min: 3 })
+      .withMessage('Il contorno deve avere almeno 3 punti'),
+    body('polygon.*.x').isNumeric().withMessage('Invalid polygon point'),
+    body('polygon.*.y').isNumeric().withMessage('Invalid polygon point'),
+  ];
+
+  // Get all rooms of the museum (indipendenti dal piano finché non contornate)
+  static async getRooms(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const museum = await MuseumModel.findById(id);
+      if (!museum) {
+        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      }
+
+      res.json({
+        success: true,
+        data: museum.rooms || [],
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Create a new room (solo id/name: il contorno si aggiunge dopo)
+  static async createRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      }
+
+      const { id } = req.params;
+      const roomData: MuseumRoom = { id: req.body.id, name: req.body.name };
+
+      const museum = await MuseumModel.findById(id);
+      if (!museum) {
+        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      }
+
+      if (museum.rooms?.some((r) => r.id === roomData.id)) {
+        throw new AppError(400, 'ROOM_EXISTS', 'A room with this ID already exists');
+      }
+
+      if (!museum.rooms) {
+        museum.rooms = [];
+      }
+      museum.rooms.push(roomData);
+      await museum.save();
+
+      res.status(201).json({
+        success: true,
+        data: roomData,
+        message: 'Room created successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Rinomina una sala (solo name — non tocca floorId/polygon)
+  static async updateRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      }
+
+      const { id, roomId } = req.params;
+
+      const museum = await MuseumModel.findById(id);
+      if (!museum) {
+        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      }
+
+      const room = museum.rooms?.find((r) => r.id === roomId);
+      if (!room) {
+        throw new AppError(404, 'ROOM_NOT_FOUND', 'Room not found');
+      }
+
+      room.name = req.body.name;
+      await museum.save();
+
+      res.json({
+        success: true,
+        data: room,
+        message: 'Room updated successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Contorna una sala sulla piantina: floorId + poligono chiuso (endpoint
+  // separato dal rename, così un contorno malformato non può essere salvato
+  // aggirando la validazione di roomOutlineValidation).
+  static async outlineRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      }
+
+      const { id, roomId } = req.params;
+
+      const museum = await MuseumModel.findById(id);
+      if (!museum) {
+        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      }
+
+      const room = museum.rooms?.find((r) => r.id === roomId);
+      if (!room) {
+        throw new AppError(404, 'ROOM_NOT_FOUND', 'Room not found');
+      }
+
+      const floor = museum.floors?.find((f) => f.id === req.body.floorId);
+      if (!floor) {
+        throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+      }
+
+      room.floorId = req.body.floorId;
+      room.polygon = req.body.polygon;
+      await museum.save();
+
+      res.json({
+        success: true,
+        data: room,
+        message: 'Room outline updated successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Rimuove solo il contorno di una sala (torna disponibile senza piano/poligono)
+  static async removeRoomOutline(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const { id, roomId } = req.params;
+
+      const museum = await MuseumModel.findById(id);
+      if (!museum) {
+        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      }
+
+      const room = museum.rooms?.find((r) => r.id === roomId);
+      if (!room) {
+        throw new AppError(404, 'ROOM_NOT_FOUND', 'Room not found');
+      }
+
+      room.floorId = undefined;
+      room.polygon = undefined;
+      await museum.save();
+
+      res.json({
+        success: true,
+        data: room,
+        message: 'Room outline removed successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Delete a room
+  static async deleteRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id, roomId } = req.params;
+
+      const museum = await MuseumModel.findById(id);
+      if (!museum) {
+        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      }
+
+      const roomIndex = museum.rooms?.findIndex((r) => r.id === roomId);
+      if (roomIndex === undefined || roomIndex === -1) {
+        throw new AppError(404, 'ROOM_NOT_FOUND', 'Room not found');
+      }
+
+      museum.rooms!.splice(roomIndex, 1);
+      await museum.save();
+
+      res.json({
+        success: true,
+        message: 'Room deleted successfully',
       });
     } catch (error) {
       next(error);

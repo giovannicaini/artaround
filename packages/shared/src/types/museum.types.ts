@@ -31,6 +31,11 @@ export interface Museum {
   // Floor maps
   floors: MuseumFloor[];
 
+  // Sale del museo: create con solo il nome in "Modifica Museo", poi
+  // contornate (poligono) piano per piano in "Piantina e mappa". Ogni opera
+  // deve appartenere a una di queste sale (Artwork.roomId).
+  rooms?: MuseumRoom[];
+
   // Services & Info
   services: MuseumServices;
 
@@ -172,6 +177,27 @@ export interface MuseumFloor {
   };
   markers: MapMarker[]; // POIs on this floor
   connections: FloorConnection[]; // Elevators, stairs linking floors
+}
+
+/**
+ * Sala del museo: gestione parallela e distinta dai MapMarker.
+ * Creata in "Modifica Museo" con solo id/name (floorId e polygon assenti);
+ * "contornata" in un secondo momento in "Piantina e mappa", scegliendo il
+ * piano e disegnando il poligono (click sui vertici, chiuso quando l'ultimo
+ * punto coincide col primo) — a quel punto floorId e polygon vengono
+ * valorizzati. Il poligono permette a Navigator di fare zoom sulla sala,
+ * evidenziarla, ecc.
+ */
+export interface MuseumRoom {
+  id: string;
+  name: string;
+  floorId?: string; // valorizzato solo dopo il contorno sulla piantina
+  polygon?: MapPoint[]; // vertici del poligono chiuso (primo punto === ultimo)
+}
+
+export interface MapPoint {
+  x: number;
+  y: number;
 }
 
 export interface FloorConnection {

@@ -79,8 +79,18 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
   @state() private image = '';
 
   // Location
-  @state() private room = '';
+  @state() private roomId = ''; // Riferimento a Museum.rooms[].id — sala vera dell'opera
+  @state() private room = ''; // testo libero legacy, tenuto come fallback/nota aggiuntiva
   @state() private floor = '';
+
+  // Sale del museo selezionato (create in "Modifica Museo"): l'opera deve
+  // appartenere a una di queste.
+  private get availableRooms() {
+    const museum = this.museums.find(
+      (m) => m._id === this.museumId || m.wikidataId === this.museumId,
+    );
+    return museum?.rooms || [];
+  }
 
   private get artworkTypeOptions() {
     return ARTWORK_TYPE_OPTIONS_IT.map((option) => {
@@ -149,6 +159,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
         this.technique = artwork.technique || '';
         this.materials = artwork.materials || [];
         this.image = artwork.image || '';
+        this.roomId = artwork.roomId || '';
         this.room = artwork.room || '';
         this.floor = artwork.floor || '';
 
@@ -488,6 +499,11 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     if (!this.image.trim()) {
       return __("L'immagine è obbligatoria");
     }
+    // Richiesta solo se il museo ha già delle sale configurate: un museo che non
+    // le usa ancora non deve bloccarsi nel creare opere.
+    if (this.availableRooms.length > 0 && !this.roomId) {
+      return __('Seleziona la sala in cui si trova questa opera');
+    }
     return null;
   }
 
@@ -530,6 +546,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
         dimensions,
         materials: this.materials.length > 0 ? this.materials : undefined,
         image: this.image.trim(),
+        roomId: this.roomId || undefined,
         room: this.room.trim() || undefined,
         floor: this.floor.trim() || undefined,
       };
@@ -584,6 +601,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     this.dimensionDepth = undefined;
     this.dimensionUnit = 'cm';
     this.image = '';
+    this.roomId = '';
     this.room = '';
     this.floor = '';
     this.pendingWikidataFields = [];
@@ -1002,12 +1020,34 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
           'location',
           'text-emerald-500',
           () => html`
+            ${this.availableRooms.length > 0
+              ? html`
+                  <div class="mb-6">
+                    <ui-select
+                      .label=${`${__('Sala')} *`}
+                      .placeholder=${__('Seleziona la sala')}
+                      .value=${this.roomId}
+                      .options=${this.availableRooms.map((r) => ({ value: r.id, label: r.name }))}
+                      @select-change=${(e: CustomEvent) => (this.roomId = e.detail.value)}
+                    ></ui-select>
+                  </div>
+                `
+              : html`
+                  <ui-alert
+                    variant="info"
+                    class="mb-6"
+                    .message=${__(
+                      'Questo museo non ha ancora sale configurate: creale da "Modifica Museo" per poter assegnare le opere.',
+                    )}
+                  ></ui-alert>
+                `}
+
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
               ${this.renderFieldWithBanner(
                 'room',
                 html`
                   <ui-input
-                    .label=${__('Sala')}
+                    .label=${__('Nota sala (facoltativa)')}
                     .placeholder=${__('Es: Sala VIII, Pinacoteca - Sala XIV')}
                     .value=${this.room}
                     @input-change=${(e: CustomEvent) => {

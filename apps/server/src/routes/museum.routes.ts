@@ -308,6 +308,95 @@ router.delete(
 );
 
 // ========================================
+// ROOM ROUTES (gestione parallela ai marker: nome in "Modifica Museo",
+// contorno poligonale in "Piantina e mappa")
+// ========================================
+
+/**
+ * @swagger
+ * /api/museums/{id}/rooms:
+ *   get:
+ *     tags: [Museum Rooms]
+ *     summary: Lista sale del museo
+ */
+router.get('/:id/rooms', MuseumController.getRooms);
+
+/**
+ * @swagger
+ * /api/museums/{id}/rooms:
+ *   post:
+ *     tags: [Museum Rooms]
+ *     summary: Crea una sala (solo nome, il contorno si aggiunge dopo)
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post(
+  '/:id/rooms',
+  authMiddleware,
+  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  MuseumController.roomValidation,
+  MuseumController.createRoom,
+);
+
+/**
+ * @swagger
+ * /api/museums/{id}/rooms/{roomId}:
+ *   put:
+ *     tags: [Museum Rooms]
+ *     summary: Rinomina una sala
+ */
+router.put(
+  '/:id/rooms/:roomId',
+  authMiddleware,
+  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  MuseumController.roomRenameValidation,
+  MuseumController.updateRoom,
+);
+
+/**
+ * @swagger
+ * /api/museums/{id}/rooms/{roomId}/outline:
+ *   put:
+ *     tags: [Museum Rooms]
+ *     summary: Contorna una sala su una piantina (piano + poligono chiuso)
+ */
+router.put(
+  '/:id/rooms/:roomId/outline',
+  authMiddleware,
+  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  MuseumController.roomOutlineValidation,
+  MuseumController.outlineRoom,
+);
+
+/**
+ * @swagger
+ * /api/museums/{id}/rooms/{roomId}/outline:
+ *   delete:
+ *     tags: [Museum Rooms]
+ *     summary: Rimuove il contorno di una sala (resta senza piano/poligono)
+ */
+router.delete(
+  '/:id/rooms/:roomId/outline',
+  authMiddleware,
+  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  MuseumController.removeRoomOutline,
+);
+
+/**
+ * @swagger
+ * /api/museums/{id}/rooms/{roomId}:
+ *   delete:
+ *     tags: [Museum Rooms]
+ *     summary: Elimina una sala
+ */
+router.delete(
+  '/:id/rooms/:roomId',
+  authMiddleware,
+  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  MuseumController.deleteRoom,
+);
+
+// ========================================
 // MARKER ROUTES (POI)
 // ========================================
 

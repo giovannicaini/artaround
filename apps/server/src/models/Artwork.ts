@@ -91,7 +91,8 @@ const artworkSchema = new Schema<ArtworkDocument>(
     images: [String],
 
     // Location in museum
-    room: String,
+    roomId: { type: String, index: true }, // Museum.rooms[].id
+    room: String, // testo libero legacy, fallback per opere non ancora migrate
     floor: String,
 
     // Map position

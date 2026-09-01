@@ -7,7 +7,15 @@ import { museumService } from '../../services/museum.service';
 import { userService } from '../../services/user.service';
 import { uploadService } from '../../services/upload.service';
 import { translationService } from '../../services/translation.service';
-import type { Museum, User, CreateMuseumData, MuseumCurator, AppLanguage } from '@artaround/shared';
+import { modalService } from '../../services/modal.service';
+import type {
+  Museum,
+  User,
+  CreateMuseumData,
+  MuseumCurator,
+  MuseumRoom,
+  AppLanguage,
+} from '@artaround/shared';
 import { UserRole, ContextualRole, ResourceType } from '@artaround/shared';
 import '../ui/ui-button';
 import '../ui/ui-card';
@@ -199,6 +207,13 @@ export class MuseumsManagementPage extends LitElement {
   @state() private translatingNavigatorConfigId: string | null = null;
   @state() private error = '';
   @state() private success = '';
+
+  // Sale (gestione parallela ai marker: nome qui, contorno in Piantina e mappa)
+  @state() private rooms: MuseumRoom[] = [];
+  @state() private newRoomName = '';
+  @state() private savingRoom = false;
+  @state() private renamingRoomId: string | null = null;
+  @state() private renameRoomValue = '';
 
   // Search
   @state() private searchQuery = '';
@@ -1354,6 +1369,7 @@ export class MuseumsManagementPage extends LitElement {
         : (['it'] as AppLanguage[]);
 
     this.selectedMuseum = museum;
+    this.rooms = museum.rooms || [];
     this.formData = {
       wikidataId: museum.wikidataId || '',
       name: museum.name,
@@ -1909,6 +1925,204 @@ export class MuseumsManagementPage extends LitElement {
               `}
         </div>
       </div>
+    `;
+  }
+
+  // ─── Sale (gestione parallela ai marker) ─────────────────
+  private async handleAddRoom() {
+    const name = this.newRoomName.trim();
+    if (!name || !this.selectedMuseum) return;
+
+    this.savingRoom = true;
+    this.error = '';
+    try {
+      const id = `room-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const result = await museumService.createRoom(this.selectedMuseum._id, { id, name });
+      if (result.data) {
+        this.rooms = [...this.rooms, result.data];
+        this.newRoomName = '';
+      } else {
+        this.error = result.error || __('Errore durante la creazione della sala');
+      }
+    } catch {
+      this.error = __('Errore di connessione durante la creazione della sala');
+    } finally {
+      this.savingRoom = false;
+    }
+  }
+
+  private startRenameRoom(room: MuseumRoom) {
+    this.renamingRoomId = room.id;
+    this.renameRoomValue = room.name;
+  }
+
+  private cancelRenameRoom() {
+    this.renamingRoomId = null;
+    this.renameRoomValue = '';
+  }
+
+  private async handleRenameRoom(roomId: string) {
+    const name = this.renameRoomValue.trim();
+    if (!name || !this.selectedMuseum) return;
+
+    this.savingRoom = true;
+    this.error = '';
+    try {
+      const result = await museumService.renameRoom(this.selectedMuseum._id, roomId, name);
+      if (result.data) {
+        this.rooms = this.rooms.map((r) => (r.id === roomId ? result.data! : r));
+        this.cancelRenameRoom();
+      } else {
+        this.error = result.error || __('Errore durante la modifica della sala');
+      }
+    } catch {
+      this.error = __('Errore di connessione durante la modifica della sala');
+    } finally {
+      this.savingRoom = false;
+    }
+  }
+
+  private async handleDeleteRoom(room: MuseumRoom) {
+    if (!this.selectedMuseum) return;
+
+    const confirmed = await modalService.confirm({
+      title: __('Elimina sala'),
+      message: `${__('Sei sicuro di voler eliminare la sala')} "${room.name}"? ${__('Le opere assegnate resteranno senza sala.')}`,
+      confirmLabel: __('Elimina'),
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+
+    try {
+      const ok = await museumService.deleteRoom(this.selectedMuseum._id, room.id);
+      if (ok) {
+        this.rooms = this.rooms.filter((r) => r.id !== room.id);
+      } else {
+        this.error = __("Errore durante l'eliminazione della sala");
+      }
+    } catch {
+      this.error = __("Errore di connessione durante l'eliminazione della sala");
+    }
+  }
+
+  private renderRoomsSection() {
+    return html`
+      <section>
+        <h3
+          class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+        >
+          <ui-icon name="grid" size="sm" class="text-indigo-500"></ui-icon>
+          ${__('Sale')}
+        </h3>
+        <ui-card padding="none">
+          <div class="p-6 space-y-4">
+            <p class="text-sm text-surface-500 dark:text-surface-400">
+              ${__(
+                'Crea qui le sale del museo con il nome che preferisci. Il contorno sulla piantina si disegna dopo, in "Piantina e mappa". Ogni opera va assegnata a una di queste sale.',
+              )}
+            </p>
+
+            <div class="flex items-end gap-2">
+              <div class="flex-1">
+                <ui-input
+                  .label=${__('Nome sala')}
+                  .placeholder=${__('Es. Sala del Bernini')}
+                  .value=${this.newRoomName}
+                  @input-change=${(e: CustomEvent) => (this.newRoomName = e.detail.value)}
+                  @keydown=${(e: KeyboardEvent) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      this.handleAddRoom();
+                    }
+                  }}
+                ></ui-input>
+              </div>
+              <ui-button
+                type="button"
+                variant="primary"
+                icon="plus"
+                .label=${__('Aggiungi sala')}
+                ?disabled=${!this.newRoomName.trim()}
+                .loading=${this.savingRoom}
+                @click=${this.handleAddRoom}
+              ></ui-button>
+            </div>
+
+            ${this.rooms.length === 0
+              ? html`
+                  <p class="text-sm text-surface-400 dark:text-surface-500 italic">
+                    ${__('Nessuna sala creata')}
+                  </p>
+                `
+              : html`
+                  <ul class="divide-y divide-surface-200 dark:divide-surface-700">
+                    ${this.rooms.map(
+                      (room) => html`
+                        <li class="flex items-center justify-between gap-3 py-2.5">
+                          ${this.renamingRoomId === room.id
+                            ? html`
+                                <div class="flex-1 flex items-center gap-2">
+                                  <ui-input
+                                    .value=${this.renameRoomValue}
+                                    @input-change=${(e: CustomEvent) =>
+                                      (this.renameRoomValue = e.detail.value)}
+                                  ></ui-input>
+                                  <ui-icon-button
+                                    icon="check"
+                                    variant="brand"
+                                    .title=${__('Salva')}
+                                    .loading=${this.savingRoom}
+                                    @click=${() => this.handleRenameRoom(room.id)}
+                                  ></ui-icon-button>
+                                  <ui-icon-button
+                                    icon="x"
+                                    .title=${__('Annulla')}
+                                    @click=${this.cancelRenameRoom}
+                                  ></ui-icon-button>
+                                </div>
+                              `
+                            : html`
+                                <div class="flex items-center gap-2 min-w-0">
+                                  <span
+                                    class="font-medium text-surface-900 dark:text-white truncate"
+                                    >${room.name}</span
+                                  >
+                                  ${room.polygon && room.polygon.length > 0
+                                    ? html`<ui-badge
+                                        variant="success"
+                                        size="sm"
+                                        .label=${__('Contornata')}
+                                      ></ui-badge>`
+                                    : html`<ui-badge
+                                        variant="secondary"
+                                        size="sm"
+                                        .label=${__('Da contornare')}
+                                      ></ui-badge>`}
+                                </div>
+                                <div class="flex items-center gap-1 flex-shrink-0">
+                                  <ui-icon-button
+                                    icon="edit"
+                                    size="sm"
+                                    .title=${__('Rinomina')}
+                                    @click=${() => this.startRenameRoom(room)}
+                                  ></ui-icon-button>
+                                  <ui-icon-button
+                                    icon="trash"
+                                    size="sm"
+                                    variant="danger"
+                                    .title=${__('Elimina')}
+                                    @click=${() => this.handleDeleteRoom(room)}
+                                  ></ui-icon-button>
+                                </div>
+                              `}
+                        </li>
+                      `,
+                    )}
+                  </ul>
+                `}
+          </div>
+        </ui-card>
+      </section>
     `;
   }
 
@@ -2784,6 +2998,7 @@ export class MuseumsManagementPage extends LitElement {
 
         ${showBaseSections ? this.renderActiveLanguagesSection() : nothing}
         ${showBaseSections ? this.renderMuseumTranslationsSection(sourceLanguageLabel) : nothing}
+        ${showBaseSections && !isCreate ? this.renderRoomsSection() : nothing}
 
         <div class="flex justify-end gap-3">
           <ui-button

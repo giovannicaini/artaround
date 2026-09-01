@@ -3,10 +3,18 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { museumService } from '../../services/museum.service';
 import { artworkService } from '../../services/artwork.service';
 import { modalService } from '../../services/modal.service';
-import type { Museum, MuseumFloor, MapMarker, Artwork } from '@artaround/shared';
+import type {
+  Museum,
+  MuseumFloor,
+  MapMarker,
+  MuseumRoom,
+  MapPoint,
+  Artwork,
+} from '@artaround/shared';
 import './svg-map-editor';
 import './floor-manager';
 import './marker-editor';
+import './room-outline-editor';
 import '../ui/ui-button';
 import '../ui/ui-card';
 import '../ui/ui-image-placeholder';
@@ -60,6 +68,22 @@ export class MuseumMapPage extends LitElement {
   @state()
   private isFullscreen = false;
 
+  // Sale (gestione parallela ai marker)
+  @state()
+  private rooms: MuseumRoom[] = [];
+
+  @state()
+  private roomDrawMode = false;
+
+  @state()
+  private roomDrawPoints: MapPoint[] = [];
+
+  @state()
+  private drawingRoomId: string | null = null;
+
+  @state()
+  private selectedRoomId: string | null = null;
+
   async connectedCallback() {
     super.connectedCallback();
     await this.loadData();
@@ -77,16 +101,18 @@ export class MuseumMapPage extends LitElement {
       this.loading = true;
       this.error = null;
 
-      // Load museum details and floors
-      const [museum, floors, artworksResponse] = await Promise.all([
+      // Load museum details, floors and rooms
+      const [museum, floors, artworksResponse, rooms] = await Promise.all([
         museumService.getMuseum(this.museumId),
         museumService.getFloors(this.museumId),
         artworkService.getArtworksByMuseum(this.museumId),
+        museumService.getRooms(this.museumId),
       ]);
 
       this.museum = museum;
       this.floors = floors || [];
       this.artworks = artworksResponse || [];
+      this.rooms = rooms || [];
 
       // Select first floor by default
       if (this.floors.length > 0 && !this.selectedFloorId) {
@@ -182,7 +208,7 @@ export class MuseumMapPage extends LitElement {
           class="grid grid-cols-1 lg:grid-cols-12 gap-4 p-4"
           style="min-height: calc(100vh - 80px);"
         >
-          <!-- Left Panel: Floors & Artworks -->
+          <!-- Left Panel: Floors, Rooms & Artworks -->
           <div class="lg:col-span-3 xl:col-span-2 space-y-4 overflow-y-auto order-2 lg:order-1">
             <floor-manager
               .floors=${this.floors}
@@ -192,6 +218,19 @@ export class MuseumMapPage extends LitElement {
               @floor-update=${this.handleFloorUpdate}
               @floor-delete=${this.handleFloorDelete}
             ></floor-manager>
+
+            <room-outline-editor
+              .rooms=${this.rooms}
+              .currentFloorId=${this.selectedFloorId || ''}
+              .drawMode=${this.roomDrawMode}
+              .drawingRoomId=${this.drawingRoomId}
+              .pointCount=${this.roomDrawPoints.length}
+              @room-outline-start=${this.handleRoomOutlineStart}
+              @room-outline-undo-point=${this.handleRoomOutlineUndoPoint}
+              @room-outline-finish=${this.handleRoomOutlineFinish}
+              @room-outline-cancel=${this.handleRoomOutlineCancel}
+              @room-outline-remove=${this.handleRoomOutlineRemove}
+            ></room-outline-editor>
 
             <!-- Artworks List -->
             <div class="bg-surface-800 rounded-lg overflow-hidden border border-surface-700">
@@ -219,11 +258,17 @@ export class MuseumMapPage extends LitElement {
               .selectedFloorId=${this.selectedFloorId}
               .selectedMarkerId=${this.selectedMarker?.id || null}
               .artworks=${this.artworks}
+              .rooms=${this.rooms}
+              .selectedRoomId=${this.drawingRoomId || this.selectedRoomId}
+              .roomDrawMode=${this.roomDrawMode}
+              .roomDrawPoints=${this.roomDrawPoints}
               editMode
               @floor-select=${(e: CustomEvent) => (this.selectedFloorId = e.detail.floorId)}
               @map-click=${this.handleMapClick}
               @marker-select=${this.handleMarkerSelect}
               @marker-drag=${this.handleMarkerDrag}
+              @room-point-add=${this.handleRoomPointAdd}
+              @room-select=${(e: CustomEvent) => (this.selectedRoomId = e.detail.id)}
             ></svg-map-editor>
           </div>
 
@@ -480,6 +525,101 @@ export class MuseumMapPage extends LitElement {
     } catch (err) {
       console.error('Error deleting marker:', err);
       await modalService.error(__("Errore durante l'eliminazione del marker"));
+    }
+  }
+
+  // ─── Actions (Sale / Contorno) ───────────────────────────
+  private readonly CLOSE_POLYGON_THRESHOLD_PX = 12;
+
+  private handleRoomOutlineStart(e: CustomEvent) {
+    const room = e.detail as MuseumRoom;
+    this.roomDrawMode = true;
+    this.drawingRoomId = room.id;
+    // Si riparte sempre da zero: "Disegna"/"Ridisegna" sostituisce l'eventuale
+    // contorno precedente invece di continuare a modificarlo, per evitare
+    // ambiguità su dove si trova il "primo punto" di chiusura.
+    this.roomDrawPoints = [];
+    this.selectedMarker = null;
+    this.clickPosition = null;
+  }
+
+  private handleRoomPointAdd(e: CustomEvent) {
+    const { x, y } = e.detail;
+    const first = this.roomDrawPoints[0];
+
+    if (first && this.roomDrawPoints.length >= 3) {
+      const distance = Math.hypot(x - first.x, y - first.y);
+      if (distance <= this.CLOSE_POLYGON_THRESHOLD_PX) {
+        this.handleRoomOutlineFinish();
+        return;
+      }
+    }
+
+    this.roomDrawPoints = [...this.roomDrawPoints, { x, y }];
+  }
+
+  private handleRoomOutlineUndoPoint() {
+    this.roomDrawPoints = this.roomDrawPoints.slice(0, -1);
+  }
+
+  private handleRoomOutlineCancel() {
+    this.roomDrawMode = false;
+    this.drawingRoomId = null;
+    this.roomDrawPoints = [];
+  }
+
+  private async handleRoomOutlineFinish() {
+    if (!this.drawingRoomId || !this.selectedFloorId || this.roomDrawPoints.length < 3) return;
+
+    // Punto di partenza = punto di arrivo: chiudiamo esplicitamente il poligono.
+    const first = this.roomDrawPoints[0];
+    const closedPolygon = [...this.roomDrawPoints, { x: first.x, y: first.y }];
+
+    try {
+      const result = await museumService.outlineRoom(
+        this.museumId,
+        this.drawingRoomId,
+        this.selectedFloorId,
+        closedPolygon,
+      );
+      if (result.data) {
+        this.rooms = this.rooms.map((r) => (r.id === result.data!.id ? result.data! : r));
+      } else {
+        await modalService.error(result.error || __('Errore durante il salvataggio del contorno'));
+      }
+    } catch (err) {
+      console.error('Error saving room outline:', err);
+      await modalService.error(__('Errore di connessione durante il salvataggio del contorno'));
+    } finally {
+      this.roomDrawMode = false;
+      this.drawingRoomId = null;
+      this.roomDrawPoints = [];
+    }
+  }
+
+  private async handleRoomOutlineRemove(e: CustomEvent) {
+    const room = e.detail as MuseumRoom;
+
+    const confirmed = await modalService.confirm({
+      title: __('Rimuovi contorno'),
+      message: `${__('Rimuovere il contorno di')} "${room.name}"? ${__('La sala resterà, senza forma sulla piantina.')}`,
+      confirmLabel: __('Rimuovi'),
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+
+    try {
+      const ok = await museumService.removeRoomOutline(this.museumId, room.id);
+      if (ok) {
+        this.rooms = this.rooms.map((r) =>
+          r.id === room.id ? { ...r, floorId: undefined, polygon: undefined } : r,
+        );
+      } else {
+        await modalService.error(__('Errore durante la rimozione del contorno'));
+      }
+    } catch (err) {
+      console.error('Error removing room outline:', err);
+      await modalService.error(__('Errore di connessione durante la rimozione del contorno'));
     }
   }
 

@@ -4,6 +4,7 @@ import type {
   MuseumFloor,
   MapMarker,
   FloorConnection,
+  MuseumRoom,
   CreateMuseumData,
   MuseumCurator,
   MuseumConfigResponse,
@@ -222,6 +223,63 @@ export class MuseumService {
 
   async deleteFloor(museumId: string, floorId: string): Promise<boolean> {
     const response = await apiService.delete(`/museums/${museumId}/floors/${floorId}`);
+    return response.success;
+  }
+
+  // ─── Sale (gestione parallela ai marker) ─────────────────
+  async getRooms(museumId: string): Promise<MuseumRoom[]> {
+    const response = await apiService.get<MuseumRoom[]>(`/museums/${museumId}/rooms`);
+    return response.success && response.data ? response.data : [];
+  }
+
+  async createRoom(
+    museumId: string,
+    room: { id: string; name: string },
+  ): Promise<{ data: MuseumRoom | null; error?: string }> {
+    const response = await apiService.post<MuseumRoom>(`/museums/${museumId}/rooms`, room);
+    if (response.success && response.data) {
+      return { data: response.data };
+    }
+    return { data: null, error: getErrorMessage(response, 'Errore sconosciuto') };
+  }
+
+  async renameRoom(
+    museumId: string,
+    roomId: string,
+    name: string,
+  ): Promise<{ data: MuseumRoom | null; error?: string }> {
+    const response = await apiService.put<MuseumRoom>(`/museums/${museumId}/rooms/${roomId}`, {
+      name,
+    });
+    if (response.success && response.data) {
+      return { data: response.data };
+    }
+    return { data: null, error: getErrorMessage(response, 'Errore sconosciuto') };
+  }
+
+  async outlineRoom(
+    museumId: string,
+    roomId: string,
+    floorId: string,
+    polygon: Array<{ x: number; y: number }>,
+  ): Promise<{ data: MuseumRoom | null; error?: string }> {
+    const response = await apiService.put<MuseumRoom>(
+      `/museums/${museumId}/rooms/${roomId}/outline`,
+      { floorId, polygon },
+    );
+    if (response.success && response.data) {
+      return { data: response.data };
+    }
+    return { data: null, error: getErrorMessage(response, 'Errore sconosciuto') };
+  }
+
+  async removeRoomOutline(museumId: string, roomId: string): Promise<boolean> {
+    const response = await apiService.delete(`/museums/${museumId}/rooms/${roomId}/outline`);
+    return response.success;
+  }
+
+  async deleteRoom(museumId: string, roomId: string): Promise<boolean> {
+    const response = await apiService.delete(`/museums/${museumId}/rooms/${roomId}`);
     return response.success;
   }
 

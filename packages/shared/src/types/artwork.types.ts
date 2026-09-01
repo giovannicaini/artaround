@@ -53,7 +53,8 @@ export interface Artwork {
   images?: string[]; // Additional images
 
   // Location in museum
-  room?: string; // "Sala VIII", "Pinacoteca - Sala XIV"
+  roomId?: string; // Riferimento a Museum.rooms[].id — ogni opera dovrebbe averne una
+  room?: string; // Testo libero legacy, mantenuto come fallback per opere non ancora migrate
   floor?: string; // "Piano Terra", "Primo Piano"
 
   // Map position (linked to museum floor plan)
@@ -103,6 +104,7 @@ export interface ArtworkFilters {
   artworkType?: ArtworkType;
   movement?: string;
   movementWikidataId?: string;
+  roomId?: string;
   room?: string;
   floor?: string;
   yearFrom?: number;
@@ -133,6 +135,7 @@ export interface CreateArtworkData {
   materials?: string[];
   image: string;
   images?: string[];
+  roomId?: string;
   room?: string;
   floor?: string;
   mapPosition?: ArtworkMapPosition;
@@ -153,6 +156,7 @@ export interface ArtworkSummary {
   year?: string;
   artworkType: ArtworkType;
   image: string;
+  roomId?: string;
   room?: string;
   hasMapPosition: boolean;
 }

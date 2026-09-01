@@ -12,7 +12,7 @@ import {
   DEFAULT_APP_LANGUAGE,
 } from '@artaround/shared';
 
-import type { FloorConnection } from '@artaround/shared';
+import type { FloorConnection, MuseumRoom, MapPoint } from '@artaround/shared';
 
 export interface MuseumDocument extends Omit<IMuseum, '_id'>, Document {}
 
@@ -110,6 +110,27 @@ const floorConnectionSchema = new Schema<FloorConnection>(
     targetY: Number,
     label: String,
     isAccessible: { type: Boolean, default: false },
+  },
+  { _id: false },
+);
+
+const mapPointSchema = new Schema<MapPoint>(
+  {
+    x: { type: Number, required: true },
+    y: { type: Number, required: true },
+  },
+  { _id: false },
+);
+
+// Sala del museo: gestione parallela ai marker (vedi MuseumRoom). Creata con
+// solo id/name da "Modifica Museo"; floorId/polygon valorizzati in un secondo
+// momento da "Piantina e mappa" quando viene contornata.
+const roomSchema = new Schema<MuseumRoom>(
+  {
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    floorId: String,
+    polygon: [mapPointSchema],
   },
   { _id: false },
 );
@@ -244,6 +265,10 @@ const museumSchema = new Schema<MuseumDocument>(
 
     // Floor maps
     floors: [floorSchema],
+
+    // Sale del museo (nome scelto in "Modifica Museo", contorno disegnato in
+    // "Piantina e mappa"). Ogni Artwork.roomId referenzia una di queste.
+    rooms: [roomSchema],
 
     // Services
     services: servicesSchema,
