@@ -4,6 +4,7 @@ import { useAuthStore } from './stores/authStore';
 import HomePage from './pages/HomePage';
 import MuseumPage from './pages/MuseumPage';
 import VisitPlayerPage from './pages/VisitPlayerPage';
+import AccountPage from './pages/AccountPage';
 
 function App() {
   const hydrate = useAuthStore((state) => state.hydrate);
@@ -18,6 +19,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/museum/:museumId" element={<MuseumPage />} />
         <Route path="/visit/:visitId" element={<VisitPlayerPage />} />
+        <Route path="/account" element={<AccountPage />} />
       </Routes>
     </div>
   );

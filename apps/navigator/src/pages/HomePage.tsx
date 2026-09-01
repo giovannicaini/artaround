@@ -1,7 +1,15 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { MapPin, ChevronRight, Compass, ExternalLink, Sparkles, Play } from 'lucide-react';
+import {
+  MapPin,
+  ChevronRight,
+  Compass,
+  ExternalLink,
+  Sparkles,
+  Play,
+  User as UserIcon,
+} from 'lucide-react';
 import { api } from '../lib/apiClient';
 import { useAuthStore } from '../stores/authStore';
 import { useI18nStore } from '../stores/i18nStore';
@@ -138,6 +146,20 @@ export default function HomePage() {
               Marketplace
             </a>
             <LanguageSwitcher />
+            <button
+              onClick={() => navigate('/account')}
+              aria-label={t('Account')}
+              title={t('Account')}
+              className="w-9 h-9 rounded-full bg-surface-800 border border-surface-700 hover:bg-surface-700 flex items-center justify-center flex-shrink-0 transition-colors"
+            >
+              {user ? (
+                <span className="font-display font-bold text-brand-300 text-xs">
+                  {user.username.slice(0, 2).toUpperCase()}
+                </span>
+              ) : (
+                <UserIcon className="w-4 h-4 text-surface-300" />
+              )}
+            </button>
           </div>
         </div>
       </header>

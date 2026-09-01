@@ -12,6 +12,7 @@ import {
   Ticket,
   Accessibility,
   Sparkles,
+  UserCircle,
 } from 'lucide-react';
 import { api } from '../lib/apiClient';
 import { useAuthStore } from '../stores/authStore';
@@ -176,6 +177,12 @@ export default function MuseumPage() {
               />
               <div className="flex items-center gap-2">
                 <LanguageSwitcher languages={museum?.activeLanguages} variant="glass" />
+                <IconTile
+                  icon={<UserCircle />}
+                  variant="glass"
+                  label={t('Account')}
+                  onClick={() => navigate('/account')}
+                />
                 {config?.branding.logo && (
                   <img
                     src={config.branding.logo}

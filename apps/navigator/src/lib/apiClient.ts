@@ -7,6 +7,8 @@ import type {
   Artwork,
   User,
   LoginRequest,
+  RegisterRequest,
+  UserPreferences,
   VisitPurchase,
 } from '@artaround/shared';
 
@@ -90,7 +92,21 @@ export const api = {
       body: JSON.stringify(credentials),
     }),
 
+  register: (data: RegisterRequest): Promise<{ user: User; token: string }> =>
+    request<{ user: User; token: string }>('/auth/register', {
+      method: 'POST',
+      // Il Navigator crea sempre visitatori: nessuna scelta di ruolo in
+      // un'app pensata per chi visita un museo, non per chi ci lavora.
+      body: JSON.stringify({ ...data, role: 'visitor' }),
+    }),
+
   me: (): Promise<User> => request<User>('/auth/me'),
+
+  updatePreferences: (preferences: Partial<UserPreferences>): Promise<User> =>
+    request<User>('/auth/me', {
+      method: 'PUT',
+      body: JSON.stringify({ preferences }),
+    }),
 
   // Museums
   getMuseums: (city?: string): Promise<Museum[]> => {

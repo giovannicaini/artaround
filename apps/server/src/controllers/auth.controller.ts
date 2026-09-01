@@ -75,15 +75,10 @@ export class AuthController {
         { expiresIn: '7d' },
       );
 
-      const response: AuthResponse = {
-        token,
-        user: {
-          id: user._id.toString(),
-          username: user.username,
-          email: user.email,
-          role: user.role,
-        },
-      };
+      const safeUser = { ...user.toObject(), _id: user._id.toString() };
+      delete (safeUser as { password?: string }).password;
+
+      const response: AuthResponse = { token, user: safeUser };
 
       res.status(201).json({
         success: true,
@@ -129,15 +124,10 @@ export class AuthController {
         { expiresIn: '7d' },
       );
 
-      const response: AuthResponse = {
-        token,
-        user: {
-          id: user._id.toString(),
-          username: user.username,
-          email: user.email,
-          role: user.role,
-        },
-      };
+      const safeUser = { ...user.toObject(), _id: user._id.toString() };
+      delete (safeUser as { password?: string }).password;
+
+      const response: AuthResponse = { token, user: safeUser };
 
       res.json({
         success: true,

@@ -1,3 +1,5 @@
+import type { User } from './user.types';
+
 // API Response types
 export interface APIResponse<T = unknown> {
   success: boolean;
@@ -36,14 +38,14 @@ export interface RegisterRequest {
   role?: string;
 }
 
+// Utente restituito da login/register: l'intero documento tranne la
+// password — prima era un sottoinsieme scelto a mano ({id, username,
+// email, role}) che ometteva preferences (e usava "id" invece di "_id",
+// disallineato dal resto dell'app), costringendo un'altra chiamata a
+// /auth/me subito dopo il login solo per leggere le preferenze salvate.
 export interface AuthResponse {
   token: string;
-  user: {
-    id: string;
-    username: string;
-    email: string;
-    role: string;
-  };
+  user: Omit<User, 'password'>;
 }
 
 // Translation API
