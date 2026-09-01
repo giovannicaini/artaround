@@ -189,7 +189,9 @@ export class SvgMapEditor extends LitElement {
 
         <!-- Map Container -->
         <div
-          class="relative overflow-hidden bg-surface-950 cursor-grab"
+          class="relative overflow-hidden bg-surface-950 ${this.editMode
+            ? 'cursor-crosshair'
+            : 'cursor-grab'}"
           style="height: 500px;"
           @mousedown=${this.handleMouseDown}
           @mousemove=${this.handleMouseMove}
@@ -206,7 +208,7 @@ export class SvgMapEditor extends LitElement {
                 >
                   <!-- SVG Map -->
                   <div
-                    class="map-svg-container ${this.roomDrawMode ? 'cursor-crosshair' : ''}"
+                    class="map-svg-container"
                     @click=${this.handleMapClick}
                     @mousemove=${this.handleMapMouseMove}
                     @mouseleave=${() => (this.roomDrawCursor = null)}

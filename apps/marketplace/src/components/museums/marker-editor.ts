@@ -188,7 +188,7 @@ export class MarkerEditor extends LitElement {
       <!-- Label -->
       <div class="mb-4">
         <ui-input
-          .label=${__('Etichetta')}
+          .label=${__('Etichetta (opzionale)')}
           .placeholder=${__('Nome del punto')}
           .value=${this.markerLabel}
           @input-change=${(e: CustomEvent) => (this.markerLabel = e.detail.value)}
@@ -211,7 +211,7 @@ export class MarkerEditor extends LitElement {
         variant="primary"
         .label=${`➕ ${__('Aggiungi Marker')}`}
         block
-        ?disabled=${!this.clickPosition || !this.markerLabel}
+        ?disabled=${!this.clickPosition}
         @click=${this.addMarker}
       ></ui-button>
     `;
@@ -654,7 +654,7 @@ export class MarkerEditor extends LitElement {
   }
 
   private addMarker() {
-    if (!this.clickPosition || !this.markerLabel) return;
+    if (!this.clickPosition) return;
 
     const marker: MapMarker = {
       id: `marker-${Date.now()}`,
@@ -662,7 +662,7 @@ export class MarkerEditor extends LitElement {
       x: this.clickPosition.x,
       y: this.clickPosition.y,
       type: this.selectedType,
-      label: this.markerLabel,
+      label: this.markerLabel || undefined,
       description: this.markerDescription || undefined,
       artworkId: this.selectedArtworkId || undefined,
       isVisible: true,
@@ -695,9 +695,11 @@ export class MarkerEditor extends LitElement {
   private async deleteMarker(e: Event, marker: MapMarker) {
     e.stopPropagation();
 
+    const markerName =
+      marker.label || this.markerTypes.find((t) => t.type === marker.type)?.label || marker.type;
     const confirmed = await modalService.confirm({
       title: __('Elimina marker'),
-      message: `Eliminare il marker "${marker.label}"?`,
+      message: `Eliminare il marker "${markerName}"?`,
       confirmLabel: 'Elimina',
       variant: 'danger',
     });
