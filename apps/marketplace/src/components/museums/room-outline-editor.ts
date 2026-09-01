@@ -149,6 +149,9 @@ export class RoomOutlineEditor extends LitElement {
             'Clicca sulla piantina per aggiungere un vertice. Clicca di nuovo sul primo punto (bianco) per chiudere la sala.',
           )}
         </p>
+        <p class="text-xs text-surface-400">
+          ${__('Tieni premuto Ctrl (o ⌘) per allineare il segmento in orizzontale o verticale.')}
+        </p>
         <p class="text-sm text-brand-400 font-medium">${this.pointCount} ${__('punti')}</p>
         <div class="flex flex-wrap gap-1">
           <ui-icon-button

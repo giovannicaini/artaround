@@ -74,6 +74,13 @@ export class SvgMapEditor extends LitElement {
   @property({ type: Array })
   roomDrawPoints: MapPoint[] = [];
 
+  // Posizione corrente del cursore mentre si disegna una sala (già scontata
+  // di zoom e, se Ctrl/Cmd è premuto, agganciata all'asse orizzontale o
+  // verticale rispetto all'ultimo punto): usata solo per il segmento-guida
+  // che anticipa dove cadrebbe il prossimo vertice, non ancora un punto reale.
+  @state()
+  private roomDrawCursor: MapPoint | null = null;
+
   @state()
   private zoom = 1;
 
@@ -201,6 +208,8 @@ export class SvgMapEditor extends LitElement {
                   <div
                     class="map-svg-container ${this.roomDrawMode ? 'cursor-crosshair' : ''}"
                     @click=${this.handleMapClick}
+                    @mousemove=${this.handleMapMouseMove}
+                    @mouseleave=${() => (this.roomDrawCursor = null)}
                   >
                     ${unsafeHTML(floor.svgContent)}
                   </div>
@@ -448,6 +457,21 @@ export class SvgMapEditor extends LitElement {
                   ></circle>
                 `,
               )}
+              ${
+                this.roomDrawCursor
+                  ? svg`
+                    <line
+                      x1="${this.roomDrawPoints[this.roomDrawPoints.length - 1].x}"
+                      y1="${this.roomDrawPoints[this.roomDrawPoints.length - 1].y}"
+                      x2="${this.roomDrawCursor.x}"
+                      y2="${this.roomDrawCursor.y}"
+                      stroke="#a5b4fc"
+                      stroke-width="1.5"
+                      stroke-dasharray="3 3"
+                    ></line>
+                  `
+                  : nothing
+              }
             `
             : nothing
         }
@@ -545,20 +569,52 @@ export class SvgMapEditor extends LitElement {
     this.isDragging = false;
   }
 
+  // Coordinate del mouse nel sistema di riferimento "grezzo" della piantina
+  // (già scontate di zoom, indipendenti dal pan perché lette dalla bounding
+  // box già trasformata dell'elemento).
+  private eventToFloorPoint(e: MouseEvent): MapPoint {
+    const rect = this.mapSvgContainer?.getBoundingClientRect();
+    const x = (e.clientX - (rect?.left ?? 0)) / this.zoom;
+    const y = (e.clientY - (rect?.top ?? 0)) / this.zoom;
+    return { x, y };
+  }
+
+  private get mapSvgContainer(): HTMLElement | null {
+    return this.querySelector('.map-svg-container');
+  }
+
+  // Con Ctrl/Cmd premuto, il segmento dall'ultimo vertice al punto dato
+  // viene "raddrizzato" sull'asse orizzontale o verticale più vicino.
+  private snapToAxis(from: MapPoint, to: MapPoint): MapPoint {
+    const dx = Math.abs(to.x - from.x);
+    const dy = Math.abs(to.y - from.y);
+    return dx >= dy ? { x: to.x, y: from.y } : { x: from.x, y: to.y };
+  }
+
+  private handleMapMouseMove(e: MouseEvent) {
+    if (!this.roomDrawMode || this.roomDrawPoints.length === 0) {
+      if (this.roomDrawCursor) this.roomDrawCursor = null;
+      return;
+    }
+
+    const point = this.eventToFloorPoint(e);
+    const lastPoint = this.roomDrawPoints[this.roomDrawPoints.length - 1];
+    this.roomDrawCursor = e.ctrlKey || e.metaKey ? this.snapToAxis(lastPoint, point) : point;
+  }
+
   private handleMapClick(e: MouseEvent) {
     if (!this.editMode) return;
 
-    const target = e.currentTarget as HTMLElement;
-    const rect = target.getBoundingClientRect();
-
-    // Calculate position relative to the SVG, accounting for zoom
-    const x = (e.clientX - rect.left) / this.zoom;
-    const y = (e.clientY - rect.top) / this.zoom;
+    const point = this.eventToFloorPoint(e);
 
     if (this.roomDrawMode) {
+      const lastPoint = this.roomDrawPoints[this.roomDrawPoints.length - 1];
+      const finalPoint =
+        lastPoint && (e.ctrlKey || e.metaKey) ? this.snapToAxis(lastPoint, point) : point;
+
       this.dispatchEvent(
         new CustomEvent('room-point-add', {
-          detail: { x, y },
+          detail: finalPoint,
           bubbles: true,
           composed: true,
         }),
@@ -568,7 +624,7 @@ export class SvgMapEditor extends LitElement {
 
     this.dispatchEvent(
       new CustomEvent('map-click', {
-        detail: { x, y },
+        detail: point,
         bubbles: true,
         composed: true,
       }),
