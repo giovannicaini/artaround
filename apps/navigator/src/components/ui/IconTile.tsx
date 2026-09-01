@@ -13,9 +13,9 @@ interface IconTileProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<IconTileVariant, string> = {
   // Sopra immagini/foto (hero opera, copertina museo): vetro scuro sempre leggibile
-  glass: 'bg-surface-950/45 text-surface-50 backdrop-blur-md hover:bg-surface-950/65',
+  glass: 'bg-surface-950/45 text-white backdrop-blur-md hover:bg-surface-950/65',
   panel: 'bg-surface-800 text-surface-200 border border-surface-700 hover:bg-surface-700',
-  brand: 'bg-brand-500 text-surface-950 hover:bg-brand-400',
+  brand: 'gradient-aurora text-white shadow-glow',
 };
 
 const sizeClasses: Record<IconTileSize, string> = {

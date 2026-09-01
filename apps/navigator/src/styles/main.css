@@ -3,28 +3,29 @@
 @tailwind utilities;
 
 /*
- * Design tokens — stessa palette del marketplace (blu #3b82f6 di brand,
- * grigi neutri "zinc"), applicata qui in chiave dark-first. Espressi come
- * triplette RGB "R G B" (senza virgole) perché Tailwind le ricompone con
- * rgb(var(--x) / <alpha-value>) — questo è ciò che permette a bg-brand-500/40
- * ecc. di funzionare E a un museo di sovrascrivere l'accento a runtime
- * (vedi hooks/useMuseumTheme) senza ricompilare nulla.
+ * Design tokens — "aurora da galleria notturna": fondo quasi nero con
+ * un'impronta violetta (non grigio neutro), un accento vivido che passa a
+ * gradiente su ambra/fucsia nei momenti chiave. Triplette RGB "R G B"
+ * (senza virgole) perché Tailwind le ricompone con
+ * rgb(var(--x) / <alpha-value>) — questo è ciò che permette a
+ * bg-brand-500/40 ecc. di funzionare E a un museo di sovrascrivere
+ * l'accento a runtime (vedi hooks/useMuseumTheme) senza ricompilare nulla.
  */
 :root {
   --safe-area-inset-top: env(safe-area-inset-top, 0px);
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
 
-  --color-brand-50: 239 246 255;
-  --color-brand-100: 219 234 254;
-  --color-brand-200: 191 219 254;
-  --color-brand-300: 147 197 253;
-  --color-brand-400: 96 165 250;
-  --color-brand-500: 59 130 246;
-  --color-brand-600: 37 99 235;
-  --color-brand-700: 29 78 216;
-  --color-brand-800: 30 64 175;
-  --color-brand-900: 30 58 138;
-  --color-brand-950: 23 37 84;
+  --color-brand-50: 245 241 255;
+  --color-brand-100: 235 225 255;
+  --color-brand-200: 215 196 255;
+  --color-brand-300: 184 148 255;
+  --color-brand-400: 157 107 255;
+  --color-brand-500: 139 63 252;
+  --color-brand-600: 118 35 224;
+  --color-brand-700: 95 26 189;
+  --color-brand-800: 74 20 148;
+  --color-brand-900: 56 15 112;
+  --color-brand-950: 34 8 63;
 }
 
 * {
@@ -43,14 +44,14 @@ body,
 
 body {
   font-family:
-    'Inter',
+    'Plus Jakarta Sans',
     system-ui,
     -apple-system,
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #09090b;
-  color: #fafafa;
+  background: #0b0813;
+  color: #f7f6fb;
   overscroll-behavior: none;
 }
 
@@ -79,7 +80,7 @@ h3 {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #52525b;
+  background: #493f66;
   border-radius: 2px;
 }
 
@@ -89,14 +90,41 @@ h3 {
   -webkit-overflow-scrolling: touch;
 }
 
+/*
+ * Gradiente "aurora": la firma visiva dell'app. Usato su pochi elementi
+ * ad alto significato (bottone play, sfondo copertine, barra di
+ * avanzamento) — mai come sfondo generico, altrimenti perde forza.
+ */
+.gradient-aurora {
+  background-image: linear-gradient(135deg, #8b3ffc 0%, #ec4899 55%, #f59e0b 100%);
+}
+
+.gradient-aurora-text {
+  background-image: linear-gradient(100deg, #b894ff, #ec4899 60%, #f5a524);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* Bagliore ambientale dietro le copertine/hero — un accenno di colore
+   che respira lentamente, non un'animazione invadente. */
+.aurora-glow {
+  position: absolute;
+  inset: -20%;
+  background: radial-gradient(circle at 30% 20%, rgb(139 63 252 / 0.35), transparent 55%),
+    radial-gradient(circle at 75% 60%, rgb(236 72 153 / 0.25), transparent 50%);
+  filter: blur(40px);
+  pointer-events: none;
+}
+
 /* Voice button animation */
 @keyframes voicePulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgb(var(--color-brand-500) / 0.4);
+    box-shadow: 0 0 0 0 rgb(var(--color-brand-500) / 0.45);
   }
   50% {
-    box-shadow: 0 0 0 12px rgb(var(--color-brand-500) / 0);
+    box-shadow: 0 0 0 14px rgb(var(--color-brand-500) / 0);
   }
 }
 

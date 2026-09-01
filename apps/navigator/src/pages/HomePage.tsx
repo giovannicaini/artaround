@@ -64,17 +64,18 @@ export default function HomePage() {
     <div className="h-full overflow-y-auto scroll-smooth bg-surface-950">
       <div className="lg:max-w-6xl lg:mx-auto lg:px-8 lg:py-10">
         {/* Header */}
-        <header className="safe-top px-5 pt-6 pb-2 lg:px-0 lg:pt-0">
-          <div className="flex items-center justify-between">
+        <header className="safe-top relative px-5 pt-6 pb-2 lg:px-0 lg:pt-0 overflow-hidden">
+          <div className="aurora-glow opacity-60 lg:opacity-40" />
+          <div className="relative flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-brand-500/12 border border-brand-500/25 flex items-center justify-center">
-                <Compass className="w-6 h-6 text-brand-400" />
+              <div className="w-11 h-11 rounded-2xl gradient-aurora shadow-glow flex items-center justify-center">
+                <Compass className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="font-display text-xl font-semibold text-surface-50 leading-none">
+                <h1 className="font-display text-lg font-semibold text-surface-50 leading-none tracking-tight">
                   ArtAround
                 </h1>
-                <p className="text-surface-500 text-xs mt-1">Navigator</p>
+                <p className="text-surface-500 text-xs mt-1.5">Navigator</p>
               </div>
             </div>
 
@@ -95,7 +96,7 @@ export default function HomePage() {
               onClick={handleResumeVisit}
               className="w-full text-left mb-7 rounded-2xl overflow-hidden relative group animate-fade-in"
             >
-              <div className="relative h-28 bg-surface-900 border border-surface-800">
+              <div className="relative h-28 bg-surface-900 border border-brand-500/25 hover:border-brand-500/50 transition-colors">
                 {progress.coverImage && (
                   <img
                     src={progress.coverImage}
@@ -106,7 +107,7 @@ export default function HomePage() {
                 <div className="absolute inset-0 bg-gradient-to-r from-surface-950 via-surface-950/70 to-transparent" />
                 <div className="relative h-full flex items-center justify-between px-5">
                   <div className="min-w-0">
-                    <p className="text-brand-300 text-xs font-semibold uppercase tracking-wide mb-1">
+                    <p className="gradient-aurora-text text-xs font-bold uppercase tracking-wide mb-1">
                       Riprendi da dove eri
                     </p>
                     <p className="text-surface-50 font-display font-semibold truncate max-w-xs">
@@ -117,8 +118,8 @@ export default function HomePage() {
                       {progress.artworkTitle}
                     </p>
                   </div>
-                  <div className="w-11 h-11 rounded-full bg-brand-500 flex items-center justify-center flex-shrink-0 ml-3">
-                    <Play className="w-4 h-4 text-surface-950 ml-0.5" fill="currentColor" />
+                  <div className="w-11 h-11 rounded-full gradient-aurora shadow-glow flex items-center justify-center flex-shrink-0 ml-3">
+                    <Play className="w-4 h-4 text-white ml-0.5" fill="currentColor" />
                   </div>
                 </div>
               </div>

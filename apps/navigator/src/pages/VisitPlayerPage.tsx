@@ -513,7 +513,7 @@ export default function VisitPlayerPage() {
                     onClick={() => setContentDuration(dur)}
                     className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                       contentDuration === dur
-                        ? 'bg-brand-500 text-surface-950'
+                        ? 'gradient-aurora text-white'
                         : 'bg-surface-800 text-surface-400 hover:bg-surface-700'
                     }`}
                   >
@@ -541,7 +541,7 @@ export default function VisitPlayerPage() {
               <button
                 onClick={handlePlay}
                 disabled={!currentText}
-                className="p-6 rounded-full bg-brand-500 text-surface-950 hover:bg-brand-400 shadow-xl shadow-brand-900/40 transition-all active:scale-95 disabled:opacity-40"
+                className="p-6 rounded-full gradient-aurora text-white shadow-glow-lg hover:brightness-110 transition-all active:scale-95 disabled:opacity-40"
               >
                 {isSpeaking ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 ml-1" />}
               </button>
@@ -667,7 +667,7 @@ export default function VisitPlayerPage() {
                       onClick={() => setLanguageLevel(level)}
                       className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all ${
                         languageLevel === level
-                          ? 'bg-brand-500 text-surface-950'
+                          ? 'gradient-aurora text-white'
                           : 'bg-surface-900 text-surface-400 hover:bg-surface-800'
                       }`}
                     >
@@ -688,7 +688,7 @@ export default function VisitPlayerPage() {
                       onClick={() => setContentDuration(dur)}
                       className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all ${
                         contentDuration === dur
-                          ? 'bg-brand-500 text-surface-950'
+                          ? 'gradient-aurora text-white'
                           : 'bg-surface-900 text-surface-400 hover:bg-surface-800'
                       }`}
                     >
@@ -719,7 +719,7 @@ export default function VisitPlayerPage() {
               <button
                 onClick={handlePlay}
                 disabled={!currentText}
-                className="p-5 rounded-2xl bg-brand-500 text-surface-950 hover:bg-brand-400 shadow-lg shadow-brand-900/40 transition-all disabled:opacity-40"
+                className="p-5 rounded-2xl gradient-aurora text-white shadow-glow-lg hover:brightness-110 transition-all disabled:opacity-40"
               >
                 {isSpeaking ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 ml-0.5" />}
               </button>
@@ -802,7 +802,7 @@ export default function VisitPlayerPage() {
                 <div
                   className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
                     idx === currentStepIndex
-                      ? 'bg-brand-500 text-surface-950'
+                      ? 'gradient-aurora text-white'
                       : idx < currentStepIndex
                         ? 'bg-surface-700 text-surface-400'
                         : 'bg-surface-700 text-surface-500'
@@ -876,7 +876,7 @@ export default function VisitPlayerPage() {
                 onClick={() => setLanguageLevel(level)}
                 className={`flex-1 py-3 px-3 rounded-xl text-sm font-medium transition-all ${
                   languageLevel === level
-                    ? 'bg-brand-500 text-surface-950'
+                    ? 'gradient-aurora text-white'
                     : 'bg-surface-800 text-surface-400 hover:bg-surface-700'
                 }`}
               >

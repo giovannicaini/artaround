@@ -21,7 +21,7 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 bg-surface-950/70 backdrop-blur-sm flex items-end lg:items-center lg:justify-center"
+          className="fixed inset-0 z-50 bg-surface-950/75 backdrop-blur-sm flex items-end lg:items-center lg:justify-center"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -36,7 +36,7 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
             initial={{ y: 40, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 40, opacity: 0 }}
-            transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+            transition={{ type: 'spring', damping: 26, stiffness: 340 }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-center pt-3 pb-1 lg:hidden">
@@ -44,7 +44,9 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
             </div>
             {title && (
               <div className="flex items-center justify-between px-5 py-3.5 border-b border-surface-800">
-                <h2 className="font-display font-semibold text-surface-50">{title}</h2>
+                <h2 className="font-display text-sm font-semibold text-surface-50 tracking-wide">
+                  {title}
+                </h2>
                 <IconTile icon={<X />} variant="panel" size="sm" label="Chiudi" onClick={onClose} />
               </div>
             )}

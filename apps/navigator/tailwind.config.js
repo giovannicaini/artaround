@@ -5,11 +5,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Stessa palette del marketplace (apps/marketplace/tailwind.config.js),
-        // espressa come triplette RGB "R G B" così Tailwind la ricompone con
-        // rgb(var(--x) / <alpha-value>) — bg-brand-500/40 ecc. continuano a
-        // funzionare E un museo può sovrascrivere l'accento a runtime
-        // (vedi hooks/useMuseumTheme) senza ricompilare nulla.
+        // "Aurora da galleria notturna": violetto vivido come accento
+        // dominante — le tappe fucsia/ambra del gradiente (vedi
+        // .gradient-aurora in main.css) sono l'energia in più sui momenti
+        // chiave (play, copertine, avanzamento), non un secondo colore
+        // sparso ovunque. Triplette RGB "R G B" perché Tailwind le
+        // ricompone con rgb(var(--x) / <alpha-value>) — questo è ciò che
+        // permette a bg-brand-500/40 ecc. di funzionare E a un museo di
+        // sovrascrivere l'accento a runtime (useMuseumTheme) senza
+        // ricompilare nulla.
         brand: {
           50: 'rgb(var(--color-brand-50) / <alpha-value>)',
           100: 'rgb(var(--color-brand-100) / <alpha-value>)',
@@ -23,57 +27,70 @@ export default {
           900: 'rgb(var(--color-brand-900) / <alpha-value>)',
           950: 'rgb(var(--color-brand-950) / <alpha-value>)',
         },
-        surface: {
-          50: '#fafafa',
-          100: '#f4f4f5',
-          200: '#e4e4e7',
-          300: '#d4d4d8',
-          400: '#a1a1aa',
-          500: '#71717a',
-          600: '#52525b',
-          700: '#3f3f46',
-          800: '#27272a',
-          900: '#18181b',
-          950: '#09090b',
-        },
-        success: {
-          50: '#f0fdf4',
-          100: '#dcfce7',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d',
-        },
-        warning: {
-          50: '#fffbeb',
-          100: '#fef3c7',
+        // Seconda tappa del gradiente aurora, usata anche da sola per
+        // piccoli accenti caldi (badge, evidenze) quando serve staccare
+        // dal violetto dominante.
+        ember: {
+          400: '#fb923c',
           500: '#f59e0b',
           600: '#d97706',
-          700: '#b45309',
+        },
+        // Scala neutra con la stessa impronta violetta del brand — non
+        // grigio puro: è la differenza tra "grigio scelto" e "grigio di
+        // default".
+        surface: {
+          50: '#f7f6fb',
+          100: '#ece9f4',
+          200: '#d3cce4',
+          300: '#a99cc4',
+          400: '#8478a3',
+          500: '#655a82',
+          600: '#493f66',
+          700: '#332a4d',
+          800: '#211a35',
+          900: '#161027',
+          950: '#0b0813',
+        },
+        success: {
+          50: '#062820',
+          100: 'rgb(16 217 163 / 0.14)',
+          500: '#10d9a3',
+          600: '#0cb787',
+          700: '#0a9670',
+        },
+        warning: {
+          50: '#2b1c08',
+          100: 'rgb(245 165 36 / 0.14)',
+          500: '#f5a524',
+          600: '#d9860f',
+          700: '#b5690a',
         },
         danger: {
-          50: '#fef2f2',
-          100: '#fee2e2',
-          500: '#ef4444',
-          600: '#dc2626',
-          700: '#b91c1c',
+          50: '#2b0d15',
+          100: 'rgb(244 63 94 / 0.14)',
+          500: '#f43f5e',
+          600: '#d92c4b',
+          700: '#b31f3b',
         },
       },
       fontFamily: {
-        // "display" == "sans": nessun secondo carattere, stessa scelta del
-        // marketplace (i titoli sono Inter più pesante, non un serif a parte).
-        display: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        // Titoli con carattere, corpo del testo altamente leggibile per
+        // l'ascolto-con-lettura-simultanea: due famiglie deliberatamente
+        // diverse, non la stessa riusata a pesi diversi.
+        display: ['"Unbounded"', 'system-ui', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'Consolas', 'monospace'],
       },
       boxShadow: {
-        soft: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-        medium: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-        strong: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+        glow: '0 8px 32px -8px rgb(var(--color-brand-500) / 0.45)',
+        'glow-lg': '0 16px 48px -12px rgb(var(--color-brand-500) / 0.5)',
       },
       animation: {
-        'fade-in': 'fadeIn 0.2s ease-out',
-        'slide-up': 'slideUp 0.3s ease-out',
+        'fade-in': 'fadeIn 0.25s ease-out',
+        'slide-up': 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
         'slide-down': 'slideDown 0.3s ease-out',
+        'pop-in': 'popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        drift: 'drift 12s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -81,12 +98,20 @@ export default {
           '100%': { opacity: '1' },
         },
         slideUp: {
-          '0%': { opacity: '0', transform: 'translateY(16px)' },
+          '0%': { opacity: '0', transform: 'translateY(20px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
         slideDown: {
-          '0%': { opacity: '0', transform: 'translateY(-16px)' },
+          '0%': { opacity: '0', transform: 'translateY(-20px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        popIn: {
+          '0%': { opacity: '0', transform: 'scale(0.85)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        drift: {
+          '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+          '50%': { transform: 'translate(-3%, 3%) scale(1.08)' },
         },
       },
     },

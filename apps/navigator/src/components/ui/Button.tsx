@@ -14,17 +14,17 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: 'bg-brand-500 text-surface-950 hover:bg-brand-400 shadow-lg shadow-brand-900/40',
+  primary: 'gradient-aurora text-white shadow-glow hover:brightness-110',
   secondary:
     'bg-surface-800 text-surface-50 border border-surface-700 hover:bg-surface-700 hover:border-surface-600',
   ghost: 'bg-transparent text-surface-200 hover:bg-surface-800',
-  danger: 'bg-danger-500 text-surface-950 hover:opacity-90',
+  danger: 'bg-danger-500 text-white hover:opacity-90',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'h-9 px-3.5 text-sm gap-1.5 rounded-xl',
-  md: 'h-11 px-4.5 text-sm gap-2 rounded-xl',
-  lg: 'h-14 px-6 text-base gap-2.5 rounded-2xl',
+  sm: 'h-9 px-3.5 text-sm gap-1.5 rounded-full',
+  md: 'h-11 px-4.5 text-sm gap-2 rounded-full',
+  lg: 'h-14 px-6 text-base gap-2.5 rounded-full',
 };
 
 /**
@@ -49,8 +49,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     <button
       ref={ref}
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center font-medium
-        transition-all duration-200 active:scale-[0.97]
+      className={`inline-flex items-center justify-center font-semibold font-sans
+        transition-all duration-200 active:scale-[0.96]
         disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
         ${variantClasses[variant]} ${sizeClasses[size]} ${block ? 'w-full' : ''} ${className}`}
       {...rest}

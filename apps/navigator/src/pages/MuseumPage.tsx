@@ -77,7 +77,7 @@ export default function MuseumPage() {
                 className="w-full h-full object-cover opacity-45"
               />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/40 to-surface-950/30" />
+            <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/50 to-brand-900/20" />
 
             <div className="absolute top-0 left-0 right-0 safe-top">
               <div className="flex items-center justify-between px-4 lg:px-8 py-4">
@@ -217,8 +217,8 @@ export default function MuseumPage() {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1.5 text-brand-400 font-semibold text-sm">
-                        <Play className="w-4 h-4" />
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full gradient-aurora text-white font-bold text-xs">
+                        <Play className="w-3.5 h-3.5" fill="currentColor" />
                         <span>{owned ? 'Continua' : 'Inizia'}</span>
                       </div>
                     </div>
