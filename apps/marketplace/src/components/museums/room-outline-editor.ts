@@ -1,7 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { MuseumRoom } from '@artaround/shared';
-import '../ui/ui-button';
 import '../ui/ui-badge';
 import '../ui/ui-icon-button';
 import '../ui/ui-icon';
@@ -45,7 +44,7 @@ export class RoomOutlineEditor extends LitElement {
   generatingMarkersRoomId: string | null = null;
 
   @state()
-  private collapsed = false;
+  private collapsed = true;
 
   private roomLabel(room: MuseumRoom): string {
     return room.subtitle ? `${room.title} — ${room.subtitle}` : room.title;
@@ -151,27 +150,26 @@ export class RoomOutlineEditor extends LitElement {
           )}
         </p>
         <p class="text-sm text-brand-400 font-medium">${this.pointCount} ${__('punti')}</p>
-        <div class="flex flex-wrap gap-2">
-          <ui-button
-            variant="secondary"
-            size="sm"
-            .label=${__('Annulla ultimo punto')}
+        <div class="flex flex-wrap gap-1">
+          <ui-icon-button
+            icon="arrow-left"
+            .title=${__('Annulla ultimo punto')}
             ?disabled=${this.pointCount === 0}
             @click=${this.undoPoint}
-          ></ui-button>
-          <ui-button
-            variant="primary"
-            size="sm"
-            .label=${__('Chiudi sala')}
+          ></ui-icon-button>
+          <ui-icon-button
+            icon="check"
+            variant="brand"
+            .title=${__('Chiudi sala')}
             ?disabled=${this.pointCount < 3}
             @click=${this.finishOutline}
-          ></ui-button>
-          <ui-button
-            variant="ghost"
-            size="sm"
-            .label=${__('Annulla disegno')}
+          ></ui-icon-button>
+          <ui-icon-button
+            icon="x"
+            variant="danger"
+            .title=${__('Annulla disegno')}
             @click=${this.cancelDrawing}
-          ></ui-button>
+          ></ui-icon-button>
         </div>
       </div>
     `;
@@ -230,12 +228,12 @@ export class RoomOutlineEditor extends LitElement {
                 ></ui-badge>`}
           </div>
           <div class="flex items-center gap-1 flex-shrink-0">
-            <ui-button
-              variant="secondary"
-              size="xs"
-              .label=${isOutlined ? __('Ridisegna') : __('Disegna contorno')}
+            <ui-icon-button
+              icon="edit"
+              size="sm"
+              .title=${isOutlined ? __('Ridisegna') : __('Disegna contorno')}
               @click=${() => this.startDrawing(room)}
-            ></ui-button>
+            ></ui-icon-button>
             ${isOutlined
               ? html`
                   <ui-icon-button
@@ -252,14 +250,17 @@ export class RoomOutlineEditor extends LitElement {
 
         ${isOutlined && pending > 0
           ? html`
-              <ui-button
-                variant="ghost"
-                size="xs"
-                icon="sparkles"
-                .label=${`${__('Crea marker opere')} (${pending})`}
-                .loading=${isGenerating}
-                @click=${() => this.generateMarkers(room)}
-              ></ui-button>
+              <div class="flex items-center gap-1.5">
+                <ui-icon-button
+                  icon="sparkles"
+                  size="sm"
+                  variant="brand"
+                  .title=${`${__('Crea marker opere')} (${pending})`}
+                  ?disabled=${isGenerating}
+                  @click=${() => this.generateMarkers(room)}
+                ></ui-icon-button>
+                <ui-badge variant="secondary" size="sm" .label=${`${pending}`}></ui-badge>
+              </div>
             `
           : nothing}
       </div>

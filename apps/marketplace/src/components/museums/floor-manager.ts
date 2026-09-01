@@ -32,7 +32,7 @@ export class FloorManager extends LitElement {
   private showAddForm = false;
 
   @state()
-  private collapsed = false;
+  private collapsed = true;
 
   @state()
   private editingFloor: MuseumFloor | null = null;
@@ -62,12 +62,13 @@ export class FloorManager extends LitElement {
         >
           <h3 class="text-white font-medium text-base m-0">📐 ${__('Piani del Museo')}</h3>
           <div class="flex items-center gap-1">
-            <ui-button
-              variant="primary"
+            <ui-icon-button
+              icon=${this.showAddForm ? 'x' : 'plus'}
               size="sm"
-              .label=${this.showAddForm ? `✕ ${__('Annulla')}` : `➕ ${__('Aggiungi Piano')}`}
+              variant="brand"
+              .title=${this.showAddForm ? __('Annulla') : __('Aggiungi Piano')}
               @click=${() => (this.showAddForm = !this.showAddForm)}
-            ></ui-button>
+            ></ui-icon-button>
             <ui-icon-button
               icon=${this.collapsed ? 'chevron-down' : 'chevron-up'}
               size="sm"

@@ -235,6 +235,7 @@ export class MuseumMapPage extends LitElement {
           <!-- Left Panel: Floors, Rooms & Artworks -->
           <div class="lg:col-span-3 xl:col-span-2 space-y-4 overflow-y-auto order-2 lg:order-1">
             <floor-manager
+              class="block"
               .floors=${this.floors}
               .selectedFloorId=${this.selectedFloorId}
               @floor-select=${this.handleFloorSelect}
@@ -244,6 +245,7 @@ export class MuseumMapPage extends LitElement {
             ></floor-manager>
 
             <room-outline-editor
+              class="block"
               .rooms=${this.rooms}
               .currentFloorId=${this.selectedFloorId || ''}
               .drawMode=${this.roomDrawMode}
