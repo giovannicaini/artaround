@@ -165,13 +165,17 @@ export class MarkerEditor extends LitElement {
                 .label=${__('Opera collegata')}
                 .value=${this.selectedArtworkId}
                 .options=${this.artworks.map((artwork) => ({
-                  value: artwork._id,
+                  value: artwork.wikidataId,
                   label: artwork.title,
                 }))}
                 .placeholder=${__('Seleziona opera')}
                 @select-change=${(e: CustomEvent) => {
                   this.selectedArtworkId = e.detail.value;
-                  const artwork = this.artworks.find((a) => a._id === e.detail.value);
+                  // marker.artworkId deve essere il Wikidata ID (come in MapMarker),
+                  // non l'_id di Mongo: prima veniva usato artwork._id, per cui i marker
+                  // aggiunti da qui non si ricollegavano mai alla relativa opera
+                  // (focal point editor, indicatore "opera posizionata", ecc.).
+                  const artwork = this.artworks.find((a) => a.wikidataId === e.detail.value);
                   if (artwork) {
                     this.markerLabel = artwork.title;
                   }

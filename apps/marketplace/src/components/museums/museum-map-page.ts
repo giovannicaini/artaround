@@ -331,7 +331,10 @@ export class MuseumMapPage extends LitElement {
       if (result.data) {
         this.floors = [...this.floors, result.data];
         this.selectedFloorId = result.data.id;
-        this.hasChanges = false;
+        // Nota: NON resettare hasChanges qui. Il piano è già stato salvato,
+        // ma potrebbero esserci marker trascinati/modificati su altri piani
+        // ancora in attesa di "Salva Tutto": azzerare il flag li farebbe
+        // perdere silenziosamente (bottone disabilitato, nessun salvataggio).
       } else {
         await modalService.error(result.error || __("Errore durante l'aggiunta del piano"));
       }
@@ -346,8 +349,17 @@ export class MuseumMapPage extends LitElement {
 
     try {
       await museumService.updateFloor(this.museumId, floorData.id, floorData);
-      this.floors = this.floors.map((f) => (f.id === floorData.id ? floorData : f));
-      this.hasChanges = false;
+      // Aggiorna solo i campi del piano modificati nel form (nome/livello/svg/dimensioni):
+      // floorData.markers/connections sono uno snapshot preso all'apertura del form e
+      // potrebbero essere superati se nel frattempo si sono trascinati dei marker sullo
+      // stesso piano. Manteniamo i marker/connections correnti dallo stato locale.
+      this.floors = this.floors.map((f) =>
+        f.id === floorData.id
+          ? { ...floorData, markers: f.markers, connections: f.connections }
+          : f,
+      );
+      // Nota: NON resettare hasChanges qui, per lo stesso motivo di handleFloorAdd
+      // (marker non ancora salvati su altri piani non vanno persi).
     } catch (err) {
       console.error('Error updating floor:', err);
       await modalService.error(__("Errore durante l'aggiornamento del piano"));
