@@ -3,12 +3,33 @@ import { ZoomIn, ZoomOut, Maximize2, Navigation, X } from 'lucide-react';
 import type { MuseumMap, MapMarker } from '@artaround/shared';
 import { MarkerType } from '@artaround/shared';
 import { useT } from '../hooks/useT';
+import { format } from '../lib/i18n';
 import { polygonCentroid } from '../lib/geometry';
+import { buildSmoothPath, computePathArrows } from '../lib/routePath';
 import type { RoutePoint } from '../lib/mapRoute';
+import { Sheet } from './ui/Sheet';
+import { Button } from './ui/Button';
+
+interface ArtworkInfo {
+  title: string;
+  image: string;
+}
+
+// Un curatore può segnare un'opera come ARTWORK, SCULPTURE o PAINTING a
+// seconda del tipo — sono comunque tutte "un'opera" ai fini della mappa
+// (percorso, filtro sul giro, miniatura con immagine). getVisitRoutePoints
+// del marketplace le tratta già tutte allo stesso modo cercando solo
+// marker.artworkId, senza guardare il type.
+function isArtworkMarker(type: MarkerType): boolean {
+  return (
+    type === MarkerType.ARTWORK || type === MarkerType.SCULPTURE || type === MarkerType.PAINTING
+  );
+}
 
 interface MapViewProps {
   map: MuseumMap;
   routePoints?: RoutePoint[]; // percorso opere+waypoint, già risolto su tutti i piani
+  artworkInfo?: Record<string, ArtworkInfo>; // titolo+immagine per Wikidata ID, per i marker-opera e la conferma di salto
   currentArtworkId?: string; // The artwork currently being viewed (Wikidata ID)
   visitArtworkIds?: string[]; // All artworks in the visit, in order (Wikidata IDs)
   onMarkerClick?: (marker: MapMarker) => void;
@@ -59,6 +80,7 @@ function buildMarkerIcons(
 export default function MapView({
   map,
   routePoints = [],
+  artworkInfo = {},
   currentArtworkId,
   visitArtworkIds = [],
   onMarkerClick,
@@ -72,6 +94,9 @@ export default function MapView({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showLegend, setShowLegend] = useState(false);
+  // Marker-opera cliccato in attesa di conferma prima di saltare a
+  // quell'opera nella guida — mai un salto diretto senza chiedere.
+  const [pendingMarker, setPendingMarker] = useState<MapMarker | null>(null);
 
   const floors = map.floors || [];
 
@@ -80,7 +105,7 @@ export default function MapView({
   const [selectedFloorId, setSelectedFloorId] = useState<string>(() => {
     if (currentArtworkId) {
       const floorWithArtwork = floors.find((f) =>
-        f.markers?.some((m) => m.type === MarkerType.ARTWORK && m.artworkId === currentArtworkId),
+        f.markers?.some((m) => isArtworkMarker(m.type) && m.artworkId === currentArtworkId),
       );
       if (floorWithArtwork) return floorWithArtwork.id;
     }
@@ -115,7 +140,7 @@ export default function MapView({
   useEffect(() => {
     if (currentArtworkId && containerRef.current) {
       const currentMarker = floorMarkers.find(
-        (m) => m.type === MarkerType.ARTWORK && m.artworkId === currentArtworkId,
+        (m) => isArtworkMarker(m.type) && m.artworkId === currentArtworkId,
       );
       if (currentMarker) {
         const container = containerRef.current;
@@ -166,17 +191,34 @@ export default function MapView({
 
   const handleTouchEnd = () => setIsDragging(false);
 
-  // Linea del percorso sul piano corrente: passa anche per i waypoint (le
-  // svolte mute intorno ai muri), ma solo le opere ricevono un marker
-  // numerato cliccabile — un waypoint non è mai una tappa per il visitatore.
-  const visitPath =
-    floorRoutePoints.length >= 2
-      ? floorRoutePoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
-      : null;
+  // Percorso "a cammino" sul piano corrente: una curva morbida (niente
+  // spigoli sulle svolte) che passa anche per i waypoint — le svolte mute
+  // intorno ai muri — ma solo le opere ricevono un marker cliccabile, un
+  // waypoint non è mai una tappa per il visitatore.
+  const visitPath = useMemo(
+    () => (floorRoutePoints.length >= 2 ? buildSmoothPath(floorRoutePoints) : null),
+    [floorRoutePoints],
+  );
+  const pathArrows = useMemo(
+    () => (floorRoutePoints.length >= 2 ? computePathArrows(floorRoutePoints, 90) : []),
+    [floorRoutePoints],
+  );
+
+  // La mappa riguarda solo le opere davvero in questa visita: un museo può
+  // avere molte più opere segnate di quelle incluse in un singolo percorso.
+  const visibleMarkers = floorMarkers.filter((marker) => {
+    if (marker.type === MarkerType.WAYPOINT) return false;
+    if (isArtworkMarker(marker.type)) {
+      return !!marker.artworkId && visitArtworkIds.includes(marker.artworkId);
+    }
+    return true;
+  });
+
+  const currentVisitIndex = currentArtworkId ? visitArtworkIds.indexOf(currentArtworkId) : -1;
 
   // Get unique marker types for legend
   const legendItems = [
-    ...new Set(floorMarkers.filter((m) => m.type !== MarkerType.WAYPOINT).map((m) => m.type)),
+    ...new Set(visibleMarkers.filter((m) => !isArtworkMarker(m.type)).map((m) => m.type)),
   ];
 
   return (
@@ -292,90 +334,196 @@ export default function MapView({
               );
             })}
 
-            {/* Percorso della visita, piegato sui waypoint */}
+            {/* Percorso della visita, un "cammino" largo che piega dolcemente
+                sui waypoint, con frecce che indicano il verso di percorrenza. */}
             {visitPath && (
-              <path
-                d={visitPath}
-                fill="none"
-                stroke="rgb(236 72 153 / 0.55)"
-                strokeWidth={3}
-                strokeDasharray="8,4"
-                strokeLinecap="round"
-              />
+              <>
+                <path
+                  d={visitPath}
+                  fill="none"
+                  stroke="rgb(139 63 252 / 0.2)"
+                  strokeWidth={26}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d={visitPath}
+                  fill="none"
+                  stroke="rgb(236 72 153 / 0.42)"
+                  strokeWidth={15}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                {pathArrows.map((arrow, i) => (
+                  <polygon
+                    key={i}
+                    points="-5,-4.5 5.5,0 -5,4.5"
+                    fill="white"
+                    fillOpacity={0.9}
+                    stroke="rgb(139 63 252 / 0.5)"
+                    strokeWidth={0.75}
+                    transform={`translate(${arrow.x}, ${arrow.y}) rotate(${arrow.angleDeg})`}
+                  />
+                ))}
+              </>
             )}
 
-            {/* Marker (i waypoint non sono punti di interesse: servono solo a
-                disegnare il percorso, mai mostrati come marker) */}
-            {floorMarkers
-              .filter((marker) => marker.type !== MarkerType.WAYPOINT)
-              .map((marker) => {
-                const isCurrentArtwork =
-                  marker.type === MarkerType.ARTWORK && marker.artworkId === currentArtworkId;
-                const isInVisit =
-                  marker.type === MarkerType.ARTWORK &&
-                  visitArtworkIds.includes(marker.artworkId || '');
+            {/* Marker: solo le opere effettivamente incluse nel percorso di
+                questa visita (un museo può averne segnate molte di più) sono
+                mostrate con la loro immagine reale, mai un'icona generica. I
+                marker di servizio (bagni, bar, uscite...) restano com'erano. */}
+            {visibleMarkers.map((marker) => {
+              if (isArtworkMarker(marker.type)) {
+                const info = marker.artworkId ? artworkInfo[marker.artworkId] : undefined;
                 const visitIndex = marker.artworkId
                   ? visitArtworkIds.indexOf(marker.artworkId)
                   : -1;
-                const config = markerIcons[marker.type];
+                const isCurrent = visitIndex >= 0 && visitIndex === currentVisitIndex;
+                const isVisited =
+                  currentVisitIndex >= 0 && visitIndex >= 0 && visitIndex < currentVisitIndex;
+                const radius = isCurrent ? 27 : 20;
+                const clipId = `map-thumb-${marker.id}`;
 
                 return (
                   <g
                     key={marker.id}
                     className="pointer-events-auto cursor-pointer"
-                    onClick={() => onMarkerClick?.(marker)}
+                    onClick={() => {
+                      if (isCurrent) return; // già la tappa in ascolto, niente da confermare
+                      setPendingMarker(marker);
+                    }}
                   >
                     {/* Anello che pulsa sulla tappa corrente — non è una posizione
                         reale dell'utente (non prevista da specifica), solo
                         l'evidenza di dove ci si è fermati nell'ascolto. */}
-                    {isCurrentArtwork && (
+                    {isCurrent && (
                       <circle
                         cx={marker.x}
                         cy={marker.y}
-                        r="24"
+                        r={radius + 9}
                         className="animate-ping"
-                        fill="rgb(139 63 252 / 0.3)"
+                        fill="rgb(139 63 252 / 0.35)"
                       />
                     )}
 
-                    <circle
-                      cx={marker.x}
-                      cy={marker.y}
-                      r={isCurrentArtwork ? 20 : 16}
-                      className={`${isCurrentArtwork ? 'fill-brand-500' : isInVisit ? 'fill-brand-700' : 'fill-surface-600'} stroke-white stroke-2`}
-                    />
+                    {info?.image ? (
+                      <>
+                        <defs>
+                          <clipPath id={clipId}>
+                            <circle cx={marker.x} cy={marker.y} r={radius - 2.5} />
+                          </clipPath>
+                        </defs>
+                        <circle
+                          cx={marker.x}
+                          cy={marker.y}
+                          r={radius}
+                          className={isCurrent ? 'fill-brand-500' : 'fill-surface-700'}
+                        />
+                        <image
+                          href={info.image}
+                          x={marker.x - radius + 2.5}
+                          y={marker.y - radius + 2.5}
+                          width={(radius - 2.5) * 2}
+                          height={(radius - 2.5) * 2}
+                          preserveAspectRatio="xMidYMid slice"
+                          clipPath={`url(#${clipId})`}
+                          opacity={isVisited ? 0.55 : 1}
+                        />
+                        <circle
+                          cx={marker.x}
+                          cy={marker.y}
+                          r={radius}
+                          fill="none"
+                          className={
+                            isCurrent
+                              ? 'stroke-brand-300'
+                              : isVisited
+                                ? 'stroke-surface-500'
+                                : 'stroke-white'
+                          }
+                          strokeWidth={isCurrent ? 3.5 : 2.5}
+                        />
+                      </>
+                    ) : (
+                      <circle
+                        cx={marker.x}
+                        cy={marker.y}
+                        r={radius}
+                        className={`${isCurrent ? 'fill-brand-500' : 'fill-surface-700'} stroke-white stroke-2`}
+                      />
+                    )}
 
+                    {/* Distintivo: numero della tappa, o segno di spunta se già
+                        ascoltata — sempre leggibile sopra la miniatura. */}
+                    <circle
+                      cx={marker.x + radius * 0.68}
+                      cy={marker.y + radius * 0.68}
+                      r={9}
+                      className={
+                        isCurrent
+                          ? 'fill-brand-300'
+                          : isVisited
+                            ? 'fill-surface-500'
+                            : 'fill-ember-500'
+                      }
+                      stroke="white"
+                      strokeWidth={1.5}
+                    />
                     <text
-                      x={marker.x}
-                      y={marker.y}
+                      x={marker.x + radius * 0.68}
+                      y={marker.y + radius * 0.68}
                       textAnchor="middle"
                       dominantBaseline="central"
-                      className="text-sm select-none"
+                      className="text-[10px] font-bold select-none"
                       fill="white"
                     >
-                      {marker.type === MarkerType.ARTWORK && visitIndex >= 0
-                        ? visitIndex + 1
-                        : config.icon}
+                      {isVisited ? '✓' : visitIndex + 1}
                     </text>
-
-                    {marker.label && marker.type !== MarkerType.ARTWORK && (
-                      <text
-                        x={marker.x}
-                        y={marker.y + 28}
-                        textAnchor="middle"
-                        className="text-xs fill-white font-medium"
-                        style={{
-                          paintOrder: 'stroke',
-                          stroke: 'rgb(9 8 19 / 0.8)',
-                          strokeWidth: 3,
-                        }}
-                      >
-                        {marker.label}
-                      </text>
-                    )}
                   </g>
                 );
-              })}
+              }
+
+              const config = markerIcons[marker.type];
+              return (
+                <g
+                  key={marker.id}
+                  className="pointer-events-auto cursor-pointer"
+                  onClick={() => onMarkerClick?.(marker)}
+                >
+                  <circle
+                    cx={marker.x}
+                    cy={marker.y}
+                    r={16}
+                    className="fill-surface-600 stroke-white stroke-2"
+                  />
+                  <text
+                    x={marker.x}
+                    y={marker.y}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    className="text-sm select-none"
+                    fill="white"
+                  >
+                    {config.icon}
+                  </text>
+                  {marker.label && (
+                    <text
+                      x={marker.x}
+                      y={marker.y + 28}
+                      textAnchor="middle"
+                      className="text-xs fill-white font-medium"
+                      style={{
+                        paintOrder: 'stroke',
+                        stroke: 'rgb(9 8 19 / 0.8)',
+                        strokeWidth: 3,
+                      }}
+                    >
+                      {marker.label}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
           </svg>
         </div>
 
@@ -438,6 +586,52 @@ export default function MapView({
           </div>
         )}
       </div>
+
+      {/* Conferma prima di saltare a un'altra opera: mai un salto diretto
+          al click sul marker. */}
+      <Sheet
+        open={!!pendingMarker}
+        onClose={() => setPendingMarker(null)}
+        title={t('Cambiare opera?')}
+      >
+        {pendingMarker &&
+          (() => {
+            const info = pendingMarker.artworkId ? artworkInfo[pendingMarker.artworkId] : undefined;
+            return (
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  {info?.image && (
+                    <img
+                      src={info.image}
+                      alt=""
+                      className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
+                    />
+                  )}
+                  <p className="font-display font-semibold text-surface-50">
+                    {info?.title
+                      ? format(t('Vuoi passare a "{title}"?'), { title: info.title })
+                      : t('Vuoi passare a questa opera?')}
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <Button variant="secondary" block onClick={() => setPendingMarker(null)}>
+                    {t('Annulla')}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    block
+                    onClick={() => {
+                      onMarkerClick?.(pendingMarker);
+                      setPendingMarker(null);
+                    }}
+                  >
+                    {t('Vai')}
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+      </Sheet>
     </div>
   );
 }

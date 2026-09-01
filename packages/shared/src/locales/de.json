@@ -961,5 +961,9 @@
   "Tutta la giornata": "Den ganzen Tag",
   "Un attimo...": "Einen Moment...",
   "Vai al Marketplace completo": "Zum vollständigen Marketplace",
-  "Tappa corrente": "Aktuelle Station"
+  "Tappa corrente": "Aktuelle Station",
+  "Cambiare opera?": "Werk wechseln?",
+  "Vai": "Los",
+  "Vuoi passare a questa opera?": "Möchtest du zu diesem Werk wechseln?",
+  "Vuoi passare a \"{title}\"?": "Möchtest du zu „{title}“ wechseln?"
 }

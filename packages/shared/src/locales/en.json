@@ -961,5 +961,9 @@
   "Tutta la giornata": "All day",
   "Un attimo...": "One moment...",
   "Vai al Marketplace completo": "Go to the full Marketplace",
-  "Tappa corrente": "Current stop"
+  "Tappa corrente": "Current stop",
+  "Cambiare opera?": "Change artwork?",
+  "Vai": "Go",
+  "Vuoi passare a questa opera?": "Do you want to move to this artwork?",
+  "Vuoi passare a \"{title}\"?": "Do you want to move to \"{title}\"?"
 }

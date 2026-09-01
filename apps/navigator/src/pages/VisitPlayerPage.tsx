@@ -60,6 +60,7 @@ async function loadVisitData(visitId: string): Promise<{
   steps: PlayerStep[];
   museumMap: MuseumMap | null;
   routePoints: RoutePoint[];
+  artworkInfo: Record<string, { title: string; image: string }>;
 }> {
   const visit = await api.getVisit(visitId);
   if (!visit.steps || visit.steps.length === 0) {
@@ -107,10 +108,12 @@ async function loadVisitData(visitId: string): Promise<{
     }),
   );
   const artworksById: Record<string, Artwork> = {};
+  const artworkInfo: Record<string, { title: string; image: string }> = {};
   artworks.forEach((artwork) => {
     if (artwork) {
       artworksById[artwork.wikidataId] = artwork;
       artworksById[artwork._id] = artwork;
+      artworkInfo[artwork.wikidataId] = { title: artwork.title, image: artwork.image };
     }
   });
 
@@ -162,7 +165,7 @@ async function loadVisitData(visitId: string): Promise<{
     throw new Error('Impossibile caricare le tappe di questa visita.');
   }
 
-  return { visit, steps, museumMap, routePoints };
+  return { visit, steps, museumMap, routePoints, artworkInfo };
 }
 
 export default function VisitPlayerPage() {
@@ -992,12 +995,16 @@ export default function VisitPlayerPage() {
             }
           }
           routePoints={data.routePoints}
+          artworkInfo={data.artworkInfo}
           currentArtworkId={artworkStep?.artwork.wikidataId}
           visitArtworkIds={steps
             .filter((s): s is Extract<PlayerStep, { kind: 'artwork' }> => s.kind === 'artwork')
             .map((s) => s.artwork.wikidataId)}
           onMarkerClick={(marker) => {
-            if (marker.type === 'artwork' && marker.artworkId) {
+            // Un'opera sulla mappa può essere segnata come artwork, sculpture
+            // o painting a seconda del tipo scelto dal curatore: qui conta
+            // solo che porti a un'opera della visita, non l'icona specifica.
+            if (marker.artworkId) {
               const idx = steps.findIndex(
                 (s) => s.kind === 'artwork' && s.artwork.wikidataId === marker.artworkId,
               );
