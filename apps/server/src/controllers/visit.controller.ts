@@ -11,6 +11,7 @@ import {
   SUPPORTED_APP_LANGUAGES,
   isSupportedAppLanguage,
   type AppLanguage,
+  type VisitStep,
 } from '@artaround/shared';
 
 /**
@@ -393,7 +394,13 @@ export class VisitController {
         throw new AppError(404, 'STEP_NOT_FOUND', 'Step not found');
       }
 
-      visit.steps[stepIndex] = { ...visit.steps[stepIndex], ...req.body };
+      // visit.steps[stepIndex] è un subdocument Mongoose: spread diretto non ne copia
+      // in modo affidabile i campi (stesso problema corretto in museum.controller.ts
+      // updateFloor). JSON round-trip forza un plain object prima del merge, per
+      // evitare che un PUT parziale perda id/order/type/isOptional e fallisca la
+      // validazione Mongoose al save.
+      const existingStep = JSON.parse(JSON.stringify(visit.steps[stepIndex])) as VisitStep;
+      visit.steps[stepIndex] = { ...existingStep, ...req.body };
       visit.steps.sort((a, b) => a.order - b.order);
       await visit.save();
 

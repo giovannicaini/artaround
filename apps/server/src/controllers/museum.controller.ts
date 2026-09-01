@@ -782,8 +782,15 @@ export class MuseumController {
         throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
       }
 
-      // Update floor data, preserving markers and connections if not provided
-      const existingFloor = museum.floors![floorIndex];
+      // Update floor data, preserving markers and connections if not provided.
+      // museum.floors[i] è un subdocument Mongoose: i suoi campi non sono proprietà
+      // enumerabili "piatte", quindi {...existingFloor} non li copiava in modo
+      // affidabile (un PUT parziale poteva perdere name/level/dimensions e fallire
+      // la validazione Mongoose). JSON round-trip forza un plain object su cui lo
+      // spread funziona come atteso (il floor non ha campi Date, è sicuro).
+      const existingFloor = JSON.parse(
+        JSON.stringify(museum.floors![floorIndex]),
+      ) as MuseumFloor;
       museum.floors![floorIndex] = {
         ...existingFloor,
         ...req.body,
