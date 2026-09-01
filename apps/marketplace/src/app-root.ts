@@ -101,8 +101,6 @@ export class AppRoot extends LitElement {
       contents: 'Contenuti',
       visits: 'Visite',
       users: 'Gestione Utenti',
-      categories: 'Categorie',
-      tags: 'Tag',
       settings: 'Il mio account',
     };
 
@@ -148,7 +146,9 @@ export class AppRoot extends LitElement {
     if (
       route === 'author-area' &&
       (!this.currentUser ||
-        (this.currentUser.role !== UserRole.AUTHOR && this.currentUser.role !== UserRole.ADMIN))
+        (this.currentUser.role !== UserRole.AUTHOR &&
+          this.currentUser.role !== UserRole.CURATOR &&
+          this.currentUser.role !== UserRole.ADMIN))
     ) {
       this.currentRoute = 'dashboard';
       this.pageTitle = this.getRouteTitle('dashboard');
@@ -176,6 +176,9 @@ export class AppRoot extends LitElement {
     }
 
     this.currentRoute = route;
+    // Alcune voci di menu (es. museum-maps) portano parametri propri (museumId) nell'evento;
+    // altrimenti si riparte puliti per non trascinarsi routeParams di una navigazione precedente.
+    this.routeParams = e.detail.params || {};
 
     // Scroll to top on navigation
     window.scrollTo(0, 0);
@@ -350,12 +353,20 @@ export class AppRoot extends LitElement {
     const marginClass = this.sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64';
 
     return html`
-      <div class="min-h-screen bg-surface-50 dark:bg-surface-950">
+      <div class="min-h-screen bg-surface-50 dark:bg-surface-950" @navigate=${this.handleNavigate}>
+        <!--
+          @navigate è messo qui, sull'antenato comune, e non sui singoli admin-sidebar/
+          admin-header: erano loro ad averlo (due volte, con rischio di doppia gestione se
+          mai avessero condiviso un antenato), ma pagine come dashboard-page o
+          museums-management-page — dentro <main>, cioè fratelli di sidebar/header, non
+          discendenti — disperdevano l'evento "navigate" senza che nessuno lo intercettasse:
+          i pulsanti "Apri opere"/"Apri visite" della dashboard e il "torna alla dashboard"
+          di museums-management-page non facevano nulla.
+        -->
         <admin-sidebar
           .currentRoute=${this.currentRoute}
           .user=${this.currentUser}
           ?collapsed=${this.sidebarCollapsed}
-          @navigate=${this.handleNavigate}
         ></admin-sidebar>
 
         <admin-header
@@ -368,7 +379,6 @@ export class AppRoot extends LitElement {
           @history-back=${this.handleHistoryBack}
           @history-forward=${this.handleHistoryForward}
           @logout=${this.handleLogout}
-          @navigate=${this.handleNavigate}
         ></admin-header>
 
         <main class="${marginClass} pt-16 min-h-screen transition-all duration-300">
@@ -491,7 +501,12 @@ export class AppRoot extends LitElement {
 
   // ─── Permissions ──────────────────────────────────────────
   private requiresMuseumConfigAccess(route: string): boolean {
-    return route === 'museum-edit' || route === 'artworks' || route === 'navigator-customizations';
+    return (
+      route === 'museum-edit' ||
+      route === 'artworks' ||
+      route === 'navigator-customizations' ||
+      route === 'museum-maps'
+    );
   }
 
   private requiresSelectedMuseum(route: string): boolean {

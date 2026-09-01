@@ -62,7 +62,10 @@ export class AdminSidebar extends LitElement {
         id: 'author-area',
         label: __('Area Autore'),
         icon: 'edit',
-        roles: [UserRole.AUTHOR, UserRole.ADMIN],
+        // Anche il curatore può creare/modificare item e visite (vedi permissions.service.ts:
+        // canCreateItem/canCreateVisit includono isCurator), ma prima non aveva alcun link per
+        // arrivarci: qui era filtrato solo ad AUTHOR/ADMIN.
+        roles: [UserRole.AUTHOR, UserRole.CURATOR, UserRole.ADMIN],
         requiresMuseum: true,
       },
       { id: 'marketplace', label: __('Marketplace'), icon: 'currency', requiresMuseum: true },
@@ -74,7 +77,9 @@ export class AdminSidebar extends LitElement {
     return [
       { id: 'museum-edit', label: __('Modifica Museo'), icon: 'edit' },
       { id: 'artworks', label: __('Gestione Opere'), icon: 'image' },
-      { id: 'contents', label: __('Contenuti'), icon: 'document' },
+      { id: 'contents', label: __('Contenuti del museo'), icon: 'document' },
+      { id: 'visits', label: __('Visite del museo'), icon: 'visit' },
+      { id: 'museum-maps', label: __('Piantina e mappa'), icon: 'location' },
       {
         id: 'navigator-customizations',
         label: __('Configurazioni Navigator'),
@@ -106,9 +111,17 @@ export class AdminSidebar extends LitElement {
   }
 
   private handleNavigate(route: string) {
+    // museum-map-page ha bisogno del museumId del museo attivo come routeParam esplicito
+    // (a differenza delle altre pagine, che lo leggono da preferencesService da sole):
+    // prima questa voce non esisteva proprio nel menu, quindi il caso non si poneva.
+    const params =
+      route === 'museum-maps' && this.selectedMuseum
+        ? { museumId: this.selectedMuseum._id }
+        : undefined;
+
     this.dispatchEvent(
       new CustomEvent('navigate', {
-        detail: { route },
+        detail: { route, params },
         bubbles: true,
         composed: true,
       }),
@@ -231,7 +244,7 @@ export class AdminSidebar extends LitElement {
           `
         : nothing}
       ${this.renderMenuItem(this.dashboardItem, collapsed)}
-      ${this.renderMenuSection(__('Contenuti'), this.primaryMenuItems, undefined, collapsed)}
+      ${this.renderMenuSection(__('I miei contenuti'), this.primaryMenuItems, undefined, collapsed)}
       ${showConfigureMuseumArea
         ? this.renderMenuSection(
             __('Area Curatore'),
