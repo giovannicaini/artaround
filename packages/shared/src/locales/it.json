@@ -966,5 +966,21 @@
   "Vuoi passare a \"{title}\"?": "Vuoi passare a \"{title}\"?",
   "Nessuna descrizione disponibile.": "Nessuna descrizione disponibile.",
   "Costruisci il percorso direttamente sulla mappa: clicca un'opera per aggiungerla come prossima tappa, clicca un punto vuoto per inserire una svolta. Per cambiare piano, clicca le scale o l'ascensore per agganciarci il percorso, poi seleziona l'altro piano dal menu qui sotto e clicca le scale/ascensore corrispondente per continuare da lì. Le tappe vengono numerate nell'ordine dei click; puoi riordinarle o rimuoverle anche dalla tab Percorso.": "Costruisci il percorso direttamente sulla mappa: clicca un'opera per aggiungerla come prossima tappa, clicca un punto vuoto per inserire una svolta. Per cambiare piano, clicca le scale o l'ascensore per agganciarci il percorso, poi seleziona l'altro piano dal menu qui sotto e clicca le scale/ascensore corrispondente per continuare da lì. Le tappe vengono numerate nell'ordine dei click; puoi riordinarle o rimuoverle anche dalla tab Percorso.",
-  "Click su un'opera, una svolta o scale/ascensore: aggiungi tappa • Click su un punto vuoto: crea una svolta • Scroll: zoom": "Click su un'opera, una svolta o scale/ascensore: aggiungi tappa • Click su un punto vuoto: crea una svolta • Scroll: zoom"
+  "Click su un'opera, una svolta o scale/ascensore: aggiungi tappa • Click su un punto vuoto: crea una svolta • Scroll: zoom": "Click su un'opera, una svolta o scale/ascensore: aggiungi tappa • Click su un punto vuoto: crea una svolta • Scroll: zoom",
+  "Uscita di emergenza": "Uscita di emergenza",
+  "Info Point": "Info Point",
+  "Armadietti": "Armadietti",
+  "Punto sulla mappa (opzionale)": "Punto sulla mappa (opzionale)",
+  "Nessun marker sulla piantina di questo museo": "Nessun marker sulla piantina di questo museo",
+  "Nessuno": "Nessuno",
+  "Immagine della tappa": "Immagine della tappa",
+  "Mappa integrata": "Mappa integrata",
+  "Mostra la mappa integrata invece di un'immagine": "Mostra la mappa integrata invece di un'immagine",
+  "Associato a": "Associato a",
+  "punto sulla mappa": "punto sulla mappa",
+  "A questa tappa il Navigator mostrerà la mappa del museo centrata sul punto scelto sopra, invece di un'immagine.": "A questa tappa il Navigator mostrerà la mappa del museo centrata sul punto scelto sopra, invece di un'immagine.",
+  "A questa tappa il Navigator mostrerà la mappa del museo invece di un'immagine. Scegli anche un punto qui sopra per centrarla su un posto preciso.": "A questa tappa il Navigator mostrerà la mappa del museo invece di un'immagine. Scegli anche un punto qui sopra per centrarla su un posto preciso.",
+  "Immagine del percorso": "Immagine del percorso",
+  "Apri la mappa": "Apri la mappa",
+  "Vedi sulla mappa": "Vedi sulla mappa"
 }

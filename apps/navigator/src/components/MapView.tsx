@@ -32,6 +32,11 @@ interface MapViewProps {
   artworkInfo?: Record<string, ArtworkInfo>; // titolo+immagine per Wikidata ID, per i marker-opera e la conferma di salto
   currentArtworkId?: string; // The artwork currently being viewed (Wikidata ID)
   visitArtworkIds?: string[]; // All artworks in the visit, in order (Wikidata IDs)
+  // Marker qualsiasi (ingresso, bar, info point...) a cui una tappa LOGISTIC/
+  // NAVIGATION è stata associata dal curatore: apre la mappa già centrata ed
+  // evidenziata lì, non solo sulle opere. Ignorato se currentArtworkId trova
+  // già un marker (l'opera in ascolto resta la priorità).
+  focusMarkerId?: string;
   onMarkerClick?: (marker: MapMarker) => void;
   onClose?: () => void;
 }
@@ -83,6 +88,7 @@ export default function MapView({
   artworkInfo = {},
   currentArtworkId,
   visitArtworkIds = [],
+  focusMarkerId,
   onMarkerClick,
   onClose,
 }: MapViewProps) {
@@ -103,14 +109,19 @@ export default function MapView({
 
   const floors = map.floors || [];
 
-  // Il piano di apertura è quello dell'opera che si stava guardando, se la
-  // mappa ha più di un piano — altrimenti il primo disponibile.
+  // Il piano di apertura è quello dell'opera che si stava guardando; se non
+  // c'è (tappa LOGISTIC/NAVIGATION) ma la tappa è associata a un punto della
+  // mappa, quello del punto; altrimenti il primo piano disponibile.
   const [selectedFloorId, setSelectedFloorId] = useState<string>(() => {
     if (currentArtworkId) {
       const floorWithArtwork = floors.find((f) =>
         f.markers?.some((m) => isArtworkMarker(m.type) && m.artworkId === currentArtworkId),
       );
       if (floorWithArtwork) return floorWithArtwork.id;
+    }
+    if (focusMarkerId) {
+      const floorWithMarker = floors.find((f) => f.markers?.some((m) => m.id === focusMarkerId));
+      if (floorWithMarker) return floorWithMarker.id;
     }
     return floors[0]?.id || '';
   });
@@ -139,21 +150,23 @@ export default function MapView({
     setPosition({ x: 0, y: 0 });
   }
 
-  // Find current artwork marker and center on it
+  // Centra sull'opera in ascolto, o sul punto associato alla tappa
+  // LOGISTIC/NAVIGATION corrente quando non c'è un'opera.
   useEffect(() => {
-    if (currentArtworkId && containerRef.current) {
-      const currentMarker = floorMarkers.find(
-        (m) => isArtworkMarker(m.type) && m.artworkId === currentArtworkId,
-      );
-      if (currentMarker) {
-        const container = containerRef.current;
-        const centerX = container.clientWidth / 2 - currentMarker.x * scale;
-        const centerY = container.clientHeight / 2 - currentMarker.y * scale;
-        setPosition({ x: centerX, y: centerY });
-      }
+    if (!containerRef.current) return;
+    const targetMarker = currentArtworkId
+      ? floorMarkers.find((m) => isArtworkMarker(m.type) && m.artworkId === currentArtworkId)
+      : focusMarkerId
+        ? floorMarkers.find((m) => m.id === focusMarkerId)
+        : undefined;
+    if (targetMarker) {
+      const container = containerRef.current;
+      const centerX = container.clientWidth / 2 - targetMarker.x * scale;
+      const centerY = container.clientHeight / 2 - targetMarker.y * scale;
+      setPosition({ x: centerX, y: centerY });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentArtworkId, selectedFloorId]);
+  }, [currentArtworkId, focusMarkerId, selectedFloorId]);
 
   const handleZoomIn = () => setScale((s) => Math.min(s + 0.25, 3));
   const handleZoomOut = () => setScale((s) => Math.max(s - 0.25, 0.5));
@@ -497,17 +510,31 @@ export default function MapView({
               }
 
               const config = markerIcons[marker.type];
+              const isFocused = !currentArtworkId && marker.id === focusMarkerId;
               return (
                 <g
                   key={marker.id}
                   className="pointer-events-auto cursor-pointer"
                   onClick={() => setInfoMarker(marker)}
                 >
+                  {/* Stesso anello pulsante usato per l'opera in ascolto,
+                      qui sul punto a cui è associata la tappa LOGISTIC/
+                      NAVIGATION corrente (un ingresso, un bar...). */}
+                  {isFocused && (
+                    <circle
+                      cx={marker.x}
+                      cy={marker.y}
+                      r={25}
+                      className="animate-ping"
+                      fill="rgb(139 63 252 / 0.35)"
+                      style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
+                    />
+                  )}
                   <circle
                     cx={marker.x}
                     cy={marker.y}
-                    r={16}
-                    className="fill-surface-600 stroke-white stroke-2"
+                    r={isFocused ? 20 : 16}
+                    className={`${isFocused ? 'fill-brand-500 stroke-brand-300' : 'fill-surface-600 stroke-white'} stroke-2`}
                   />
                   <text
                     x={marker.x}
@@ -578,7 +605,10 @@ export default function MapView({
         </div>
 
         {/* Tappa corrente */}
-        {currentArtworkId && floorMarkers.some((m) => m.artworkId === currentArtworkId) && (
+        {((currentArtworkId && floorMarkers.some((m) => m.artworkId === currentArtworkId)) ||
+          (!currentArtworkId &&
+            focusMarkerId &&
+            floorMarkers.some((m) => m.id === focusMarkerId))) && (
           <div className="absolute bottom-4 left-4 gradient-aurora backdrop-blur text-white px-4 py-2 rounded-full shadow-lg">
             <span className="text-sm font-medium">📍 {t('Tappa corrente')}</span>
           </div>

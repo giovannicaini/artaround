@@ -55,3 +55,24 @@ export const buildMuseumIdFilterValue = async (
   if (candidates.length === 0) return undefined;
   return candidates.length === 1 ? candidates[0] : { $in: candidates };
 };
+
+/**
+ * Trova UN museo per _id Mongo o QID Wikidata indifferentemente. Usata dagli
+ * endpoint pubblici (GET /museums/:id, /:id/config) — a differenza dei filtri
+ * find/aggregate sopra, qui serve il documento vero e proprio, non un valore
+ * di filtro. Prima di questa funzione, un id in formato QID (es. arrivato
+ * come Visit.museumId, che è quasi sempre salvato così — vedi il commento in
+ * cima al file) faceva fallire MuseumModel.findById() con un CastError non
+ * gestito dall'error handler, restituendo un fuorviante 500 invece di
+ * trovare comunque il museo o rispondere 404.
+ */
+export const findMuseumByAnyId = async (id: string | string[] | undefined | null) => {
+  const normalized = (Array.isArray(id) ? id[0] : id)?.trim() || '';
+  if (!normalized) return null;
+
+  if (mongoose.Types.ObjectId.isValid(normalized)) {
+    const byObjectId = await MuseumModel.findById(normalized);
+    if (byObjectId) return byObjectId;
+  }
+  return MuseumModel.findOne({ wikidataId: normalized });
+};

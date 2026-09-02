@@ -33,10 +33,12 @@ const visitStepSchema = new Schema<VisitStep>(
     // For NAVIGATION steps
     navigationText: String,
     navigationImage: String,
+    navigationVisual: { type: String, enum: ['image', 'map'] },
     fromRoom: String,
     toRoom: String,
-    // For WAYPOINT steps: punto di svolta muto, riferisce un MapMarker di tipo
-    // WAYPOINT sulla piantina del piano (vedi Museum.ts -> floors[].markers).
+    // Punto sulla mappa: per WAYPOINT è sempre un MapMarker di tipo WAYPOINT
+    // (svolta muta); per LOGISTIC/NAVIGATION è un'associazione facoltativa a
+    // un punto di interesse qualsiasi (vedi Museum.ts -> floors[].markers).
     mapMarkerId: String,
     // Common
     isOptional: { type: Boolean, default: false },

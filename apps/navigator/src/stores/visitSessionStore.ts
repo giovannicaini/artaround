@@ -15,8 +15,25 @@ import {
  */
 export type PlayerStep =
   | { kind: 'artwork'; id: string; artwork: Artwork; items: Item[] }
-  | { kind: 'logistic'; id: string; title: string; text: string; icon?: string }
-  | { kind: 'navigation'; id: string; text: string; image?: string };
+  | {
+      kind: 'logistic';
+      id: string;
+      title: string;
+      text: string;
+      icon?: string;
+      mapMarkerId?: string;
+    }
+  | {
+      kind: 'navigation';
+      id: string;
+      text: string;
+      image?: string;
+      // 'map' mostra la mappa integrata (centrata su mapMarkerId se presente)
+      // al posto dell'immagine caricata — scelta fatta dal curatore nel
+      // marketplace, vedi VisitStep.navigationVisual.
+      visual?: 'image' | 'map';
+      mapMarkerId?: string;
+    };
 
 interface VisitSessionState {
   visit: Visit | null;

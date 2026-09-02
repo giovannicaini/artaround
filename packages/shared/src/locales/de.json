@@ -968,5 +968,21 @@
   "Vuoi passare a \"{title}\"?": "Möchtest du zu „{title}“ wechseln?",
   "Nessuna descrizione disponibile.": "Keine Beschreibung verfügbar.",
   "Costruisci il percorso direttamente sulla mappa: clicca un'opera per aggiungerla come prossima tappa, clicca un punto vuoto per inserire una svolta. Per cambiare piano, clicca le scale o l'ascensore per agganciarci il percorso, poi seleziona l'altro piano dal menu qui sotto e clicca le scale/ascensore corrispondente per continuare da lì. Le tappe vengono numerate nell'ordine dei click; puoi riordinarle o rimuoverle anche dalla tab Percorso.": "Baue die Route direkt auf der Karte auf: Klicke auf ein Werk, um es als nächste Station hinzuzufügen, klicke auf einen leeren Punkt, um eine Abbiegung einzufügen. Um das Stockwerk zu wechseln, klicke auf die Treppe oder den Aufzug, um die Route dort anzuknüpfen, wähle dann im Menü unten das andere Stockwerk und klicke auf die entsprechende Treppe/den Aufzug, um von dort fortzufahren. Die Stationen werden in der Reihenfolge der Klicks nummeriert; du kannst sie auch im Tab Route neu anordnen oder entfernen.",
-  "Click su un'opera, una svolta o scale/ascensore: aggiungi tappa • Click su un punto vuoto: crea una svolta • Scroll: zoom": "Klick auf ein Werk, eine Abbiegung oder Treppe/Aufzug: Station hinzufügen • Klick auf einen leeren Punkt: Abbiegung erstellen • Scrollen: Zoom"
+  "Click su un'opera, una svolta o scale/ascensore: aggiungi tappa • Click su un punto vuoto: crea una svolta • Scroll: zoom": "Klick auf ein Werk, eine Abbiegung oder Treppe/Aufzug: Station hinzufügen • Klick auf einen leeren Punkt: Abbiegung erstellen • Scrollen: Zoom",
+  "Uscita di emergenza": "Notausgang",
+  "Info Point": "Infopunkt",
+  "Armadietti": "Schließfächer",
+  "Punto sulla mappa (opzionale)": "Punkt auf der Karte (optional)",
+  "Nessun marker sulla piantina di questo museo": "Keine Markierungen auf dem Grundriss dieses Museums",
+  "Nessuno": "Keiner",
+  "Immagine della tappa": "Bild der Station",
+  "Mappa integrata": "Integrierte Karte",
+  "Mostra la mappa integrata invece di un'immagine": "Zeigt die integrierte Karte statt eines Bildes",
+  "Associato a": "Verknüpft mit",
+  "punto sulla mappa": "Punkt auf der Karte",
+  "A questa tappa il Navigator mostrerà la mappa del museo centrata sul punto scelto sopra, invece di un'immagine.": "An dieser Station zeigt der Navigator die Museumskarte zentriert auf den oben gewählten Punkt an, statt eines Bildes.",
+  "A questa tappa il Navigator mostrerà la mappa del museo invece di un'immagine. Scegli anche un punto qui sopra per centrarla su un posto preciso.": "An dieser Station zeigt der Navigator die Museumskarte statt eines Bildes an. Wähle oben auch einen Punkt, um sie auf eine genaue Stelle zu zentrieren.",
+  "Immagine del percorso": "Bild der Route",
+  "Apri la mappa": "Karte öffnen",
+  "Vedi sulla mappa": "Auf der Karte anzeigen"
 }

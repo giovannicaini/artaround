@@ -163,6 +163,7 @@ async function loadVisitData(visitId: string): Promise<{
           title: step.logisticTitle || 'Informazioni utili',
           text: step.logisticText || '',
           icon: step.logisticIcon,
+          mapMarkerId: step.mapMarkerId,
         };
       }
       if (step.type === VisitStepType.NAVIGATION) {
@@ -171,6 +172,8 @@ async function loadVisitData(visitId: string): Promise<{
           id: step.id,
           text: step.navigationText || '',
           image: step.navigationImage,
+          visual: step.navigationVisual,
+          mapMarkerId: step.mapMarkerId,
         };
       }
       return null;
@@ -231,6 +234,10 @@ export default function VisitPlayerPage() {
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [showItemList, setShowItemList] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  // Punto sulla mappa a cui è associata la tappa LOGISTIC/NAVIGATION
+  // corrente (se scelto dal curatore): usato per centrare/evidenziare la
+  // mappa quando si apre da qui invece che dalle opere.
+  const [mapFocusMarkerId, setMapFocusMarkerId] = useState<string | undefined>();
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['visit-player', visitId],
@@ -292,6 +299,14 @@ export default function VisitPlayerPage() {
     },
     [setSpeaking, language],
   );
+
+  // Apre la mappa, opzionalmente centrata/evidenziata su un punto preciso
+  // (tappa LOGISTIC/NAVIGATION associata) — senza argomento è la mappa
+  // generale come prima, dalla scheda "Servizi".
+  const openMap = useCallback((focusMarkerId?: string) => {
+    setMapFocusMarkerId(focusMarkerId);
+    setShowMap(true);
+  }, []);
 
   const handlePlay = useCallback(() => {
     if (!currentText) return;
@@ -464,7 +479,18 @@ export default function VisitPlayerPage() {
 
   const artworkStep = currentStep?.kind === 'artwork' ? currentStep : null;
   const isArtwork = !!artworkStep;
-  const heroImage = artworkStep?.artwork.image;
+  const logisticStep = currentStep?.kind === 'logistic' ? currentStep : null;
+  const navigationStep = currentStep?.kind === 'navigation' ? currentStep : null;
+  // Scelta del curatore per questa tappa "Indicazioni": mappa integrata al
+  // posto dell'immagine caricata (vedi VisitStep.navigationVisual).
+  const showMapVisual = navigationStep?.visual === 'map';
+  // Il punto sulla mappa associato alla tappa corrente (se scelto in fase di
+  // creazione della visita) — per "Vedi sulla mappa" e per centrare la
+  // mappa integrata quando showMapVisual è true.
+  const stepMapMarkerId = logisticStep?.mapMarkerId || navigationStep?.mapMarkerId;
+  const heroImage =
+    artworkStep?.artwork.image ||
+    (navigationStep && !showMapVisual ? navigationStep.image : undefined);
   const heroTitle = artworkStep
     ? artworkStep.artwork.title
     : currentStep?.kind === 'logistic'
@@ -521,6 +547,18 @@ export default function VisitPlayerPage() {
             >
               {heroImage ? (
                 <img src={heroImage} alt={heroTitle} className="w-full h-full object-cover" />
+              ) : showMapVisual ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openMap(stepMapMarkerId);
+                  }}
+                  className="w-full h-full bg-gradient-to-br from-brand-950 to-surface-950 flex flex-col items-center justify-center gap-3 px-8 text-center"
+                >
+                  <MapIcon className="w-16 h-16 text-brand-500" />
+                  <span className="text-surface-200 font-medium">{t('Apri la mappa')}</span>
+                </button>
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-surface-900 to-surface-950 flex items-center justify-center">
                   {isArtwork ? (
@@ -532,7 +570,7 @@ export default function VisitPlayerPage() {
                   )}
                 </div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/25 to-surface-950/45" />
+              <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/25 to-surface-950/45 pointer-events-none" />
             </motion.div>
           </AnimatePresence>
 
@@ -621,6 +659,16 @@ export default function VisitPlayerPage() {
                 </p>
               </motion.div>
             </AnimatePresence>
+
+            {stepMapMarkerId && !showMapVisual && (
+              <button
+                onClick={() => openMap(stepMapMarkerId)}
+                className="flex items-center gap-1.5 mb-4 px-3 py-1.5 rounded-full bg-surface-800 text-brand-300 text-xs font-medium hover:bg-surface-700 transition-colors"
+              >
+                <MapIcon className="w-3.5 h-3.5" />
+                {t('Vedi sulla mappa')}
+              </button>
+            )}
 
             <div className="flex items-center justify-center gap-5 mb-4">
               <button
@@ -711,6 +759,15 @@ export default function VisitPlayerPage() {
                   alt={heroTitle}
                   className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
                 />
+              ) : showMapVisual ? (
+                <button
+                  type="button"
+                  onClick={() => openMap(stepMapMarkerId)}
+                  className="w-96 h-96 bg-gradient-to-br from-brand-950 to-surface-800 rounded-2xl flex flex-col items-center justify-center gap-3 px-8 text-center hover:brightness-110 transition-all"
+                >
+                  <MapIcon className="w-20 h-20 text-brand-500" />
+                  <span className="text-surface-200 font-medium">{t('Apri la mappa')}</span>
+                </button>
               ) : (
                 <div className="w-96 h-96 bg-surface-800 rounded-2xl flex items-center justify-center">
                   {currentStep?.kind === 'navigation' ? (
@@ -842,6 +899,16 @@ export default function VisitPlayerPage() {
                 {currentText || t('Nessun contenuto disponibile per questa tappa.')}
               </motion.p>
             </AnimatePresence>
+
+            {stepMapMarkerId && !showMapVisual && (
+              <button
+                onClick={() => openMap(stepMapMarkerId)}
+                className="flex items-center gap-1.5 mt-4 px-3 py-1.5 rounded-full bg-surface-900 border border-surface-800 text-brand-300 text-xs font-medium hover:bg-surface-800 transition-colors"
+              >
+                <MapIcon className="w-3.5 h-3.5" />
+                {t('Vedi sulla mappa')}
+              </button>
+            )}
           </div>
 
           <div className="p-6 border-t border-surface-800 bg-surface-900">
@@ -985,7 +1052,7 @@ export default function VisitPlayerPage() {
               label: t('Mappa'),
               action: () => {
                 setShowQuickActions(false);
-                setShowMap(true);
+                openMap();
               },
             },
             { icon: DoorOpen, label: t('Uscita') },
@@ -1090,6 +1157,7 @@ export default function VisitPlayerPage() {
           routePoints={data.routePoints}
           artworkInfo={data.artworkInfo}
           currentArtworkId={artworkStep?.artwork.wikidataId}
+          focusMarkerId={mapFocusMarkerId}
           visitArtworkIds={steps
             .filter((s): s is Extract<PlayerStep, { kind: 'artwork' }> => s.kind === 'artwork')
             .map((s) => s.artwork.wikidataId)}
@@ -1107,7 +1175,10 @@ export default function VisitPlayerPage() {
               }
             }
           }}
-          onClose={() => setShowMap(false)}
+          onClose={() => {
+            setShowMap(false);
+            setMapFocusMarkerId(undefined);
+          }}
         />
       )}
     </div>

@@ -968,5 +968,21 @@
   "Vuoi passare a \"{title}\"?": "¿Quieres pasar a \"{title}\"?",
   "Nessuna descrizione disponibile.": "No hay descripción disponible.",
   "Costruisci il percorso direttamente sulla mappa: clicca un'opera per aggiungerla come prossima tappa, clicca un punto vuoto per inserire una svolta. Per cambiare piano, clicca le scale o l'ascensore per agganciarci il percorso, poi seleziona l'altro piano dal menu qui sotto e clicca le scale/ascensore corrispondente per continuare da lì. Le tappe vengono numerate nell'ordine dei click; puoi riordinarle o rimuoverle anche dalla tab Percorso.": "Construye el recorrido directamente en el mapa: haz clic en una obra para añadirla como próxima parada, haz clic en un punto vacío para insertar un giro. Para cambiar de planta, haz clic en la escalera o el ascensor para enganchar allí el recorrido, luego elige la otra planta en el menú de abajo y haz clic en la escalera/ascensor correspondiente para continuar desde ahí. Las paradas se numeran en el orden de los clics; también puedes reordenarlas o eliminarlas desde la pestaña Recorrido.",
-  "Click su un'opera, una svolta o scale/ascensore: aggiungi tappa • Click su un punto vuoto: crea una svolta • Scroll: zoom": "Clic en una obra, un giro o escalera/ascensor: añade una parada • Clic en un punto vacío: crea un giro • Desplazar: zoom"
+  "Click su un'opera, una svolta o scale/ascensore: aggiungi tappa • Click su un punto vuoto: crea una svolta • Scroll: zoom": "Clic en una obra, un giro o escalera/ascensor: añade una parada • Clic en un punto vacío: crea un giro • Desplazar: zoom",
+  "Uscita di emergenza": "Salida de emergencia",
+  "Info Point": "Punto de información",
+  "Armadietti": "Taquillas",
+  "Punto sulla mappa (opzionale)": "Punto en el mapa (opcional)",
+  "Nessun marker sulla piantina di questo museo": "No hay marcadores en el plano de este museo",
+  "Nessuno": "Ninguno",
+  "Immagine della tappa": "Imagen de la parada",
+  "Mappa integrata": "Mapa integrado",
+  "Mostra la mappa integrata invece di un'immagine": "Muestra el mapa integrado en lugar de una imagen",
+  "Associato a": "Vinculado a",
+  "punto sulla mappa": "punto en el mapa",
+  "A questa tappa il Navigator mostrerà la mappa del museo centrata sul punto scelto sopra, invece di un'immagine.": "En esta parada, el Navigator mostrará el mapa del museo centrado en el punto elegido arriba, en lugar de una imagen.",
+  "A questa tappa il Navigator mostrerà la mappa del museo invece di un'immagine. Scegli anche un punto qui sopra per centrarla su un posto preciso.": "En esta parada, el Navigator mostrará el mapa del museo en lugar de una imagen. Elige también un punto arriba para centrarlo en un lugar preciso.",
+  "Immagine del percorso": "Imagen del recorrido",
+  "Apri la mappa": "Abrir el mapa",
+  "Vedi sulla mappa": "Ver en el mapa"
 }

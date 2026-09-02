@@ -44,6 +44,8 @@ import '../ui/ui-icon-button';
 import '../ui/ui-tag-input';
 import '../ui/ui-panel-section';
 import '../ui/ui-language-select';
+import '../ui/ui-filter-tabs';
+import '../ui/image-editor';
 import '../museums/svg-map-editor';
 
 type EditorTab = 'info' | 'steps' | 'map' | 'audience' | 'settings';
@@ -292,12 +294,77 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       }));
   }
 
+  /** Etichetta leggibile per ogni tipo di marker, usata quando il marker
+   * stesso non ha un'etichetta impostata dal curatore. */
+  private get markerTypeLabels(): Record<string, string> {
+    return {
+      [MarkerType.ARTWORK]: __('Opera'),
+      [MarkerType.SCULPTURE]: __('Scultura'),
+      [MarkerType.PAINTING]: __('Dipinto'),
+      [MarkerType.ENTRANCE]: __('Ingresso'),
+      [MarkerType.EXIT]: __('Uscita'),
+      [MarkerType.EMERGENCY_EXIT]: __('Uscita di emergenza'),
+      [MarkerType.INFO_POINT]: __('Info Point'),
+      [MarkerType.ELEVATOR]: __('Ascensore'),
+      [MarkerType.STAIRS]: __('Scale'),
+      [MarkerType.ESCALATOR]: __('Scala mobile'),
+      [MarkerType.RAMP]: __('Rampa'),
+      [MarkerType.TOILETTE]: __('Bagni'),
+      [MarkerType.ACCESSIBLE_TOILETTE]: __('Bagni accessibili'),
+      [MarkerType.BAR]: __('Bar'),
+      [MarkerType.RESTAURANT]: __('Ristorante'),
+      [MarkerType.SHOP]: __('Shop'),
+      [MarkerType.CLOAKROOM]: __('Guardaroba'),
+      [MarkerType.LOCKER]: __('Armadietti'),
+      [MarkerType.ROOM]: __('Sala'),
+      [MarkerType.GALLERY]: __('Galleria'),
+      [MarkerType.ACCESSIBILITY]: __('Accessibilità'),
+      [MarkerType.OBSTACLE]: __('Ostacolo'),
+      [MarkerType.BENCH]: __('Panchina'),
+      [MarkerType.AUDIO_GUIDE]: __('Audioguida'),
+      [MarkerType.WIFI]: 'Wi-Fi',
+      [MarkerType.WAYPOINT]: __('Waypoint'),
+    };
+  }
+
+  /**
+   * Tutti i marker reali (ogni tipo tranne WAYPOINT, che è un punto muto di
+   * solo instradamento e non un punto di interesse) su tutti i piani, per
+   * l'associazione facoltativa di una tappa LOGISTIC/NAVIGATION a un punto
+   * della mappa — a differenza di getWaypointOptions(), qui il curatore deve
+   * poter scegliere anche ingressi, bar, info point ecc., non solo opere.
+   */
+  private getAllMarkerOptions(): Array<{ value: string; label: string }> {
+    const options: Array<{ value: string; label: string }> = [];
+    const showFloorPrefix = this.floors.length > 1;
+    for (const floor of this.floors) {
+      for (const marker of floor.markers || []) {
+        if (marker.type === MarkerType.WAYPOINT) continue;
+        const markerLabel = marker.label || this.markerTypeLabels[marker.type] || marker.type;
+        options.push({
+          value: marker.id,
+          label: showFloorPrefix ? `${floor.name} — ${markerLabel}` : markerLabel,
+        });
+      }
+    }
+    return options;
+  }
+
+  /**
+   * Trova un marker qualsiasi (non solo waypoint, nonostante il nome storico)
+   * per id, su tutti i piani — usata sia per le svolte sia per l'anteprima
+   * dell'associazione facoltativa a un punto della mappa di una tappa
+   * LOGISTIC/NAVIGATION.
+   */
   private findWaypointMarker(mapMarkerId?: string): { floorId: string; label: string } | null {
     if (!mapMarkerId) return null;
     for (const floor of this.floors) {
       const marker = floor.markers?.find((m) => m.id === mapMarkerId);
       if (marker) {
-        return { floorId: floor.id, label: marker.label || floor.name };
+        return {
+          floorId: floor.id,
+          label: marker.label || this.markerTypeLabels[marker.type] || floor.name,
+        };
       }
     }
     return null;
@@ -1462,6 +1529,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
             ${step.logisticText
               ? html`<p class="text-sm text-surface-500 line-clamp-2">${step.logisticText}</p>`
               : nothing}
+            ${this.renderMapAssociationBadge(step)}
           </div>
         `;
       case VisitStepType.NAVIGATION:
@@ -1475,6 +1543,12 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
             ${step.navigationText
               ? html`<p class="text-sm text-surface-500 line-clamp-2">${step.navigationText}</p>`
               : nothing}
+            ${step.navigationVisual === 'map'
+              ? html`<p class="text-xs text-brand-600 dark:text-brand-400 mt-1">
+                  🗺️ ${__("Mostra la mappa integrata invece di un'immagine")}
+                </p>`
+              : nothing}
+            ${this.renderMapAssociationBadge(step)}
           </div>
         `;
       case VisitStepType.WAYPOINT: {
@@ -1608,6 +1682,43 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
+  /** Riga "📍 associato a: X" nell'anteprima di una tappa LOGISTIC/NAVIGATION,
+   * solo quando è stato scelto un punto sulla mappa. */
+  private renderMapAssociationBadge(step: VisitStep) {
+    if (!step.mapMarkerId) return nothing;
+    const marker = this.findWaypointMarker(step.mapMarkerId);
+    return html`<p class="text-xs text-surface-400 mt-1">
+      📍 ${__('Associato a')}: ${marker?.label || __('punto sulla mappa')}
+    </p>`;
+  }
+
+  /**
+   * Associazione facoltativa a un punto della mappa, condivisa da LOGISTIC e
+   * NAVIGATION: a differenza della svolta (sempre un waypoint muto), qui il
+   * curatore può scegliere un punto di interesse qualsiasi — un ingresso, un
+   * bar, un info point, un'opera — che il Navigator userà per mostrare/
+   * evidenziare quel punto sulla mappa a questa tappa.
+   */
+  private renderMapMarkerPicker(step: VisitStep, index: number) {
+    const options = this.getAllMarkerOptions();
+    return html`
+      <ui-select
+        .label=${__('Punto sulla mappa (opzionale)')}
+        .value=${step.mapMarkerId || ''}
+        .options=${options}
+        clearable
+        placeholder=${this.loadingFloors
+          ? __('Caricamento piani...')
+          : options.length === 0
+            ? __('Nessun marker sulla piantina di questo museo')
+            : __('Nessuno')}
+        ?disabled=${this.loadingFloors || options.length === 0}
+        @select-change=${(e: CustomEvent) =>
+          this.updateStep(index, { mapMarkerId: e.detail.value || undefined })}
+      ></ui-select>
+    `;
+  }
+
   private renderLogisticStepEditor(step: VisitStep, index: number) {
     return html`
       <div class="space-y-4 mt-3 pt-3 border-t border-surface-200 dark:border-surface-700">
@@ -1636,6 +1747,8 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
             this.updateStep(index, { logisticIcon: e.detail.value })}
         ></ui-select>
 
+        ${this.renderMapMarkerPicker(step, index)}
+
         <ui-checkbox
           .label=${__('Passaggio opzionale')}
           .checked=${step.isOptional}
@@ -1647,6 +1760,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
   }
 
   private renderNavigationStepEditor(step: VisitStep, index: number) {
+    const visual = step.navigationVisual || 'image';
     return html`
       <div class="space-y-4 mt-3 pt-3 border-t border-surface-200 dark:border-surface-700">
         <div class="grid grid-cols-2 gap-4">
@@ -1676,13 +1790,57 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
           rows="3"
         ></ui-textarea>
 
-        <ui-input
-          .label=${__('Immagine del percorso (URL)')}
-          .placeholder=${__('https://example.com/path.jpg')}
-          .value=${step.navigationImage || ''}
-          @input=${(e: InputEvent) =>
-            this.updateStep(index, { navigationImage: (e.target as HTMLInputElement).value })}
-        ></ui-input>
+        ${this.renderMapMarkerPicker(step, index)}
+
+        <div>
+          <p class="text-sm font-medium text-surface-700 dark:text-surface-300 mb-2">
+            ${__('Immagine della tappa')}
+          </p>
+          <ui-filter-tabs
+            .tabs=${[
+              { value: 'image', label: __('Immagine') },
+              { value: 'map', label: __('Mappa integrata') },
+            ]}
+            .value=${visual}
+            @filter-change=${(e: CustomEvent) => {
+              const nextVisual = e.detail.value as 'image' | 'map';
+              // "Oppure": le due modalità sono alternative, non sommabili —
+              // passando a "Mappa" l'immagine caricata smette di avere senso
+              // (e viceversa non serve azzerare il punto sulla mappa, resta
+              // utile anche in modalità immagine per il "Vedi sulla mappa").
+              this.updateStep(index, {
+                navigationVisual: nextVisual,
+                navigationImage: nextVisual === 'map' ? undefined : step.navigationImage,
+              });
+            }}
+          ></ui-filter-tabs>
+        </div>
+
+        ${visual === 'image'
+          ? html`
+              <image-editor
+                .label=${__('Immagine del percorso')}
+                category="visits"
+                .value=${step.navigationImage || ''}
+                maxWidth=${1600}
+                maxHeight=${1200}
+                .maxOutputSizeMb=${1}
+                defaultFormat="webp"
+                @image-saved=${(e: CustomEvent) =>
+                  this.updateStep(index, { navigationImage: e.detail.path || '' })}
+              ></image-editor>
+            `
+          : html`
+              <p class="text-sm text-surface-500 dark:text-surface-400">
+                ${step.mapMarkerId
+                  ? __(
+                      "A questa tappa il Navigator mostrerà la mappa del museo centrata sul punto scelto sopra, invece di un'immagine.",
+                    )
+                  : __(
+                      "A questa tappa il Navigator mostrerà la mappa del museo invece di un'immagine. Scegli anche un punto qui sopra per centrarla su un posto preciso.",
+                    )}
+              </p>
+            `}
 
         <ui-checkbox
           .label=${__('Passaggio opzionale')}

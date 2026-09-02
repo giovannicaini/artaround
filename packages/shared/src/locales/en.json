@@ -968,5 +968,21 @@
   "Vuoi passare a \"{title}\"?": "Do you want to move to \"{title}\"?",
   "Nessuna descrizione disponibile.": "No description available.",
   "Costruisci il percorso direttamente sulla mappa: clicca un'opera per aggiungerla come prossima tappa, clicca un punto vuoto per inserire una svolta. Per cambiare piano, clicca le scale o l'ascensore per agganciarci il percorso, poi seleziona l'altro piano dal menu qui sotto e clicca le scale/ascensore corrispondente per continuare da lì. Le tappe vengono numerate nell'ordine dei click; puoi riordinarle o rimuoverle anche dalla tab Percorso.": "Build the route directly on the map: click an artwork to add it as the next stop, click an empty point to insert a turn. To change floor, click the stairs or the elevator to attach the route there, then pick the other floor from the menu below and click the matching stairs/elevator to continue from there. Stops are numbered in click order; you can reorder or remove them from the Route tab too.",
-  "Click su un'opera, una svolta o scale/ascensore: aggiungi tappa • Click su un punto vuoto: crea una svolta • Scroll: zoom": "Click an artwork, a turn, or stairs/elevator: add a stop • Click an empty point: create a turn • Scroll: zoom"
+  "Click su un'opera, una svolta o scale/ascensore: aggiungi tappa • Click su un punto vuoto: crea una svolta • Scroll: zoom": "Click an artwork, a turn, or stairs/elevator: add a stop • Click an empty point: create a turn • Scroll: zoom",
+  "Uscita di emergenza": "Emergency exit",
+  "Info Point": "Info point",
+  "Armadietti": "Lockers",
+  "Punto sulla mappa (opzionale)": "Point on the map (optional)",
+  "Nessun marker sulla piantina di questo museo": "No markers on this museum's floor plan",
+  "Nessuno": "None",
+  "Immagine della tappa": "Stop image",
+  "Mappa integrata": "Integrated map",
+  "Mostra la mappa integrata invece di un'immagine": "Show the integrated map instead of an image",
+  "Associato a": "Linked to",
+  "punto sulla mappa": "point on the map",
+  "A questa tappa il Navigator mostrerà la mappa del museo centrata sul punto scelto sopra, invece di un'immagine.": "At this stop, the Navigator will show the museum map centered on the point chosen above, instead of an image.",
+  "A questa tappa il Navigator mostrerà la mappa del museo invece di un'immagine. Scegli anche un punto qui sopra per centrarla su un posto preciso.": "At this stop, the Navigator will show the museum map instead of an image. Also choose a point above to center it on a precise spot.",
+  "Immagine del percorso": "Route image",
+  "Apri la mappa": "Open the map",
+  "Vedi sulla mappa": "View on map"
 }

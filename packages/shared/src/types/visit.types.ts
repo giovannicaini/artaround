@@ -79,15 +79,26 @@ export interface VisitStep {
   // Inline content - directions specific to this visit's path
   navigationText?: string; // "Prosegui dritto e gira a sinistra..."
   navigationImage?: string; // Optional image showing the path
+  // Cosa mostrare come immagine della tappa: 'image' (default, retrocompatibile
+  // con le visite esistenti) usa navigationImage; 'map' mostra la mappa
+  // integrata al posto di un'immagine caricata, centrata/evidenziata su
+  // mapMarkerId se impostato.
+  navigationVisual?: 'image' | 'map';
   fromRoom?: string; // Starting room/area
   toRoom?: string; // Destination room/area
 
-  // ===== FOR WAYPOINT STEPS =====
-  // Punto di svolta muto sulla mappa (nessun audio, nessuna sosta per il visitatore):
-  // serve solo a disegnare correttamente il percorso tra due tappe quando la linea
-  // diretta taglierebbe un muro (es. una porta su un corridoio -> un waypoint appena
-  // dentro la stanza, uno a metà del corridoio). Punta a un MapMarker di tipo WAYPOINT
-  // già posizionato sulla piantina del piano.
+  // ===== PUNTO SULLA MAPPA =====
+  // Per WAYPOINT: punto di svolta muto (nessun audio, nessuna sosta per il
+  // visitatore), serve solo a disegnare correttamente il percorso tra due
+  // tappe quando la linea diretta taglierebbe un muro (es. una porta su un
+  // corridoio -> un waypoint appena dentro la stanza, uno a metà del
+  // corridoio) — punta sempre a un MapMarker di tipo WAYPOINT.
+  // Per LOGISTIC/NAVIGATION: associazione facoltativa a un punto di
+  // interesse REALE già posizionato sulla piantina (un ingresso, un bar, un
+  // info point, un'opera...), non necessariamente di tipo WAYPOINT — il
+  // Navigator la usa per mostrare/evidenziare quel punto sulla mappa a
+  // questa tappa (e, se navigationVisual è 'map', per centrare la mappa
+  // integrata).
   mapMarkerId?: string;
 
   // ===== COMMON =====

@@ -4,6 +4,7 @@ import { ItemModel, MuseumModel, VisitModel } from '../models/index.js';
 import { AppError } from '../middleware/index.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import { TranslationService } from '../utils/translation.service.js';
+import { findMuseumByAnyId } from '../utils/museum-id.util.js';
 import {
   MuseumFloor,
   MapMarker,
@@ -490,7 +491,11 @@ export class MuseumController {
         throw new AppError(400, 'VALIDATION_ERROR', 'Museum id is required');
       }
 
-      const museum = await MuseumModel.findById(id);
+      // I chiamanti pubblici (Navigator in testa) spesso hanno solo la QID
+      // Wikidata del museo — es. Visit.museumId, quasi sempre salvato così —
+      // non l'_id Mongo: un findById puro qui faceva fallire con un 500
+      // invece di un più corretto 404/200. Vedi findMuseumByAnyId.
+      const museum = await findMuseumByAnyId(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
@@ -509,7 +514,7 @@ export class MuseumController {
     try {
       const { id } = req.params;
 
-      const museum = await MuseumModel.findById(id);
+      const museum = await findMuseumByAnyId(id);
 
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
