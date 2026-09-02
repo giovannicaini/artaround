@@ -7,15 +7,22 @@ import crypto from 'crypto';
 import { config } from '../config/config.js';
 import type { ImageProcessOptions, UploadResult, UploadCategory } from '@artaround/shared';
 
+// ESM equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// cartella condivisa alla radice del monorepo, così tutte le app la vedono
+// Uploads directory - shared at monorepo root level so all apps can reference it
 const UPLOADS_DIR = path.resolve(__dirname, '../../../../uploads');
 
+// Allowed image MIME types
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const RESPONSIVE_WIDTHS = [480, 768, 1200];
 
+// Sub-directories for different entity types
+
+/**
+ * Ensure the uploads directory and subdirectories exist
+ */
 async function ensureUploadDirs(): Promise<void> {
   const categories: UploadCategory[] = ['museums', 'items', 'artworks', 'visits', 'users', 'misc'];
   for (const cat of categories) {
@@ -23,9 +30,13 @@ async function ensureUploadDirs(): Promise<void> {
   }
 }
 
+// Ensure dirs exist on import
 ensureUploadDirs();
 
-// file in memoria finché sharp non li ha processati, poi si scrivono su disco
+/**
+ * Multer configuration for temporary file upload
+ * Files are stored in memory for processing with sharp before saving
+ */
 const storage = multer.memoryStorage();
 
 const fileFilter = (
@@ -49,6 +60,9 @@ export const upload = multer({
 });
 
 export class UploadService {
+  /**
+   * Process and save an uploaded image file
+   */
   static async processAndSave(
     buffer: Buffer,
     originalName: string,
@@ -59,13 +73,16 @@ export class UploadService {
 
     const { width, height, fit = 'cover', quality = 85, format = 'webp' } = options;
 
+    // Generate unique filename
     const hash = crypto.randomBytes(12).toString('hex');
     const ext = format === 'jpeg' ? 'jpg' : format;
     const filename = `${hash}.${ext}`;
     const filePath = path.join(UPLOADS_DIR, category, filename);
 
+    // Build sharp pipeline
     let pipeline = sharp(buffer);
 
+    // Apply crop first if specified
     if (
       options.cropX !== undefined &&
       options.cropY !== undefined &&
@@ -80,6 +97,7 @@ export class UploadService {
       });
     }
 
+    // Apply resize if specified
     if (width || height) {
       pipeline = pipeline.resize(width || undefined, height || undefined, {
         fit,
@@ -87,6 +105,7 @@ export class UploadService {
       });
     }
 
+    // Convert to target format with quality
     switch (format) {
       case 'jpeg':
         pipeline = pipeline.jpeg({ quality, mozjpeg: true });
@@ -99,7 +118,7 @@ export class UploadService {
         break;
     }
 
-    // un solo render, poi ne derivo le varianti responsive sotto
+    // Render processed image once, then write original + responsive variants
     const outputBuffer = await pipeline.toBuffer();
     const outputMetadata = await sharp(outputBuffer).metadata();
 
@@ -134,6 +153,9 @@ export class UploadService {
     };
   }
 
+  /**
+   * Process and save an image downloaded from a URL
+   */
   static async processFromUrl(
     imageUrl: string,
     category: UploadCategory,
@@ -154,12 +176,17 @@ export class UploadService {
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    // Extract original filename from URL
     const urlPath = new URL(imageUrl).pathname;
     const originalName = path.basename(urlPath) || 'image';
 
     return this.processAndSave(buffer, originalName, category, options);
   }
 
+  /**
+   * Delete an uploaded file by its path
+   * @param filePath - Relative path like /uploads/museums/abc123.webp
+   */
   static async deleteFile(filePath: string): Promise<boolean> {
     if (!filePath || !filePath.startsWith('/uploads/')) {
       return false;
@@ -174,7 +201,7 @@ export class UploadService {
       await fs.access(absolutePath);
       await fs.unlink(absolutePath);
 
-      // cancella anche le varianti responsive, hanno il suffisso __w{width}
+      // Delete responsive variants generated with suffix __w{width}
       const filesInDir = await fs.readdir(absoluteDir);
       const variantPrefix = `${parsed.name}__w`;
 
@@ -198,6 +225,9 @@ export class UploadService {
     }
   }
 
+  /**
+   * Get image metadata without processing
+   */
   static async getMetadata(
     buffer: Buffer,
   ): Promise<{ width: number; height: number; format: string }> {
@@ -209,6 +239,9 @@ export class UploadService {
     };
   }
 
+  /**
+   * Get the absolute filesystem path to uploads dir
+   */
   static getUploadsDir(): string {
     return UPLOADS_DIR;
   }

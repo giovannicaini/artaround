@@ -6,7 +6,7 @@ export interface ImageProcessOptions {
   fit?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside';
   quality?: number; // 1-100
   format?: 'jpeg' | 'png' | 'webp';
-  // ritaglio in pixel, relativo all'immagine originale
+  // Regione di ritaglio (pixel, relativa all'immagine originale)
   cropX?: number;
   cropY?: number;
   cropWidth?: number;
@@ -14,10 +14,16 @@ export interface ImageProcessOptions {
 }
 
 export interface UploadResult {
-  path: string; // es. /uploads/museums/abc123.webp
+  /** Percorso relativo del file caricato (es. /uploads/museums/abc123.webp) */
+  path: string;
+  /** Nome file originale */
   originalName: string;
+  /** Larghezza finale */
   width: number;
+  /** Altezza finale */
   height: number;
-  size: number; // byte
+  /** Dimensione del file in byte */
+  size: number;
+  /** Tipo MIME */
   mimeType: string;
 }

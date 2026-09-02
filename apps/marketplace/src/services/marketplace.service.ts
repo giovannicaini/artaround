@@ -9,8 +9,9 @@ type PurchaseRecord<T> = {
   visitId?: T;
 };
 
-// porta il codice errore del server (es. INSUFFICIENT_CREDIT) oltre al
-// messaggio, così chi chiama può offrire un'azione mirata invece del solo testo
+// Porta con sé il codice errore del server (es. INSUFFICIENT_CREDIT) oltre al
+// messaggio, così chi chiama può offrire un'azione mirata (es. un pulsante
+// "Ricarica credito") invece di un semplice testo d'errore.
 export class PurchaseError extends Error {
   constructor(
     message: string,

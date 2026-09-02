@@ -44,6 +44,12 @@ import '../items/item-creator';
 import { __ } from '../../services/i18n.service';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'view';
+/**
+ * Contents Page
+ *
+ * Displays and manages content Items (text/audio descriptions).
+ * Each Item is a single content piece with a specific duration and language level.
+ */
 @customElement('contents-page')
 export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
   @property({ type: Object }) user: User | null = null;
@@ -73,6 +79,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
   @state() private filterLanguageLevel: LanguageLevel | '' = '';
   @state() private filterIsFree: 'true' | 'false' | '' = '';
 
+  // ─── Computed State ──────────────────────────────────────
   private get permissions(): PermissionSet {
     return getPermissions(this.user);
   }
@@ -101,6 +108,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     return LANGUAGE_LEVEL_OPTIONS_IT.map((option) => ({ ...option, label: __(option.label) }));
   }
 
+  // ─── Lifecycle ───────────────────────────────────────────
   connectedCallback() {
     super.connectedCallback();
     this.loadItems();
@@ -117,7 +125,13 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     this.loadItems();
   }
 
-  // applica i filtri in memoria, usato in modalità authorOnly (niente nuova richiesta)
+  // ─── Data Loading ────────────────────────────────────────
+  /**
+   * Applica i filtri attivi (tipo riferimento, durata, livello, gratuito/a
+   * pagamento) + ricerca testuale a un array di item in memoria — usato in
+   * modalità authorOnly, dove "i miei item" arrivano già tutti insieme e si
+   * filtrano lato client invece che con una nuova richiesta al server.
+   */
   private applyFiltersInMemory(items: Item[]): Item[] {
     const query = this.searchQuery.trim().toLowerCase();
 
@@ -185,6 +199,10 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
+  /**
+   * In modalità authorOnly non c'è bisogno di ricontattare il server: gli item
+   * dell'autore sono già tutti in ownItemsCache, si rifiltra solo in memoria.
+   */
   private applyFilters() {
     this.pagination.page = 1;
 
@@ -212,12 +230,19 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     this.applyFilters();
   }
 
+  // ─── List / Form Actions ─────────────────────────────────
   private handleViewItem(item: Item) {
     this.selectedItem = item;
     this.viewMode = 'view';
   }
 
-  // rispecchia il controllo server-side: proprio contenuto, o curatore/admin
+  /**
+   * Permesso reale di modificare/eliminare QUESTO item: rispecchia esattamente il
+   * controllo server-side (item.controller.ts) — proprio contenuto, oppure
+   * curatore/admin che gestiscono tutto il contenuto del museo. this.permissions
+   * (PermissionSet) dice solo "il ruolo può modificare contenuti in generale",
+   * non basta per decidere se mostrare il bottone su un item altrui.
+   */
   private canManageItem(item: Item): boolean {
     if (this.user?.role === UserRole.CURATOR) {
       return true;
@@ -275,6 +300,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     this.selectedItem = null;
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderSelectedItemImage() {
     const item = this.selectedItem;
     if (!item) return nothing;
@@ -767,6 +793,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       ${this.viewMode === 'create'

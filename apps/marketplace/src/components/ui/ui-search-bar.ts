@@ -4,6 +4,23 @@ import './ui-icon';
 import './ui-input';
 import './ui-button';
 
+/**
+ * UI Search Bar
+ *
+ * A consistent search input with optional search button.
+ *
+ * @fires search - Emits the search query when Enter is pressed or button clicked
+ * @fires input-change - Emits on every input change for live filtering
+ *
+ * @example
+ * ```html
+ * <ui-search-bar
+ *   .placeholder=${__('Cerca contenuti...')}
+ *   .value=${this.searchQuery}
+ *   @search=${(e) => this.handleSearch(e.detail.value)}
+ * ></ui-search-bar>
+ * ```
+ */
 @customElement('ui-search-bar')
 export class UiSearchBar extends LitElement {
   @property({ type: String }) value = '';
@@ -15,6 +32,7 @@ export class UiSearchBar extends LitElement {
   @state() private internalValue = '';
   private debounceTimeout: ReturnType<typeof setTimeout> | null = null;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -31,6 +49,7 @@ export class UiSearchBar extends LitElement {
     }
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private handleInput(e: CustomEvent) {
     this.internalValue = e.detail.value;
 
@@ -72,6 +91,7 @@ export class UiSearchBar extends LitElement {
     );
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <div class="flex gap-2">

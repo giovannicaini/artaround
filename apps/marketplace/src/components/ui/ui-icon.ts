@@ -52,7 +52,8 @@ const icons: Record<string, string> = {
     'M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z',
   currency:
     'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-  // simbolo euro fatto a mano, non il dollaro di "currency"
+  // Simbolo euro (l'unica valuta usata dall'app): una "C" più due barre
+  // orizzontali, invece del simbolo dollaro di "currency".
   euro: 'M14.25 7.756a4.5 4.5 0 1 0 0 8.488M7.5 10.5h5.25m-5.25 3h5.25M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
   link: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1',
   sparkles:
@@ -85,10 +86,12 @@ export class UiIcon extends LitElement {
   @property({ type: String }) name = 'home';
   @property({ type: String }) size: 'xs' | 'sm' | 'md' | 'lg' = 'md';
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
+  // ─── Helpers ──────────────────────────────────────────────
   private get sizeClasses() {
     const sizes: Record<string, string> = {
       xs: 'w-4 h-4',
@@ -99,6 +102,7 @@ export class UiIcon extends LitElement {
     return sizes[this.size];
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     const path = icons[this.name] || icons.home;
 

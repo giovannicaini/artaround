@@ -82,7 +82,7 @@ const mapMarkerSchema = new Schema<MapMarker>(
     },
     label: String,
     description: String,
-    artworkId: String, // id wikidata, per i marker di tipo opera
+    artworkId: String, // Wikidata ID for artwork markers
     icon: String,
     isVisible: { type: Boolean, default: true },
     focalPoint: {
@@ -122,8 +122,9 @@ const mapPointSchema = new Schema<MapPoint>(
   { _id: false },
 );
 
-// creata con solo id/title da "Modifica Museo", floorId/polygon si
-// riempiono dopo quando viene contornata in "Piantina e mappa"
+// Sala del museo: gestione parallela ai marker (vedi MuseumRoom). Creata con
+// solo id/title(/subtitle) da "Modifica Museo"; floorId/polygon valorizzati
+// in un secondo momento da "Piantina e mappa" quando viene contornata.
 const roomSchema = new Schema<MuseumRoom>(
   {
     id: { type: String, required: true },
@@ -218,6 +219,7 @@ const navigatorConfigSchema = new Schema(
 
 const museumSchema = new Schema<MuseumDocument>(
   {
+    // Wikidata ID as primary identifier
     wikidataId: {
       type: String,
       required: true,
@@ -225,6 +227,7 @@ const museumSchema = new Schema<MuseumDocument>(
       index: true,
     },
 
+    // Basic info
     name: {
       type: String,
       required: true,
@@ -251,20 +254,30 @@ const museumSchema = new Schema<MuseumDocument>(
       required: true,
     },
 
+    // Location
     location: {
       type: locationSchema,
       required: true,
     },
 
+    // Media
     images: [String],
     coverImage: String,
 
+    // Floor maps
     floors: [floorSchema],
-    rooms: [roomSchema], // Artwork.roomId referenzia una di queste
 
+    // Sale del museo (nome scelto in "Modifica Museo", contorno disegnato in
+    // "Piantina e mappa"). Ogni Artwork.roomId referenzia una di queste.
+    rooms: [roomSchema],
+
+    // Services
     services: servicesSchema,
+
+    // Navigator app configurations
     navigatorConfigs: [navigatorConfigSchema],
 
+    // Status
     isActive: {
       type: Boolean,
       default: true,
@@ -276,6 +289,7 @@ const museumSchema = new Schema<MuseumDocument>(
   },
 );
 
+// Indexes
 museumSchema.index({ name: 'text', description: 'text' });
 museumSchema.index({ 'location.city': 1 });
 

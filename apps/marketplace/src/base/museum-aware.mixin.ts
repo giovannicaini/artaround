@@ -11,7 +11,10 @@ export interface MuseumAwareInterface {
   emitSelectMuseum(): void;
 }
 
-// tiene traccia del museo selezionato e reagisce ai cambi
+/**
+ * Mixin that provides museum selection awareness.
+ * Automatically tracks the selected museum and listens for changes.
+ */
 export function MuseumAwareMixin<T extends Constructor<LitElement>>(
   superClass: T,
 ): Constructor<MuseumAwareInterface> & T {
@@ -35,10 +38,16 @@ export function MuseumAwareMixin<T extends Constructor<LitElement>>(
       super.disconnectedCallback();
     }
 
+    /**
+     * Override this method to react to museum changes.
+     */
     onMuseumChanged(): void {
-      // da sovrascrivere nelle sottoclassi
+      // Override in subclass
     }
 
+    /**
+     * Dispatch event to open museum selector.
+     */
     emitSelectMuseum(): void {
       this.dispatchEvent(
         new CustomEvent('select-museum', {

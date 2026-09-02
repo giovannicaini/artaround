@@ -11,10 +11,12 @@ export class UiAvatar extends LitElement {
 
   @state() private imageError = false;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
+  // ─── Helpers ──────────────────────────────────────────────
   private get sizeClasses() {
     const sizes: Record<string, string> = {
       xs: 'w-6 h-6 text-2xs',
@@ -37,6 +39,7 @@ export class UiAvatar extends LitElement {
     return sizes[this.size];
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <div class="relative inline-flex">

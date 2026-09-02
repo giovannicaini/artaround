@@ -6,6 +6,14 @@ import '../ui/ui-icon-button';
 import '../ui/ui-icon';
 import { __ } from '../../services/i18n.service';
 
+/**
+ * Room Outline Editor
+ *
+ * Gestione del contorno (poligono) delle sale — parallela e distinta
+ * dall'editor dei marker. Le sale si CREANO in "Modifica Museo" (solo nome);
+ * qui si sceglie su quale piano si trovano e si disegna il loro contorno
+ * cliccando i vertici sulla piantina, chiudendo la forma sul primo punto.
+ */
 @customElement('room-outline-editor')
 export class RoomOutlineEditor extends LitElement {
   createRenderRoot() {

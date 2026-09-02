@@ -13,6 +13,16 @@ const VALID_CATEGORIES: UploadCategory[] = [
 ];
 
 export class UploadController {
+  /**
+   * POST /api/uploads
+   * Upload and process an image from a file
+   * Accepts multipart/form-data with:
+   * - file: image file
+   * - category: one of museums, items, artworks, visits, users, misc
+   * - width, height, fit, quality, format: optional processing params
+   * - cropX, cropY, cropWidth, cropHeight: optional crop region
+   * - oldPath: optional path of old image to delete (replacement)
+   */
   static async uploadImage(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.file) {
@@ -32,7 +42,7 @@ export class UploadController {
         options,
       );
 
-      // sostituzione: cancella la vecchia immagine
+      // Delete old image if replacement
       if (req.body.oldPath) {
         await UploadService.deleteFile(req.body.oldPath);
       }
@@ -46,6 +56,11 @@ export class UploadController {
     }
   }
 
+  /**
+   * POST /api/uploads/from-url
+   * Download, process and save an image from a URL
+   * Body: { url, category, width, height, fit, quality, format, cropX, cropY, cropWidth, cropHeight, oldPath }
+   */
   static async uploadFromUrl(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { url, category = 'misc', oldPath } = req.body;
@@ -61,7 +76,7 @@ export class UploadController {
       const options = UploadController.parseProcessOptions(req.body);
       const result = await UploadService.processFromUrl(url, category as UploadCategory, options);
 
-      // sostituzione: cancella la vecchia immagine
+      // Delete old image if replacement
       if (oldPath) {
         await UploadService.deleteFile(oldPath);
       }
@@ -75,6 +90,11 @@ export class UploadController {
     }
   }
 
+  /**
+   * DELETE /api/uploads
+   * Delete an uploaded image
+   * Body: { path: "/uploads/museums/abc123.webp" }
+   */
   static async deleteImage(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { path } = req.body;
@@ -94,6 +114,10 @@ export class UploadController {
     }
   }
 
+  /**
+   * POST /api/uploads/metadata
+   * Get image metadata from an uploaded file (without saving)
+   */
   static async getMetadata(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.file) {
@@ -111,6 +135,9 @@ export class UploadController {
     }
   }
 
+  /**
+   * Parse image processing options from request body
+   */
   private static parseProcessOptions(body: Record<string, string>): ImageProcessOptions {
     const options: ImageProcessOptions = {};
 

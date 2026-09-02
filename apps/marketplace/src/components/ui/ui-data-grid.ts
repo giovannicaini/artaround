@@ -2,6 +2,21 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './ui-image-placeholder';
 
+/**
+ * UI Data Grid
+ *
+ * A consistent responsive grid of cards with images.
+ * Commonly used for displaying items, artworks, visits, etc.
+ *
+ * @example
+ * ```html
+ * <ui-data-grid
+ *   .items=${this.items}
+ *   .columns=${3}
+ *   .renderItem=${(item) => html`<my-card .item=${item}></my-card>`}
+ * ></ui-data-grid>
+ * ```
+ */
 @customElement('ui-data-grid')
 export class UiDataGrid extends LitElement {
   @property({ type: Array }) items: unknown[] = [];
@@ -9,6 +24,7 @@ export class UiDataGrid extends LitElement {
   @property({ attribute: false }) renderItem: ((item: unknown, index: number) => unknown) | null =
     null;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -18,6 +34,7 @@ export class UiDataGrid extends LitElement {
     this.style.display = 'block';
   }
 
+  // ─── Helpers ──────────────────────────────────────────────
   private getGridClasses() {
     const colClasses: Record<number, string> = {
       1: 'grid-cols-1',
@@ -28,6 +45,7 @@ export class UiDataGrid extends LitElement {
     return colClasses[this.columns] || colClasses[3];
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     if (!this.renderItem) return nothing;
 

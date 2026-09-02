@@ -55,7 +55,7 @@ class I18nService {
     try {
       localStorage.setItem(I18nService.STORAGE_KEY, language);
     } catch {
-      // pazienza
+      // ignore storage errors
     }
 
     this.applyLanguageToDocument(language);
@@ -103,7 +103,7 @@ class I18nService {
         return saved;
       }
     } catch {
-      // pazienza
+      // ignore
     }
 
     return 'it';

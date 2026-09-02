@@ -1,9 +1,12 @@
 import type { MapPoint } from '@artaround/shared';
 
-// geometria per i poligoni delle sale, usata per generare marker distribuiti
-// dentro il contorno di una sala
+/**
+ * Utility geometriche per i poligoni delle sale (MuseumRoom.polygon).
+ * Usate per generare automaticamente marker distribuiti dentro il contorno
+ * di una sala (vedi museum-map-page.ts -> handleGenerateRoomMarkers).
+ */
 
-// ray casting: true se il punto è dentro il poligono (chiuso o no, non importa)
+/** Ray casting: true se il punto è dentro il poligono (chiuso o no, non importa). */
 export function isPointInPolygon(point: MapPoint, polygon: MapPoint[]): boolean {
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
@@ -23,9 +26,13 @@ export function polygonCentroid(polygon: MapPoint[]): MapPoint {
   return { x: sum.x / polygon.length, y: sum.y / polygon.length };
 }
 
-// punto casuale nel poligono, lontano dai punti già piazzati (rejection
-// sampling sul bounding box); se non trova nulla rilassa il vincolo di
-// distanza, e come ultima spiaggia usa il centroide
+/**
+ * Punto casuale dentro il poligono, a distanza minima dai punti già
+ * piazzati in questo stesso batch (per non far sovrapporre i marker tra
+ * loro). Rejection sampling sul bounding box; se non trova un punto valido
+ * in tempo, rilassa prima il vincolo di distanza minima, poi come ultima
+ * spiaggia usa il centroide.
+ */
 export function randomPointInPolygon(
   polygon: MapPoint[],
   existingPoints: MapPoint[] = [],
@@ -52,7 +59,7 @@ export function randomPointInPolygon(
     }
   }
 
-  // sala affollata: basta stare dentro il poligono, pazienza per la distanza
+  // Sala affollata: rilassa il vincolo di distanza minima, basta stare dentro.
   for (let i = 0; i < maxAttempts; i++) {
     const candidate = {
       x: minX + Math.random() * (maxX - minX),

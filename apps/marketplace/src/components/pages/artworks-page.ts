@@ -43,6 +43,12 @@ type ViewMode = 'list' | 'create' | 'edit' | 'view';
 type ArtworkListLayout = 'grid' | 'table';
 type ArtworkSortField = 'title' | 'author' | 'year' | 'updatedAt' | 'artworkType';
 
+/**
+ * Artworks Page
+ *
+ * Displays and manages physical Artworks in museums.
+ * Artworks use Wikidata IDs as primary identifiers.
+ */
 @customElement('artworks-page')
 export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
   @property({ type: Object }) user: User | null = null;
@@ -129,6 +135,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     return getPermissions(this.user);
   }
 
+  // ─── Lifecycle ───────────────────────────────────────────
   connectedCallback() {
     super.connectedCallback();
     this.loadFilterOptions();
@@ -139,11 +146,14 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     if (changedProps.has('openingArtworkId') && this.openingArtworkId) {
       this.openArtworkDetail(this.openingArtworkId);
     }
+    // Handle opening with a specific viewMode (e.g., from history navigation)
     if (changedProps.has('openingViewMode')) {
       if (this.openingViewMode === 'list') {
+        // Returning to list view from history
         this.selectedArtwork = null;
         this.viewMode = 'list';
       } else if (this.openingViewMode === 'view' && this.openingArtworkId && this.selectedArtwork) {
+        // Already handled by openArtworkDetail
       } else if (this.openingViewMode === 'edit' && this.selectedArtwork) {
         this.viewMode = 'edit';
       } else if (this.openingViewMode === 'create') {
@@ -168,6 +178,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     this.loadArtworks();
   }
 
+  // ─── Data Helpers ────────────────────────────────────────
   private parseYearFromText(yearValue?: string): number | null {
     if (!yearValue) return null;
     const match = yearValue.match(/-?\d{1,4}/);
@@ -195,6 +206,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     return candidates;
   }
 
+  // ─── Data Loading ────────────────────────────────────────
   private async loadFilterOptions() {
     if (!this.selectedMuseumId) {
       this.availableRooms = [];
@@ -328,6 +340,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
+  // ─── Actions (Filters / CRUD / View) ────────────────────
   private async openArtworkDetail(artworkId: string) {
     if (!artworkId) return;
 
@@ -417,6 +430,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     this.loadArtworks();
   }
 
+  // ─── Computed State & Table Helpers ─────────────────────
   private getArtworkImageAttrs(imagePath: string, sizes: string) {
     return uploadService.getResponsiveImageAttrs(imagePath, {
       widths: [480, 768, 1200],
@@ -652,6 +666,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderTable(items: Artwork[]) {
     return html`
       <ui-table
@@ -1208,6 +1223,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
   }
 
   private handleViewArtworkContents(artwork: Artwork) {
+    // Dispatch event to navigate to contents filtered by this artwork
     this.dispatchEvent(
       new CustomEvent('navigate-to-contents', {
         detail: { artworkId: artwork.wikidataId },
@@ -1520,6 +1536,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     return html`
       ${this.viewMode === 'create'
@@ -1547,6 +1564,11 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
+  // ─── Navigation State Sync ───────────────────────────────
+  /**
+   * Emits an event to notify the parent about state changes (viewMode, selected artwork)
+   * Used for history management
+   */
   private emitStateChange(): void {
     this.dispatchEvent(
       new CustomEvent('page-state-changed', {
@@ -1560,12 +1582,18 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     );
   }
 
+  /**
+   * Returns to the list view and clears the selected artwork
+   */
   private handleBackToList(): void {
     this.selectedArtwork = null;
     this.viewMode = 'list';
     this.emitStateChange();
   }
 
+  /**
+   * Navigates to create mode
+   */
   private handleGoToCreate(): void {
     this.viewMode = 'create';
     this.emitStateChange();

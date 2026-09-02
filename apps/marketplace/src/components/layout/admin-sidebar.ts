@@ -25,6 +25,7 @@ export class AdminSidebar extends LitElement {
   @state() private mobileOpen = false;
   @state() private selectedMuseum: { _id: string; name: string } | null = null;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -42,6 +43,7 @@ export class AdminSidebar extends LitElement {
     super.disconnectedCallback();
   }
 
+  // ─── Actions & Computed ──────────────────────────────────
   private handleMuseumChanged = (event: CustomEvent) => {
     this.selectedMuseum = event.detail || null;
   };
@@ -60,7 +62,9 @@ export class AdminSidebar extends LitElement {
         id: 'author-area',
         label: __('Area Autore'),
         icon: 'edit',
-        // il curatore può creare/modificare item e visite, quindi vede anche questa voce
+        // Anche il curatore può creare/modificare item e visite (vedi permissions.service.ts:
+        // canCreateItem/canCreateVisit includono isCurator), ma prima non aveva alcun link per
+        // arrivarci: qui era filtrato solo ad AUTHOR/ADMIN.
         roles: [UserRole.AUTHOR, UserRole.CURATOR, UserRole.ADMIN],
         requiresMuseum: true,
       },
@@ -107,7 +111,9 @@ export class AdminSidebar extends LitElement {
   }
 
   private handleNavigate(route: string) {
-    // museum-map-page vuole il museumId come routeParam esplicito, le altre pagine lo leggono da sole
+    // museum-map-page ha bisogno del museumId del museo attivo come routeParam esplicito
+    // (a differenza delle altre pagine, che lo leggono da preferencesService da sole):
+    // prima questa voce non esisteva proprio nel menu, quindi il caso non si poneva.
     const params =
       route === 'museum-maps' && this.selectedMuseum
         ? { museumId: this.selectedMuseum._id }
@@ -121,7 +127,9 @@ export class AdminSidebar extends LitElement {
       }),
     );
 
-    // chiude il menu mobile dopo la scelta, su desktop non ha effetto
+    // Sul cellulare il menu restava aperto dopo aver scelto una voce,
+    // costringendo a un tap in più per chiuderlo — innocuo su desktop, dove
+    // mobileOpen non pilota la sidebar fissa.
     this.mobileOpen = false;
   }
 
@@ -144,6 +152,7 @@ export class AdminSidebar extends LitElement {
     );
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderMenuItem(item: MenuItem, collapsed = this.collapsed) {
     const isActive = this.currentRoute === item.id;
     const isDisabled = Boolean(item.requiresMuseum && !this.selectedMuseum);
@@ -253,6 +262,7 @@ export class AdminSidebar extends LitElement {
     `;
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     const sidebarWidth = this.collapsed ? 'w-16' : 'w-64';
     return html`
@@ -345,6 +355,7 @@ export class AdminSidebar extends LitElement {
     `;
   }
 
+  // ─── Public API ──────────────────────────────────────────
   public toggleMobile() {
     this.mobileOpen = !this.mobileOpen;
   }

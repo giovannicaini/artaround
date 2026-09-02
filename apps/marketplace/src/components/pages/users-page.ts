@@ -47,6 +47,11 @@ interface UserFormData {
   isActive: boolean;
 }
 
+/**
+ * Users Management Page
+ *
+ * Admin interface for managing users, roles, and contextual role assignments.
+ */
 @customElement('users-page')
 export class UsersPage extends LitElement {
   @property({ type: Object }) currentUser: User | null = null;
@@ -59,14 +64,17 @@ export class UsersPage extends LitElement {
   @state() private error = '';
   @state() private success = '';
 
+  // Pagination
   @state() private page = 1;
   @state() private totalPages = 1;
   @state() private total = 0;
 
+  // Filters
   @state() private searchQuery = '';
   @state() private filterRole: UserRole | '' = '';
   @state() private filterActive: 'all' | 'active' | 'inactive' = 'all';
 
+  // Form data
   @state() private formData: UserFormData = {
     username: '',
     email: '',
@@ -75,15 +83,19 @@ export class UsersPage extends LitElement {
     isActive: true,
   };
 
+  // Resource name lookup (id → name)
   @state() private resourceNames: Map<string, string> = new Map();
 
+  // Resource options for resource picker in role modal
   @state() private resourceOptions: { value: string; label: string }[] = [];
   @state() private resourceOptionsLoading = false;
 
+  // Delete modal
   @state() private deleteModalOpen = false;
   @state() private userToDelete: User | null = null;
   @state() private deleting = false;
 
+  // Role assignment modal
   @state() private roleAssignmentModalOpen = false;
   @state() private roleAssignmentData: RoleAssignmentData = {
     role: ContextualRole.VIEWER,
@@ -91,6 +103,7 @@ export class UsersPage extends LitElement {
     resourceId: '',
   };
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -126,6 +139,7 @@ export class UsersPage extends LitElement {
     }
   }
 
+  // ─── Data Loading ────────────────────────────────────────
   private async loadUsers() {
     this.loading = true;
     this.error = '';
@@ -154,6 +168,7 @@ export class UsersPage extends LitElement {
     }
   }
 
+  // ─── Actions (Filters / CRUD / Roles) ───────────────────
   private handleFilterRole(role: UserRole | '') {
     this.filterRole = role;
     this.page = 1;
@@ -214,6 +229,7 @@ export class UsersPage extends LitElement {
     this.error = '';
     this.success = '';
 
+    // Validation
     if (!this.formData.username.trim()) {
       this.error = __('Username obbligatorio');
       return;
@@ -254,6 +270,7 @@ export class UsersPage extends LitElement {
         this.success = __('Utente aggiornato con successo!');
       }
 
+      // Refresh list and go back
       await this.loadUsers();
       setTimeout(() => {
         this.viewMode = 'list';
@@ -288,6 +305,7 @@ export class UsersPage extends LitElement {
     }
   }
 
+  // Role assignment methods
   private openRoleAssignmentModal(user: User) {
     this.selectedUser = user;
     this.roleAssignmentData = {
@@ -339,6 +357,7 @@ export class UsersPage extends LitElement {
       );
       this.selectedUser = updatedUser;
 
+      // Update user in list
       this.users = this.users.map((u) => (u._id === updatedUser._id ? updatedUser : u));
 
       this.roleAssignmentModalOpen = false;
@@ -362,12 +381,14 @@ export class UsersPage extends LitElement {
       });
       this.selectedUser = updatedUser;
 
+      // Update user in list
       this.users = this.users.map((u) => (u._id === updatedUser._id ? updatedUser : u));
     } catch (e) {
       console.error('Error removing role assignment:', e);
     }
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     return html`
       <div class="users-page">
@@ -379,6 +400,7 @@ export class UsersPage extends LitElement {
     `;
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderList() {
     return html`
       <!-- Header -->

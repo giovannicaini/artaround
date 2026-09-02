@@ -15,6 +15,7 @@ export class UiModal extends LitElement {
   @property({ type: Boolean }) loading = false;
   @property({ type: Boolean }) hideCancel = false;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -30,6 +31,7 @@ export class UiModal extends LitElement {
     document.removeEventListener('keydown', this.handleKeydown.bind(this));
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private handleConfirm() {
     this.dispatchEvent(
       new CustomEvent('confirm', {
@@ -60,6 +62,7 @@ export class UiModal extends LitElement {
     }
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     if (!this.open) return null;
     const resolvedConfirmLabel = this.confirmLabel || __('Conferma');

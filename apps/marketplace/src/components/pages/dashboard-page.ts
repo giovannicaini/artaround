@@ -52,9 +52,11 @@ export class DashboardPage extends LitElement {
   @state() private myItems: Item[] = [];
   @state() private myVisits: Visit[] = [];
 
+  // ─── Internal State ──────────────────────────────────────
   private museumIndexById = new Map<string, Museum>();
   private museumsCache: Museum[] | null = null;
 
+  // ─── Helpers ──────────────────────────────────────────────
   private async getMuseumsCached(): Promise<Museum[]> {
     if (this.museumsCache) {
       return this.museumsCache;
@@ -66,6 +68,7 @@ export class DashboardPage extends LitElement {
     return museums;
   }
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -82,6 +85,7 @@ export class DashboardPage extends LitElement {
     super.disconnectedCallback();
   }
 
+  // ─── UI Actions ──────────────────────────────────────────
   private handleMuseumChanged = (event: CustomEvent) => {
     this.selectedMuseum = event.detail || null;
     this.showMuseumSelector = false;
@@ -108,6 +112,7 @@ export class DashboardPage extends LitElement {
     preferencesService.clearSelectedMuseum();
   }
 
+  // ─── Data Loading ────────────────────────────────────────
   private async loadDashboardData() {
     this.loading = true;
     this.loadError = '';
@@ -204,6 +209,7 @@ export class DashboardPage extends LitElement {
     return this.museumIndexById.get(museumId)?.name || museumId;
   }
 
+  // ─── User Scoped Data ────────────────────────────────────
   private async loadUserScopedLists(): Promise<void> {
     if (!this.user?._id) return;
 
@@ -272,6 +278,7 @@ export class DashboardPage extends LitElement {
       .slice(0, 5);
   }
 
+  // ─── Navigation Actions ──────────────────────────────────
   private formatDate(value?: string | Date): string {
     if (!value) return '-';
     try {
@@ -334,6 +341,7 @@ export class DashboardPage extends LitElement {
     this.goToRoute('visits');
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private getVisitStatusBadge(visit: Visit) {
     return visit.isPublished
       ? html`<ui-badge variant="success" size="sm" .label=${__('Pubblicata')}></ui-badge>`
@@ -484,6 +492,7 @@ export class DashboardPage extends LitElement {
     `;
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <div class="space-y-6 animate-fade-in">

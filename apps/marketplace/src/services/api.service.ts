@@ -4,6 +4,9 @@ const API_BASE_URL = import.meta.env.DEV ? 'http://localhost:3000/api' : '/api';
 
 export type ApiResponse<T> = APIResponse<T> & { error?: APIError | string };
 
+/**
+ * Response type for paginated API endpoints
+ */
 export interface PaginatedApiResponse<T> extends ApiResponse<T> {
   pagination?: {
     page: number;
@@ -13,6 +16,9 @@ export interface PaginatedApiResponse<T> extends ApiResponse<T> {
   };
 }
 
+/**
+ * Helper to extract error message from response
+ */
 export function getErrorMessage(response: ApiResponse<unknown>, defaultMessage: string): string {
   if (response.message) return response.message;
   if (response.error) {

@@ -14,6 +14,7 @@ export class UiResourceListCard extends LitElement {
   @property({ attribute: false }) renderItems: (() => unknown) | null = null;
   @property({ attribute: false }) renderActions: (() => unknown) | null = null;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -23,6 +24,7 @@ export class UiResourceListCard extends LitElement {
     this.style.display = 'block';
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     const resolvedEmptyText = this.emptyText || __('Nessun elemento');
 

@@ -15,6 +15,7 @@ export class AccessibilityPanel extends LitElement {
   @state() private settings: AccessibilitySettings = preferencesService.getAccessibility();
   @state() private theme: Theme = preferencesService.getTheme();
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -33,6 +34,7 @@ export class AccessibilityPanel extends LitElement {
     super.disconnectedCallback();
   }
 
+  // ─── Actions & State Updates ─────────────────────────────
   private handleA11yChanged = (e: CustomEvent) => {
     this.settings = { ...e.detail };
   };
@@ -89,6 +91,7 @@ export class AccessibilityPanel extends LitElement {
     this.theme = 'auto';
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderToggleRow(
     label: string,
     description: string,
@@ -134,6 +137,7 @@ export class AccessibilityPanel extends LitElement {
     `;
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     if (!this.open) return html``;
 

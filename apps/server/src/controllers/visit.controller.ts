@@ -14,6 +14,12 @@ import {
   type VisitStep,
 } from '@artaround/shared';
 
+/**
+ * Visit Controller
+ *
+ * Manages visits - ordered sequences of artworks with items for each step
+ */
+
 export class VisitController {
   private static async getMuseumActiveLanguages(museumId: string): Promise<AppLanguage[]> {
     const museum = await MuseumModel.findById(museumId).select('activeLanguages').lean();
@@ -61,6 +67,7 @@ export class VisitController {
     }
   }
 
+  // Validation rules for the new Visit structure
   static createValidation = [
     body('museumId').notEmpty().withMessage('Museum ID (Wikidata) is required'),
     body('title').trim().notEmpty().withMessage('Title is required'),
@@ -95,6 +102,7 @@ export class VisitController {
       ),
   ];
 
+  // Get all visits with filters
   static async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const {
@@ -139,6 +147,7 @@ export class VisitController {
     }
   }
 
+  // Get visit by ID
   static async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -158,6 +167,7 @@ export class VisitController {
     }
   }
 
+  // Get visits by museum (using Wikidata ID)
   static async getByMuseum(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { museumId } = req.params;
@@ -178,6 +188,7 @@ export class VisitController {
     }
   }
 
+  // Get user's own visits
   static async getMyVisits(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) {
@@ -197,6 +208,7 @@ export class VisitController {
     }
   }
 
+  // Create visit
   static async create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -208,6 +220,7 @@ export class VisitController {
         throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
       }
 
+      // Sort steps by order
       const steps = (req.body.steps || []).sort(
         (a: { order: number }, b: { order: number }) => a.order - b.order,
       );
@@ -270,6 +283,7 @@ export class VisitController {
     }
   }
 
+  // Update visit
   static async update(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -283,12 +297,15 @@ export class VisitController {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
+      // Stesso criterio già applicato a artwork/item: proprietario, admin o curatore
+      // (gestisce tutto il contenuto del museo assegnato, non solo il proprio).
       const canManage =
         visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
       if (!canManage) {
         throw new AppError(403, 'FORBIDDEN', 'You can only update your own visits');
       }
 
+      // Sort steps by order if provided
       if (req.body.steps) {
         req.body.steps = req.body.steps.sort(
           (a: { order: number }, b: { order: number }) => a.order - b.order,
@@ -308,6 +325,7 @@ export class VisitController {
     }
   }
 
+  // Add step to visit
   static async addStep(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -321,6 +339,7 @@ export class VisitController {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
+      // Proprietario, admin o curatore (stesso criterio di update/delete).
       const canManageStep =
         visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
       if (!canManageStep) {
@@ -329,6 +348,7 @@ export class VisitController {
 
       const step = req.body;
 
+      // Auto-assign order if not provided
       if (step.order === undefined) {
         const maxOrder = Math.max(...visit.steps.map((s) => s.order), 0);
         step.order = maxOrder + 1;
@@ -348,6 +368,7 @@ export class VisitController {
     }
   }
 
+  // Update step in visit
   static async updateStep(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, stepOrder } = req.params;
@@ -361,6 +382,7 @@ export class VisitController {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
+      // Proprietario, admin o curatore (stesso criterio di update/delete).
       const canManageStep =
         visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
       if (!canManageStep) {
@@ -372,8 +394,11 @@ export class VisitController {
         throw new AppError(404, 'STEP_NOT_FOUND', 'Step not found');
       }
 
-      // è un subdocument Mongoose, lo spread diretto perde campi: prima lo
-      // riporto a plain object col giro JSON, poi merge col body
+      // visit.steps[stepIndex] è un subdocument Mongoose: spread diretto non ne copia
+      // in modo affidabile i campi (stesso problema corretto in museum.controller.ts
+      // updateFloor). JSON round-trip forza un plain object prima del merge, per
+      // evitare che un PUT parziale perda id/order/type/isOptional e fallisca la
+      // validazione Mongoose al save.
       const existingStep = JSON.parse(JSON.stringify(visit.steps[stepIndex])) as VisitStep;
       visit.steps[stepIndex] = { ...existingStep, ...req.body };
       visit.steps.sort((a, b) => a.order - b.order);
@@ -389,6 +414,7 @@ export class VisitController {
     }
   }
 
+  // Delete step from visit
   static async deleteStep(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, stepOrder } = req.params;
@@ -402,6 +428,7 @@ export class VisitController {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
+      // Proprietario, admin o curatore (stesso criterio di update/delete).
       const canManageStep =
         visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
       if (!canManageStep) {
@@ -410,6 +437,7 @@ export class VisitController {
 
       visit.steps = visit.steps.filter((s) => s.order !== Number(stepOrder));
 
+      // Re-order remaining steps
       visit.steps.forEach((step, index) => {
         step.order = index + 1;
       });
@@ -426,6 +454,7 @@ export class VisitController {
     }
   }
 
+  // Reorder steps
   static async reorderSteps(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -440,12 +469,14 @@ export class VisitController {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
+      // Proprietario, admin o curatore (stesso criterio di update/delete).
       const canManageStep =
         visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
       if (!canManageStep) {
         throw new AppError(403, 'FORBIDDEN', 'You can only modify your own visits');
       }
 
+      // Apply new order
       for (const { oldOrder, newOrder } of stepOrders) {
         const step = visit.steps.find((s) => s.order === oldOrder);
         if (step) {
@@ -466,6 +497,7 @@ export class VisitController {
     }
   }
 
+  // Publish visit
   static async publish(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -479,12 +511,14 @@ export class VisitController {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
+      // Proprietario, admin o curatore (stesso criterio di update/delete).
       const canManageStep =
         visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
       if (!canManageStep) {
         throw new AppError(403, 'FORBIDDEN', 'You can only publish your own visits');
       }
 
+      // Validate visit has required content
       if (!visit.steps || visit.steps.length === 0) {
         throw new AppError(400, 'VALIDATION_ERROR', 'Visit must have at least one step');
       }
@@ -508,6 +542,7 @@ export class VisitController {
     }
   }
 
+  // Unpublish visit
   static async unpublish(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -521,6 +556,7 @@ export class VisitController {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
+      // Proprietario, admin o curatore (stesso criterio di update/delete).
       const canManageStep =
         visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
       if (!canManageStep) {
@@ -540,6 +576,7 @@ export class VisitController {
     }
   }
 
+  // Delete visit
   static async delete(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -553,6 +590,7 @@ export class VisitController {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
       }
 
+      // Stesso criterio dell'update: proprietario, admin o curatore.
       const canManage =
         visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
       if (!canManage) {

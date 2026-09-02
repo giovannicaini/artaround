@@ -13,12 +13,14 @@ export interface ItemDocument extends Omit<IItem, '_id'>, Document {}
 
 const itemSchema = new Schema<ItemDocument>(
   {
+    // Museum context
     museumId: {
       type: String,
       required: true,
       index: true,
     },
 
+    // Reference - what this item is about
     referenceType: {
       type: String,
       enum: Object.values(ItemReferenceType),
@@ -26,11 +28,12 @@ const itemSchema = new Schema<ItemDocument>(
       index: true,
     },
     referenceId: {
-      type: String, // id wikidata
+      type: String, // Wikidata ID
       index: true,
     },
     referenceTitle: String,
 
+    // Content
     sourceLanguage: {
       type: String,
       enum: SUPPORTED_APP_LANGUAGES,
@@ -54,6 +57,7 @@ const itemSchema = new Schema<ItemDocument>(
       of: String,
     },
 
+    // Content characteristics
     duration: {
       type: String,
       enum: Object.values(ContentDuration),
@@ -65,6 +69,7 @@ const itemSchema = new Schema<ItemDocument>(
       required: true,
     },
 
+    // Authorship
     authorId: {
       type: String,
       required: true,
@@ -73,6 +78,7 @@ const itemSchema = new Schema<ItemDocument>(
     },
     authorName: String,
 
+    // Licensing & Pricing
     license: {
       type: String,
       enum: Object.values(LicenseType),
@@ -88,14 +94,17 @@ const itemSchema = new Schema<ItemDocument>(
       default: true,
     },
 
+    // Media
     image: String,
 
+    // Statistics
     usageCount: {
       type: Number,
       default: 0,
     },
     rating: Number,
 
+    // Metadata
     tags: [String],
   },
   {
@@ -103,6 +112,7 @@ const itemSchema = new Schema<ItemDocument>(
   },
 );
 
+// Indexes
 itemSchema.index({ referenceType: 1, referenceId: 1 });
 itemSchema.index({ museumId: 1, referenceType: 1 });
 itemSchema.index({ isFree: 1 });

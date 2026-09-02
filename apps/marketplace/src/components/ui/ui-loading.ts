@@ -1,11 +1,23 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
+/**
+ * UI Loading State
+ *
+ * A consistent loading spinner with optional text.
+ *
+ * @example
+ * ```html
+ * <ui-loading .text=${__('Caricamento contenuti...')}></ui-loading>
+ * <ui-loading size="sm"></ui-loading>
+ * ```
+ */
 @customElement('ui-loading')
 export class UiLoading extends LitElement {
   @property({ type: String }) text = '';
   @property({ type: String }) size: 'sm' | 'md' | 'lg' = 'md';
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -15,6 +27,7 @@ export class UiLoading extends LitElement {
     this.style.display = 'block';
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     const sizeClasses = {
       sm: 'w-5 h-5 border',

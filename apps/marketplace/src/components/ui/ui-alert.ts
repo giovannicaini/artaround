@@ -6,6 +6,18 @@ import { __ } from '../../services/i18n.service';
 
 export type AlertVariant = 'success' | 'danger' | 'warning' | 'info';
 
+/**
+ * UI Alert
+ *
+ * A consistent alert/notification box with icon.
+ *
+ * @example
+ * ```html
+ * <ui-alert variant="danger" .message=${__('Si è verificato un errore')}></ui-alert>
+ * <ui-alert variant="success" .message=${__('Operazione completata!')}></ui-alert>
+ * <ui-alert variant="info" title="Nota" message="Informazione importante"></ui-alert>
+ * ```
+ */
 @customElement('ui-alert')
 export class UiAlert extends LitElement {
   @property({ type: String }) variant: AlertVariant = 'info';
@@ -16,6 +28,7 @@ export class UiAlert extends LitElement {
 
   @state() private visible = true;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -25,6 +38,7 @@ export class UiAlert extends LitElement {
     this.style.display = 'block';
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private get variantConfig() {
     const configs = {
       success: {
@@ -72,6 +86,7 @@ export class UiAlert extends LitElement {
     this.dispatchEvent(new CustomEvent('retry', { bubbles: true, composed: true }));
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     if (!this.visible || !this.message) return nothing;
 

@@ -7,8 +7,14 @@ import '../ui/ui-input';
 import '../ui/ui-icon-button';
 import { __ } from '../../services/i18n.service';
 
+/**
+ * Floor Manager Component
+ *
+ * Manages museum floors - add, edit, delete floors and upload SVG maps
+ */
 @customElement('floor-manager')
 export class FloorManager extends LitElement {
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -40,6 +46,7 @@ export class FloorManager extends LitElement {
     dimensions: { width: 800, height: 600 },
   };
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     // Con il form di aggiunta aperto il pannello resta visibile: non ha senso
     // poterlo nascondere mentre si sta compilando.
@@ -87,6 +94,7 @@ export class FloorManager extends LitElement {
     `;
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderFloorItem(floor: MuseumFloor) {
     const markerCount = floor.markers?.length || 0;
     const connectionCount = floor.connections?.length || 0;
@@ -239,6 +247,7 @@ export class FloorManager extends LitElement {
     `;
   }
 
+  // ─── Actions (Upload / CRUD) ─────────────────────────────
   private triggerFileUpload() {
     const input = this.querySelector('input[type="file"]') as HTMLInputElement;
     input?.click();

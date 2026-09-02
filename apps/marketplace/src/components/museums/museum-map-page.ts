@@ -24,8 +24,14 @@ import '../ui/ui-image-placeholder';
 import '../ui/ui-icon';
 import { __ } from '../../services/i18n.service';
 
+/**
+ * Museum Map Page
+ *
+ * Full page for managing museum floor maps, markers, and artwork positions
+ */
 @customElement('museum-map-page')
 export class MuseumMapPage extends LitElement {
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -104,6 +110,7 @@ export class MuseumMapPage extends LitElement {
     await this.loadData();
   }
 
+  // ─── Data Loading ────────────────────────────────────────
   private async loadData() {
     if (!this.museumId) {
       this.error = __('ID museo non specificato');
@@ -115,6 +122,7 @@ export class MuseumMapPage extends LitElement {
       this.loading = true;
       this.error = null;
 
+      // Load museum details, floors and rooms
       const [museum, floors, artworksResponse, rooms] = await Promise.all([
         museumService.getMuseum(this.museumId),
         museumService.getFloors(this.museumId),
@@ -127,6 +135,7 @@ export class MuseumMapPage extends LitElement {
       this.artworks = artworksResponse || [];
       this.rooms = rooms || [];
 
+      // Select first floor by default
       if (this.floors.length > 0 && !this.selectedFloorId) {
         this.selectedFloorId = this.floors[0].id;
       }
@@ -146,6 +155,7 @@ export class MuseumMapPage extends LitElement {
     return this.currentFloor?.markers || [];
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     if (this.loading) {
       return html`
@@ -322,6 +332,7 @@ export class MuseumMapPage extends LitElement {
     `;
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderArtworkItem(artwork: Artwork) {
     const hasPosition = this.floors.some((f) =>
       f.markers?.some((m) => m.artworkId === artwork.wikidataId),
@@ -368,6 +379,7 @@ export class MuseumMapPage extends LitElement {
     `;
   }
 
+  // ─── Actions (Floors / Markers / Save) ──────────────────
   private async goBack() {
     if (this.hasChanges) {
       const confirmed = await modalService.confirm({
@@ -405,7 +417,10 @@ export class MuseumMapPage extends LitElement {
       if (result.data) {
         this.floors = [...this.floors, result.data];
         this.selectedFloorId = result.data.id;
-        // non resetto hasChanges: potrebbero esserci marker su altri piani ancora da salvare
+        // Nota: NON resettare hasChanges qui. Il piano è già stato salvato,
+        // ma potrebbero esserci marker trascinati/modificati su altri piani
+        // ancora in attesa di "Salva Tutto": azzerare il flag li farebbe
+        // perdere silenziosamente (bottone disabilitato, nessun salvataggio).
       } else {
         await modalService.error(result.error || __("Errore durante l'aggiunta del piano"));
       }
@@ -420,13 +435,17 @@ export class MuseumMapPage extends LitElement {
 
     try {
       await museumService.updateFloor(this.museumId, floorData.id, floorData);
-      // floorData.markers/connections è uno snapshot potenzialmente superato, tengo quelli locali
+      // Aggiorna solo i campi del piano modificati nel form (nome/livello/svg/dimensioni):
+      // floorData.markers/connections sono uno snapshot preso all'apertura del form e
+      // potrebbero essere superati se nel frattempo si sono trascinati dei marker sullo
+      // stesso piano. Manteniamo i marker/connections correnti dallo stato locale.
       this.floors = this.floors.map((f) =>
         f.id === floorData.id
           ? { ...floorData, markers: f.markers, connections: f.connections }
           : f,
       );
-      // stesso motivo di sopra, non resetto hasChanges
+      // Nota: NON resettare hasChanges qui, per lo stesso motivo di handleFloorAdd
+      // (marker non ancora salvati su altri piani non vanno persi).
     } catch (err) {
       console.error('Error updating floor:', err);
       await modalService.error(__("Errore durante l'aggiornamento del piano"));
@@ -468,6 +487,7 @@ export class MuseumMapPage extends LitElement {
     try {
       await museumService.addMarker(this.museumId, this.selectedFloorId, marker);
 
+      // Update local state
       this.floors = this.floors.map((f) => {
         if (f.id === this.selectedFloorId) {
           return {
@@ -488,6 +508,7 @@ export class MuseumMapPage extends LitElement {
   private handleMarkerDrag(e: CustomEvent) {
     const { markerId, x, y } = e.detail;
 
+    // Update local state immediately for smooth drag
     this.floors = this.floors.map((f) => {
       if (f.id === this.selectedFloorId) {
         return {
@@ -515,6 +536,7 @@ export class MuseumMapPage extends LitElement {
       return f;
     });
 
+    // Update selected marker
     this.selectedMarker = updatedMarker;
     this.hasChanges = true;
   }
@@ -527,6 +549,7 @@ export class MuseumMapPage extends LitElement {
     try {
       await museumService.deleteMarker(this.museumId, this.selectedFloorId, marker.id);
 
+      // Update local state
       this.floors = this.floors.map((f) => {
         if (f.id === this.selectedFloorId) {
           return {
@@ -546,13 +569,16 @@ export class MuseumMapPage extends LitElement {
     }
   }
 
+  // ─── Actions (Sale / Contorno) ───────────────────────────
   private readonly CLOSE_POLYGON_THRESHOLD_PX = 12;
 
   private handleRoomOutlineStart(e: CustomEvent) {
     const room = e.detail as MuseumRoom;
     this.roomDrawMode = true;
     this.drawingRoomId = room.id;
-    // "Disegna"/"Ridisegna" riparte da zero invece di continuare il contorno esistente
+    // Si riparte sempre da zero: "Disegna"/"Ridisegna" sostituisce l'eventuale
+    // contorno precedente invece di continuare a modificarlo, per evitare
+    // ambiguità su dove si trova il "primo punto" di chiusura.
     this.roomDrawPoints = [];
     this.selectedMarker = null;
     this.clickPosition = null;
@@ -712,6 +738,7 @@ export class MuseumMapPage extends LitElement {
     try {
       this.saving = true;
 
+      // Save all floors with their markers
       for (const floor of this.floors) {
         if (floor.markers && floor.markers.length > 0) {
           await museumService.updateMarkers(this.museumId, floor.id, floor.markers);

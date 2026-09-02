@@ -14,6 +14,7 @@ export class UiTextarea extends LitElement {
   @property({ type: Boolean }) disabled = false;
   @property({ type: Boolean }) showCount = false;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -23,6 +24,7 @@ export class UiTextarea extends LitElement {
     this.style.display = 'block';
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private handleInput(e: Event) {
     const target = e.target as HTMLTextAreaElement;
     this.value = target.value;
@@ -35,6 +37,7 @@ export class UiTextarea extends LitElement {
     );
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     const textareaClasses = `
       block w-full px-3 py-2.5 text-sm rounded-lg border transition-colors duration-150

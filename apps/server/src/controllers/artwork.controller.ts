@@ -3,6 +3,12 @@ import { ArtworkModel } from '../models/index.js';
 import type { ArtworkFilters as SharedArtworkFilters } from '@artaround/shared';
 import { resolveMuseumIdCandidates } from '../utils/museum-id.util.js';
 
+/**
+ * Artwork Controller
+ *
+ * Manages CRUD operations for artworks (physical pieces in museums)
+ */
+
 type YearRange = {
   startYear?: number;
   endYear?: number;
@@ -86,6 +92,7 @@ const parseTechnicalYearRange = (yearValue: unknown): YearRange => {
 // GET /api/artworks
 export const getArtworks = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // Extract and type-check filters from query
     const filters: ArtworkQueryFilters = {
       museumId: req.query.museumId as string | undefined,
       author: req.query.author as string | undefined,
@@ -207,7 +214,7 @@ export const createArtwork = async (req: Request, res: Response, next: NextFunct
       endYear: yearRange.endYear,
     };
 
-    // niente doppioni della stessa opera nello stesso museo
+    // Check if artwork with this wikidataId already exists in the same museum
     const existing = await ArtworkModel.findOne({
       wikidataId: artworkData.wikidataId,
       museumId: artworkData.museumId,

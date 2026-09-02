@@ -6,6 +6,7 @@ export class UiSectionHeader extends LitElement {
   @property({ type: String }) title = '';
   @property({ type: String }) description = '';
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -15,6 +16,7 @@ export class UiSectionHeader extends LitElement {
     this.style.display = 'block';
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <div>

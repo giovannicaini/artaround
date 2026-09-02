@@ -28,10 +28,12 @@ export class WikidataAutocomplete extends LitElement {
 
   private searchTimeout: number | null = null;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
+  // ─── Actions (Search & Selection) ────────────────────────
   private handleInput(e: CustomEvent) {
     this.query = e.detail.value;
     this.selectedId = '';
@@ -140,6 +142,7 @@ export class WikidataAutocomplete extends LitElement {
     this.showDropdown = false;
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     const resolvedLabel = this.label || __("Opera d'arte");
     const resolvedPlaceholder = this.placeholder || __('Cerca su Wikidata...');

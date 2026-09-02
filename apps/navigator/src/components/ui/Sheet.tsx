@@ -10,7 +10,12 @@ interface SheetProps {
   children: ReactNode;
 }
 
-// sale dal basso su mobile, centrato su desktop
+/**
+ * Unico foglio modale dell'app: sale dal basso su mobile, centrato su
+ * desktop. Usato da impostazioni, servizi rapidi, lista opere — prima
+ * ognuno di questi era markup duplicato quasi identico in
+ * VisitPlayerPage.tsx.
+ */
 export function Sheet({ open, onClose, title, children }: SheetProps) {
   return (
     <AnimatePresence>

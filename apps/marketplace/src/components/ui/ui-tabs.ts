@@ -9,12 +9,32 @@ export interface TabItem {
   badge?: string | number;
 }
 
+/**
+ * UI Tabs
+ *
+ * A consistent tabbed navigation component.
+ *
+ * @fires tab-change - Emits the selected tab id
+ *
+ * @example
+ * ```html
+ * <ui-tabs
+ *   .tabs=${[
+ *     { id: 'info', label: 'Informazioni', icon: 'document' },
+ *     { id: 'steps', label: 'Percorso', icon: 'list', badge: 5 }
+ *   ]}
+ *   .activeTab=${'info'}
+ *   @tab-change=${(e) => this.activeTab = e.detail.id}
+ * ></ui-tabs>
+ * ```
+ */
 @customElement('ui-tabs')
 export class UiTabs extends LitElement {
   @property({ type: Array }) tabs: TabItem[] = [];
   @property({ type: String }) activeTab = '';
   @property({ type: String }) variant: 'underline' | 'pills' = 'underline';
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -22,10 +42,14 @@ export class UiTabs extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.style.display = 'block';
-    // senza min-width:0 non si restringe sotto la larghezza del contenuto
+    // Come per ui-filter-tabs: senza min-width:0 questo elemento non si
+    // restringe mai sotto la larghezza naturale del suo contenuto, quindi
+    // con abbastanza tab (es. le 5 dell'editor visite) la riga usciva dalla
+    // pagina invece di diventare scorribile su schermi stretti.
     this.style.minWidth = '0';
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private handleTabClick(tabId: string) {
     if (tabId === this.activeTab) return;
     this.dispatchEvent(
@@ -37,6 +61,7 @@ export class UiTabs extends LitElement {
     );
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     if (this.variant === 'pills') {
       return this.renderPills();
@@ -44,6 +69,7 @@ export class UiTabs extends LitElement {
     return this.renderUnderline();
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderUnderline() {
     return html`
       <div class="border-b border-surface-200 dark:border-surface-700 overflow-x-auto">

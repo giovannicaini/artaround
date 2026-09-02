@@ -48,7 +48,7 @@ export class WikidataService {
     const parsed = Number(rawValue);
     if (Number.isNaN(parsed)) return undefined;
 
-    // Wikidata dà spesso le dimensioni in metri, converto in cm se il valore è plausibile
+    // WDQS quantity values for dimensions are commonly in meters: convert to cm when plausible
     if (Math.abs(parsed) > 0 && Math.abs(parsed) <= 20) {
       return Math.round(parsed * 100);
     }

@@ -5,6 +5,10 @@ interface ChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: ReactNode;
 }
 
+/**
+ * Pillola selezionabile: filtri livello/durata/interessi, ovunque servano.
+ * Un solo look per "selezionato" in tutta l'app.
+ */
 export function Chip({ selected = false, icon, className = '', children, ...rest }: ChipProps) {
   return (
     <button

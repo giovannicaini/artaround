@@ -11,13 +11,17 @@ interface ModalOptions {
   hideCancel?: boolean;
 }
 
-// alert()/confirm() ma con ui-modal invece dei popup nativi del browser
+/**
+ * Modal Service
+ * Provides methods similar to alert() and confirm() but using ui-modal component
+ */
 class ModalService {
   private modalElement: HTMLElement | null = null;
 
   private static readonly CLOSE_ANIMATION_MS = 150;
 
   private createModal(): HTMLElement {
+    // Remove existing modal if any
     if (this.modalElement) {
       this.modalElement.remove();
     }
@@ -44,6 +48,10 @@ class ModalService {
     }, ModalService.CLOSE_ANIMATION_MS);
   }
 
+  /**
+   * Show an alert modal (like alert() but styled)
+   * Returns a promise that resolves when closed
+   */
   alert(options: ModalOptions | string): Promise<void> {
     return new Promise((resolve) => {
       const modal = this.createModal();
@@ -90,6 +98,10 @@ class ModalService {
     });
   }
 
+  /**
+   * Show a confirm modal (like confirm() but styled)
+   * Returns a promise that resolves to true/false
+   */
   confirm(options: ModalOptions | string): Promise<boolean> {
     return new Promise((resolve) => {
       const modal = this.createModal();

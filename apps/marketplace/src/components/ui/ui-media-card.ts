@@ -25,6 +25,7 @@ export class UiMediaCard extends LitElement {
 
   @state() private imageFailed = false;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -35,10 +36,12 @@ export class UiMediaCard extends LitElement {
     }
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private handleImageError() {
     this.imageFailed = true;
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     const showImage = Boolean(this.imageSrc) && !this.imageFailed;
 

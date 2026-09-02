@@ -1,27 +1,48 @@
 import { LanguageLevel } from './item.types';
 import type { AppLanguage } from './i18n.types';
 
-// una visita è una sequenza ordinata di tappe: opere, note logistiche,
-// indicazioni per spostarsi, o waypoint muti solo per disegnare il percorso
+/**
+ * Tipi Visita
+ *
+ * Una Visita è una sequenza ordinata di tappe attraverso un museo.
+ * Ogni tappa può essere:
+ * - Un'opera (con più opzioni di item per livelli/durate diverse)
+ * - Una nota logistica (info generali sul museo)
+ * - Un'indicazione di navigazione (come spostarsi da un punto all'altro)
+ */
+
+// ========================================
+// VISIT (Percorso di visita)
+// ========================================
 
 export interface Visit {
   _id: string;
-  museumId: string; // id wikidata del museo
+  museumId: string; // ID Wikidata del museo
 
-  authorId: string;
+  // Autore
+  authorId: string; // Utente che ha creato questa visita
   authorName?: string;
 
+  // Info di base
   title: string;
   description: string;
   titleTranslations?: Partial<Record<AppLanguage, string>>;
   descriptionTranslations?: Partial<Record<AppLanguage, string>>;
   coverImage?: string;
 
+  // Sequenza ordinata di tappe
   steps: VisitStep[];
+
+  // Info generali sulla visita
   generalInfo: VisitGeneralInfo;
+
+  // Pubblico di riferimento
   targetAudience: TargetAudience;
+
+  // Metadati
   metadata: VisitMetadata;
 
+  // Pubblicazione
   isPublished: boolean;
   publishedAt?: Date;
 
@@ -29,84 +50,130 @@ export interface Visit {
   updatedAt: Date;
 }
 
+// ========================================
+// VISIT STEPS
+// ========================================
+
 export interface VisitStep {
-  id: string;
+  id: string; // ID univoco all'interno della visita
   order: number;
   type: VisitStepType;
 
-  // campi opera
-  artworkId?: string; // id wikidata
-  itemIds?: string[]; // item riusabili collegati (livelli/durate diverse)
-  selectedItemId?: string; // scelto dall'utente durante la visita
+  // ===== PER TAPPE OPERA =====
+  artworkId?: string; // ID Wikidata dell'opera
 
-  // campi logistici, testo scritto apposta per questa visita
-  logisticTitle?: string;
-  logisticText?: string;
-  logisticIcon?: string; // "ticket", "info", "clock", "accessibility"
+  // Item disponibili per questa tappa (livelli/durate diverse)
+  // Usato solo per tappe ARTWORK - gli Item sono contenuto riusabile
+  itemIds?: string[]; // ID MongoDB degli item
 
-  // campi indicazioni
-  navigationText?: string;
-  navigationImage?: string;
-  // 'image' (default) mostra navigationImage, 'map' mostra la mappa
-  // integrata al posto di un'immagine caricata
+  // Item scelto dall'utente durante la visita (runtime)
+  selectedItemId?: string;
+
+  // ===== PER TAPPE LOGISTIC =====
+  // Contenuto inline - non riusabile, specifico di questa visita
+  logisticTitle?: string; // "Informazioni utili", "Biglietteria"
+  logisticText?: string; // Il testo informativo vero e proprio
+  logisticIcon?: string; // Nome icona: "ticket", "info", "clock", "accessibility"
+
+  // ===== PER TAPPE NAVIGATION =====
+  // Contenuto inline - indicazioni specifiche del percorso di questa visita
+  navigationText?: string; // "Prosegui dritto e gira a sinistra..."
+  navigationImage?: string; // Immagine opzionale che mostra il percorso
+  // Cosa mostrare come immagine della tappa: 'image' (default, retrocompatibile
+  // con le visite esistenti) usa navigationImage; 'map' mostra la mappa
+  // integrata al posto di un'immagine caricata, centrata/evidenziata su
+  // mapMarkerId se impostato.
   navigationVisual?: 'image' | 'map';
-  fromRoom?: string;
-  toRoom?: string;
+  fromRoom?: string; // Sala/area di partenza
+  toRoom?: string; // Sala/area di destinazione
 
-  // punto sulla mappa collegato alla tappa. Per i WAYPOINT è sempre un
-  // marker di tipo WAYPOINT (svolta muta, serve solo a far girare il
-  // percorso attorno ai muri). Per LOGISTIC/NAVIGATION è facoltativo e può
-  // essere un marker qualsiasi (ingresso, bar, opera...): il Navigator lo
-  // usa per evidenziarlo sulla mappa e, se navigationVisual è 'map', per
-  // centrarla
+  // ===== PUNTO SULLA MAPPA =====
+  // Per WAYPOINT: punto di svolta muto (nessun audio, nessuna sosta per il
+  // visitatore), serve solo a disegnare correttamente il percorso tra due
+  // tappe quando la linea diretta taglierebbe un muro (es. una porta su un
+  // corridoio -> un waypoint appena dentro la stanza, uno a metà del
+  // corridoio) — punta sempre a un MapMarker di tipo WAYPOINT.
+  // Per LOGISTIC/NAVIGATION: associazione facoltativa a un punto di
+  // interesse REALE già posizionato sulla piantina (un ingresso, un bar, un
+  // info point, un'opera...), non necessariamente di tipo WAYPOINT — il
+  // Navigator la usa per mostrare/evidenziare quel punto sulla mappa a
+  // questa tappa (e, se navigationVisual è 'map', per centrare la mappa
+  // integrata).
   mapMarkerId?: string;
 
-  isOptional: boolean;
-  estimatedDuration?: number; // secondi
+  // ===== COMUNI =====
+  isOptional: boolean; // Può essere saltata se il tempo è poco
+  estimatedDuration?: number; // in secondi
 }
 
 export enum VisitStepType {
-  ARTWORK = 'artwork',
-  LOGISTIC = 'logistic',
-  NAVIGATION = 'navigation',
-  WAYPOINT = 'waypoint', // svolta muta per disegnare il percorso sulla mappa
+  ARTWORK = 'artwork', // Sosta su un'opera
+  LOGISTIC = 'logistic', // Info logistica generale
+  NAVIGATION = 'navigation', // Indicazioni tra un'opera e l'altra
+  WAYPOINT = 'waypoint', // Punto di svolta muto per il disegno del percorso sulla mappa
 }
 
+// ========================================
+// GENERAL INFO
+// ========================================
+
 export interface VisitGeneralInfo {
-  costs?: string;
-  ticketInfo?: string;
-  openingHours?: string;
-  services?: string[]; // ["Bar", "Guardaroba", "WiFi"...]
-  tips?: string[];
-  accessibility?: string;
+  // Info pratiche
+  costs?: string; // "Ingresso: €15, ridotto €8"
+  ticketInfo?: string; // "Prenotazione obbligatoria online"
+  openingHours?: string; // "Mar-Dom 9:00-19:00"
+
+  // Servizi
+  services?: string[]; // ["Bar", "Guardaroba", "WiFi", "Audioguida"]
+
+  // Consigli
+  tips?: string[]; // ["Arrivare con 15 minuti di anticipo", "Deposito borse obbligatorio"]
+
+  // Accessibilità
+  accessibility?: string; // "Accessibile ai disabili, ascensore disponibile"
   wheelchairAccessible?: boolean;
 }
+
+// ========================================
+// TARGET AUDIENCE
+// ========================================
 
 export interface TargetAudience {
   minAge?: number;
   maxAge?: number;
-  languageLevels: LanguageLevel[];
-  interests?: string[];
-  estimatedDuration: number; // minuti
+  languageLevels: LanguageLevel[]; // Quali livelli supporta questa visita
+  interests?: string[]; // ["Arte barocca", "Scultura", "Caravaggio"]
+  estimatedDuration: number; // in minuti
 }
 
-export interface VisitMetadata {
-  language: AppLanguage;
-  supportedLanguages?: AppLanguage[];
+// ========================================
+// METADATA
+// ========================================
 
+export interface VisitMetadata {
+  language: AppLanguage; // Lingua principale (it, en, ecc.)
+  supportedLanguages?: AppLanguage[]; // Tutte le traduzioni disponibili
+
+  // Statistiche calcolate
   artworksCount: number;
   totalItemsCount: number;
-  estimatedDuration: number; // minuti
+  estimatedDuration: number; // in minuti
 
-  price: number; // 0 = gratis
+  // Prezzo
+  price: number; // 0 per gratis
   isFree: boolean;
   license: string;
 
-  rating?: number; // media 1-5
+  // Statistiche
+  rating?: number; // Valutazione media (1-5)
   ratingsCount?: number;
   downloadsCount: number;
   purchasesCount: number;
 }
+
+// ========================================
+// VISIT FILTERS & REQUESTS
+// ========================================
 
 export interface VisitFilters {
   museumId?: string;
@@ -133,6 +200,10 @@ export interface CreateVisitData {
 
 export type UpdateVisitData = Partial<CreateVisitData>;
 
+// ========================================
+// PURCHASE
+// ========================================
+
 export interface VisitPurchase {
   _id: string;
   visitId: string;
@@ -141,7 +212,10 @@ export interface VisitPurchase {
   purchasedAt: Date;
 }
 
-// versione ridotta per le liste
+// ========================================
+// VISIT SUMMARY (per le liste)
+// ========================================
+
 export interface VisitSummary {
   _id: string;
   title: string;

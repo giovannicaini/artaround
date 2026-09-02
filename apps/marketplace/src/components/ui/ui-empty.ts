@@ -2,6 +2,24 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import './ui-icon';
 
+/**
+ * UI Empty State
+ *
+ * A consistent empty state with icon, title, description, and optional action.
+ *
+ * @slot action - Slot for action button
+ *
+ * @example
+ * ```html
+ * <ui-empty
+ *   icon="document"
+ *   .title=${__('Nessun contenuto')}
+ *   .description=${__('Non ci sono ancora contenuti')}
+ * >
+ *   <ui-button slot="action" variant="primary" icon="plus" .label=${__('Crea il primo')}></ui-button>
+ * </ui-empty>
+ * ```
+ */
 @customElement('ui-empty')
 export class UiEmpty extends LitElement {
   @property({ type: String }) icon = 'folder';
@@ -11,6 +29,7 @@ export class UiEmpty extends LitElement {
   @state() private actionContent: Element[] = [];
   private actionInitialized = false;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -25,6 +44,7 @@ export class UiEmpty extends LitElement {
     });
   }
 
+  // ─── Helpers ──────────────────────────────────────────────
   private captureSlotContent() {
     const actionSlotted = Array.from(this.querySelectorAll('[slot="action"]')) as Element[];
     this.actionContent = actionSlotted.map((el) => {
@@ -36,7 +56,7 @@ export class UiEmpty extends LitElement {
   protected updated() {
     const actionContainer = this.querySelector('.empty-action-container');
     if (actionContainer && this.actionContent.length > 0) {
-      // sposto i nodi originali, non cloni, per non perdere gli event listener
+      // Move elements (not clone) to preserve event listeners
       this.actionContent.forEach((node) => {
         if (node.parentElement !== actionContainer) {
           actionContainer.appendChild(node);
@@ -45,6 +65,7 @@ export class UiEmpty extends LitElement {
     }
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <div class="text-center py-12">

@@ -29,6 +29,11 @@ import { __ } from '../../services/i18n.service';
 
 type ViewMode = 'list' | 'create' | 'edit';
 
+/**
+ * Visits Page
+ *
+ * Displays and manages Visits (percorsi di visita).
+ */
 @customElement('visits-page')
 export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
   @property({ type: Object }) user: User | null = null;
@@ -46,10 +51,12 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
   @state() private filterPublished: 'all' | 'published' | 'draft' = 'all';
   @state() private publishing = false;
 
+  // ─── Computed State ──────────────────────────────────────
   private get permissions(): PermissionSet {
     return getPermissions(this.user);
   }
 
+  // ─── Lifecycle ───────────────────────────────────────────
   connectedCallback() {
     super.connectedCallback();
     this.loadVisits();
@@ -65,17 +72,20 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     this.loadVisits();
   }
 
+  // ─── Data Loading / Filters ──────────────────────────────
   private async loadVisits() {
     this.loading = true;
     this.error = '';
 
     try {
+      // Admin and curator can see all visits, others see only their own
       if (this.permissions.canViewAnalytics) {
         const response = await visitService.getVisits({
           museumId: this.selectedMuseumId || undefined,
         });
         this.visits = response.visits;
       } else {
+        // Load user's own visits
         const visits = await visitService.getMyVisits();
         this.visits = this.selectedMuseumId
           ? visits.filter((visit) => visit.museumId === this.selectedMuseumId)
@@ -92,6 +102,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
   private get filteredVisits(): Visit[] {
     let filtered = this.visits;
 
+    // Filter by search query
     if (this.searchQuery.trim()) {
       const query = this.searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -99,6 +110,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
       );
     }
 
+    // Filter by published status
     if (this.filterPublished === 'published') {
       filtered = filtered.filter((v) => v.isPublished);
     } else if (this.filterPublished === 'draft') {
@@ -108,6 +120,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     return filtered;
   }
 
+  // ─── List / Form Actions ─────────────────────────────────
   private handleCreateVisit() {
     this.selectedVisit = null;
     this.viewMode = 'create';
@@ -118,7 +131,13 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     this.selectedVisit = null;
   }
 
-  // rispecchia il controllo server-side: proprio contenuto, o curatore/admin
+  /**
+   * Permesso reale di modificare/eliminare QUESTA visita: rispecchia il controllo
+   * server-side (visit.controller.ts) — proprio contenuto, oppure curatore/admin
+   * che gestiscono tutto il contenuto del museo. this.permissions.canEditVisit dice
+   * solo "il ruolo può modificare visite in generale", non basta per decidere se
+   * mostrare il bottone su una visita altrui (stesso bug già corretto per gli item).
+   */
   private canManageVisit(visit: Visit): boolean {
     if (this.user?.role === UserRole.CURATOR) {
       return true;
@@ -189,6 +208,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     this.backToListView();
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderVisitsList() {
     return html`
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -287,6 +307,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     if (this.viewMode === 'create' || this.viewMode === 'edit') {
       return html`

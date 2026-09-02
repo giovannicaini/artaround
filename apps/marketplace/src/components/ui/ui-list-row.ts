@@ -8,6 +8,7 @@ export class UiListRow extends LitElement {
   @property({ type: Boolean }) disabled = false;
   @property({ attribute: false }) renderTrailing: (() => unknown) | null = null;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -17,6 +18,7 @@ export class UiListRow extends LitElement {
     this.style.display = 'block';
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <button

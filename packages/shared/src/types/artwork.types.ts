@@ -1,53 +1,75 @@
-export interface Artwork {
-  _id: string;
-  wikidataId: string; // chiave primaria per deduplicare, es. Q28798937
+/**
+ * Tipi Opera
+ *
+ * Rappresenta le opere fisiche nei musei.
+ * Usa gli ID Wikidata come identificatori primari dove possibile.
+ */
 
+// ========================================
+// ARTWORK (Opera fisica nel museo)
+// ========================================
+
+export interface Artwork {
+  _id: string; // ObjectId MongoDB (interno)
+  wikidataId: string; // Q number Wikidata (es. Q28798937) - CHIAVE PRIMARIA per la deduplicazione
+
+  // Info di base
   title: string;
   description?: string;
 
-  museumId: string; // id wikidata del museo
+  // Museo
+  museumId: string; // ID Wikidata del museo (es. Q180916 per Galleria Borghese)
 
-  author?: string;
-  authorWikidataId?: string;
+  // Autore/Artista
+  author?: string; // Nome dell'artista
+  authorWikidataId?: string; // Q number Wikidata (es. Q42207 per Caravaggio)
 
+  // Datazione
   year?: string; // "1605", "1598-1601", "XVI secolo", "c. 1510"
-  startYear?: number; // per filtrare per intervallo numerico
-  endYear?: number;
+  startYear?: number; // Campo tecnico per il filtro per intervallo numerico
+  endYear?: number; // Campo tecnico per il filtro per intervallo numerico
 
+  // Classificazione
   artworkType: ArtworkType;
   movement?: string; // "Barocco", "Rinascimento"
-  movementWikidataId?: string;
+  movementWikidataId?: string; // Q number
   style?: string; // "Caravaggismo", "Manierismo"
   styleWikidataId?: string;
   period?: string; // "Cinquecento", "Seicento"
   periodWikidataId?: string;
 
+  // Proprietà fisiche
   dimensions?: ArtworkDimensions;
   materials?: string[]; // "Olio su tela", "Marmo di Carrara"
   technique?: string;
 
-  historicalEvents?: string[];
+  // Contesto
+  historicalEvents?: string[]; // Eventi storici correlati
   subjects?: string[]; // "Mitologia", "Ritratto", "Sacro"
-  artworkCollection?: string; // rinominato da 'collection', andava in conflitto con Document
+  artworkCollection?: string; // "Collezione Borghese" (rinominato da 'collection' per evitare conflitto con Document)
 
-  image: string;
-  images?: string[];
+  // Media
+  image: string; // URL immagine principale
+  images?: string[]; // Immagini aggiuntive
 
-  roomId?: string; // punta a Museum.rooms[].id
-  room?: string; // testo libero legacy, fallback per opere non ancora migrate a roomId
-  floor?: string;
+  // Posizione nel museo
+  roomId?: string; // Riferimento a Museum.rooms[].id — ogni opera dovrebbe averne una
+  room?: string; // Testo libero legacy, mantenuto come fallback per opere non ancora migrate
+  floor?: string; // "Piano Terra", "Primo Piano"
 
+  // Posizione sulla mappa (collegata alla piantina del museo)
   mapPosition?: ArtworkMapPosition;
 
+  // Metadati
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface ArtworkDimensions {
-  height?: number; // cm
+  height?: number; // in cm
   width?: number;
-  depth?: number; // sculture
-  diameter?: number; // opere circolari
+  depth?: number; // per le sculture
+  diameter?: number; // per le opere circolari
   unit: 'cm' | 'm';
   displayText?: string; // "170 × 128 cm"
 }
@@ -58,7 +80,6 @@ export interface ArtworkMapPosition {
   y: number;
   rotation?: number; // gradi 0-360
 }
-
 export enum ArtworkType {
   Painting = 'painting',
   Drawing = 'drawing',
@@ -71,6 +92,10 @@ export enum ArtworkType {
   DecorativeObject = 'decorative_object',
   Other = 'other',
 }
+
+// ========================================
+// ARTWORK FILTERS & QUERIES
+// ========================================
 
 export interface ArtworkFilters {
   museumId?: string;
@@ -89,9 +114,13 @@ export interface ArtworkFilters {
   limit?: number;
 }
 
+// ========================================
+// ARTWORK REQUESTS
+// ========================================
+
 export interface CreateArtworkData {
   wikidataId: string;
-  museumId: string;
+  museumId: string; // ID Wikidata del museo
   title: string;
   description?: string;
   author?: string;
@@ -114,7 +143,10 @@ export interface CreateArtworkData {
 
 export type UpdateArtworkData = Partial<CreateArtworkData>;
 
-// versione ridotta per le liste
+// ========================================
+// ARTWORK SUMMARY (per le liste)
+// ========================================
+
 export interface ArtworkSummary {
   _id: string;
   wikidataId: string;

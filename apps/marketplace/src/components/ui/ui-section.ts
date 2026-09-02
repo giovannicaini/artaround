@@ -2,6 +2,21 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './ui-icon';
 
+/**
+ * UI Section
+ *
+ * A form/page section with title and optional icon.
+ * Used for grouping related content with a consistent header style.
+ *
+ * @example
+ * ```html
+ * <ui-section
+ *   title="Informazioni base"
+ *   icon="document"
+ *   .renderContent=${() => html`<ui-card>...</ui-card>`}
+ * ></ui-section>
+ * ```
+ */
 @customElement('ui-section')
 export class UiSection extends LitElement {
   @property({ type: String }) title = '';
@@ -9,6 +24,7 @@ export class UiSection extends LitElement {
   @property({ type: String }) description = '';
   @property({ attribute: false }) renderContent: (() => unknown) | null = null;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -18,6 +34,7 @@ export class UiSection extends LitElement {
     this.style.display = 'block';
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     const hasHeader = this.title || this.description;
 

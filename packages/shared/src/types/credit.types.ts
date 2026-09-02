@@ -1,6 +1,9 @@
-// credito in euro del marketplace, nessun pagamento reale collegato per ora.
-// questo registro tiene solo lo storico dei movimenti di saldo, gli acquisti
-// veri e propri stanno in VisitPurchase/ItemPurchase
+// Credito in euro del marketplace: nessun pagamento reale per ora — l'utente
+// sceglie una cifra e il saldo viene semplicemente accreditato (vedi
+// MarketplaceController.topUpCredit). Le voci di questo registro sono lo
+// storico dei movimenti (ricariche e acquisti), non gli acquisti stessi —
+// quelli restano in VisitPurchase/ItemPurchase, che raccontano "cosa" è
+// stato comprato mentre questo registro racconta "cosa è successo al saldo".
 
 export enum CreditTransactionType {
   TOPUP = 'topup', // Ricarica scelta dall'utente

@@ -30,9 +30,10 @@ const visitPurchaseSchema = new Schema<VisitPurchaseDocument>(
   },
 );
 
+// Indexes
 visitPurchaseSchema.index({ userId: 1 });
 visitPurchaseSchema.index({ visitId: 1 });
-visitPurchaseSchema.index({ userId: 1, visitId: 1 }, { unique: true }); // niente acquisti doppi
+visitPurchaseSchema.index({ userId: 1, visitId: 1 }, { unique: true }); // Prevent duplicate purchases
 
 export const VisitPurchase = mongoose.model<VisitPurchaseDocument>(
   'VisitPurchase',

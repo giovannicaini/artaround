@@ -11,10 +11,12 @@ export class UiListControls extends LitElement {
   @property({ attribute: false }) renderSummary: (() => unknown) | null = null;
   @property({ attribute: false }) renderContent: (() => unknown) | null = null;
 
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
+  // ─── Actions ──────────────────────────────────────────────
   private toggle() {
     this.collapsed = !this.collapsed;
     this.dispatchEvent(
@@ -26,6 +28,7 @@ export class UiListControls extends LitElement {
     );
   }
 
+  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <ui-card padding="none">

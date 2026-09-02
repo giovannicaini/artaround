@@ -35,6 +35,12 @@ const TIME_LABELS: Record<TimePreference, string> = {
   [TimePreference.APPROFONDITO]: __('Approfondito (2+ ore)'),
 };
 
+/**
+ * Pagina "Impostazioni": self-service profilo + password per QUALSIASI utente
+ * loggato (a differenza di users-page.ts, che è la gestione utenti riservata
+ * agli admin). Usa PUT /api/auth/me e /api/auth/me/password, non
+ * PUT /api/users/:id (che richiede ruolo admin).
+ */
 @customElement('settings-page')
 export class SettingsPage extends LitElement {
   @property({ type: Object }) user: User | null = null;
@@ -163,7 +169,12 @@ export class SettingsPage extends LitElement {
     }
   }
 
-  // ricarica simulata, nessun pagamento reale
+  /**
+   * Ricarica simulata: nessun pagamento reale, l'importo scelto viene
+   * accreditato subito. Il saldo aggiornato arriva dal backend e viene
+   * propagato con lo stesso evento "user-updated" già usato dal salvataggio
+   * profilo, così l'header (che mostra il saldo) si aggiorna da solo.
+   */
   private async handleTopUp(amount: number) {
     this.topUpError = '';
     this.topUpSuccess = '';

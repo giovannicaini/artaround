@@ -24,8 +24,14 @@ export interface MapClickEvent {
   y: number;
 }
 
+/**
+ * SVG Map Editor Component
+ *
+ * Allows viewing and editing museum floor maps with draggable markers
+ */
 @customElement('svg-map-editor')
 export class SvgMapEditor extends LitElement {
+  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -100,6 +106,7 @@ export class SvgMapEditor extends LitElement {
   @state()
   private dragStartY = 0;
 
+  // Marker type icons
   private markerIcons: Record<string, string> = {
     artwork: '🖼️',
     sculpture: '🗿',
@@ -130,6 +137,7 @@ export class SvgMapEditor extends LitElement {
     return this.floors.find((f) => f.id === this.selectedFloorId) || this.floors[0] || null;
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     const floor = this.currentFloor;
 
@@ -270,18 +278,22 @@ export class SvgMapEditor extends LitElement {
     `;
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderMarker(marker: MapMarker) {
     const isSelected = this.selectedMarkerId === marker.id;
 
+    // Find artwork image if this is an artwork marker
     const artwork = marker.artworkId
       ? this.artworks.find((a) => a.wikidataId === marker.artworkId)
       : null;
     const hasImage = artwork?.image;
 
+    // Get focal point and zoom settings
     const focalX = marker.focalPoint?.x ?? 50;
     const focalY = marker.focalPoint?.y ?? 50;
     const focalZoom = marker.focalZoom ?? 1;
 
+    // Calculate image transform (same formula as editor)
     const offsetX = (50 - focalX) * focalZoom;
     const offsetY = (50 - focalY) * focalZoom;
 
@@ -522,6 +534,7 @@ export class SvgMapEditor extends LitElement {
     `;
   }
 
+  // ─── Actions (Viewport / Interaction) ────────────────────
   private selectFloor(floorId: string) {
     this.dispatchEvent(
       new CustomEvent('floor-select', {
@@ -549,7 +562,7 @@ export class SvgMapEditor extends LitElement {
   }
 
   private handleMouseDown(e: MouseEvent) {
-    // pan: tasto centrale, destro, o sinistro con spazio premuto
+    // Pan with middle mouse button (1) or right click (2), or left click when holding space
     if (e.button === 1 || e.button === 2 || (!this.editMode && e.button === 0)) {
       e.preventDefault();
       this.isDragging = true;
@@ -676,6 +689,7 @@ export class SvgMapEditor extends LitElement {
     e.stopPropagation();
     e.preventDefault();
 
+    // Simple drag implementation
     const startX = e.clientX;
     const startY = e.clientY;
     const originalX = marker.x;

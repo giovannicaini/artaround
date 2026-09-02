@@ -182,6 +182,7 @@ export class MuseumController {
     return location;
   }
 
+  // Validation rules
   static createValidation = [
     body('name').trim().notEmpty().withMessage('Name is required'),
     body('description').trim().notEmpty().withMessage('Description is required'),
@@ -460,6 +461,7 @@ export class MuseumController {
     };
   }
 
+  // Get all museums
   static async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { city, isActive } = req.query;
@@ -479,6 +481,7 @@ export class MuseumController {
     }
   }
 
+  // Get museum by ID
   static async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const idParam = req.params.id;
@@ -488,7 +491,10 @@ export class MuseumController {
         throw new AppError(400, 'VALIDATION_ERROR', 'Museum id is required');
       }
 
-      // id può essere sia l'_id Mongo che la QID Wikidata del museo
+      // I chiamanti pubblici (Navigator in testa) spesso hanno solo la QID
+      // Wikidata del museo — es. Visit.museumId, quasi sempre salvato così —
+      // non l'_id Mongo: un findById puro qui faceva fallire con un 500
+      // invece di un più corretto 404/200. Vedi findMuseumByAnyId.
       const museum = await findMuseumByAnyId(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
@@ -503,6 +509,7 @@ export class MuseumController {
     }
   }
 
+  // Get museum config (services and info)
   static async getConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -513,6 +520,7 @@ export class MuseumController {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
 
+      // Return museum services and floor info as config
       const config = {
         wikidataId: museum.wikidataId,
         name: museum.name,
@@ -535,6 +543,7 @@ export class MuseumController {
     }
   }
 
+  // Create museum (admin only)
   static async create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -564,6 +573,7 @@ export class MuseumController {
     }
   }
 
+  // Update museum
   static async update(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -650,6 +660,7 @@ export class MuseumController {
     }
   }
 
+  // Delete museum
   static async delete(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -668,8 +679,11 @@ export class MuseumController {
     }
   }
 
-  // piani
+  // ========================================
+  // FLOOR MANAGEMENT
+  // ========================================
 
+  // Get all floors for a museum
   static async getFloors(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -688,6 +702,7 @@ export class MuseumController {
     }
   }
 
+  // Get a specific floor
   static async getFloor(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, floorId } = req.params;
@@ -711,6 +726,7 @@ export class MuseumController {
     }
   }
 
+  // Add a new floor
   static async addFloor(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -730,16 +746,19 @@ export class MuseumController {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
 
+      // Check if floor ID already exists
       if (museum.floors?.some((f) => f.id === floorData.id)) {
         throw new AppError(400, 'FLOOR_EXISTS', 'A floor with this ID already exists');
       }
 
+      // Initialize floors array if needed
       if (!museum.floors) {
         museum.floors = [];
       }
 
       museum.floors.push(floorData);
 
+      // Sort floors by level
       museum.floors.sort((a, b) => a.level - b.level);
 
       await museum.save();
@@ -754,6 +773,7 @@ export class MuseumController {
     }
   }
 
+  // Update a floor
   static async updateFloor(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, floorId } = req.params;
@@ -768,16 +788,22 @@ export class MuseumController {
         throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
       }
 
-      // subdocument Mongoose, giro JSON per averne un plain object su cui lo spread funziona
+      // Update floor data, preserving markers and connections if not provided.
+      // museum.floors[i] è un subdocument Mongoose: i suoi campi non sono proprietà
+      // enumerabili "piatte", quindi {...existingFloor} non li copiava in modo
+      // affidabile (un PUT parziale poteva perdere name/level/dimensions e fallire
+      // la validazione Mongoose). JSON round-trip forza un plain object su cui lo
+      // spread funziona come atteso (il floor non ha campi Date, è sicuro).
       const existingFloor = JSON.parse(JSON.stringify(museum.floors![floorIndex])) as MuseumFloor;
       museum.floors![floorIndex] = {
         ...existingFloor,
         ...req.body,
-        id: floorId, // l'id non si cambia
+        id: floorId, // Prevent ID change
         markers: req.body.markers || existingFloor.markers,
         connections: req.body.connections || existingFloor.connections,
       };
 
+      // Re-sort floors by level
       museum.floors!.sort((a, b) => a.level - b.level);
 
       await museum.save();
@@ -792,6 +818,7 @@ export class MuseumController {
     }
   }
 
+  // Delete a floor
   static async deleteFloor(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, floorId } = req.params;
@@ -818,7 +845,9 @@ export class MuseumController {
     }
   }
 
-  // sale (gestione parallela ai marker)
+  // ========================================
+  // ROOM MANAGEMENT (gestione parallela ai marker: vedi MuseumRoom)
+  // ========================================
 
   static roomValidation = [
     body('id').trim().notEmpty().withMessage('Room ID is required'),
@@ -838,7 +867,7 @@ export class MuseumController {
     body('polygon.*.y').isNumeric().withMessage('Invalid polygon point'),
   ];
 
-  // indipendenti dal piano finché non contornate
+  // Get all rooms of the museum (indipendenti dal piano finché non contornate)
   static async getRooms(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -857,7 +886,7 @@ export class MuseumController {
     }
   }
 
-  // solo id/title/subtitle, il contorno si aggiunge dopo
+  // Create a new room (solo id/title/subtitle: il contorno si aggiunge dopo)
   static async createRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -897,7 +926,7 @@ export class MuseumController {
     }
   }
 
-  // non tocca floorId/polygon
+  // Rinomina una sala (solo title/subtitle — non tocca floorId/polygon)
   static async updateRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -931,7 +960,9 @@ export class MuseumController {
     }
   }
 
-  // endpoint separato dal rename, per validare il poligono a parte
+  // Contorna una sala sulla piantina: floorId + poligono chiuso (endpoint
+  // separato dal rename, così un contorno malformato non può essere salvato
+  // aggirando la validazione di roomOutlineValidation).
   static async outlineRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -970,7 +1001,7 @@ export class MuseumController {
     }
   }
 
-  // toglie solo floorId/polygon, la sala resta
+  // Rimuove solo il contorno di una sala (torna disponibile senza piano/poligono)
   static async removeRoomOutline(
     req: AuthRequest,
     res: Response,
@@ -1003,6 +1034,7 @@ export class MuseumController {
     }
   }
 
+  // Delete a room
   static async deleteRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, roomId } = req.params;
@@ -1029,8 +1061,11 @@ export class MuseumController {
     }
   }
 
-  // marker
+  // ========================================
+  // MARKER MANAGEMENT
+  // ========================================
 
+  // Get all markers for a floor
   static async getMarkers(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, floorId } = req.params;
@@ -1054,6 +1089,7 @@ export class MuseumController {
     }
   }
 
+  // Add a marker to a floor
   static async addMarker(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -1078,6 +1114,7 @@ export class MuseumController {
         throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
       }
 
+      // Check if marker ID already exists on this floor
       if (museum.floors![floorIndex].markers?.some((m) => m.id === markerData.id)) {
         throw new AppError(400, 'MARKER_EXISTS', 'A marker with this ID already exists');
       }
@@ -1099,6 +1136,7 @@ export class MuseumController {
     }
   }
 
+  // Update a marker
   static async updateMarker(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, floorId, markerId } = req.params;
@@ -1137,6 +1175,7 @@ export class MuseumController {
     }
   }
 
+  // Delete a marker
   static async deleteMarker(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, floorId, markerId } = req.params;
@@ -1168,7 +1207,7 @@ export class MuseumController {
     }
   }
 
-  // sostituzione in blocco, usata dal drag & drop
+  // Bulk update markers (for drag & drop repositioning)
   static async updateMarkers(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, floorId } = req.params;
@@ -1188,6 +1227,7 @@ export class MuseumController {
         throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
       }
 
+      // Replace all markers with the new array
       museum.floors![floorIndex].markers = markers.map(
         (m: Partial<MapMarker>) =>
           ({
@@ -1208,8 +1248,11 @@ export class MuseumController {
     }
   }
 
-  // collegamenti tra piani
+  // ========================================
+  // CONNECTION MANAGEMENT
+  // ========================================
 
+  // Add a connection between floors
   static async addConnection(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -1233,6 +1276,7 @@ export class MuseumController {
         throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
       }
 
+      // Check target floor exists
       if (!museum.floors?.some((f) => f.id === connectionData.targetFloorId)) {
         throw new AppError(400, 'TARGET_FLOOR_NOT_FOUND', 'Target floor not found');
       }
@@ -1254,6 +1298,7 @@ export class MuseumController {
     }
   }
 
+  // Delete a connection
   static async deleteConnection(
     req: AuthRequest,
     res: Response,
@@ -1291,19 +1336,24 @@ export class MuseumController {
     }
   }
 
-  // curatori
+  // ========================================
+  // CURATOR MANAGEMENT
+  // ========================================
 
+  // Get curators for a museum
   static async getCurators(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const { User } = await import('../models/index.js');
       const { ResourceType, ContextualRole } = await import('@artaround/shared');
 
+      // Verify museum exists
       const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
 
+      // Find users who have MANAGER role on this museum
       const curators = await User.find({
         roleAssignments: {
           $elemMatch: {
@@ -1323,6 +1373,7 @@ export class MuseumController {
     }
   }
 
+  // Add a curator to a museum
   static async addCurator(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -1334,16 +1385,19 @@ export class MuseumController {
         throw new AppError(400, 'VALIDATION_ERROR', 'User ID is required');
       }
 
+      // Verify museum exists
       const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
 
+      // Verify user exists
       const user = await User.findById(userId);
       if (!user) {
         throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
       }
 
+      // Check if already a curator
       const isAlreadyCurator = user.roleAssignments?.some(
         (assignment: RoleAssignment) =>
           assignment.resourceType === ResourceType.MUSEUM &&
@@ -1355,6 +1409,7 @@ export class MuseumController {
         throw new AppError(400, 'ALREADY_CURATOR', 'User is already a curator of this museum');
       }
 
+      // Add role assignment
       if (!user.roleAssignments) {
         user.roleAssignments = [];
       }
@@ -1383,22 +1438,26 @@ export class MuseumController {
     }
   }
 
+  // Remove a curator from a museum
   static async removeCurator(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, userId } = req.params;
       const { User } = await import('../models/index.js');
       const { ResourceType, ContextualRole } = await import('@artaround/shared');
 
+      // Verify museum exists
       const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
 
+      // Verify user exists
       const user = await User.findById(userId);
       if (!user) {
         throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
       }
 
+      // Find and remove the role assignment
       const assignmentIndex = user.roleAssignments?.findIndex(
         (assignment: RoleAssignment) =>
           assignment.resourceType === ResourceType.MUSEUM &&

@@ -28,6 +28,12 @@ import '../ui/ui-tag-input';
 import '../ui/ui-museum-required-notice';
 import { __ } from '../../services/i18n.service';
 
+/**
+ * Artwork Creator/Editor Component
+ *
+ * Used to create new physical artworks or edit existing ones.
+ * Supports Wikidata integration for auto-filling artwork info.
+ */
 @customElement('artwork-creator')
 export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
   @property({ type: String }) artworkId = ''; // For edit mode
@@ -39,36 +45,46 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
   @state() private museums: Museum[] = [];
   @state() private pendingWikidataFields: string[] = [];
 
+  // Wikidata reference
   @state() private wikidataId = '';
 
+  // Basic info
   @state() private artworkTitle = '';
   @state() private description = '';
 
+  // Museum
   @state() private museumId = ''; // Wikidata ID of museum
 
+  // Author
   @state() private author = '';
   @state() private authorWikidataId = '';
 
+  // Dating
   @state() private year = '';
 
+  // Classification
   @state() private artworkType: ArtworkType = ArtworkType.Painting;
   @state() private movement = '';
   @state() private movementWikidataId = '';
   @state() private technique = '';
 
+  // Physical properties
   @state() private materials: string[] = [];
   @state() private dimensionHeight: number | undefined = undefined;
   @state() private dimensionWidth: number | undefined = undefined;
   @state() private dimensionDepth: number | undefined = undefined;
   @state() private dimensionUnit: 'cm' | 'm' = 'cm';
 
+  // Media
   @state() private image = '';
 
+  // Location
   @state() private roomId = ''; // Riferimento a Museum.rooms[].id — sala vera dell'opera
   @state() private room = ''; // testo libero legacy, tenuto come fallback/nota aggiuntiva
   @state() private floor = '';
 
-  // sale del museo selezionato, create in "Modifica Museo"
+  // Sale del museo selezionato (create in "Modifica Museo"): l'opera deve
+  // appartenere a una di queste.
   private get availableRooms() {
     const museum = this.museums.find(
       (m) => m._id === this.museumId || m.wikidataId === this.museumId,
@@ -94,6 +110,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     ];
   }
 
+  // ─── Lifecycle ───────────────────────────────────────────
   async connectedCallback() {
     super.connectedCallback();
     await this.loadMuseums();
@@ -113,6 +130,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
+  // ─── Data Loading ────────────────────────────────────────
   private async loadMuseums() {
     try {
       this.museums = await museumService.getMuseums();
@@ -160,6 +178,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
+  // ─── Wikidata Helpers ────────────────────────────────────
   private clearWikidataAutocomplete() {
     const autocomplete = this.querySelector('wikidata-autocomplete') as {
       clearSelection?: () => void;
@@ -429,8 +448,10 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     this.error = '';
     this.wikidataId = selectedWikidataId;
 
+    // Prefill from search payload first
     this.applyWikidataData(e.detail as Record<string, unknown>);
 
+    // Then enrich with complete entity data from Wikidata
     try {
       const entity = await wikidataService.getEntity(selectedWikidataId);
       if (entity) {
@@ -455,6 +476,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     this.clearPendingWikidataField('movement');
   }
 
+  // ─── Validation & Submit ─────────────────────────────────
   private getDimensionsDisplayText(): string {
     const parts: string[] = [];
     if (this.dimensionHeight) parts.push(`${this.dimensionHeight}`);
@@ -477,7 +499,8 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     if (!this.image.trim()) {
       return __("L'immagine è obbligatoria");
     }
-    // richiesta solo se il museo ha già delle sale configurate
+    // Richiesta solo se il museo ha già delle sale configurate: un museo che non
+    // le usa ancora non deve bloccarsi nel creare opere.
     if (this.availableRooms.length > 0 && !this.roomId) {
       return __('Seleziona la sala in cui si trova questa opera');
     }
@@ -559,6 +582,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
+  // ─── Form State Helpers ──────────────────────────────────
   private resetForm() {
     this.wikidataId = '';
     this.artworkTitle = '';
@@ -594,6 +618,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     );
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
   private renderFormSection(
     title: string,
     icon: string,
@@ -614,6 +639,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
+  // ─── Render Entry ────────────────────────────────────────
   render() {
     if (this.loadingArtwork) {
       return html`<ui-loading size="lg" .text=${__('Caricamento opera...')}></ui-loading>`;

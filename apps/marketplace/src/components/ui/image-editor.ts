@@ -21,33 +21,69 @@ interface CropRegion {
 type SourceMode = 'file' | 'url';
 type EditorStep = 'source' | 'edit' | 'uploading';
 
+/**
+ * Reusable Image Editor Component
+ *
+ * Features:
+ * - Load image from file or URL
+ * - Preview with resize controls
+ * - Visual crop selection
+ * - Format and quality selection
+ * - Upload to server with processing
+ *
+ * Usage:
+ * <image-editor
+ *   category="museums"
+ *   .value=${museum.coverImage}
+ *   @image-saved=${(e) => handle(e.detail.path)}
+ * ></image-editor>
+ */
 @customElement('image-editor')
 export class ImageEditor extends LitElement {
+  /** Upload category (determines server subfolder) */
   @property({ type: String }) category: UploadCategory = 'misc';
-  @property({ type: String }) value = '';
-  @property({ type: String }) label = '';
-  @property({ type: Boolean }) required = false;
-  @property({ type: Number }) maxWidth = 1200;
-  @property({ type: Number }) maxHeight = 1200;
-  @property({ type: String }) defaultFormat: 'webp' | 'jpeg' | 'png' = 'webp';
-  @property({ type: Number }) maxOutputSizeMb = 0; // 0 = nessun limite
 
+  /** Current image path/URL (for displaying current image and replacing) */
+  @property({ type: String }) value = '';
+
+  /** Label shown above the component */
+  @property({ type: String }) label = '';
+
+  /** Whether this field is required */
+  @property({ type: Boolean }) required = false;
+
+  /** Suggested max width for the output */
+  @property({ type: Number }) maxWidth = 1200;
+
+  /** Suggested max height for the output */
+  @property({ type: Number }) maxHeight = 1200;
+
+  /** Default output format */
+  @property({ type: String }) defaultFormat: 'webp' | 'jpeg' | 'png' = 'webp';
+
+  /** Max output size in MB (0 = no limit) */
+  @property({ type: Number }) maxOutputSizeMb = 0;
+
+  // Internal state
   @state() private step: EditorStep = 'source';
   @state() private sourceMode: SourceMode = 'file';
   @state() private urlInput = '';
   @state() private showSourcePicker = false;
 
+  // Loaded image state
   @state() private imageFile: File | null = null;
   @state() private imageDataUrl = '';
   @state() private originalWidth = 0;
   @state() private originalHeight = 0;
 
+  // Edit controls
   @state() private targetWidth = 0;
   @state() private targetHeight = 0;
   @state() private lockAspectRatio = true;
   @state() private outputFormat: 'webp' | 'jpeg' | 'png' = 'webp';
   @state() private outputQuality = 85;
 
+  // Crop state
   @state() private cropEnabled = false;
   @state() private crop: CropRegion = { x: 0, y: 0, width: 0, height: 0 };
   @state() private dragging = false;
@@ -56,6 +92,7 @@ export class ImageEditor extends LitElement {
   @state() private dragStartY = 0;
   @state() private dragStartCrop: CropRegion = { x: 0, y: 0, width: 0, height: 0 };
 
+  // Upload state
   @state() private uploading = false;
   @state() private error = '';
   @state() private estimatedOutputSizeBytes = 0;
@@ -67,6 +104,7 @@ export class ImageEditor extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.outputFormat = this.defaultFormat;
+    // Bind global mouse handlers for crop drag
     this._onMouseMove = this._onMouseMove.bind(this);
     this._onMouseUp = this._onMouseUp.bind(this);
   }
@@ -133,7 +171,8 @@ export class ImageEditor extends LitElement {
       compressionFactor = 0.28;
     }
 
-    // un crop più piccolo riduce di solito la dimensione finale, anche a parità di output
+    // Make estimate responsive to crop changes even when output width/height are fixed.
+    // Smaller crop areas usually reduce encoded complexity and final size.
     const originalArea = Math.max(1, this.originalWidth * this.originalHeight);
     const croppedArea = Math.max(1, sourceWidth * sourceHeight);
     const cropRatio = Math.max(0.05, Math.min(1, croppedArea / originalArea));
@@ -174,6 +213,8 @@ export class ImageEditor extends LitElement {
       this.error = __("Impossibile caricare l'immagine corrente per la modifica");
     }
   }
+
+  // ─── Actions ──────────────────────────────────────────────
 
   private handleFileSelect(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -233,11 +274,12 @@ export class ImageEditor extends LitElement {
     this.error = '';
 
     try {
+      // Try to load the image to get dimensions
       await this.loadImageDimensions(normalizedUrl);
       this.imageDataUrl = normalizedUrl;
       this.imageFile = null; // URL mode, no local file
     } catch {
-      // se il browser blocca il caricamento (CORS/hotlink) lo importo lato server
+      // Fallback for ORB/CORS/hotlink blocks: import directly server-side
       this.uploading = true;
 
       try {
@@ -287,6 +329,7 @@ export class ImageEditor extends LitElement {
         this.originalWidth = img.naturalWidth;
         this.originalHeight = img.naturalHeight;
 
+        // Set initial target to fit within maxWidth/maxHeight
         const scale = Math.min(
           1,
           this.maxWidth / img.naturalWidth,
@@ -295,6 +338,7 @@ export class ImageEditor extends LitElement {
         this.targetWidth = Math.round(img.naturalWidth * scale);
         this.targetHeight = Math.round(img.naturalHeight * scale);
 
+        // Reset crop to full image
         this.crop = { x: 0, y: 0, width: img.naturalWidth, height: img.naturalHeight };
         this.cropEnabled = false;
 
@@ -305,6 +349,8 @@ export class ImageEditor extends LitElement {
       img.src = src;
     });
   }
+
+  // ─── Helpers ──────────────────────────────────────────────
 
   private handleWidthChange(e: CustomEvent) {
     const w = parseInt(e.detail.value, 10) || 0;
@@ -329,6 +375,7 @@ export class ImageEditor extends LitElement {
   private toggleCrop() {
     this.cropEnabled = !this.cropEnabled;
     if (this.cropEnabled && !this.hasCustomCropRegion()) {
+      // Set initial crop to center 80% region
       const cw = Math.round(this.originalWidth * 0.8);
       const ch = Math.round(this.originalHeight * 0.8);
       this.crop = {
@@ -354,6 +401,8 @@ export class ImageEditor extends LitElement {
   private resetCrop() {
     this.crop = { x: 0, y: 0, width: this.originalWidth, height: this.originalHeight };
   }
+
+  // ─── Actions ──────────────────────────────────────────────
 
   private getImageElement(): HTMLImageElement | null {
     return this.querySelector('.image-editor-preview') as HTMLImageElement;
@@ -452,6 +501,8 @@ export class ImageEditor extends LitElement {
     document.removeEventListener('mouseup', this._onMouseUp);
   }
 
+  // ─── Actions ──────────────────────────────────────────────
+
   private async handleSave() {
     this.uploading = true;
     this.error = '';
@@ -471,6 +522,7 @@ export class ImageEditor extends LitElement {
         format: this.outputFormat,
       };
 
+      // Apply crop whenever there is an active crop selection
       if (this.cropEnabled || this.hasCustomCropRegion()) {
         options.cropX = this.crop.x;
         options.cropY = this.crop.y;
@@ -478,11 +530,13 @@ export class ImageEditor extends LitElement {
         options.cropHeight = this.crop.height;
       }
 
+      // Determine old path for replacement
       const oldPath = this.value && this.value.startsWith('/uploads/') ? this.value : undefined;
       const oldPathForUpload = this.maxOutputSizeBytes > 0 ? undefined : oldPath;
 
       let result;
       if (this.imageFile) {
+        // File upload
         result = await uploadService.uploadFile(
           this.imageFile,
           this.category,
@@ -490,6 +544,7 @@ export class ImageEditor extends LitElement {
           oldPathForUpload,
         );
       } else if (this.imageDataUrl) {
+        // URL upload
         result = await uploadService.uploadFromUrl(
           this.imageDataUrl,
           this.category,
@@ -522,6 +577,7 @@ export class ImageEditor extends LitElement {
             composed: true,
           }),
         );
+        // Reset to source view
         this.resetEditor();
       } else {
         this.error =
@@ -564,6 +620,8 @@ export class ImageEditor extends LitElement {
   private cancelEdit() {
     this.resetEditor();
   }
+
+  // ─── Render ────────────────────────────────────────────────
 
   render() {
     const resolvedLabel = this.label || __('Immagine');
@@ -780,7 +838,10 @@ export class ImageEditor extends LitElement {
     `;
   }
 
+  // ─── Render Helpers ──────────────────────────────────────
+
   private renderEditor() {
+    //const scaleFactor = this.originalWidth > 0 ? 100 / this.originalWidth : 1;
     const outputDimensions = this.getOutputDimensions();
 
     return html`

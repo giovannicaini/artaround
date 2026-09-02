@@ -31,8 +31,11 @@ export const roleMiddleware = (...allowedRoles: UserRole[]) => {
   };
 };
 
-// admin passa sempre, altrimenti serve un ruolo contestuale sulla risorsa
-// (es. curatore assegnato a quel museo)
+/**
+ * Middleware that checks if user is admin OR has a specific contextual role on a resource.
+ * Used for museum management where curators can edit museums they're assigned to.
+ * Fetches user from database to check roleAssignments.
+ */
 export const resourceRoleMiddleware = (
   resourceType: ResourceType,
   resourceIdParam: string,
@@ -50,11 +53,13 @@ export const resourceRoleMiddleware = (
       return;
     }
 
+    // Admins can always access
     if (req.user.role === UserRole.ADMIN) {
       next();
       return;
     }
 
+    // Fetch user from database to check roleAssignments
     try {
       const { User } = await import('../models/index.js');
       const user = await User.findById(req.user.id);
@@ -70,6 +75,7 @@ export const resourceRoleMiddleware = (
         return;
       }
 
+      // Check for contextual role assignment
       const resourceId = req.params[resourceIdParam];
       const hasContextualRole = user.roleAssignments?.some(
         (assignment: RoleAssignment) =>
@@ -83,7 +89,7 @@ export const resourceRoleMiddleware = (
         return;
       }
     } catch (error) {
-      console.error('Errore nel controllo del ruolo sulla risorsa:', error);
+      console.error('Error checking resource role:', error);
     }
 
     res.status(403).json({
