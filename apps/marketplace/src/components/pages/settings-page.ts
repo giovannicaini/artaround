@@ -299,7 +299,7 @@ export class SettingsPage extends LitElement {
               type="number"
               .label=${__('Importo personalizzato (€)')}
               .value=${this.customTopUpAmount}
-              .hint=${__('Es. 15.50')}
+              .placeholder=${'15.50'}
               @input-change=${(e: CustomEvent) => (this.customTopUpAmount = e.detail.value)}
             ></ui-input>
             <ui-button
