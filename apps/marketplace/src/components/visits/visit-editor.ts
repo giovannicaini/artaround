@@ -50,12 +50,6 @@ import '../museums/svg-map-editor';
 
 type EditorTab = 'info' | 'steps' | 'map' | 'audience' | 'settings';
 
-/**
- * Visit Editor Component
- *
- * Creates and edits visits (percorsi di visita).
- * A visit is an ordered sequence of steps through a museum.
- */
 @customElement('visit-editor')
 export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
   @property({ type: String }) visitId = ''; // For edit mode
@@ -70,13 +64,11 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
   @state() private activeTab: EditorTab = 'info';
   @state() private activeLanguages: AppLanguage[] = ['it'];
 
-  // Basic info
   @state() private visitTitle = '';
   @state() private description = '';
   @state() private coverImage = '';
   @state() private museumId = '';
 
-  // Steps
   @state() private steps: VisitStep[] = [];
   @state() private editingStepIndex: number | null = null;
   @state() private draggingIndex: number | null = null;
@@ -85,14 +77,12 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
   @state() private loadingArtworks = false;
   @state() private floors: MuseumFloor[] = [];
   @state() private loadingFloors = false;
-  // Piano su cui si sta scegliendo il waypoint per lo step in modifica (non è salvato
-  // sullo step: si ricava dal marker una volta scelto, questo serve solo a filtrare
-  // la lista finché non l'ha ancora scelto).
+  // piano su cui si sta scegliendo il waypoint per lo step in modifica, solo
+  // per filtrare la lista finché non è stato scelto un marker
   @state() private waypointFloorId = '';
-  // Piano mostrato nella tab "Mappa" (anteprima del percorso).
+  // piano mostrato nella tab "Mappa" (anteprima del percorso)
   @state() private mapTabFloorId = '';
   @state() private availableItems: Item[] = [];
-  // General Info
   @state() private costs = '';
   @state() private ticketInfo = '';
   @state() private openingHours = '';
@@ -101,14 +91,12 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
   @state() private accessibility = '';
   @state() private wheelchairAccessible = false;
 
-  // Target Audience
   @state() private minAge: number | undefined = undefined;
   @state() private maxAge: number | undefined = undefined;
   @state() private languageLevels: LanguageLevel[] = [LanguageLevel.MEDIUM];
   @state() private interests: string[] = [];
   @state() private estimatedDuration = 60;
 
-  // Metadata
   @state() private language: AppLanguage = 'it';
   @state() private titleTranslations: Partial<Record<AppLanguage, string>> = {};
   @state() private descriptionTranslations: Partial<Record<AppLanguage, string>> = {};
@@ -142,7 +130,6 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     ];
   }
 
-  // ─── Lifecycle ───────────────────────────────────────────
   async connectedCallback() {
     super.connectedCallback();
     window.addEventListener('ui-language-changed', this.handleLanguageChanged as EventListener);
@@ -180,7 +167,6 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     void this.loadFloorsForMuseum();
   }
 
-  // ─── Data Loading ────────────────────────────────────────
   private async loadMuseums() {
     this.loadingMuseums = true;
     try {
@@ -199,7 +185,6 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     try {
       const visit = await visitService.getById(this.visitId);
       if (visit) {
-        // Basic info
         this.visitTitle = visit.title || '';
         this.description = visit.description || '';
         this.titleTranslations = visit.titleTranslations || {};
@@ -208,7 +193,6 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         this.museumId = visit.museumId;
         this.steps = visit.steps || [];
 
-        // General info
         if (visit.generalInfo) {
           this.costs = visit.generalInfo.costs || '';
           this.ticketInfo = visit.generalInfo.ticketInfo || '';
@@ -219,7 +203,6 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
           this.wheelchairAccessible = visit.generalInfo.wheelchairAccessible || false;
         }
 
-        // Target audience
         if (visit.targetAudience) {
           this.minAge = visit.targetAudience.minAge;
           this.maxAge = visit.targetAudience.maxAge;
@@ -228,7 +211,6 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
           this.estimatedDuration = visit.targetAudience.estimatedDuration || 60;
         }
 
-        // Metadata
         if (visit.metadata) {
           this.language = visit.metadata.language || 'it';
           this.price = visit.metadata.price || 0;
@@ -236,7 +218,6 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
           this.license = (visit.metadata.license as LicenseType) || LicenseType.CC0;
         }
 
-        // Load artworks for this museum
         if (this.museumId) {
           await this.loadMuseumLanguages();
           await this.loadArtworksForMuseum();
@@ -282,7 +263,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
-  /** Marker di tipo waypoint disponibili su un piano, per lo step editor. */
+  // marker WAYPOINT disponibili su un piano
   private getWaypointOptions(floorId: string): Array<{ value: string; label: string }> {
     const floor = this.floors.find((f) => f.id === floorId);
     return (floor?.markers || [])
@@ -294,8 +275,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       }));
   }
 
-  /** Etichetta leggibile per ogni tipo di marker, usata quando il marker
-   * stesso non ha un'etichetta impostata dal curatore. */
+  // etichetta di fallback quando il marker non ne ha una propria
   private get markerTypeLabels(): Record<string, string> {
     return {
       [MarkerType.ARTWORK]: __('Opera'),
@@ -327,13 +307,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     };
   }
 
-  /**
-   * Tutti i marker reali (ogni tipo tranne WAYPOINT, che è un punto muto di
-   * solo instradamento e non un punto di interesse) su tutti i piani, per
-   * l'associazione facoltativa di una tappa LOGISTIC/NAVIGATION a un punto
-   * della mappa — a differenza di getWaypointOptions(), qui il curatore deve
-   * poter scegliere anche ingressi, bar, info point ecc., non solo opere.
-   */
+  // tutti i marker reali (tutto tranne WAYPOINT) su tutti i piani
   private getAllMarkerOptions(): Array<{ value: string; label: string }> {
     const options: Array<{ value: string; label: string }> = [];
     const showFloorPrefix = this.floors.length > 1;
@@ -350,12 +324,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     return options;
   }
 
-  /**
-   * Trova un marker qualsiasi (non solo waypoint, nonostante il nome storico)
-   * per id, su tutti i piani — usata sia per le svolte sia per l'anteprima
-   * dell'associazione facoltativa a un punto della mappa di una tappa
-   * LOGISTIC/NAVIGATION.
-   */
+  // nonostante il nome, trova un marker qualsiasi per id su tutti i piani
   private findWaypointMarker(mapMarkerId?: string): { floorId: string; label: string } | null {
     if (!mapMarkerId) return null;
     for (const floor of this.floors) {
@@ -370,13 +339,8 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     return null;
   }
 
-  /**
-   * Risolve gli step ARTWORK/WAYPOINT (nell'ordine della visita) in punti con
-   * coordinate reali sulla mappa, per l'anteprima del percorso. Gli step senza
-   * posizione (LOGISTIC, NAVIGATION testuale, opera non ancora scelta...) sono
-   * saltati: la numerazione dei punti resta quindi consecutiva (1, 2, 3...) come
-   * si vede davvero camminando, non l'indice grezzo dello step nella visita.
-   */
+  // gli step senza posizione (logistici, indicazioni testuali) sono saltati,
+  // la numerazione resta consecutiva come si vede camminando
   private getVisitRoutePoints(): Array<{ x: number; y: number; floorId: string; order: number }> {
     const points: Array<{ x: number; y: number; floorId: string; order: number }> = [];
     const orderedSteps = [...this.steps].sort((a, b) => a.order - b.order);
@@ -543,10 +507,8 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
-  // ─── Actions (Museum / Steps / Save) ────────────────────
   private async handleMuseumChange(e: CustomEvent) {
     this.museumId = e.detail.value;
-    // Reload artworks when museum changes
     if (this.museumId) {
       await this.loadMuseumLanguages();
       await this.loadArtworksForMuseum();
@@ -570,7 +532,6 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       isOptional: false,
     };
 
-    // Set defaults based on type
     if (type === VisitStepType.LOGISTIC) {
       newStep.logisticTitle = '';
       newStep.logisticText = '';
@@ -585,7 +546,6 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
 
     this.steps = [...this.steps, newStep];
     this.editingStepIndex = this.steps.length - 1;
-    // Scroll to new step after render
     this.updateComplete.then(() => this.scrollToStep(this.steps.length - 1));
   }
 
@@ -681,7 +641,6 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         this.visitId = created._id;
       }
 
-      // Emit saved event
       this.dispatchEvent(
         new CustomEvent('visit-saved', {
           detail: { visitId: this.visitId },
@@ -725,9 +684,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       this.activeTab = 'steps';
       return false;
     }
-    // Uno step "opera" appena aggiunto non ha ancora un'opera selezionata (si sceglie
-    // da un select subito dopo): senza questo controllo il form lascia passare uno
-    // step incompleto e l'errore arriva solo dal server, generico, a salvataggio fatto.
+    // un'opera appena aggiunta non ha ancora artworkId scelto dal select
     const incompleteArtworkStepIndex = this.steps.findIndex(
       (step) => step.type === VisitStepType.ARTWORK && !step.artworkId,
     );
@@ -753,7 +710,6 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     );
   }
 
-  // ─── Render Entry ────────────────────────────────────────
   render() {
     if (this.loadingVisit) {
       return html`<ui-loading size="lg" .text=${__('Caricamento visita...')}></ui-loading>`;
@@ -828,7 +784,6 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
   private renderActiveTab() {
     switch (this.activeTab) {
       case 'info':
@@ -1177,13 +1132,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
-  // ─── Actions (Costruzione percorso dalla mappa) ─────────
-  /**
-   * Click su un punto vuoto della mappa nel tab "Mappa": crea una nuova
-   * svolta (marker WAYPOINT) sul piano corrente e la accoda subito come
-   * prossima tappa del percorso, così il segmento si vede disegnato senza
-   * dover passare dai select della tab Percorso.
-   */
+  // crea una svolta sul piano corrente e la accoda come prossima tappa
   private async handleRoutePointAdd(e: CustomEvent<{ x: number; y: number }>) {
     const floorId = this.mapTabFloorId || this.floors[0]?.id;
     if (!floorId) return;
@@ -1218,18 +1167,8 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     });
   }
 
-  /**
-   * Click su un marker esistente nel tab "Mappa": un'opera diventa una tappa
-   * ARTWORK, una svolta già presente (piazzata prima, anche da un'altra
-   * visita) viene riusata come tappa WAYPOINT invece di duplicarla. Scale,
-   * ascensori, scale mobili e rampe collegano due piani: cliccarli fa la
-   * stessa cosa di una svolta, così l'ultima opera di un piano si aggancia
-   * esattamente alle scale invece di dover piazzare una svolta approssimata
-   * lì vicino — poi basta cambiare piano dal menu "Piano" e cliccare le
-   * scale/ascensore corrispondente sul piano d'arrivo per continuare il
-   * percorso. Gli altri tipi di marker (ingressi, servizi...) restano
-   * fuori dal percorso.
-   */
+  // un'opera diventa tappa ARTWORK, una svolta esistente si riusa come
+  // WAYPOINT, scale/ascensori collegano i piani e valgono come svolta
   private handleRouteMarkerAdd(e: CustomEvent<MapMarker>) {
     const marker = e.detail;
     const CONNECTOR_TYPES: MarkerType[] = [
@@ -1682,8 +1621,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
-  /** Riga "📍 associato a: X" nell'anteprima di una tappa LOGISTIC/NAVIGATION,
-   * solo quando è stato scelto un punto sulla mappa. */
+  // riga "associato a: X", solo se è stato scelto un punto sulla mappa
   private renderMapAssociationBadge(step: VisitStep) {
     if (!step.mapMarkerId) return nothing;
     const marker = this.findWaypointMarker(step.mapMarkerId);
@@ -1692,13 +1630,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     </p>`;
   }
 
-  /**
-   * Associazione facoltativa a un punto della mappa, condivisa da LOGISTIC e
-   * NAVIGATION: a differenza della svolta (sempre un waypoint muto), qui il
-   * curatore può scegliere un punto di interesse qualsiasi — un ingresso, un
-   * bar, un info point, un'opera — che il Navigator userà per mostrare/
-   * evidenziare quel punto sulla mappa a questa tappa.
-   */
+  // associazione facoltativa a un punto qualsiasi, condivisa da LOGISTIC e NAVIGATION
   private renderMapMarkerPicker(step: VisitStep, index: number) {
     const options = this.getAllMarkerOptions();
     return html`
@@ -1804,10 +1736,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
             .value=${visual}
             @filter-change=${(e: CustomEvent) => {
               const nextVisual = e.detail.value as 'image' | 'map';
-              // "Oppure": le due modalità sono alternative, non sommabili —
-              // passando a "Mappa" l'immagine caricata smette di avere senso
-              // (e viceversa non serve azzerare il punto sulla mappa, resta
-              // utile anche in modalità immagine per il "Vedi sulla mappa").
+              // passando a mappa l'immagine caricata non serve più
               this.updateStep(index, {
                 navigationVisual: nextVisual,
                 navigationImage: nextVisual === 'map' ? undefined : step.navigationImage,
