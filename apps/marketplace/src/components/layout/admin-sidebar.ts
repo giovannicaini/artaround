@@ -60,9 +60,7 @@ export class AdminSidebar extends LitElement {
         id: 'author-area',
         label: __('Area Autore'),
         icon: 'edit',
-        // Anche il curatore può creare/modificare item e visite (vedi permissions.service.ts:
-        // canCreateItem/canCreateVisit includono isCurator), ma prima non aveva alcun link per
-        // arrivarci: qui era filtrato solo ad AUTHOR/ADMIN.
+        // il curatore può creare/modificare item e visite, quindi vede anche questa voce
         roles: [UserRole.AUTHOR, UserRole.CURATOR, UserRole.ADMIN],
         requiresMuseum: true,
       },
@@ -109,9 +107,7 @@ export class AdminSidebar extends LitElement {
   }
 
   private handleNavigate(route: string) {
-    // museum-map-page ha bisogno del museumId del museo attivo come routeParam esplicito
-    // (a differenza delle altre pagine, che lo leggono da preferencesService da sole):
-    // prima questa voce non esisteva proprio nel menu, quindi il caso non si poneva.
+    // museum-map-page vuole il museumId come routeParam esplicito, le altre pagine lo leggono da sole
     const params =
       route === 'museum-maps' && this.selectedMuseum
         ? { museumId: this.selectedMuseum._id }
@@ -125,9 +121,7 @@ export class AdminSidebar extends LitElement {
       }),
     );
 
-    // Sul cellulare il menu restava aperto dopo aver scelto una voce,
-    // costringendo a un tap in più per chiuderlo — innocuo su desktop, dove
-    // mobileOpen non pilota la sidebar fissa.
+    // chiude il menu mobile dopo la scelta, su desktop non ha effetto
     this.mobileOpen = false;
   }
 

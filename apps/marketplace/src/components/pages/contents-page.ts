@@ -117,12 +117,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     this.loadItems();
   }
 
-  /**
-   * Applica i filtri attivi (tipo riferimento, durata, livello, gratuito/a
-   * pagamento) + ricerca testuale a un array di item in memoria — usato in
-   * modalità authorOnly, dove "i miei item" arrivano già tutti insieme e si
-   * filtrano lato client invece che con una nuova richiesta al server.
-   */
+  // applica i filtri in memoria, usato in modalità authorOnly (niente nuova richiesta)
   private applyFiltersInMemory(items: Item[]): Item[] {
     const query = this.searchQuery.trim().toLowerCase();
 
@@ -190,10 +185,6 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
-  /**
-   * In modalità authorOnly non c'è bisogno di ricontattare il server: gli item
-   * dell'autore sono già tutti in ownItemsCache, si rifiltra solo in memoria.
-   */
   private applyFilters() {
     this.pagination.page = 1;
 
@@ -226,13 +217,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     this.viewMode = 'view';
   }
 
-  /**
-   * Permesso reale di modificare/eliminare QUESTO item: rispecchia esattamente il
-   * controllo server-side (item.controller.ts) — proprio contenuto, oppure
-   * curatore/admin che gestiscono tutto il contenuto del museo. this.permissions
-   * (PermissionSet) dice solo "il ruolo può modificare contenuti in generale",
-   * non basta per decidere se mostrare il bottone su un item altrui.
-   */
+  // rispecchia il controllo server-side: proprio contenuto, o curatore/admin
   private canManageItem(item: Item): boolean {
     if (this.user?.role === UserRole.CURATOR) {
       return true;

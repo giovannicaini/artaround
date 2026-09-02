@@ -70,14 +70,12 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     this.error = '';
 
     try {
-      // Admin and curator can see all visits, others see only their own
       if (this.permissions.canViewAnalytics) {
         const response = await visitService.getVisits({
           museumId: this.selectedMuseumId || undefined,
         });
         this.visits = response.visits;
       } else {
-        // Load user's own visits
         const visits = await visitService.getMyVisits();
         this.visits = this.selectedMuseumId
           ? visits.filter((visit) => visit.museumId === this.selectedMuseumId)
@@ -94,7 +92,6 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
   private get filteredVisits(): Visit[] {
     let filtered = this.visits;
 
-    // Filter by search query
     if (this.searchQuery.trim()) {
       const query = this.searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -102,7 +99,6 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
       );
     }
 
-    // Filter by published status
     if (this.filterPublished === 'published') {
       filtered = filtered.filter((v) => v.isPublished);
     } else if (this.filterPublished === 'draft') {
@@ -122,13 +118,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     this.selectedVisit = null;
   }
 
-  /**
-   * Permesso reale di modificare/eliminare QUESTA visita: rispecchia il controllo
-   * server-side (visit.controller.ts) — proprio contenuto, oppure curatore/admin
-   * che gestiscono tutto il contenuto del museo. this.permissions.canEditVisit dice
-   * solo "il ruolo può modificare visite in generale", non basta per decidere se
-   * mostrare il bottone su una visita altrui (stesso bug già corretto per gli item).
-   */
+  // rispecchia il controllo server-side: proprio contenuto, o curatore/admin
   private canManageVisit(visit: Visit): boolean {
     if (this.user?.role === UserRole.CURATOR) {
       return true;

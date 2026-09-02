@@ -163,12 +163,7 @@ export class SettingsPage extends LitElement {
     }
   }
 
-  /**
-   * Ricarica simulata: nessun pagamento reale, l'importo scelto viene
-   * accreditato subito. Il saldo aggiornato arriva dal backend e viene
-   * propagato con lo stesso evento "user-updated" già usato dal salvataggio
-   * profilo, così l'header (che mostra il saldo) si aggiorna da solo.
-   */
+  // ricarica simulata, nessun pagamento reale
   private async handleTopUp(amount: number) {
     this.topUpError = '';
     this.topUpSuccess = '';

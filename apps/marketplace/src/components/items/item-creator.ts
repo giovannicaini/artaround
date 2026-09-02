@@ -44,12 +44,10 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
   @state() private success = '';
   @state() private activeLanguages: AppLanguage[] = ['it'];
 
-  // Reference selection
   @state() private referenceType: ItemReferenceType = ItemReferenceType.ARTWORK;
   @state() private referenceId = '';
   @state() private referenceTitle = '';
 
-  // Content
   @state() private itemTitle = '';
   @state() private text = '';
   @state() private sourceLanguage: AppLanguage = 'it';
@@ -58,11 +56,9 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
   @state() private translationModeByLang: Partial<Record<AppLanguage, 'ai' | 'manual'>> = {};
   @state() private isSpeaking = false;
 
-  // Characteristics
   @state() private duration: ContentDuration = ContentDuration.MEDIUM;
   @state() private languageLevel: LanguageLevel = LanguageLevel.MEDIUM;
 
-  // Metadata
   @state() private license: LicenseType = LicenseType.CC_BY;
   @state() private price = 0;
   @state() private tags: string[] = [];
@@ -105,9 +101,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
-  // In modalità modifica (itemId valorizzato) precarica il contenuto esistente:
-  // prima di questo fix il form si apriva vuoto e il salvataggio creava sempre
-  // un item nuovo invece di aggiornare quello che si stava "modificando".
+  // in modifica precarica il contenuto esistente, altrimenti il form parte vuoto
   private async loadExistingItem(): Promise<void> {
     this.loadingItem = true;
     this.error = '';
@@ -294,9 +288,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     return remainingSeconds > 0 ? `~${minutes}m ${remainingSeconds}s` : `~${minutes}m`;
   }
 
-  // Anteprima con l'API Web Speech nativa del browser (nessun servizio esterno,
-  // nessuna chiamata al server): fa sentire all'autore come suonerebbe il testo
-  // letto ad alta voce nel Navigator, prima ancora di salvare l'item.
+  // anteprima con la Web Speech API del browser, nessuna chiamata al server
   private toggleSpeechPreview() {
     if (!window.speechSynthesis) return;
 
@@ -338,7 +330,6 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
         return `${__('Completa le traduzioni per la lingua')} ${lang.toUpperCase()}`;
       }
     }
-    // For certain reference types, require a Wikidata ID
     if (
       [
         ItemReferenceType.ARTWORK,
@@ -401,7 +392,6 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
         this.success = __('Contenuto creato con successo!');
       }
 
-      // Dispatch success event
       this.dispatchEvent(
         new CustomEvent('item-created', {
           bubbles: true,
@@ -409,8 +399,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
         }),
       );
 
-      // Reset form after short delay (solo in creazione: in modifica il form
-      // sparisce comunque perché il chiamante torna alla lista sull'evento sopra)
+      // solo in creazione, in modifica il chiamante torna già alla lista
       if (!isEditMode) {
         setTimeout(() => {
           this.resetForm();

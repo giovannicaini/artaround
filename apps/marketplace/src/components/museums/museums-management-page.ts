@@ -201,8 +201,7 @@ export class MuseumsManagementPage extends LitElement {
   @state() private error = '';
   @state() private success = '';
 
-  // Sale (gestione parallela ai marker: titolo/sottotitolo qui, contorno in
-  // Piantina e mappa). Es. titolo "Sala I", sottotitolo "Sala del Gladiatore".
+  // titolo/sottotitolo qui, il contorno si disegna in Piantina e mappa
   @state() private rooms: MuseumRoom[] = [];
   @state() private newRoomTitle = '';
   @state() private newRoomSubtitle = '';
@@ -211,7 +210,6 @@ export class MuseumsManagementPage extends LitElement {
   @state() private renameRoomTitle = '';
   @state() private renameRoomSubtitle = '';
 
-  // Search
   @state() private searchQuery = '';
   @state() private controlsCollapsed = true;
   @state() private listLayout: MuseumListLayout = 'grid';
@@ -219,15 +217,12 @@ export class MuseumsManagementPage extends LitElement {
   @state() private sortDirection: 'asc' | 'desc' = 'asc';
   @state() private visibleColumns: string[] = ['name', 'city', 'country', 'status'];
 
-  // Form data
   @state() private formData: MuseumFormData = this.getEmptyFormData();
 
-  // Delete modal
   @state() private deleteModalOpen = false;
   @state() private museumToDelete: Museum | null = null;
   @state() private deleting = false;
 
-  // Curator management
   @state() private curators: MuseumCurator[] = [];
   @state() private loadingCurators = false;
   @state() private availableUsers: User[] = [];
@@ -1037,7 +1032,6 @@ export class MuseumsManagementPage extends LitElement {
     if (!this.currentUser) return false;
     if (this.currentUser.role === UserRole.ADMIN) return true;
 
-    // Check if user is a curator of this museum
     return (
       this.currentUser.roleAssignments?.some(
         (assignment) =>
@@ -1469,7 +1463,6 @@ export class MuseumsManagementPage extends LitElement {
     this.loadingUsers = true;
     try {
       const response = await userService.getUsers({ limit: 100, isActive: true });
-      // Filter out users who are already curators
       const curatorIds = new Set(this.curators.map((c) => c._id));
       this.availableUsers = response.users.filter((u) => !curatorIds.has(u._id));
     } catch (e) {
@@ -1546,7 +1539,6 @@ export class MuseumsManagementPage extends LitElement {
     e.preventDefault();
     this.error = '';
 
-    // Validation: wikidataId is required for new museums
     if (this.viewMode === 'create' && !this.formData.wikidataId) {
       this.error = __('Seleziona un museo da Wikidata prima di continuare');
       return;
