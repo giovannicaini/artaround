@@ -1,133 +1,93 @@
-/**
- * Item Types
- *
- * Items are REUSABLE content pieces (text/audio) that can reference:
- * - Artworks (descriptions of physical artworks)
- * - Authors/Artists (biographies, styles)
- * - Artistic movements (Baroque, Renaissance, etc.)
- * - Historical periods (context)
- * - Museums (general info about the museum)
- *
- * NOTE: Logistic info and Navigation directions are NOT Items.
- * They are specific to each Visit and managed as VisitStep properties.
- */
-
 import type { AppLanguage } from './i18n.types';
 
-// ========================================
-// ITEM (Contenuto testuale/audio)
-// ========================================
+// un item è un contenuto testuale/audio riusabile (opera, autore, movimento,
+// periodo o museo). le info logistiche e le indicazioni NON sono item, sono
+// specifiche di ogni visita e vivono dentro VisitStep
 
 export interface Item {
-  _id: string; // MongoDB ObjectId
+  _id: string;
 
-  // Museum context
   museumId: string;
 
-  // Reference - what this item is about
   referenceType: ItemReferenceType;
-  referenceId?: string; // Wikidata ID of the referenced entity (artwork, author, movement, etc.)
-  referenceTitle?: string; // Title/name for display (cached from reference)
+  referenceId?: string; // id wikidata dell'entità a cui si riferisce
+  referenceTitle?: string; // titolo per la visualizzazione, cache della reference
 
-  // Content
   sourceLanguage: AppLanguage;
   title: string;
   text: string;
   translatedTitles?: Partial<Record<AppLanguage, string>>;
-  translatedTexts?: Record<string, string>; // locale code -> translated text
+  translatedTexts?: Record<string, string>;
 
-  // Content characteristics
-  duration: ContentDuration; // 3s, 15s, 1min, 4min
-  languageLevel: LanguageLevel; // infantile, elementare, medio, specialistico
+  duration: ContentDuration;
+  languageLevel: LanguageLevel;
 
-  // Authorship
-  authorId: string; // User ID who created this content
-  authorName?: string; // Cached author name
+  authorId: string;
+  authorName?: string;
 
-  // Licensing & Pricing
   license: LicenseType;
-  price: number; // 0 for free
+  price: number; // 0 = gratis
   isFree: boolean;
 
-  // Media
-  image?: string; // Optional image (if absent, uses artwork image when applicable)
+  image?: string; // se assente usa l'immagine dell'opera, quando applicabile
 
-  // Statistics
-  usageCount: number; // How many times used in visits
-  rating?: number; // Average rating
+  usageCount: number;
+  rating?: number;
 
-  // Metadata
   tags?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
 
-// ========================================
-// REFERENCE TYPES
-// ========================================
-
 export enum ItemReferenceType {
-  ARTWORK = 'artwork', // Refers to a specific artwork
-  AUTHOR = 'author', // About an artist/author
-  MOVEMENT = 'movement', // About an artistic movement (Baroque, Renaissance, etc.)
-  PERIOD = 'period', // About a historical period
-  MUSEUM = 'museum', // About the museum itself
+  ARTWORK = 'artwork',
+  AUTHOR = 'author',
+  MOVEMENT = 'movement',
+  PERIOD = 'period',
+  MUSEUM = 'museum',
 }
 
-// ========================================
-// CONTENT CHARACTERISTICS
-// ========================================
-
 export enum ContentDuration {
-  FLASH = '3s', // Ultra-brief mention
-  SHORT = '15s', // Quick overview
-  MEDIUM = '1min', // Standard explanation
-  LONG = '4min', // Detailed analysis
-  EXTENDED = '10min', // In-depth study
+  FLASH = '3s',
+  SHORT = '15s',
+  MEDIUM = '1min',
+  LONG = '4min',
+  EXTENDED = '10min',
 }
 
 export enum LanguageLevel {
-  CHILDREN = 'infantile', // For children (5-10 years)
-  ELEMENTARY = 'elementare', // Simple language (10-14 years / casual visitors)
-  MEDIUM = 'medio', // Standard (adults with general culture)
-  SPECIALIST = 'specialistico', // Expert/academic level
+  CHILDREN = 'infantile', // 5-10 anni
+  ELEMENTARY = 'elementare', // 10-14 anni / visitatori occasionali
+  MEDIUM = 'medio', // adulti, cultura generale
+  SPECIALIST = 'specialistico', // livello esperto/accademico
 }
-
-// ========================================
-// LICENSING
-// ========================================
 
 export enum LicenseType {
-  CC0 = 'CC0', // Public domain
-  CC_BY = 'CC-BY', // Attribution
-  CC_BY_SA = 'CC-BY-SA', // Attribution-ShareAlike
-  CC_BY_NC = 'CC-BY-NC', // Attribution-NonCommercial
-  CC_BY_NC_SA = 'CC-BY-NC-SA', // Attribution-NonCommercial-ShareAlike
-  PROPRIETARY = 'proprietary', // All rights reserved
+  CC0 = 'CC0',
+  CC_BY = 'CC-BY',
+  CC_BY_SA = 'CC-BY-SA',
+  CC_BY_NC = 'CC-BY-NC',
+  CC_BY_NC_SA = 'CC-BY-NC-SA',
+  PROPRIETARY = 'proprietary',
 }
 
-// ========================================
-// WIKIDATA INTEGRATION
-// ========================================
-
 export interface WikidataEntity {
-  id: string; // Q number (e.g., Q42207)
+  id: string; // Q number, es. Q42207
   label: string;
   description?: string;
   imageUrl?: string;
 
-  // Common properties
-  instanceOf?: string[]; // P31 - what type of thing
-  author?: string; // P170 - creator name
-  authorId?: string; // P170 - creator Wikidata ID
-  movement?: string; // P135 - movement/style name
-  movementId?: string; // P135 - movement Wikidata ID
+  instanceOf?: string[]; // P31
+  author?: string; // P170
+  authorId?: string;
+  movement?: string; // P135
+  movementId?: string;
   style?: string;
   styleId?: string;
-  inception?: string; // P571 - date created
+  inception?: string; // P571
   epoch?: string;
-  location?: string; // P276 - location
-  locationId?: string; // P276 - location Wikidata ID
+  location?: string; // P276
+  locationId?: string;
   year?: string;
   period?: string;
   periodId?: string;
@@ -140,13 +100,8 @@ export interface WikidataEntity {
   dimensionDepth?: number;
   dimensionUnit?: 'cm' | 'm';
 
-  // Raw properties for extensibility
-  properties?: Record<string, unknown>;
+  properties?: Record<string, unknown>; // proprietà raw non mappate sopra
 }
-
-// ========================================
-// ITEM FILTERS & QUERIES
-// ========================================
 
 export interface ItemFilters {
   museumId?: string;
@@ -161,15 +116,11 @@ export interface ItemFilters {
   limit?: number;
 }
 
-// ========================================
-// ITEM REQUESTS
-// ========================================
-
 export interface CreateItemData {
   museumId: string;
   sourceLanguage?: AppLanguage;
   referenceType: ItemReferenceType;
-  referenceId?: string; // Wikidata ID for artwork/author/movement/museum
+  referenceId?: string;
   referenceTitle?: string;
   title: string;
   text: string;
@@ -185,10 +136,7 @@ export interface CreateItemData {
 
 export type UpdateItemData = Partial<CreateItemData>;
 
-// ========================================
-// ITEM SUMMARY (for lists)
-// ========================================
-
+// versione ridotta per le liste
 export interface ItemSummary {
   _id: string;
   title: string;

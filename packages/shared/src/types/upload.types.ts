@@ -6,7 +6,7 @@ export interface ImageProcessOptions {
   fit?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside';
   quality?: number; // 1-100
   format?: 'jpeg' | 'png' | 'webp';
-  // Crop region (pixels, relative to original image)
+  // ritaglio in pixel, relativo all'immagine originale
   cropX?: number;
   cropY?: number;
   cropWidth?: number;
@@ -14,16 +14,10 @@ export interface ImageProcessOptions {
 }
 
 export interface UploadResult {
-  /** Relative path to the uploaded file (e.g. /uploads/museums/abc123.webp) */
-  path: string;
-  /** Original filename */
+  path: string; // es. /uploads/museums/abc123.webp
   originalName: string;
-  /** Final width */
   width: number;
-  /** Final height */
   height: number;
-  /** File size in bytes */
-  size: number;
-  /** MIME type */
+  size: number; // byte
   mimeType: string;
 }

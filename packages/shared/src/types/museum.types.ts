@@ -1,48 +1,30 @@
-/**
- * Museum Types
- *
- * Uses Wikidata ID as primary identifier for museums.
- */
-
 import type { AppLanguage } from './i18n.types';
 
-// ========================================
-// MUSEUM
-// ========================================
-
 export interface Museum {
-  _id: string; // MongoDB ObjectId
-  wikidataId: string; // Wikidata Q number (e.g., Q180916 for Galleria Borghese) - PRIMARY KEY
+  _id: string;
+  wikidataId: string; // Q number, chiave primaria, es. Q180916 per Galleria Borghese
 
-  // Basic info
   name: string;
   description: string;
   nameTranslations?: Partial<Record<AppLanguage, string>>;
   descriptionTranslations?: Partial<Record<AppLanguage, string>>;
   activeLanguages: AppLanguage[];
 
-  // Location
   location: MuseumLocation;
 
-  // Media
   images: string[];
   coverImage?: string;
 
-  // Floor maps
   floors: MuseumFloor[];
 
-  // Sale del museo: create con solo il nome in "Modifica Museo", poi
-  // contornate (poligono) piano per piano in "Piantina e mappa". Ogni opera
-  // deve appartenere a una di queste sale (Artwork.roomId).
+  // create con solo il nome in "Modifica Museo", contornate (poligono) piano
+  // per piano in "Piantina e mappa". ogni opera appartiene a una sala tramite
+  // Artwork.roomId
   rooms?: MuseumRoom[];
 
-  // Services & Info
   services: MuseumServices;
-
-  // Navigator app configurations for this museum
   navigatorConfigs?: NavigatorAppConfig[];
 
-  // Status
   isActive: boolean;
 
   createdAt: Date;
@@ -66,7 +48,7 @@ export interface MuseumServices {
   ticketInfoTranslations?: Partial<Record<AppLanguage, string>>;
   openingHours?: string; // "Mar-Dom 9:00-19:00"
   openingHoursTranslations?: Partial<Record<AppLanguage, string>>;
-  closedDays?: string; // "Lunedì"
+  closedDays?: string;
   website?: string;
   phone?: string;
   email?: string;
@@ -74,10 +56,6 @@ export interface MuseumServices {
   accessibility?: string;
   wheelchairAccessible?: boolean;
 }
-
-// ========================================
-// MUSEUM API REQUESTS/RESPONSES
-// ========================================
 
 export interface CreateMuseumData {
   wikidataId: string;
@@ -159,44 +137,33 @@ export interface MuseumMap {
   };
   markers?: MapMarker[];
   floors?: MuseumFloor[];
-  // Sale contornate del museo (tutti i piani): il Navigator le filtra per
-  // piano corrente quando le mostra come riferimento sulla piantina.
-  rooms?: MuseumRoom[];
+  rooms?: MuseumRoom[]; // tutte, il Navigator filtra per piano corrente
 }
-
-// ========================================
-// FLOOR & MAP SYSTEM
-// ========================================
 
 export interface MuseumFloor {
   id: string;
-  name: string; // "Piano Terra", "Primo Piano", "Basement"
-  level: number; // -1, 0, 1, 2... (0 = ground floor)
-  svgContent: string; // Raw SVG content (inline)
-  svgUrl?: string; // Optional: URL to external SVG file
+  name: string; // "Piano Terra", "Primo Piano"
+  level: number; // -1, 0, 1, 2... (0 = piano terra)
+  svgContent: string;
+  svgUrl?: string;
   dimensions: {
     width: number;
     height: number;
   };
-  markers: MapMarker[]; // POIs on this floor
-  connections: FloorConnection[]; // Elevators, stairs linking floors
+  markers: MapMarker[];
+  connections: FloorConnection[]; // ascensori e scale tra i piani
 }
 
-/**
- * Sala del museo: gestione parallela e distinta dai MapMarker.
- * Creata in "Modifica Museo" con solo id/name (floorId e polygon assenti);
- * "contornata" in un secondo momento in "Piantina e mappa", scegliendo il
- * piano e disegnando il poligono (click sui vertici, chiuso quando l'ultimo
- * punto coincide col primo) — a quel punto floorId e polygon vengono
- * valorizzati. Il poligono permette a Navigator di fare zoom sulla sala,
- * evidenziarla, ecc.
- */
+// sala del museo, gestita separatamente dai MapMarker. creata in "Modifica
+// Museo" con solo id/title; floorId e polygon si valorizzano quando viene
+// contornata in "Piantina e mappa" (click sui vertici, si chiude quando
+// l'ultimo punto coincide col primo)
 export interface MuseumRoom {
   id: string;
-  title: string; // Es. "Sala I"
-  subtitle?: string; // Es. "Sala del Gladiatore"
-  floorId?: string; // valorizzato solo dopo il contorno sulla piantina
-  polygon?: MapPoint[]; // vertici del poligono chiuso (primo punto === ultimo)
+  title: string; // es. "Sala I"
+  subtitle?: string; // es. "Sala del Gladiatore"
+  floorId?: string;
+  polygon?: MapPoint[]; // vertici del poligono chiuso, primo === ultimo
 }
 
 export interface MapPoint {
@@ -209,11 +176,11 @@ export interface FloorConnection {
   type: ConnectionType;
   x: number;
   y: number;
-  targetFloorId: string; // Which floor this connects to
-  targetX?: number; // Position on target floor
+  targetFloorId: string;
+  targetX?: number;
   targetY?: number;
   label?: string;
-  isAccessible: boolean; // Wheelchair accessible
+  isAccessible: boolean;
 }
 
 export enum ConnectionType {
@@ -223,29 +190,21 @@ export enum ConnectionType {
   RAMP = 'ramp',
 }
 
-// ========================================
-// MAP MARKERS (POI)
-// ========================================
-
 export enum MarkerType {
-  // Artworks
   ARTWORK = 'artwork',
   SCULPTURE = 'sculpture',
   PAINTING = 'painting',
 
-  // Navigation
   ENTRANCE = 'entrance',
   EXIT = 'exit',
   EMERGENCY_EXIT = 'emergency_exit',
   INFO_POINT = 'info_point',
 
-  // Accessibility
   ELEVATOR = 'elevator',
   STAIRS = 'stairs',
   ESCALATOR = 'escalator',
   RAMP = 'ramp',
 
-  // Facilities
   TOILETTE = 'toilette',
   ACCESSIBLE_TOILETTE = 'accessible_toilette',
   BAR = 'bar',
@@ -254,37 +213,33 @@ export enum MarkerType {
   CLOAKROOM = 'cloakroom',
   LOCKER = 'locker',
 
-  // Rooms
   ROOM = 'room',
   GALLERY = 'gallery',
 
-  // Other
   ACCESSIBILITY = 'accessibility',
   OBSTACLE = 'obstacle',
   BENCH = 'bench',
   AUDIO_GUIDE = 'audio_guide',
   WIFI = 'wifi',
 
-  // Percorso (non è un punto di interesse: serve solo a far piegare la linea del
-  // percorso di una visita attorno a muri/corridoi, es. una porta su un corridoio -
-  // un waypoint appena dentro la stanza, uno a metà del corridoio fuori. Non va mai
-  // mostrato al visitatore come tappa cliccabile: vedi MapMarker.isVisible).
+  // punto muto usato solo per piegare il percorso di una visita attorno a
+  // muri/corridoi, mai mostrato come tappa cliccabile (MapMarker.isVisible)
   WAYPOINT = 'waypoint',
 }
 
 export interface MapMarker {
   id: string;
-  floorId?: string; // Which floor this marker belongs to
+  floorId?: string;
   x: number;
   y: number;
   type: MarkerType;
   label?: string;
   description?: string;
-  artworkId?: string; // Wikidata ID of the artwork for ARTWORK/PAINTING/SCULPTURE markers
-  icon?: string; // Custom icon URL/SVG
-  isVisible?: boolean; // Can be hidden/shown (defaults to true)
-  focalPoint?: { x: number; y: number }; // Image focal point for artwork markers (0-100%)
-  focalZoom?: number; // Zoom level for artwork image (1 = no zoom, 2 = 2x zoom, etc.)
+  artworkId?: string; // id wikidata, per marker ARTWORK/PAINTING/SCULPTURE
+  icon?: string;
+  isVisible?: boolean; // default true
+  focalPoint?: { x: number; y: number }; // punto focale immagine opera, 0-100%
+  focalZoom?: number; // 1 = niente zoom, 2 = 2x...
   accessibilityInfo?: AccessibilityInfo;
 }
 
@@ -293,9 +248,7 @@ export interface AccessibilityInfo {
   hasSteps: boolean;
   stepCount?: number;
   hasRamp: boolean;
-  visualAids: boolean; // Tactile paths, braille
+  visualAids: boolean; // percorsi tattili, braille
   audioAids: boolean;
   notes?: string;
 }
-
-// Note: ItemMapPosition is defined in item.types.ts

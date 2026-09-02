@@ -1,16 +1,12 @@
-// User types
 export interface User {
   _id: string;
   username: string;
   email: string;
-  password: string; // hashed
-  role: UserRole; // Primary/global role
-  roleAssignments?: RoleAssignment[]; // Contextual roles for specific resources
+  password: string; // hashata
+  role: UserRole; // ruolo globale
+  roleAssignments?: RoleAssignment[]; // ruoli su singole risorse
   preferences?: UserPreferences;
-  // Credito in euro spendibile nel marketplace: parte da 0, si ricarica (per ora
-  // senza un pagamento reale, vedi credit.types.ts) e si consuma acquistando
-  // item/visite a pagamento.
-  creditBalance: number;
+  creditBalance: number; // credito in euro, parte da 0
   isActive: boolean;
   lastLogin?: Date;
   createdAt: Date;
@@ -18,33 +14,28 @@ export interface User {
 }
 
 export enum UserRole {
-  ADMIN = 'admin', // Full system access
-  CURATOR = 'curator', // Museum curators who can manage artworks and visits
-  AUTHOR = 'author', // Content creators
-  VISITOR = 'visitor', // Regular users
+  ADMIN = 'admin',
+  CURATOR = 'curator', // gestisce opere e visite di un museo
+  AUTHOR = 'author', // crea contenuti
+  VISITOR = 'visitor',
 }
 
-/**
- * Contextual role assignment - links a user to a specific resource with a role
- * Examples:
- * - User is AUTHOR of Item X
- * - User is EDITOR of Visit Y
- * - User is MANAGER of Museum Z
- */
+// collega un utente a una risorsa specifica con un ruolo, es. autore
+// dell'item X, editor della visita Y, manager del museo Z
 export interface RoleAssignment {
   role: ContextualRole;
   resourceType: ResourceType;
   resourceId: string;
   assignedAt: Date;
-  assignedBy?: string; // User ID who assigned this role
+  assignedBy?: string;
 }
 
 export enum ContextualRole {
-  OWNER = 'owner', // Full control over the resource
-  AUTHOR = 'author', // Created the content
-  EDITOR = 'editor', // Can edit but not delete
-  VIEWER = 'viewer', // Read-only access to private content
-  MANAGER = 'manager', // Can manage (for museums)
+  OWNER = 'owner',
+  AUTHOR = 'author',
+  EDITOR = 'editor', // può modificare ma non cancellare
+  VIEWER = 'viewer', // solo lettura su contenuti privati
+  MANAGER = 'manager',
 }
 
 export enum ResourceType {
@@ -53,10 +44,6 @@ export enum ResourceType {
   ARTWORK = 'artwork',
   MUSEUM = 'museum',
 }
-
-// ========================================
-// USER API REQUESTS/RESPONSES
-// ========================================
 
 export interface UsersResponse {
   users: User[];
