@@ -42,6 +42,11 @@ export class UiTabs extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.style.display = 'block';
+    // Come per ui-filter-tabs: senza min-width:0 questo elemento non si
+    // restringe mai sotto la larghezza naturale del suo contenuto, quindi
+    // con abbastanza tab (es. le 5 dell'editor visite) la riga usciva dalla
+    // pagina invece di diventare scorribile su schermi stretti.
+    this.style.minWidth = '0';
   }
 
   // ─── Actions ──────────────────────────────────────────────
@@ -67,7 +72,7 @@ export class UiTabs extends LitElement {
   // ─── Render Helpers ──────────────────────────────────────
   private renderUnderline() {
     return html`
-      <div class="border-b border-surface-200 dark:border-surface-700">
+      <div class="border-b border-surface-200 dark:border-surface-700 overflow-x-auto">
         <nav class="flex gap-4" role="tablist">
           ${this.tabs.map((tab) => {
             const isActive = this.activeTab === tab.id;
@@ -77,7 +82,7 @@ export class UiTabs extends LitElement {
                 role="tab"
                 aria-selected="${isActive}"
                 @click=${() => this.handleTabClick(tab.id)}
-                class="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${isActive
+                class="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors flex-shrink-0 whitespace-nowrap ${isActive
                   ? 'border-brand-600 text-brand-600 dark:text-brand-400'
                   : 'border-transparent text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'}"
               >
@@ -104,38 +109,40 @@ export class UiTabs extends LitElement {
 
   private renderPills() {
     return html`
-      <div
-        class="inline-flex gap-1 p-1 bg-surface-100 dark:bg-surface-800 rounded-lg"
-        role="tablist"
-      >
-        ${this.tabs.map((tab) => {
-          const isActive = this.activeTab === tab.id;
-          return html`
-            <button
-              type="button"
-              role="tab"
-              aria-selected="${isActive}"
-              @click=${() => this.handleTabClick(tab.id)}
-              class="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${isActive
-                ? 'bg-white dark:bg-surface-700 text-surface-900 dark:text-white shadow-sm'
-                : 'text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'}"
-            >
-              ${tab.icon ? html`<ui-icon name="${tab.icon}" size="sm"></ui-icon>` : nothing}
-              ${tab.label}
-              ${tab.badge !== undefined
-                ? html`
-                    <span
-                      class="px-1.5 py-0.5 text-xs rounded-full ${isActive
-                        ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
-                        : 'bg-surface-200 dark:bg-surface-700 text-surface-600 dark:text-surface-400'}"
-                    >
-                      ${tab.badge}
-                    </span>
-                  `
-                : nothing}
-            </button>
-          `;
-        })}
+      <div class="overflow-x-auto">
+        <div
+          class="inline-flex gap-1 p-1 bg-surface-100 dark:bg-surface-800 rounded-lg"
+          role="tablist"
+        >
+          ${this.tabs.map((tab) => {
+            const isActive = this.activeTab === tab.id;
+            return html`
+              <button
+                type="button"
+                role="tab"
+                aria-selected="${isActive}"
+                @click=${() => this.handleTabClick(tab.id)}
+                class="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors flex-shrink-0 whitespace-nowrap ${isActive
+                  ? 'bg-white dark:bg-surface-700 text-surface-900 dark:text-white shadow-sm'
+                  : 'text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'}"
+              >
+                ${tab.icon ? html`<ui-icon name="${tab.icon}" size="sm"></ui-icon>` : nothing}
+                ${tab.label}
+                ${tab.badge !== undefined
+                  ? html`
+                      <span
+                        class="px-1.5 py-0.5 text-xs rounded-full ${isActive
+                          ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
+                          : 'bg-surface-200 dark:bg-surface-700 text-surface-600 dark:text-surface-400'}"
+                      >
+                        ${tab.badge}
+                      </span>
+                    `
+                  : nothing}
+              </button>
+            `;
+          })}
+        </div>
       </div>
     `;
   }

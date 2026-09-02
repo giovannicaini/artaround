@@ -143,9 +143,13 @@ export class SvgMapEditor extends LitElement {
 
     return html`
       <div class="bg-surface-900 rounded-lg overflow-hidden border border-surface-700">
-        <!-- Toolbar -->
+        <!-- Toolbar: flex-wrap perché con più piani (nomi anche lunghi, es.
+             "Primo Piano — Pinacoteca") più i controlli di zoom non
+             entravano su schermi stretti — l'overflow-hidden del box
+             esterno (per gli angoli arrotondati) li tagliava via invece di
+             lasciarli semplicemente andare a capo. -->
         <div
-          class="flex items-center justify-between p-3 bg-surface-800 border-b border-surface-700"
+          class="flex flex-wrap items-center justify-between gap-2 p-3 bg-surface-800 border-b border-surface-700"
         >
           <!-- Floor Tabs: solo in editMode. Nelle mappe di sola anteprima (es. tab
                Mappa dell'editor di visita) il cambio piano passa dal dropdown del
