@@ -29,10 +29,10 @@ import '../ui/ui-museum-required-notice';
 import { __ } from '../../services/i18n.service';
 
 /**
- * Artwork Creator/Editor Component
+ * Componente Artwork Creator/Editor
  *
- * Used to create new physical artworks or edit existing ones.
- * Supports Wikidata integration for auto-filling artwork info.
+ * Usato per creare nuove opere fisiche o modificare quelle esistenti.
+ * Supporta l'integrazione con Wikidata per precompilare le info dell'opera.
  */
 @customElement('artwork-creator')
 export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
@@ -448,10 +448,10 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     this.error = '';
     this.wikidataId = selectedWikidataId;
 
-    // Prefill from search payload first
+    // Precompila prima dal payload di ricerca
     this.applyWikidataData(e.detail as Record<string, unknown>);
 
-    // Then enrich with complete entity data from Wikidata
+    // Poi arricchisce con i dati completi dell'entità da Wikidata
     try {
       const entity = await wikidataService.getEntity(selectedWikidataId);
       if (entity) {
@@ -652,7 +652,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
 
     return html`
       <form @submit=${this.handleSubmit} class="space-y-8">
-        <!-- Success/Error Messages -->
+        <!-- Messaggi di successo/errore -->
         ${!this.museumId
           ? html`<ui-museum-required-notice
               subject="opere"

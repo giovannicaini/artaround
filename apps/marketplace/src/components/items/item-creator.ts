@@ -343,7 +343,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
         return `${__('Completa le traduzioni per la lingua')} ${lang.toUpperCase()}`;
       }
     }
-    // For certain reference types, require a Wikidata ID
+    // Per certi tipi di riferimento, richiede un ID Wikidata
     if (
       [
         ItemReferenceType.ARTWORK,
@@ -407,7 +407,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
         this.success = __('Contenuto creato con successo!');
       }
 
-      // Dispatch success event
+      // Emette l'evento di successo
       this.dispatchEvent(
         new CustomEvent('item-created', {
           bubbles: true,
@@ -502,7 +502,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
 
     return html`
       <form @submit=${this.handleSubmit} class="space-y-8">
-        <!-- Success/Error Messages -->
+        <!-- Messaggi di successo/errore -->
         ${!this.selectedMuseumId
           ? html`<ui-museum-required-notice
               subject="contenuti"

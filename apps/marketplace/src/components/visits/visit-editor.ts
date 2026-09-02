@@ -51,10 +51,10 @@ import '../museums/svg-map-editor';
 type EditorTab = 'info' | 'steps' | 'map' | 'audience' | 'settings';
 
 /**
- * Visit Editor Component
+ * Componente Visit Editor
  *
- * Creates and edits visits (percorsi di visita).
- * A visit is an ordered sequence of steps through a museum.
+ * Crea e modifica le visite (percorsi di visita).
+ * Una visita è una sequenza ordinata di tappe attraverso un museo.
  */
 @customElement('visit-editor')
 export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
@@ -236,7 +236,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
           this.license = (visit.metadata.license as LicenseType) || LicenseType.CC0;
         }
 
-        // Load artworks for this museum
+        // Carica le opere di questo museo
         if (this.museumId) {
           await this.loadMuseumLanguages();
           await this.loadArtworksForMuseum();
@@ -546,7 +546,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
   // ─── Azioni (museo / tappe / salvataggio) ────────────────────
   private async handleMuseumChange(e: CustomEvent) {
     this.museumId = e.detail.value;
-    // Reload artworks when museum changes
+    // Ricarica le opere quando cambia il museo
     if (this.museumId) {
       await this.loadMuseumLanguages();
       await this.loadArtworksForMuseum();
@@ -570,7 +570,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       isOptional: false,
     };
 
-    // Set defaults based on type
+    // Imposta i default in base al tipo
     if (type === VisitStepType.LOGISTIC) {
       newStep.logisticTitle = '';
       newStep.logisticText = '';
@@ -585,7 +585,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
 
     this.steps = [...this.steps, newStep];
     this.editingStepIndex = this.steps.length - 1;
-    // Scroll to new step after render
+    // Scorre alla nuova tappa dopo il render
     this.updateComplete.then(() => this.scrollToStep(this.steps.length - 1));
   }
 
@@ -681,7 +681,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         this.visitId = created._id;
       }
 
-      // Emit saved event
+      // Emette l'evento di salvataggio
       this.dispatchEvent(
         new CustomEvent('visit-saved', {
           detail: { visitId: this.visitId },
@@ -761,7 +761,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
 
     return html`
       <form @submit=${this.handleFormSubmit} class="space-y-8">
-        <!-- Success/Error Messages -->
+        <!-- Messaggi di successo/errore -->
         ${!this.museumId
           ? html`
               <ui-alert

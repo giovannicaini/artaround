@@ -30,9 +30,9 @@ import { __ } from '../../services/i18n.service';
 type ViewMode = 'list' | 'create' | 'edit';
 
 /**
- * Visits Page
+ * Pagina Visite
  *
- * Displays and manages Visits (percorsi di visita).
+ * Mostra e gestisce le Visite (percorsi di visita).
  */
 @customElement('visits-page')
 export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
@@ -78,7 +78,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     this.error = '';
 
     try {
-      // Admin and curator can see all visits, others see only their own
+      // Admin e curatore vedono tutte le visite, gli altri solo le proprie
       if (this.permissions.canViewAnalytics) {
         const response = await visitService.getVisits({
           museumId: this.selectedMuseumId || undefined,
@@ -353,7 +353,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
           </div>
         </ui-page-header>
 
-        <!-- Error Message -->
+        <!-- Messaggio di errore -->
         ${this.error
           ? html`<ui-alert
               variant="danger"
