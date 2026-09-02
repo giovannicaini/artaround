@@ -45,7 +45,7 @@ export class ArtworkService {
 
     const response = (await apiService.get<Artwork[]>(url)) as PaginatedApiResponse<Artwork[]>;
 
-    // Handle both response formats: { success, data } or { data, pagination }
+    // Gestisce entrambi i formati di risposta: { success, data } oppure { data, pagination }
     const data = response.data;
     if (data && Array.isArray(data) && response.pagination) {
       return {

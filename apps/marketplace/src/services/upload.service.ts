@@ -31,7 +31,7 @@ export class UploadService {
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
-      // Do NOT set Content-Type - browser will set it with boundary for multipart
+      // NON impostare Content-Type - il browser lo imposta con boundary per multipart
 
       const response = await fetch('/api/uploads', {
         method: 'POST',

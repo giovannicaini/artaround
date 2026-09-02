@@ -1,40 +1,40 @@
 import { UserRole, type User } from '@artaround/shared';
 
 /**
- * Permissions Service
+ * Servizio Permessi
  *
- * Centralizes permission checks for UI visibility and actions.
- * Should mirror the backend role.middleware.ts rules.
+ * Centralizza i controlli di permesso per la visibilità e le azioni della UI.
+ * Deve rispecchiare le regole di role.middleware.ts sul backend.
  */
 
 export interface PermissionSet {
-  // Artworks
+  // Opere
   canCreateArtwork: boolean;
   canEditArtwork: boolean;
   canDeleteArtwork: boolean;
 
-  // Items (content)
+  // Item (contenuti)
   canCreateItem: boolean;
   canEditItem: boolean;
   canDeleteItem: boolean;
 
-  // Museums
+  // Musei
   canCreateMuseum: boolean;
   canEditMuseum: boolean;
   canDeleteMuseum: boolean;
 
-  // Visits
+  // Visite
   canCreateVisit: boolean;
   canEditVisit: boolean;
   canDeleteVisit: boolean;
 
-  // Admin only
+  // Solo admin
   canManageUsers: boolean;
   canViewAnalytics: boolean;
 }
 
 /**
- * Get permissions for a user
+ * Ottieni i permessi per un utente
  */
 export function getPermissions(user: User | null): PermissionSet {
   if (!user) {
@@ -62,34 +62,34 @@ export function getPermissions(user: User | null): PermissionSet {
   const isAuthor = role === UserRole.AUTHOR;
 
   return {
-    // Artworks: only ADMIN and CURATOR
+    // Opere: solo ADMIN e CURATOR
     canCreateArtwork: isAdmin || isCurator,
     canEditArtwork: isAdmin || isCurator,
     canDeleteArtwork: isAdmin, // Solo admin può eliminare
 
-    // Items: any authenticated user can create, but only own or admin can edit/delete
+    // Item: ogni utente autenticato può creare, ma solo i propri o admin possono modificare/eliminare
     canCreateItem: isAdmin || isAuthor || isCurator,
     canEditItem: isAdmin || isAuthor || isCurator,
     canDeleteItem: isAdmin || isAuthor || isCurator,
 
-    // Museums: only ADMIN and CURATOR
+    // Musei: solo ADMIN e CURATOR
     canCreateMuseum: isAdmin || isCurator,
     canEditMuseum: isAdmin || isCurator,
     canDeleteMuseum: isAdmin,
 
-    // Visits: any authenticated author can create
+    // Visite: ogni autore autenticato può creare
     canCreateVisit: isAdmin || isAuthor || isCurator,
     canEditVisit: isAdmin || isAuthor || isCurator,
     canDeleteVisit: isAdmin || isAuthor || isCurator,
 
-    // Admin only
+    // Solo admin
     canManageUsers: isAdmin,
     canViewAnalytics: isAdmin || isCurator,
   };
 }
 
 /**
- * Check if user can edit a specific item (ownership check)
+ * Controlla se l'utente può modificare un item specifico (verifica di proprietà)
  */
 export function canEditOwnItem(user: User | null, itemAuthorId: string): boolean {
   if (!user) return false;
@@ -98,7 +98,7 @@ export function canEditOwnItem(user: User | null, itemAuthorId: string): boolean
 }
 
 /**
- * Get role display name in Italian
+ * Ottieni il nome del ruolo in italiano
  */
 export function getRoleDisplayName(role: UserRole): string {
   const names: Record<UserRole, string> = {
@@ -111,7 +111,7 @@ export function getRoleDisplayName(role: UserRole): string {
 }
 
 /**
- * Get required roles for an action (for error messages)
+ * Ottieni i ruoli richiesti per un'azione (per i messaggi di errore)
  */
 export function getRequiredRolesForAction(
   action: 'createArtwork' | 'editArtwork' | 'deleteArtwork' | 'createItem' | 'editItem',

@@ -270,5 +270,5 @@ class HistoryService {
   }
 }
 
-// Singleton instance
+// Istanza singleton
 export const historyService = new HistoryService();

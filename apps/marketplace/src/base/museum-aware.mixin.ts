@@ -12,8 +12,8 @@ export interface MuseumAwareInterface {
 }
 
 /**
- * Mixin that provides museum selection awareness.
- * Automatically tracks the selected museum and listens for changes.
+ * Mixin che fornisce la consapevolezza della selezione del museo.
+ * Traccia automaticamente il museo selezionato e ascolta i cambiamenti.
  */
 export function MuseumAwareMixin<T extends Constructor<LitElement>>(
   superClass: T,
@@ -39,14 +39,14 @@ export function MuseumAwareMixin<T extends Constructor<LitElement>>(
     }
 
     /**
-     * Override this method to react to museum changes.
+     * Sovrascrivi questo metodo per reagire ai cambi di museo.
      */
     onMuseumChanged(): void {
-      // Override in subclass
+      // Da sovrascrivere nella sottoclasse
     }
 
     /**
-     * Dispatch event to open museum selector.
+     * Emette l'evento per aprire il selettore museo.
      */
     emitSelectMuseum(): void {
       this.dispatchEvent(

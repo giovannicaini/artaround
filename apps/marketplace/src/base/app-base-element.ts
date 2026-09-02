@@ -1,8 +1,8 @@
 import { LitElement } from 'lit';
 
 /**
- * Base element class for all marketplace components.
- * Disables Shadow DOM to use global Tailwind styles.
+ * Classe base per tutti i componenti del marketplace.
+ * Disabilita lo Shadow DOM per usare gli stili Tailwind globali.
  */
 export class AppBaseElement extends LitElement {
   createRenderRoot() {
@@ -10,8 +10,8 @@ export class AppBaseElement extends LitElement {
   }
 
   /**
-   * Scroll the page to the top.
-   * Use when changing views within a component.
+   * Scorre la pagina fino in cima.
+   * Da usare quando si cambia vista all'interno di un componente.
    */
   protected scrollToTop(): void {
     window.scrollTo(0, 0);

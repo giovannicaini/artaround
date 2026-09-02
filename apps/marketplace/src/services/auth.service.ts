@@ -25,7 +25,7 @@ export class AuthService {
         }
       }
     } catch {
-      // Ignore storage failures (private mode/quota issues)
+      // Ignora i fallimenti di storage (modalità privata/quota)
     }
 
     historyService.clear();
