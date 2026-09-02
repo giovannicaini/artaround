@@ -196,8 +196,10 @@ export class AdminHeader extends LitElement {
               .title=${__('Comprimi/espandi sidebar')}
             ></ui-icon-button>
 
-            <!-- History Navigation -->
-            <div class="flex items-center gap-1">
+            <!-- History Navigation: solo desktop, sul cellulare si torna
+                 indietro col gesto/tasto nativo del sistema, non c'è spazio
+                 per due bottoni dedicati nella topbar. -->
+            <div class="hidden lg:flex items-center gap-1">
               <ui-icon-button
                 @click=${this.handleHistoryBack}
                 icon="arrow-left"
@@ -268,11 +270,14 @@ export class AdminHeader extends LitElement {
                 `
               : nothing}
 
-            <!-- Theme Toggle -->
+            <!-- Theme Toggle: solo desktop, sul cellulare si raggiunge dal
+                 menu utente (vedi dropdown più sotto) per non affollare la
+                 topbar — stesso motivo per Accessibilità qui sotto. -->
             <ui-icon-button
               @click=${this.toggleDarkMode}
               icon="${this.darkMode ? 'sun' : 'moon'}"
               .title=${__('Cambia tema')}
+              class="hidden lg:inline-flex"
             ></ui-icon-button>
 
             <!-- Accessibility -->
@@ -280,6 +285,7 @@ export class AdminHeader extends LitElement {
               @click=${() => (this.a11yPanelOpen = true)}
               icon="accessibility"
               .title=${__('Impostazioni accessibilità')}
+              class="hidden lg:inline-flex"
             ></ui-icon-button>
 
             <!-- Language Selector -->
@@ -332,6 +338,28 @@ export class AdminHeader extends LitElement {
                           <ui-icon name="cog" size="xs"></ui-icon>
                           ${__('Il mio account')}
                         </button>
+
+                        <!-- Tema e Accessibilità: su desktop hanno già le loro
+                             icone dedicate in topbar, qui compaiono solo sul
+                             cellulare per non affollarla. -->
+                        <button
+                          @click=${this.toggleDarkMode}
+                          class="lg:hidden flex items-center gap-2 w-full px-3 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-md transition-colors"
+                        >
+                          <ui-icon name="${this.darkMode ? 'sun' : 'moon'}" size="xs"></ui-icon>
+                          ${this.darkMode ? __('Tema chiaro') : __('Tema scuro')}
+                        </button>
+                        <button
+                          @click=${() => {
+                            this.userMenuOpen = false;
+                            this.a11yPanelOpen = true;
+                          }}
+                          class="lg:hidden flex items-center gap-2 w-full px-3 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-md transition-colors"
+                        >
+                          <ui-icon name="accessibility" size="xs"></ui-icon>
+                          ${__('Accessibilità')}
+                        </button>
+
                         <button
                           @click=${() =>
                             this.dispatchEvent(

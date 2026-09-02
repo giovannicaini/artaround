@@ -126,6 +126,11 @@ export class AdminSidebar extends LitElement {
         composed: true,
       }),
     );
+
+    // Sul cellulare il menu restava aperto dopo aver scelto una voce,
+    // costringendo a un tap in più per chiuderlo — innocuo su desktop, dove
+    // mobileOpen non pilota la sidebar fissa.
+    this.mobileOpen = false;
   }
 
   private get canConfigureSelectedMuseum(): boolean {
@@ -306,14 +311,20 @@ export class AdminSidebar extends LitElement {
           `
         : nothing}
 
-      <!-- Mobile Sidebar -->
+      <!-- Mobile Sidebar: a differenza della versione desktop mancava
+           flex-col (i figli "flex-1"/scroll non avevano un contenitore flex
+           su cui agire) e overflow-y-auto sulla nav — con più di una manciata
+           di voci (curatore + admin) il menu sforava il fondo dello schermo
+           senza modo di scorrere fino alle ultime voci. Mancava anche del
+           tutto la sezione in fondo (account/esci), presente solo su
+           desktop. -->
       <aside
         class="${this.mobileOpen
           ? 'translate-x-0'
-          : '-translate-x-full'} lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-surface-900 border-r border-surface-200 dark:border-surface-800 transition-transform duration-300"
+          : '-translate-x-full'} lg:hidden fixed inset-y-0 left-0 z-50 w-64 flex flex-col bg-white dark:bg-surface-900 border-r border-surface-200 dark:border-surface-800 transition-transform duration-300"
       >
         <div
-          class="flex items-center justify-between px-4 h-16 border-b border-surface-200 dark:border-surface-800"
+          class="flex-shrink-0 flex items-center justify-between px-4 h-16 border-b border-surface-200 dark:border-surface-800"
         >
           <div class="flex items-center gap-3">
             <ui-brand-mark></ui-brand-mark>
@@ -324,7 +335,22 @@ export class AdminSidebar extends LitElement {
             @click=${() => (this.mobileOpen = false)}
           ></ui-icon-button>
         </div>
-        <nav class="flex-1 px-3 py-4 space-y-3">${this.renderMainNavigation(false)}</nav>
+        <nav class="flex-1 px-3 py-4 space-y-3 overflow-y-auto">
+          ${this.renderMainNavigation(false)}
+        </nav>
+        <div
+          class="flex-shrink-0 px-3 py-4 border-t border-surface-200 dark:border-surface-800 space-y-1"
+        >
+          ${this.bottomItems.map((item) => this.renderMenuItem(item, false))}
+
+          <button
+            @click=${() => this.handleNavigate('logout')}
+            class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full text-danger-600 hover:bg-danger-50 dark:text-danger-400 dark:hover:bg-danger-900/20 transition-colors"
+          >
+            <ui-icon name="logout" size="sm"></ui-icon>
+            <span>${__('Esci')}</span>
+          </button>
+        </div>
       </aside>
     `;
   }
