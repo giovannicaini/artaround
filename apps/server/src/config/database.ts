@@ -11,7 +11,7 @@ export const connectDB = async (): Promise<void> => {
   }
 };
 
-// Graceful shutdown
+// Chiusura pulita
 process.on('SIGINT', async () => {
   await mongoose.connection.close();
   console.log('Connessione a MongoDB chiusa');

@@ -182,7 +182,7 @@ export class MuseumController {
     return location;
   }
 
-  // Validation rules
+  // Regole di validazione
   static createValidation = [
     body('name').trim().notEmpty().withMessage('Name is required'),
     body('description').trim().notEmpty().withMessage('Description is required'),
@@ -461,7 +461,7 @@ export class MuseumController {
     };
   }
 
-  // Get all museums
+  // Ottieni tutti i musei
   static async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { city, isActive } = req.query;
@@ -481,7 +481,7 @@ export class MuseumController {
     }
   }
 
-  // Get museum by ID
+  // Ottieni museo per ID
   static async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const idParam = req.params.id;
@@ -509,7 +509,7 @@ export class MuseumController {
     }
   }
 
-  // Get museum config (services and info)
+  // Ottieni la config del museo (servizi e info)
   static async getConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -520,7 +520,7 @@ export class MuseumController {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
 
-      // Return museum services and floor info as config
+      // Restituisce servizi e info piani del museo come config
       const config = {
         wikidataId: museum.wikidataId,
         name: museum.name,
@@ -543,7 +543,7 @@ export class MuseumController {
     }
   }
 
-  // Create museum (admin only)
+  // Crea museo (solo admin)
   static async create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -573,7 +573,7 @@ export class MuseumController {
     }
   }
 
-  // Update museum
+  // Aggiorna museo
   static async update(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -660,7 +660,7 @@ export class MuseumController {
     }
   }
 
-  // Delete museum
+  // Elimina museo
   static async delete(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -680,10 +680,10 @@ export class MuseumController {
   }
 
   // ========================================
-  // FLOOR MANAGEMENT
+  // GESTIONE PIANI
   // ========================================
 
-  // Get all floors for a museum
+  // Ottieni tutti i piani di un museo
   static async getFloors(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -702,7 +702,7 @@ export class MuseumController {
     }
   }
 
-  // Get a specific floor
+  // Ottieni un piano specifico
   static async getFloor(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, floorId } = req.params;
@@ -726,7 +726,7 @@ export class MuseumController {
     }
   }
 
-  // Add a new floor
+  // Aggiungi un nuovo piano
   static async addFloor(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -746,19 +746,19 @@ export class MuseumController {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
 
-      // Check if floor ID already exists
+      // Controlla se l'ID piano esiste già
       if (museum.floors?.some((f) => f.id === floorData.id)) {
         throw new AppError(400, 'FLOOR_EXISTS', 'A floor with this ID already exists');
       }
 
-      // Initialize floors array if needed
+      // Inizializza l'array dei piani se serve
       if (!museum.floors) {
         museum.floors = [];
       }
 
       museum.floors.push(floorData);
 
-      // Sort floors by level
+      // Ordina i piani per livello
       museum.floors.sort((a, b) => a.level - b.level);
 
       await museum.save();
@@ -773,7 +773,7 @@ export class MuseumController {
     }
   }
 
-  // Update a floor
+  // Aggiorna un piano
   static async updateFloor(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, floorId } = req.params;
@@ -788,7 +788,7 @@ export class MuseumController {
         throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
       }
 
-      // Update floor data, preserving markers and connections if not provided.
+      // Aggiorna i dati del piano, preservando marker e connessioni se non forniti.
       // museum.floors[i] è un subdocument Mongoose: i suoi campi non sono proprietà
       // enumerabili "piatte", quindi {...existingFloor} non li copiava in modo
       // affidabile (un PUT parziale poteva perdere name/level/dimensions e fallire
@@ -803,7 +803,7 @@ export class MuseumController {
         connections: req.body.connections || existingFloor.connections,
       };
 
-      // Re-sort floors by level
+      // Riordina i piani per livello
       museum.floors!.sort((a, b) => a.level - b.level);
 
       await museum.save();
@@ -818,7 +818,7 @@ export class MuseumController {
     }
   }
 
-  // Delete a floor
+  // Elimina un piano
   static async deleteFloor(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, floorId } = req.params;
@@ -846,7 +846,7 @@ export class MuseumController {
   }
 
   // ========================================
-  // ROOM MANAGEMENT (gestione parallela ai marker: vedi MuseumRoom)
+  // GESTIONE SALE (parallela ai marker: vedi MuseumRoom)
   // ========================================
 
   static roomValidation = [
@@ -867,7 +867,7 @@ export class MuseumController {
     body('polygon.*.y').isNumeric().withMessage('Invalid polygon point'),
   ];
 
-  // Get all rooms of the museum (indipendenti dal piano finché non contornate)
+  // Ottieni tutte le sale del museo (indipendenti dal piano finché non contornate)
   static async getRooms(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -886,7 +886,7 @@ export class MuseumController {
     }
   }
 
-  // Create a new room (solo id/title/subtitle: il contorno si aggiunge dopo)
+  // Crea una nuova sala (solo id/title/subtitle: il contorno si aggiunge dopo)
   static async createRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -1034,7 +1034,7 @@ export class MuseumController {
     }
   }
 
-  // Delete a room
+  // Elimina una sala
   static async deleteRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, roomId } = req.params;
@@ -1062,10 +1062,10 @@ export class MuseumController {
   }
 
   // ========================================
-  // MARKER MANAGEMENT
+  // GESTIONE MARKER
   // ========================================
 
-  // Get all markers for a floor
+  // Ottieni tutti i marker di un piano
   static async getMarkers(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, floorId } = req.params;
@@ -1089,7 +1089,7 @@ export class MuseumController {
     }
   }
 
-  // Add a marker to a floor
+  // Aggiungi un marker a un piano
   static async addMarker(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -1114,7 +1114,7 @@ export class MuseumController {
         throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
       }
 
-      // Check if marker ID already exists on this floor
+      // Controlla se l'ID marker esiste già su questo piano
       if (museum.floors![floorIndex].markers?.some((m) => m.id === markerData.id)) {
         throw new AppError(400, 'MARKER_EXISTS', 'A marker with this ID already exists');
       }
@@ -1136,7 +1136,7 @@ export class MuseumController {
     }
   }
 
-  // Update a marker
+  // Aggiorna un marker
   static async updateMarker(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, floorId, markerId } = req.params;
@@ -1175,7 +1175,7 @@ export class MuseumController {
     }
   }
 
-  // Delete a marker
+  // Elimina un marker
   static async deleteMarker(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, floorId, markerId } = req.params;
@@ -1207,7 +1207,7 @@ export class MuseumController {
     }
   }
 
-  // Bulk update markers (for drag & drop repositioning)
+  // Aggiorna i marker in blocco (per il riposizionamento drag & drop)
   static async updateMarkers(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, floorId } = req.params;
@@ -1227,7 +1227,7 @@ export class MuseumController {
         throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
       }
 
-      // Replace all markers with the new array
+      // Sostituisce tutti i marker col nuovo array
       museum.floors![floorIndex].markers = markers.map(
         (m: Partial<MapMarker>) =>
           ({
@@ -1249,10 +1249,10 @@ export class MuseumController {
   }
 
   // ========================================
-  // CONNECTION MANAGEMENT
+  // GESTIONE COLLEGAMENTI
   // ========================================
 
-  // Add a connection between floors
+  // Aggiungi un collegamento tra piani
   static async addConnection(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -1276,7 +1276,7 @@ export class MuseumController {
         throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
       }
 
-      // Check target floor exists
+      // Controlla che il piano di destinazione esista
       if (!museum.floors?.some((f) => f.id === connectionData.targetFloorId)) {
         throw new AppError(400, 'TARGET_FLOOR_NOT_FOUND', 'Target floor not found');
       }
@@ -1298,7 +1298,7 @@ export class MuseumController {
     }
   }
 
-  // Delete a connection
+  // Elimina un collegamento
   static async deleteConnection(
     req: AuthRequest,
     res: Response,
@@ -1337,23 +1337,23 @@ export class MuseumController {
   }
 
   // ========================================
-  // CURATOR MANAGEMENT
+  // GESTIONE CURATORI
   // ========================================
 
-  // Get curators for a museum
+  // Ottieni i curatori di un museo
   static async getCurators(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const { User } = await import('../models/index.js');
       const { ResourceType, ContextualRole } = await import('@artaround/shared');
 
-      // Verify museum exists
+      // Verifica che il museo esista
       const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
 
-      // Find users who have MANAGER role on this museum
+      // Trova gli utenti con ruolo MANAGER su questo museo
       const curators = await User.find({
         roleAssignments: {
           $elemMatch: {
@@ -1373,7 +1373,7 @@ export class MuseumController {
     }
   }
 
-  // Add a curator to a museum
+  // Aggiungi un curatore a un museo
   static async addCurator(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -1385,19 +1385,19 @@ export class MuseumController {
         throw new AppError(400, 'VALIDATION_ERROR', 'User ID is required');
       }
 
-      // Verify museum exists
+      // Verifica che il museo esista
       const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
 
-      // Verify user exists
+      // Verifica che l'utente esista
       const user = await User.findById(userId);
       if (!user) {
         throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
       }
 
-      // Check if already a curator
+      // Controlla se è già curatore
       const isAlreadyCurator = user.roleAssignments?.some(
         (assignment: RoleAssignment) =>
           assignment.resourceType === ResourceType.MUSEUM &&
@@ -1409,7 +1409,7 @@ export class MuseumController {
         throw new AppError(400, 'ALREADY_CURATOR', 'User is already a curator of this museum');
       }
 
-      // Add role assignment
+      // Aggiungi l'assegnazione di ruolo
       if (!user.roleAssignments) {
         user.roleAssignments = [];
       }
@@ -1438,26 +1438,26 @@ export class MuseumController {
     }
   }
 
-  // Remove a curator from a museum
+  // Rimuovi un curatore da un museo
   static async removeCurator(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, userId } = req.params;
       const { User } = await import('../models/index.js');
       const { ResourceType, ContextualRole } = await import('@artaround/shared');
 
-      // Verify museum exists
+      // Verifica che il museo esista
       const museum = await MuseumModel.findById(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
       }
 
-      // Verify user exists
+      // Verifica che l'utente esista
       const user = await User.findById(userId);
       if (!user) {
         throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
       }
 
-      // Find and remove the role assignment
+      // Trova e rimuovi l'assegnazione di ruolo
       const assignmentIndex = user.roleAssignments?.findIndex(
         (assignment: RoleAssignment) =>
           assignment.resourceType === ResourceType.MUSEUM &&

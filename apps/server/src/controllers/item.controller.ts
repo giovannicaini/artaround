@@ -15,9 +15,9 @@ import {
 } from '@artaround/shared';
 
 /**
- * Item Controller
+ * Controller Item
  *
- * Manages content items that reference artworks, authors, movements, etc.
+ * Gestisce i contenuti che fanno riferimento a opere, autori, movimenti, ecc.
  */
 
 export class ItemController {
@@ -65,7 +65,7 @@ export class ItemController {
     }
   }
 
-  // Validation rules for the new Item structure
+  // Regole di validazione per la nuova struttura Item
   static createValidation = [
     body('museumId').isString().notEmpty().withMessage('Museum ID is required'),
     body('referenceType')
@@ -92,7 +92,7 @@ export class ItemController {
     body('license').notEmpty().withMessage('License is required'),
   ];
 
-  // Get all items with filters and pagination
+  // Ottieni tutti gli item con filtri e paginazione
   static async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const {
@@ -157,7 +157,7 @@ export class ItemController {
     }
   }
 
-  // Get items for a specific artwork (by Wikidata ID)
+  // Ottieni gli item per un'opera specifica (per ID Wikidata)
   static async getByArtwork(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { artworkId } = req.params;
@@ -182,7 +182,7 @@ export class ItemController {
     }
   }
 
-  // Get items for a specific author (by Wikidata ID)
+  // Ottieni gli item per un autore specifico (per ID Wikidata)
   static async getByAuthor(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { authorWikidataId } = req.params;
@@ -203,7 +203,7 @@ export class ItemController {
     }
   }
 
-  // Get items by reference (generic - works for any reference type)
+  // Ottieni gli item per riferimento (generico - funziona per ogni tipo)
   static async getByReference(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { referenceType, referenceId } = req.params;
@@ -224,7 +224,7 @@ export class ItemController {
     }
   }
 
-  // Search items
+  // Cerca item
   static async search(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { q, museumId, referenceType, tags, page = '1', limit = '50' } = req.query;
@@ -274,7 +274,7 @@ export class ItemController {
     }
   }
 
-  // Get item by ID
+  // Ottieni item per ID
   static async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -293,7 +293,7 @@ export class ItemController {
     }
   }
 
-  // Create item (author only)
+  // Crea item (solo autore)
   static async create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -355,7 +355,7 @@ export class ItemController {
     }
   }
 
-  // Update item (owner only)
+  // Aggiorna item (solo proprietario)
   static async update(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -395,7 +395,7 @@ export class ItemController {
     }
   }
 
-  // Delete item (owner only)
+  // Elimina item (solo proprietario)
   static async delete(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -427,7 +427,7 @@ export class ItemController {
     }
   }
 
-  // Get user's own items
+  // Ottieni gli item propri dell'utente
   static async getMyItems(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) {

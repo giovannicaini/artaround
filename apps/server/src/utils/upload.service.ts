@@ -7,21 +7,21 @@ import crypto from 'crypto';
 import { config } from '../config/config.js';
 import type { ImageProcessOptions, UploadResult, UploadCategory } from '@artaround/shared';
 
-// ESM equivalent of __dirname
+// Equivalente ESM di __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Uploads directory - shared at monorepo root level so all apps can reference it
+// Cartella upload - condivisa alla radice del monorepo così tutte le app la vedono
 const UPLOADS_DIR = path.resolve(__dirname, '../../../../uploads');
 
-// Allowed image MIME types
+// Tipi MIME immagine consentiti
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const RESPONSIVE_WIDTHS = [480, 768, 1200];
 
-// Sub-directories for different entity types
+// Sottocartelle per i diversi tipi di entità
 
 /**
- * Ensure the uploads directory and subdirectories exist
+ * Assicura che la cartella upload e le sottocartelle esistano
  */
 async function ensureUploadDirs(): Promise<void> {
   const categories: UploadCategory[] = ['museums', 'items', 'artworks', 'visits', 'users', 'misc'];
@@ -30,12 +30,12 @@ async function ensureUploadDirs(): Promise<void> {
   }
 }
 
-// Ensure dirs exist on import
+// Assicura che le cartelle esistano all'import
 ensureUploadDirs();
 
 /**
- * Multer configuration for temporary file upload
- * Files are stored in memory for processing with sharp before saving
+ * Configurazione Multer per l'upload temporaneo dei file
+ * I file sono tenuti in memoria per l'elaborazione con sharp prima del salvataggio
  */
 const storage = multer.memoryStorage();
 
@@ -61,7 +61,7 @@ export const upload = multer({
 
 export class UploadService {
   /**
-   * Process and save an uploaded image file
+   * Elabora e salva un file immagine caricato
    */
   static async processAndSave(
     buffer: Buffer,
@@ -73,16 +73,16 @@ export class UploadService {
 
     const { width, height, fit = 'cover', quality = 85, format = 'webp' } = options;
 
-    // Generate unique filename
+    // Genera un nome file univoco
     const hash = crypto.randomBytes(12).toString('hex');
     const ext = format === 'jpeg' ? 'jpg' : format;
     const filename = `${hash}.${ext}`;
     const filePath = path.join(UPLOADS_DIR, category, filename);
 
-    // Build sharp pipeline
+    // Costruisce la pipeline sharp
     let pipeline = sharp(buffer);
 
-    // Apply crop first if specified
+    // Applica prima il ritaglio se specificato
     if (
       options.cropX !== undefined &&
       options.cropY !== undefined &&
@@ -97,7 +97,7 @@ export class UploadService {
       });
     }
 
-    // Apply resize if specified
+    // Applica il resize se specificato
     if (width || height) {
       pipeline = pipeline.resize(width || undefined, height || undefined, {
         fit,
@@ -105,7 +105,7 @@ export class UploadService {
       });
     }
 
-    // Convert to target format with quality
+    // Converte nel formato di destinazione con la qualità richiesta
     switch (format) {
       case 'jpeg':
         pipeline = pipeline.jpeg({ quality, mozjpeg: true });
@@ -118,7 +118,7 @@ export class UploadService {
         break;
     }
 
-    // Render processed image once, then write original + responsive variants
+    // Renderizza l'immagine elaborata una volta, poi scrive originale + varianti responsive
     const outputBuffer = await pipeline.toBuffer();
     const outputMetadata = await sharp(outputBuffer).metadata();
 
@@ -154,7 +154,7 @@ export class UploadService {
   }
 
   /**
-   * Process and save an image downloaded from a URL
+   * Elabora e salva un'immagine scaricata da un URL
    */
   static async processFromUrl(
     imageUrl: string,
@@ -176,7 +176,7 @@ export class UploadService {
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Extract original filename from URL
+    // Estrae il nome file originale dall'URL
     const urlPath = new URL(imageUrl).pathname;
     const originalName = path.basename(urlPath) || 'image';
 
@@ -184,8 +184,8 @@ export class UploadService {
   }
 
   /**
-   * Delete an uploaded file by its path
-   * @param filePath - Relative path like /uploads/museums/abc123.webp
+   * Elimina un file caricato dal suo percorso
+   * @param filePath - Percorso relativo tipo /uploads/museums/abc123.webp
    */
   static async deleteFile(filePath: string): Promise<boolean> {
     if (!filePath || !filePath.startsWith('/uploads/')) {
@@ -201,7 +201,7 @@ export class UploadService {
       await fs.access(absolutePath);
       await fs.unlink(absolutePath);
 
-      // Delete responsive variants generated with suffix __w{width}
+      // Elimina le varianti responsive generate col suffisso __w{width}
       const filesInDir = await fs.readdir(absoluteDir);
       const variantPrefix = `${parsed.name}__w`;
 
@@ -226,7 +226,7 @@ export class UploadService {
   }
 
   /**
-   * Get image metadata without processing
+   * Ottieni i metadati immagine senza elaborazione
    */
   static async getMetadata(
     buffer: Buffer,
@@ -240,7 +240,7 @@ export class UploadService {
   }
 
   /**
-   * Get the absolute filesystem path to uploads dir
+   * Ottieni il percorso assoluto del filesystem alla cartella upload
    */
   static getUploadsDir(): string {
     return UPLOADS_DIR;

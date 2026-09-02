@@ -4,13 +4,13 @@ import { User } from '../models/User.js';
 import { UserRole, ContextualRole, ResourceType, RoleAssignment } from '@artaround/shared';
 
 /**
- * User Controller
+ * Controller Utenti
  *
- * Handles CRUD operations for users and role assignments.
- * Only accessible by admins.
+ * Gestisce le operazioni CRUD per utenti e assegnazioni di ruolo.
+ * Accessibile solo dagli admin.
  */
 
-// GET /users - Get all users with pagination and filters
+// GET /users - Ottieni tutti gli utenti con paginazione e filtri
 export const getUsers = async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
@@ -21,7 +21,7 @@ export const getUsers = async (req: Request, res: Response) => {
 
     const query: Record<string, unknown> = {};
 
-    // Search by username or email
+    // Cerca per username o email
     if (search) {
       query.$or = [
         { username: { $regex: search, $options: 'i' } },
@@ -29,12 +29,12 @@ export const getUsers = async (req: Request, res: Response) => {
       ];
     }
 
-    // Filter by role
+    // Filtra per ruolo
     if (role && Object.values(UserRole).includes(role)) {
       query.role = role;
     }
 
-    // Filter by active status
+    // Filtra per stato attivo
     if (isActive !== undefined) {
       query.isActive = isActive === 'true';
     }
@@ -69,7 +69,7 @@ export const getUsers = async (req: Request, res: Response) => {
   }
 };
 
-// GET /users/:id - Get single user by ID
+// GET /users/:id - Ottieni un singolo utente per ID
 export const getUserById = async (req: Request, res: Response) => {
   try {
     const user = await User.findById(req.params.id).select('-password').lean();
@@ -85,19 +85,19 @@ export const getUserById = async (req: Request, res: Response) => {
   }
 };
 
-// POST /users - Create new user (admin only)
+// POST /users - Crea nuovo utente (solo admin)
 export const createUser = async (req: Request, res: Response) => {
   try {
     const { username, email, password, role, isActive } = req.body;
 
-    // Validate required fields
+    // Valida i campi obbligatori
     if (!username || !email || !password) {
       return res
         .status(400)
         .json({ success: false, message: 'Username, email e password sono obbligatori' });
     }
 
-    // Check if user already exists
+    // Controlla se l'utente esiste già
     const existingUser = await User.findOne({
       $or: [{ email: email.toLowerCase() }, { username }],
     });
@@ -106,7 +106,7 @@ export const createUser = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Email o username già in uso' });
     }
 
-    // Hash password
+    // Hasha la password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -121,7 +121,7 @@ export const createUser = async (req: Request, res: Response) => {
 
     await user.save();
 
-    // Return user without password
+    // Restituisce l'utente senza password
     const userResponse = user.toObject();
     delete (userResponse as unknown as Record<string, unknown>).password;
 
@@ -132,7 +132,7 @@ export const createUser = async (req: Request, res: Response) => {
   }
 };
 
-// PUT /users/:id - Update user
+// PUT /users/:id - Aggiorna utente
 export const updateUser = async (req: Request, res: Response) => {
   try {
     const { username, email, password, role, isActive, preferences } = req.body;
@@ -142,7 +142,7 @@ export const updateUser = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Utente non trovato' });
     }
 
-    // Check for duplicate username/email (excluding current user)
+    // Controlla duplicati di username/email (escluso l'utente corrente)
     if (username || email) {
       const existingUser = await User.findOne({
         $or: [
@@ -157,14 +157,14 @@ export const updateUser = async (req: Request, res: Response) => {
       }
     }
 
-    // Update fields
+    // Aggiorna i campi
     if (username) user.username = username;
     if (email) user.email = email.toLowerCase();
     if (role && Object.values(UserRole).includes(role)) user.role = role;
     if (typeof isActive === 'boolean') user.isActive = isActive;
     if (preferences) user.preferences = preferences;
 
-    // Update password if provided
+    // Aggiorna la password se fornita
     if (password) {
       const salt = await bcrypt.genSalt(10);
       user.password = await bcrypt.hash(password, salt);
@@ -172,7 +172,7 @@ export const updateUser = async (req: Request, res: Response) => {
 
     await user.save();
 
-    // Return user without password
+    // Restituisce l'utente senza password
     const userResponse = user.toObject();
     delete (userResponse as unknown as Record<string, unknown>).password;
 
@@ -183,7 +183,7 @@ export const updateUser = async (req: Request, res: Response) => {
   }
 };
 
-// DELETE /users/:id - Delete user (soft delete by deactivating)
+// DELETE /users/:id - Elimina utente (soft delete disattivandolo)
 export const deleteUser = async (req: Request, res: Response) => {
   try {
     const user = await User.findById(req.params.id);
@@ -191,14 +191,14 @@ export const deleteUser = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Utente non trovato' });
     }
 
-    // Prevent deleting yourself
+    // Impedisce di eliminare se stessi
     if (user._id.toString() === (req as Request & { user?: { id: string } }).user?.id) {
       return res
         .status(400)
         .json({ success: false, message: 'Non puoi eliminare il tuo stesso account' });
     }
 
-    // Soft delete - just deactivate
+    // Soft delete - si limita a disattivare
     user.isActive = false;
     await user.save();
 
@@ -209,13 +209,13 @@ export const deleteUser = async (req: Request, res: Response) => {
   }
 };
 
-// POST /users/:id/role-assignments - Add a role assignment
+// POST /users/:id/role-assignments - Aggiungi un'assegnazione di ruolo
 export const addRoleAssignment = async (req: Request, res: Response) => {
   try {
     const { role, resourceType, resourceId } = req.body;
     const assignedBy = (req as Request & { user?: { id: string } }).user?.id;
 
-    // Validate
+    // Valida
     if (!role || !resourceType || !resourceId) {
       return res
         .status(400)
@@ -235,7 +235,7 @@ export const addRoleAssignment = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Utente non trovato' });
     }
 
-    // Check if assignment already exists
+    // Controlla se l'assegnazione esiste già
     const existingAssignment = user.roleAssignments?.find(
       (ra: RoleAssignment) =>
         ra.resourceType === resourceType && ra.resourceId === resourceId && ra.role === role,
@@ -247,7 +247,7 @@ export const addRoleAssignment = async (req: Request, res: Response) => {
         .json({ success: false, message: 'Questo ruolo è già assegnato per questa risorsa' });
     }
 
-    // Add role assignment
+    // Aggiungi l'assegnazione di ruolo
     if (!user.roleAssignments) {
       user.roleAssignments = [];
     }
@@ -262,7 +262,7 @@ export const addRoleAssignment = async (req: Request, res: Response) => {
 
     await user.save();
 
-    // Return user without password
+    // Restituisce l'utente senza password
     const userResponse = user.toObject();
     delete (userResponse as unknown as Record<string, unknown>).password;
 
@@ -273,7 +273,7 @@ export const addRoleAssignment = async (req: Request, res: Response) => {
   }
 };
 
-// DELETE /users/:id/role-assignments - Remove a role assignment
+// DELETE /users/:id/role-assignments - Rimuovi un'assegnazione di ruolo
 export const removeRoleAssignment = async (req: Request, res: Response) => {
   try {
     const { role, resourceType, resourceId } = req.body;
@@ -283,7 +283,7 @@ export const removeRoleAssignment = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Utente non trovato' });
     }
 
-    // Remove the assignment
+    // Rimuove l'assegnazione
     user.roleAssignments =
       user.roleAssignments?.filter(
         (ra: RoleAssignment) =>
@@ -292,7 +292,7 @@ export const removeRoleAssignment = async (req: Request, res: Response) => {
 
     await user.save();
 
-    // Return user without password
+    // Restituisce l'utente senza password
     const userResponse = user.toObject();
     delete (userResponse as unknown as Record<string, unknown>).password;
 
@@ -303,7 +303,7 @@ export const removeRoleAssignment = async (req: Request, res: Response) => {
   }
 };
 
-// GET /users/by-resource/:resourceType/:resourceId - Get users with roles on a specific resource
+// GET /users/by-resource/:resourceType/:resourceId - Ottieni gli utenti con ruoli su una risorsa specifica
 export const getUsersByResource = async (req: Request, res: Response) => {
   try {
     const { resourceType, resourceId } = req.params;
@@ -319,7 +319,7 @@ export const getUsersByResource = async (req: Request, res: Response) => {
       .select('-password')
       .lean();
 
-    // Filter role assignments to only include the requested resource
+    // Filtra le assegnazioni di ruolo per includere solo la risorsa richiesta
     const usersWithFilteredRoles = users.map((user) => ({
       ...user,
       roleAssignments: user.roleAssignments?.filter(

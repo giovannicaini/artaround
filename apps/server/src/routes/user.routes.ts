@@ -15,37 +15,37 @@ import { UserRole } from '@artaround/shared';
 const router = Router();
 
 /**
- * User Routes
+ * Rotte Utenti
  *
- * All routes require authentication and admin role.
+ * Tutte le rotte richiedono autenticazione e ruolo admin.
  */
 
-// Middleware: all routes require auth and admin role
+// Middleware: tutte le rotte richiedono auth e ruolo admin
 router.use(authMiddleware);
 router.use(requireRole([UserRole.ADMIN]));
 
-// GET /users - Get all users with pagination and filters
+// GET /users - Ottieni tutti gli utenti con paginazione e filtri
 router.get('/', getUsers);
 
-// GET /users/by-resource/:resourceType/:resourceId - Get users with roles on a resource
+// GET /users/by-resource/:resourceType/:resourceId - Ottieni gli utenti con ruoli su una risorsa
 router.get('/by-resource/:resourceType/:resourceId', getUsersByResource);
 
-// GET /users/:id - Get single user
+// GET /users/:id - Ottieni un singolo utente
 router.get('/:id', getUserById);
 
-// POST /users - Create new user
+// POST /users - Crea nuovo utente
 router.post('/', createUser);
 
-// PUT /users/:id - Update user
+// PUT /users/:id - Aggiorna utente
 router.put('/:id', updateUser);
 
-// DELETE /users/:id - Delete/deactivate user
+// DELETE /users/:id - Elimina/disattiva utente
 router.delete('/:id', deleteUser);
 
-// POST /users/:id/role-assignments - Add role assignment
+// POST /users/:id/role-assignments - Aggiungi assegnazione di ruolo
 router.post('/:id/role-assignments', addRoleAssignment);
 
-// DELETE /users/:id/role-assignments - Remove role assignment
+// DELETE /users/:id/role-assignments - Rimuovi assegnazione di ruolo
 router.delete('/:id/role-assignments', removeRoleAssignment);
 
 export default router;

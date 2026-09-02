@@ -15,9 +15,9 @@ import {
 } from '@artaround/shared';
 
 /**
- * Visit Controller
+ * Controller Visite
  *
- * Manages visits - ordered sequences of artworks with items for each step
+ * Gestisce le visite - sequenze ordinate di opere con item per ogni tappa
  */
 
 export class VisitController {
@@ -67,7 +67,7 @@ export class VisitController {
     }
   }
 
-  // Validation rules for the new Visit structure
+  // Regole di validazione per la nuova struttura Visita
   static createValidation = [
     body('museumId').notEmpty().withMessage('Museum ID (Wikidata) is required'),
     body('title').trim().notEmpty().withMessage('Title is required'),
@@ -102,7 +102,7 @@ export class VisitController {
       ),
   ];
 
-  // Get all visits with filters
+  // Ottieni tutte le visite con filtri
   static async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const {
@@ -147,7 +147,7 @@ export class VisitController {
     }
   }
 
-  // Get visit by ID
+  // Ottieni visita per ID
   static async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -167,7 +167,7 @@ export class VisitController {
     }
   }
 
-  // Get visits by museum (using Wikidata ID)
+  // Ottieni le visite per museo (usando l'ID Wikidata)
   static async getByMuseum(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { museumId } = req.params;
@@ -188,7 +188,7 @@ export class VisitController {
     }
   }
 
-  // Get user's own visits
+  // Ottieni le visite proprie dell'utente
   static async getMyVisits(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) {
@@ -208,7 +208,7 @@ export class VisitController {
     }
   }
 
-  // Create visit
+  // Crea visita
   static async create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -220,7 +220,7 @@ export class VisitController {
         throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
       }
 
-      // Sort steps by order
+      // Ordina le tappe per order
       const steps = (req.body.steps || []).sort(
         (a: { order: number }, b: { order: number }) => a.order - b.order,
       );
@@ -283,7 +283,7 @@ export class VisitController {
     }
   }
 
-  // Update visit
+  // Aggiorna visita
   static async update(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -305,7 +305,7 @@ export class VisitController {
         throw new AppError(403, 'FORBIDDEN', 'You can only update your own visits');
       }
 
-      // Sort steps by order if provided
+      // Ordina le tappe per order se fornito
       if (req.body.steps) {
         req.body.steps = req.body.steps.sort(
           (a: { order: number }, b: { order: number }) => a.order - b.order,
@@ -325,7 +325,7 @@ export class VisitController {
     }
   }
 
-  // Add step to visit
+  // Aggiungi tappa alla visita
   static async addStep(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -348,7 +348,7 @@ export class VisitController {
 
       const step = req.body;
 
-      // Auto-assign order if not provided
+      // Assegna automaticamente l'order se non fornito
       if (step.order === undefined) {
         const maxOrder = Math.max(...visit.steps.map((s) => s.order), 0);
         step.order = maxOrder + 1;
@@ -368,7 +368,7 @@ export class VisitController {
     }
   }
 
-  // Update step in visit
+  // Aggiorna tappa nella visita
   static async updateStep(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, stepOrder } = req.params;
@@ -414,7 +414,7 @@ export class VisitController {
     }
   }
 
-  // Delete step from visit
+  // Elimina tappa dalla visita
   static async deleteStep(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id, stepOrder } = req.params;
@@ -437,7 +437,7 @@ export class VisitController {
 
       visit.steps = visit.steps.filter((s) => s.order !== Number(stepOrder));
 
-      // Re-order remaining steps
+      // Riordina le tappe rimanenti
       visit.steps.forEach((step, index) => {
         step.order = index + 1;
       });
@@ -454,7 +454,7 @@ export class VisitController {
     }
   }
 
-  // Reorder steps
+  // Riordina le tappe
   static async reorderSteps(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -476,7 +476,7 @@ export class VisitController {
         throw new AppError(403, 'FORBIDDEN', 'You can only modify your own visits');
       }
 
-      // Apply new order
+      // Applica il nuovo ordine
       for (const { oldOrder, newOrder } of stepOrders) {
         const step = visit.steps.find((s) => s.order === oldOrder);
         if (step) {
@@ -497,7 +497,7 @@ export class VisitController {
     }
   }
 
-  // Publish visit
+  // Pubblica visita
   static async publish(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -518,7 +518,7 @@ export class VisitController {
         throw new AppError(403, 'FORBIDDEN', 'You can only publish your own visits');
       }
 
-      // Validate visit has required content
+      // Valida che la visita abbia il contenuto richiesto
       if (!visit.steps || visit.steps.length === 0) {
         throw new AppError(400, 'VALIDATION_ERROR', 'Visit must have at least one step');
       }
@@ -542,7 +542,7 @@ export class VisitController {
     }
   }
 
-  // Unpublish visit
+  // Rimuovi pubblicazione visita
   static async unpublish(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -576,7 +576,7 @@ export class VisitController {
     }
   }
 
-  // Delete visit
+  // Elimina visita
   static async delete(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;

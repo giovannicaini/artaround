@@ -32,34 +32,34 @@ const mapPositionSchema = new Schema<ArtworkMapPosition>(
 
 const artworkSchema = new Schema<ArtworkDocument>(
   {
-    // Wikidata ID as primary identifier
+    // ID Wikidata come identificatore primario
     wikidataId: {
       type: String,
       required: true,
       index: true,
     },
 
-    // Basic info
+    // Info di base
     title: { type: String, required: true },
     description: String,
 
-    // Museum (Wikidata ID)
+    // Museo (ID Wikidata)
     museumId: {
       type: String,
       required: true,
       index: true,
     },
 
-    // Author/Artist
+    // Autore/Artista
     author: String,
     authorWikidataId: { type: String, index: true },
 
-    // Dating
+    // Datazione
     year: String,
     startYear: Number,
     endYear: Number,
 
-    // Classification
+    // Classificazione
     artworkType: {
       type: String,
       // Derivato dall'enum condiviso invece di duplicarlo qui a mano: un elenco
@@ -76,12 +76,12 @@ const artworkSchema = new Schema<ArtworkDocument>(
     period: String,
     periodWikidataId: String,
 
-    // Physical properties
+    // Proprietà fisiche
     dimensions: dimensionsSchema,
     materials: [String],
     technique: String,
 
-    // Context
+    // Contesto
     historicalEvents: [String],
     subjects: [String],
     artworkCollection: String, // Renamed from 'collection' to avoid Document conflict
@@ -90,12 +90,12 @@ const artworkSchema = new Schema<ArtworkDocument>(
     image: { type: String, required: true },
     images: [String],
 
-    // Location in museum
+    // Posizione nel museo
     roomId: { type: String, index: true }, // Museum.rooms[].id
     room: String, // testo libero legacy, fallback per opere non ancora migrate
     floor: String,
 
-    // Map position
+    // Posizione sulla mappa
     mapPosition: mapPositionSchema,
   },
   {
@@ -103,7 +103,7 @@ const artworkSchema = new Schema<ArtworkDocument>(
   },
 );
 
-// Indexes for common queries
+// Indici per le query comuni
 artworkSchema.index({ museumId: 1, room: 1 });
 artworkSchema.index({ museumId: 1, wikidataId: 1 }, { unique: true });
 artworkSchema.index({ movementWikidataId: 1 });

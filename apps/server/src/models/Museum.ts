@@ -219,7 +219,7 @@ const navigatorConfigSchema = new Schema(
 
 const museumSchema = new Schema<MuseumDocument>(
   {
-    // Wikidata ID as primary identifier
+    // ID Wikidata come identificatore primario
     wikidataId: {
       type: String,
       required: true,
@@ -227,7 +227,7 @@ const museumSchema = new Schema<MuseumDocument>(
       index: true,
     },
 
-    // Basic info
+    // Info di base
     name: {
       type: String,
       required: true,
@@ -254,7 +254,7 @@ const museumSchema = new Schema<MuseumDocument>(
       required: true,
     },
 
-    // Location
+    // Posizione
     location: {
       type: locationSchema,
       required: true,
@@ -264,20 +264,20 @@ const museumSchema = new Schema<MuseumDocument>(
     images: [String],
     coverImage: String,
 
-    // Floor maps
+    // Piantine
     floors: [floorSchema],
 
     // Sale del museo (nome scelto in "Modifica Museo", contorno disegnato in
     // "Piantina e mappa"). Ogni Artwork.roomId referenzia una di queste.
     rooms: [roomSchema],
 
-    // Services
+    // Servizi
     services: servicesSchema,
 
-    // Navigator app configurations
+    // Configurazioni dell'app Navigator
     navigatorConfigs: [navigatorConfigSchema],
 
-    // Status
+    // Stato
     isActive: {
       type: Boolean,
       default: true,
@@ -289,7 +289,7 @@ const museumSchema = new Schema<MuseumDocument>(
   },
 );
 
-// Indexes
+// Indici
 museumSchema.index({ name: 'text', description: 'text' });
 museumSchema.index({ 'location.city': 1 });
 

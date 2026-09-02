@@ -41,7 +41,7 @@ export const errorHandler = (
     return;
   }
 
-  // Mongoose validation error
+  // Errore di validazione Mongoose
   if (err.name === 'ValidationError') {
     res.status(400).json({
       success: false,
@@ -54,7 +54,7 @@ export const errorHandler = (
     return;
   }
 
-  // Mongoose duplicate key error
+  // Errore di chiave duplicata Mongoose
   if (err.name === 'MongoServerError') {
     const mongoErr = err as MongoServerError;
     if (mongoErr.code === 11000) {
@@ -70,7 +70,7 @@ export const errorHandler = (
     }
   }
 
-  // Other MongoServerError
+  // Altri MongoServerError
   if (err.name === 'MongoServerError') {
     res.status(400).json({
       success: false,
@@ -82,7 +82,7 @@ export const errorHandler = (
     return;
   }
 
-  // Default error
+  // Errore di default
   res.status(500).json({
     success: false,
     error: {

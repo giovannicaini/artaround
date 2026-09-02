@@ -48,7 +48,7 @@ export class WikidataService {
     const parsed = Number(rawValue);
     if (Number.isNaN(parsed)) return undefined;
 
-    // WDQS quantity values for dimensions are commonly in meters: convert to cm when plausible
+    // I valori di quantità WDQS per le dimensioni sono spesso in metri: converte in cm se plausibile
     if (Math.abs(parsed) > 0 && Math.abs(parsed) <= 20) {
       return Math.round(parsed * 100);
     }

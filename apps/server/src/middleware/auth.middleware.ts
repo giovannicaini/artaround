@@ -58,7 +58,7 @@ export const authMiddleware = async (
 };
 
 /**
- * Middleware to require specific roles
+ * Middleware per richiedere ruoli specifici
  */
 export const requireRole = (allowedRoles: UserRole[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {

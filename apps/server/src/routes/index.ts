@@ -11,7 +11,7 @@ import userRoutes from './user.routes.js';
 
 const router = Router();
 
-// API Info - Root endpoint
+// Info API - endpoint root
 router.get('/', (req, res) => {
   res.json({
     success: true,
@@ -84,7 +84,7 @@ router.get('/', (req, res) => {
   });
 });
 
-// Health check
+// Controllo di stato
 router.get('/health', (req, res) => {
   res.json({
     success: true,
@@ -93,7 +93,7 @@ router.get('/health', (req, res) => {
   });
 });
 
-// Mount routes
+// Monta le rotte
 router.use('/auth', authRoutes);
 router.use('/museums', museumRoutes);
 router.use('/artworks', artworkRoutes);

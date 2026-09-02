@@ -15,13 +15,13 @@ const VALID_CATEGORIES: UploadCategory[] = [
 export class UploadController {
   /**
    * POST /api/uploads
-   * Upload and process an image from a file
-   * Accepts multipart/form-data with:
-   * - file: image file
-   * - category: one of museums, items, artworks, visits, users, misc
-   * - width, height, fit, quality, format: optional processing params
-   * - cropX, cropY, cropWidth, cropHeight: optional crop region
-   * - oldPath: optional path of old image to delete (replacement)
+   * Carica ed elabora un'immagine da un file
+   * Accetta multipart/form-data con:
+   * - file: file immagine
+   * - category: una tra museums, items, artworks, visits, users, misc
+   * - width, height, fit, quality, format: parametri di elaborazione opzionali
+   * - cropX, cropY, cropWidth, cropHeight: regione di ritaglio opzionale
+   * - oldPath: percorso opzionale della vecchia immagine da eliminare (sostituzione)
    */
   static async uploadImage(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -42,7 +42,7 @@ export class UploadController {
         options,
       );
 
-      // Delete old image if replacement
+      // Elimina la vecchia immagine se è una sostituzione
       if (req.body.oldPath) {
         await UploadService.deleteFile(req.body.oldPath);
       }
@@ -58,7 +58,7 @@ export class UploadController {
 
   /**
    * POST /api/uploads/from-url
-   * Download, process and save an image from a URL
+   * Scarica, elabora e salva un'immagine da un URL
    * Body: { url, category, width, height, fit, quality, format, cropX, cropY, cropWidth, cropHeight, oldPath }
    */
   static async uploadFromUrl(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -76,7 +76,7 @@ export class UploadController {
       const options = UploadController.parseProcessOptions(req.body);
       const result = await UploadService.processFromUrl(url, category as UploadCategory, options);
 
-      // Delete old image if replacement
+      // Elimina la vecchia immagine se è una sostituzione
       if (oldPath) {
         await UploadService.deleteFile(oldPath);
       }
@@ -92,7 +92,7 @@ export class UploadController {
 
   /**
    * DELETE /api/uploads
-   * Delete an uploaded image
+   * Elimina un'immagine caricata
    * Body: { path: "/uploads/museums/abc123.webp" }
    */
   static async deleteImage(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -116,7 +116,7 @@ export class UploadController {
 
   /**
    * POST /api/uploads/metadata
-   * Get image metadata from an uploaded file (without saving)
+   * Ottieni i metadati immagine da un file caricato (senza salvare)
    */
   static async getMetadata(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -136,7 +136,7 @@ export class UploadController {
   }
 
   /**
-   * Parse image processing options from request body
+   * Estrae le opzioni di elaborazione immagine dal body della richiesta
    */
   private static parseProcessOptions(body: Record<string, string>): ImageProcessOptions {
     const options: ImageProcessOptions = {};

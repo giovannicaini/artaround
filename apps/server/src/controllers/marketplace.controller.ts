@@ -21,7 +21,7 @@ function round2(amount: number): number {
 }
 
 export class MarketplaceController {
-  // Get item catalog
+  // Ottieni il catalogo item
   static async getItems(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const {
@@ -68,7 +68,7 @@ export class MarketplaceController {
     }
   }
 
-  // Get published visits (marketplace catalog)
+  // Ottieni le visite pubblicate (catalogo marketplace)
   static async getVisits(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const {
@@ -90,7 +90,7 @@ export class MarketplaceController {
       const limitNum = parseInt(limit as string, 10);
       const skip = (pageNum - 1) * limitNum;
 
-      // Sorting
+      // Ordinamento
       let sort: Record<string, 1 | -1> = { createdAt: -1 };
       if (sortBy === 'rating') sort = { 'metadata.rating': -1 };
       if (sortBy === 'price') sort = { 'metadata.price': 1 };
@@ -116,7 +116,7 @@ export class MarketplaceController {
     }
   }
 
-  // Purchase visit (simulated)
+  // Acquista visita (simulato)
   static async purchaseVisit(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { visitId } = req.params;
@@ -143,7 +143,7 @@ export class MarketplaceController {
         throw new AppError(400, 'VISIT_NOT_PUBLISHED', 'This visit is not available for purchase');
       }
 
-      // Check if already purchased
+      // Controlla se già acquistato
       const existing = await VisitPurchase.findOne({
         userId: req.user.id,
         visitId,
@@ -173,7 +173,7 @@ export class MarketplaceController {
 
       await purchase.save();
 
-      // Update visit statistics
+      // Aggiorna le statistiche della visita
       visit.metadata.purchasesCount += 1;
       visit.metadata.downloadsCount += 1;
       await visit.save();
@@ -188,7 +188,7 @@ export class MarketplaceController {
     }
   }
 
-  // Purchase item
+  // Acquista item
   static async purchaseItem(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { itemId } = req.params;
@@ -259,7 +259,7 @@ export class MarketplaceController {
     }
   }
 
-  // Get user's purchased visits
+  // Ottieni le visite acquistate dall'utente
   static async getMyPurchases(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) {
@@ -279,7 +279,7 @@ export class MarketplaceController {
     }
   }
 
-  // Get user's purchased items
+  // Ottieni gli item acquistati dall'utente
   static async getMyItemPurchases(
     req: AuthRequest,
     res: Response,

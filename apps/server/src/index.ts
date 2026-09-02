@@ -12,7 +12,7 @@ import routes from './routes/index.js';
 import { swaggerSpec } from './config/swagger.js';
 import { UploadService } from './utils/upload.service.js';
 
-// ESM equivalent of __dirname
+// Equivalente ESM di __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -53,16 +53,16 @@ app.get('/api-docs.json', (req, res) => {
   res.send(swaggerSpec);
 });
 
-// API Routes
+// Rotte API
 app.use('/api', routes);
 
-// Root landing page
+// Pagina di atterraggio root
 const landingPagePath = path.resolve(__dirname, '../../../index.html');
 app.get('/', (req, res) => {
   res.sendFile(landingPagePath);
 });
 
-// Serve uploaded images (static files)
+// Serve le immagini caricate (file statici)
 const uploadsPath = UploadService.getUploadsDir();
 app.use(
   '/uploads',
@@ -72,34 +72,34 @@ app.use(
   }),
 );
 
-// Serve marketplace static files
+// Serve i file statici del marketplace
 const marketplacePath = path.resolve(__dirname, '../../marketplace/dist');
 app.use('/marketplace', express.static(marketplacePath));
 
-// SPA fallback - serve index.html for all /marketplace routes
+// Fallback SPA - serve index.html per tutte le rotte /marketplace
 app.get('/marketplace/*', (req, res) => {
   res.sendFile(path.join(marketplacePath, 'index.html'));
 });
 
-// Serve navigator static files
+// Serve i file statici del navigator
 const navigatorPath = path.resolve(__dirname, '../../navigator/dist');
 app.use('/navigator', express.static(navigatorPath));
 
-// SPA fallback - serve index.html for all /navigator routes
+// Fallback SPA - serve index.html per tutte le rotte /navigator
 app.get('/navigator/*', (req, res) => {
   res.sendFile(path.join(navigatorPath, 'index.html'));
 });
 
-// Error handling
+// Gestione errori
 app.use(errorHandler);
 
-// Start server
+// Avvia il server
 const startServer = async () => {
   try {
-    // Connect to MongoDB
+    // Connetti a MongoDB
     await connectDB();
 
-    // Optional bootstrap seed for environments without shell access
+    // Seed di avvio opzionale per ambienti senza accesso shell
     if (config.seed.onStart) {
       const usersCount = await User.countDocuments();
       const shouldSeed = !config.seed.onlyIfEmpty || usersCount === 0;
@@ -113,7 +113,7 @@ const startServer = async () => {
       }
     }
 
-    // Start listening
+    // Inizia ad ascoltare
     app.listen(config.port, () => {
       console.log(`🚀 Server running on port ${config.port}`);
       console.log(`📝 Environment: ${config.env}`);

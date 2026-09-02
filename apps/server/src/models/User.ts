@@ -101,7 +101,7 @@ const userSchema = new Schema<UserDocument>(
   },
 );
 
-// Index for efficient role assignment queries
+// Indice per le query efficienti sulle assegnazioni di ruolo
 userSchema.index({ 'roleAssignments.resourceType': 1, 'roleAssignments.resourceId': 1 });
 
 export const User = mongoose.model<UserDocument>('User', userSchema);

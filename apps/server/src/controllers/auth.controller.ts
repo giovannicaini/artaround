@@ -15,7 +15,7 @@ import {
 import { AuthRequest } from '../middleware/auth.middleware.js';
 
 export class AuthController {
-  // Validation rules
+  // Regole di validazione
   static registerValidation = [
     body('username')
       .trim()
@@ -31,7 +31,7 @@ export class AuthController {
     body('password').notEmpty().withMessage('Password is required'),
   ];
 
-  // Register new user
+  // Registra un nuovo utente
   static async register(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -41,7 +41,7 @@ export class AuthController {
 
       const { username, email, password, role }: RegisterRequest = req.body;
 
-      // Check if user already exists
+      // Controlla se l'utente esiste già
       const existingUser = await User.findOne({
         $or: [{ username }, { email }],
       });
@@ -50,10 +50,10 @@ export class AuthController {
         throw new AppError(409, 'USER_EXISTS', 'Username or email already exists');
       }
 
-      // Hash password
+      // Hasha la password
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Create user
+      // Crea l'utente
       const user = new User({
         username,
         email,
@@ -63,7 +63,7 @@ export class AuthController {
 
       await user.save();
 
-      // Generate JWT
+      // Genera il JWT
       const token = jwt.sign(
         {
           id: user._id.toString(),
@@ -90,7 +90,7 @@ export class AuthController {
     }
   }
 
-  // Login user
+  // Login utente
   static async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -100,19 +100,19 @@ export class AuthController {
 
       const { username, password }: LoginRequest = req.body;
 
-      // Find user
+      // Trova l'utente
       const user = await User.findOne({ username });
       if (!user) {
         throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid username or password');
       }
 
-      // Check password
+      // Controlla la password
       const isPasswordValid = await bcrypt.compare(password, user.password);
       if (!isPasswordValid) {
         throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid username or password');
       }
 
-      // Generate JWT
+      // Genera il JWT
       const token = jwt.sign(
         {
           id: user._id.toString(),
@@ -148,10 +148,10 @@ export class AuthController {
     body('preferences.interests').optional().isArray(),
   ];
 
-  // Self-service update of the current user's own email/preferences.
-  // Deliberately separate from UserController.updateUser (admin-only,
-  // PUT /api/users/:id): here nobody can touch role, roleAssignments,
-  // username or isActive, regardless of what the request body contains.
+  // Aggiornamento self-service di email/preferenze proprie dell'utente.
+  // Volutamente separato da UserController.updateUser (solo admin,
+  // PUT /api/users/:id): qui nessuno può toccare ruolo, roleAssignments,
+  // username o isActive, indipendentemente da cosa contiene il body.
   static async updateMe(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) {
@@ -222,8 +222,8 @@ export class AuthController {
       .withMessage('New password must be at least 8 characters'),
   ];
 
-  // Self-service password change: requires the current password, never touches
-  // any other user via id (unlike the admin-only user CRUD).
+  // Cambio password self-service: richiede la password attuale, non tocca
+  // mai un altro utente via id (a differenza del CRUD utenti solo admin).
   static async changePassword(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) {
@@ -262,7 +262,7 @@ export class AuthController {
     }
   }
 
-  // Get current user
+  // Ottieni l'utente corrente
   static async me(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) {
