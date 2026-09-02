@@ -7,7 +7,7 @@
 import type { AppLanguage } from './i18n.types';
 
 // ========================================
-// MUSEUM
+// MUSEO
 // ========================================
 
 export interface Museum {
@@ -76,7 +76,7 @@ export interface MuseumServices {
 }
 
 // ========================================
-// MUSEUM API REQUESTS/RESPONSES
+// RICHIESTE/RISPOSTE API MUSEO
 // ========================================
 
 export interface CreateMuseumData {
@@ -165,7 +165,7 @@ export interface MuseumMap {
 }
 
 // ========================================
-// FLOOR & MAP SYSTEM
+// SISTEMA PIANI E MAPPA
 // ========================================
 
 export interface MuseumFloor {
@@ -224,7 +224,7 @@ export enum ConnectionType {
 }
 
 // ========================================
-// MAP MARKERS (POI)
+// MARKER SULLA MAPPA (POI)
 // ========================================
 
 export enum MarkerType {

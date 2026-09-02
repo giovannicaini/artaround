@@ -12,7 +12,7 @@ import type { AppLanguage } from './i18n.types';
  */
 
 // ========================================
-// VISIT (Percorso di visita)
+// VISITA (Percorso di visita)
 // ========================================
 
 export interface Visit {
@@ -51,7 +51,7 @@ export interface Visit {
 }
 
 // ========================================
-// VISIT STEPS
+// TAPPE DELLA VISITA
 // ========================================
 
 export interface VisitStep {
@@ -114,7 +114,7 @@ export enum VisitStepType {
 }
 
 // ========================================
-// GENERAL INFO
+// INFO GENERALI
 // ========================================
 
 export interface VisitGeneralInfo {
@@ -135,7 +135,7 @@ export interface VisitGeneralInfo {
 }
 
 // ========================================
-// TARGET AUDIENCE
+// PUBBLICO DI RIFERIMENTO
 // ========================================
 
 export interface TargetAudience {
@@ -147,7 +147,7 @@ export interface TargetAudience {
 }
 
 // ========================================
-// METADATA
+// METADATI
 // ========================================
 
 export interface VisitMetadata {
@@ -172,7 +172,7 @@ export interface VisitMetadata {
 }
 
 // ========================================
-// VISIT FILTERS & REQUESTS
+// FILTRI E RICHIESTE SULLA VISITA
 // ========================================
 
 export interface VisitFilters {
@@ -201,7 +201,7 @@ export interface CreateVisitData {
 export type UpdateVisitData = Partial<CreateVisitData>;
 
 // ========================================
-// PURCHASE
+// ACQUISTO
 // ========================================
 
 export interface VisitPurchase {
@@ -213,7 +213,7 @@ export interface VisitPurchase {
 }
 
 // ========================================
-// VISIT SUMMARY (per le liste)
+// RIEPILOGO VISITA (per le liste)
 // ========================================
 
 export interface VisitSummary {

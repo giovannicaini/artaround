@@ -15,7 +15,7 @@
 import type { AppLanguage } from './i18n.types';
 
 // ========================================
-// ITEM (Contenuto testuale/audio)
+// ITEM (contenuto testuale/audio)
 // ========================================
 
 export interface Item {
@@ -63,7 +63,7 @@ export interface Item {
 }
 
 // ========================================
-// REFERENCE TYPES
+// TIPI DI RIFERIMENTO
 // ========================================
 
 export enum ItemReferenceType {
@@ -75,7 +75,7 @@ export enum ItemReferenceType {
 }
 
 // ========================================
-// CONTENT CHARACTERISTICS
+// CARATTERISTICHE DEL CONTENUTO
 // ========================================
 
 export enum ContentDuration {
@@ -94,7 +94,7 @@ export enum LanguageLevel {
 }
 
 // ========================================
-// LICENSING
+// LICENZA
 // ========================================
 
 export enum LicenseType {
@@ -107,7 +107,7 @@ export enum LicenseType {
 }
 
 // ========================================
-// WIKIDATA INTEGRATION
+// INTEGRAZIONE WIKIDATA
 // ========================================
 
 export interface WikidataEntity {
@@ -145,7 +145,7 @@ export interface WikidataEntity {
 }
 
 // ========================================
-// ITEM FILTERS & QUERIES
+// FILTRI E QUERY SUGLI ITEM
 // ========================================
 
 export interface ItemFilters {
@@ -162,7 +162,7 @@ export interface ItemFilters {
 }
 
 // ========================================
-// ITEM REQUESTS
+// RICHIESTE ITEM
 // ========================================
 
 export interface CreateItemData {
@@ -186,7 +186,7 @@ export interface CreateItemData {
 export type UpdateItemData = Partial<CreateItemData>;
 
 // ========================================
-// ITEM SUMMARY (per le liste)
+// RIEPILOGO ITEM (per le liste)
 // ========================================
 
 export interface ItemSummary {

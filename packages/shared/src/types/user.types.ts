@@ -55,7 +55,7 @@ export enum ResourceType {
 }
 
 // ========================================
-// USER API REQUESTS/RESPONSES
+// RICHIESTE/RISPOSTE API UTENTE
 // ========================================
 
 export interface UsersResponse {
