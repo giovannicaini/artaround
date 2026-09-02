@@ -525,7 +525,7 @@ export class MuseumMapPage extends LitElement {
   private handleMarkerUpdate(e: CustomEvent) {
     const updatedMarker = e.detail as MapMarker;
 
-    // Update local state
+    // Aggiorna lo stato locale
     this.floors = this.floors.map((f) => {
       if (f.id === this.selectedFloorId) {
         return {
