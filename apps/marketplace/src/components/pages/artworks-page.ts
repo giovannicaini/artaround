@@ -44,10 +44,10 @@ type ArtworkListLayout = 'grid' | 'table';
 type ArtworkSortField = 'title' | 'author' | 'year' | 'updatedAt' | 'artworkType';
 
 /**
- * Artworks Page
+ * Pagina Opere
  *
- * Displays and manages physical Artworks in museums.
- * Artworks use Wikidata IDs as primary identifiers.
+ * Mostra e gestisce le Opere fisiche nei musei.
+ * Le opere usano gli ID Wikidata come identificatori primari.
  */
 @customElement('artworks-page')
 export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
@@ -146,14 +146,14 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     if (changedProps.has('openingArtworkId') && this.openingArtworkId) {
       this.openArtworkDetail(this.openingArtworkId);
     }
-    // Handle opening with a specific viewMode (e.g., from history navigation)
+    // Gestisce l'apertura con un viewMode specifico (es. dalla navigazione history)
     if (changedProps.has('openingViewMode')) {
       if (this.openingViewMode === 'list') {
-        // Returning to list view from history
+        // Torna alla vista lista dalla history
         this.selectedArtwork = null;
         this.viewMode = 'list';
       } else if (this.openingViewMode === 'view' && this.openingArtworkId && this.selectedArtwork) {
-        // Already handled by openArtworkDetail
+        // Già gestito da openArtworkDetail
       } else if (this.openingViewMode === 'edit' && this.selectedArtwork) {
         this.viewMode = 'edit';
       } else if (this.openingViewMode === 'create') {
@@ -1223,7 +1223,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
   }
 
   private handleViewArtworkContents(artwork: Artwork) {
-    // Dispatch event to navigate to contents filtered by this artwork
+    // Emette l'evento per navigare ai contenuti filtrati per questa opera
     this.dispatchEvent(
       new CustomEvent('navigate-to-contents', {
         detail: { artworkId: artwork.wikidataId },
@@ -1566,8 +1566,8 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
 
   // ─── Sincronizzazione stato navigazione ───────────────────────────────
   /**
-   * Emits an event to notify the parent about state changes (viewMode, selected artwork)
-   * Used for history management
+   * Emette un evento per notificare il genitore dei cambi di stato (viewMode, opera selezionata)
+   * Usato per la gestione della history
    */
   private emitStateChange(): void {
     this.dispatchEvent(
@@ -1583,7 +1583,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
   }
 
   /**
-   * Returns to the list view and clears the selected artwork
+   * Torna alla vista lista e deseleziona l'opera
    */
   private handleBackToList(): void {
     this.selectedArtwork = null;
@@ -1592,7 +1592,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
   }
 
   /**
-   * Navigates to create mode
+   * Passa alla modalità di creazione
    */
   private handleGoToCreate(): void {
     this.viewMode = 'create';

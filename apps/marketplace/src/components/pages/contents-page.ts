@@ -45,10 +45,10 @@ import { __ } from '../../services/i18n.service';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'view';
 /**
- * Contents Page
+ * Pagina Contenuti
  *
- * Displays and manages content Items (text/audio descriptions).
- * Each Item is a single content piece with a specific duration and language level.
+ * Mostra e gestisce gli Item di contenuto (descrizioni testo/audio).
+ * Ogni Item è un singolo pezzo di contenuto con una durata e un livello linguistico specifici.
  */
 @customElement('contents-page')
 export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {

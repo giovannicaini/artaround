@@ -48,9 +48,9 @@ interface UserFormData {
 }
 
 /**
- * Users Management Page
+ * Pagina Gestione Utenti
  *
- * Admin interface for managing users, roles, and contextual role assignments.
+ * Interfaccia admin per gestire utenti, ruoli e assegnazioni di ruolo contestuali.
  */
 @customElement('users-page')
 export class UsersPage extends LitElement {
@@ -64,17 +64,17 @@ export class UsersPage extends LitElement {
   @state() private error = '';
   @state() private success = '';
 
-  // Pagination
+  // Paginazione
   @state() private page = 1;
   @state() private totalPages = 1;
   @state() private total = 0;
 
-  // Filters
+  // Filtri
   @state() private searchQuery = '';
   @state() private filterRole: UserRole | '' = '';
   @state() private filterActive: 'all' | 'active' | 'inactive' = 'all';
 
-  // Form data
+  // Dati del form
   @state() private formData: UserFormData = {
     username: '',
     email: '',
@@ -83,19 +83,19 @@ export class UsersPage extends LitElement {
     isActive: true,
   };
 
-  // Resource name lookup (id → name)
+  // Cerca il nome della risorsa (id → nome)
   @state() private resourceNames: Map<string, string> = new Map();
 
-  // Resource options for resource picker in role modal
+  // Opzioni risorsa per il picker nel modal ruoli
   @state() private resourceOptions: { value: string; label: string }[] = [];
   @state() private resourceOptionsLoading = false;
 
-  // Delete modal
+  // Modal di eliminazione
   @state() private deleteModalOpen = false;
   @state() private userToDelete: User | null = null;
   @state() private deleting = false;
 
-  // Role assignment modal
+  // Modal assegnazione ruolo
   @state() private roleAssignmentModalOpen = false;
   @state() private roleAssignmentData: RoleAssignmentData = {
     role: ContextualRole.VIEWER,
@@ -229,7 +229,7 @@ export class UsersPage extends LitElement {
     this.error = '';
     this.success = '';
 
-    // Validation
+    // Validazione
     if (!this.formData.username.trim()) {
       this.error = __('Username obbligatorio');
       return;
@@ -270,7 +270,7 @@ export class UsersPage extends LitElement {
         this.success = __('Utente aggiornato con successo!');
       }
 
-      // Refresh list and go back
+      // Ricarica la lista e torna indietro
       await this.loadUsers();
       setTimeout(() => {
         this.viewMode = 'list';
@@ -305,7 +305,7 @@ export class UsersPage extends LitElement {
     }
   }
 
-  // Role assignment methods
+  // Metodi per l'assegnazione di ruolo
   private openRoleAssignmentModal(user: User) {
     this.selectedUser = user;
     this.roleAssignmentData = {
@@ -357,7 +357,7 @@ export class UsersPage extends LitElement {
       );
       this.selectedUser = updatedUser;
 
-      // Update user in list
+      // Aggiorna l'utente nella lista
       this.users = this.users.map((u) => (u._id === updatedUser._id ? updatedUser : u));
 
       this.roleAssignmentModalOpen = false;
@@ -381,7 +381,7 @@ export class UsersPage extends LitElement {
       });
       this.selectedUser = updatedUser;
 
-      // Update user in list
+      // Aggiorna l'utente nella lista
       this.users = this.users.map((u) => (u._id === updatedUser._id ? updatedUser : u));
     } catch (e) {
       console.error('Error removing role assignment:', e);
@@ -403,7 +403,7 @@ export class UsersPage extends LitElement {
   // ─── Helper di render ──────────────────────────────────────
   private renderList() {
     return html`
-      <!-- Header -->
+      <!-- Intestazione -->
       <ui-page-header
         .title=${__('Gestione Utenti')}
         .count=${this.total}
@@ -418,7 +418,7 @@ export class UsersPage extends LitElement {
         ></ui-button>
       </ui-page-header>
 
-      <!-- Filters -->
+      <!-- Filtri -->
       <div class="flex flex-col lg:flex-row gap-4 mb-6">
         <div class="flex-1">
           <ui-search-bar
@@ -434,7 +434,7 @@ export class UsersPage extends LitElement {
         </div>
 
         <div class="flex flex-wrap gap-2">
-          <!-- Role filter -->
+          <!-- Filtro ruolo -->
           <ui-filter-tabs
             .tabs=${[
               { value: '', label: __('Tutti') },
@@ -447,7 +447,7 @@ export class UsersPage extends LitElement {
             @filter-change=${(e: CustomEvent) => this.handleFilterRole(e.detail.value)}
           ></ui-filter-tabs>
 
-          <!-- Active filter -->
+          <!-- Filtro attivo -->
           <ui-filter-tabs
             .tabs=${[
               { value: 'all', label: __('Tutti') },
@@ -460,12 +460,12 @@ export class UsersPage extends LitElement {
         </div>
       </div>
 
-      <!-- Error message -->
+      <!-- Messaggio di errore -->
       ${this.error
         ? html`<ui-alert variant="danger" .message=${this.error} class="mb-4"></ui-alert>`
         : nothing}
 
-      <!-- Users table -->
+      <!-- Tabella utenti -->
       ${this.loading
         ? html`<ui-loading size="lg" .text=${__('Caricamento utenti...')}></ui-loading>`
         : this.users.length === 0
@@ -486,7 +486,7 @@ export class UsersPage extends LitElement {
             </ui-empty>`
           : this.renderUsersTable()}
 
-      <!-- Pagination -->
+      <!-- Paginazione -->
       ${this.totalPages > 1
         ? html`<ui-pagination
             .page=${this.page}
@@ -667,7 +667,7 @@ export class UsersPage extends LitElement {
 
     return html`
       <div class="max-w-2xl mx-auto">
-        <!-- Header -->
+        <!-- Intestazione -->
         <ui-page-header
           .title=${isEdit ? __('Modifica Utente') : __('Nuovo Utente')}
           .description=${isEdit
@@ -677,7 +677,7 @@ export class UsersPage extends LitElement {
           @back=${this.handleCancel}
         ></ui-page-header>
 
-        <!-- Messages -->
+        <!-- Messaggi -->
         ${this.error
           ? html`<ui-alert variant="danger" .message=${this.error} class="mb-4"></ui-alert>`
           : nothing}
@@ -740,7 +740,7 @@ export class UsersPage extends LitElement {
             ></ui-select>
           </div>
 
-          <!-- Checkbox section -->
+          <!-- Sezione checkbox -->
           <div class="mt-8 pt-6 border-t border-surface-200 dark:border-surface-700">
             <ui-checkbox
               .label=${__('Account attivo')}
@@ -754,7 +754,7 @@ export class UsersPage extends LitElement {
             ></ui-checkbox>
           </div>
 
-          <!-- Actions -->
+          <!-- Azioni -->
           <div
             class="flex items-center justify-end gap-3 mt-8 pt-6 border-t border-surface-200 dark:border-surface-700"
           >
@@ -782,7 +782,7 @@ export class UsersPage extends LitElement {
 
     return html`
       <div class="max-w-3xl mx-auto">
-        <!-- Header -->
+        <!-- Intestazione -->
         <div class="flex items-center gap-4 mb-6">
           <ui-icon-button icon="arrow-left" size="md" @click=${this.handleCancel}></ui-icon-button>
           <div class="flex-1">
@@ -797,7 +797,7 @@ export class UsersPage extends LitElement {
           ></ui-button>
         </div>
 
-        <!-- User info card -->
+        <!-- Card info utente -->
         <ui-panel-section
           .title=${__('Informazioni Generali')}
           icon="user"
@@ -840,7 +840,7 @@ export class UsersPage extends LitElement {
           `}
         ></ui-panel-section>
 
-        <!-- Role assignments card -->
+        <!-- Card assegnazioni ruolo -->
         <ui-card>
           <div class="flex items-center justify-between mb-4">
             <h3 class="font-semibold text-surface-900 dark:text-white">
@@ -995,7 +995,7 @@ export class UsersPage extends LitElement {
           </div>
 
           <div class="overflow-y-auto flex-1">
-            <!-- Existing role assignments -->
+            <!-- Assegnazioni di ruolo esistenti -->
             ${existingRoles.length > 0
               ? html`
                   <div class="p-6 pb-0 space-y-2">
@@ -1013,7 +1013,7 @@ export class UsersPage extends LitElement {
                 `
               : nothing}
 
-            <!-- Add new role assignment -->
+            <!-- Aggiungi nuova assegnazione di ruolo -->
             <div class="p-6 space-y-4">
               ${existingRoles.length > 0
                 ? html`<p class="text-xs font-semibold text-surface-500 uppercase tracking-wider">

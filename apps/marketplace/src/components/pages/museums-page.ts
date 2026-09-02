@@ -273,7 +273,7 @@ export class MuseumsPage extends LitElement {
 
     try {
       this.museums = await museumService.getMuseums();
-      // Load stats in background
+      // Carica le statistiche in background
       this.loadMuseumStats();
     } catch (e) {
       console.error('Error loading museums:', e);
@@ -286,12 +286,12 @@ export class MuseumsPage extends LitElement {
   private async loadMuseumStats() {
     this.loadingStats = true;
 
-    // Load stats for each museum in parallel (but in batches to avoid too many requests)
+    // Carica le statistiche di ogni museo in parallelo (a lotti, per non fare troppe richieste)
     const batchSize = 5;
     for (let i = 0; i < this.museums.length; i += batchSize) {
       const batch = this.museums.slice(i, i + batchSize);
       await Promise.all(batch.map((museum) => this.loadStatsForMuseum(museum)));
-      // Trigger re-render after each batch
+      // Forza un re-render dopo ogni lotto
       this.requestUpdate();
     }
 
@@ -329,7 +329,7 @@ export class MuseumsPage extends LitElement {
   private get filteredMuseums(): Museum[] {
     let filtered = this.museums;
 
-    // Filter by role
+    // Filtra per ruolo
     if (this.filterRole !== 'all' && this.user?.roleAssignments) {
       const targetRole = this.filterRole === 'curator' ? 'manager' : 'author';
       const myMuseumIds = this.user.roleAssignments
@@ -338,7 +338,7 @@ export class MuseumsPage extends LitElement {
       filtered = filtered.filter((museum) => myMuseumIds.includes(museum._id));
     }
 
-    // Filter by search
+    // Filtra per ricerca
     if (this.searchQuery.trim()) {
       const query = this.searchQuery.toLowerCase().trim();
       filtered = filtered.filter(
