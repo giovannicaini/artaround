@@ -264,7 +264,7 @@ export class MarketplacePage extends LitElement {
                       <ui-button
                         variant="secondary"
                         size="sm"
-                        icon="currency"
+                        icon="euro"
                         .label=${__('Ricarica credito')}
                         @click=${() => this.goToAccount()}
                       ></ui-button>

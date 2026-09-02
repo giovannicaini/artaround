@@ -262,7 +262,7 @@ export class AdminHeader extends LitElement {
                     class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success-50 dark:bg-surface-800 text-success-700 dark:text-success-500 hover:bg-success-100 dark:hover:bg-surface-700 transition-colors text-sm font-semibold"
                     title=${__('Il mio credito')}
                   >
-                    <ui-icon name="currency" size="xs"></ui-icon>
+                    <ui-icon name="euro" size="xs"></ui-icon>
                     <span>€${(this.user.creditBalance ?? 0).toFixed(2)}</span>
                   </button>
                 `

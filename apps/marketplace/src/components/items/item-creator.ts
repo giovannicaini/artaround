@@ -729,7 +729,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
 
         <ui-panel-section
           .title=${__('Licenza e Prezzo')}
-          icon="currency"
+          icon="euro"
           .renderContent=${() => html`
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ui-select

@@ -250,7 +250,7 @@ export class SettingsPage extends LitElement {
           <div
             class="w-12 h-12 rounded-full bg-success-50 dark:bg-surface-800 flex items-center justify-center flex-shrink-0"
           >
-            <ui-icon name="currency" class="text-success-600 dark:text-success-500"></ui-icon>
+            <ui-icon name="euro" class="text-success-600 dark:text-success-500"></ui-icon>
           </div>
           <div>
             <p class="text-2xl font-bold text-surface-900 dark:text-white">

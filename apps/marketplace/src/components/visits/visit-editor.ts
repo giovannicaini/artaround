@@ -1853,7 +1853,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
 
         <ui-panel-section
           .title=${__('Prezzo')}
-          icon="currency"
+          icon="euro"
           .renderContent=${() => html`
             <div class="space-y-4">
               <ui-checkbox

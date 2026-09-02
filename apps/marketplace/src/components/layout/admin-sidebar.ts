@@ -68,7 +68,7 @@ export class AdminSidebar extends LitElement {
         roles: [UserRole.AUTHOR, UserRole.CURATOR, UserRole.ADMIN],
         requiresMuseum: true,
       },
-      { id: 'marketplace', label: __('Marketplace'), icon: 'currency', requiresMuseum: true },
+      { id: 'marketplace', label: __('Marketplace'), icon: 'euro', requiresMuseum: true },
       { id: 'purchases', label: __('Acquisti'), icon: 'check', requiresMuseum: true },
     ];
   }
