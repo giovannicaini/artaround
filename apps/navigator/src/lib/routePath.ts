@@ -10,9 +10,7 @@ interface BezierSegment {
   p1: Point;
 }
 
-// Catmull-Rom → bezier cubiche (tensione 1/6): la curva passa esattamente
-// per ogni punto della lista con tangente continua, niente spigoli vivi
-// come con una spezzata M-L-L-L.
+// Catmull-Rom -> bezier cubiche, curva morbida senza spigoli tra i punti
 function catmullRomToBezierSegments(points: Point[]): BezierSegment[] {
   const segments: BezierSegment[] = [];
   for (let i = 0; i < points.length - 1; i++) {
@@ -46,9 +44,7 @@ function pointOnCubic(seg: BezierSegment, t: number): Point {
   };
 }
 
-/** Percorso morbido che passa per tutti i punti (opere + waypoint) senza
- * spigoli vivi in corrispondenza delle svolte — al posto della spezzata
- * "M...L...L..." usata in precedenza. */
+// percorso morbido che passa per tutti i punti, opere e waypoint
 export function buildSmoothPath(points: Point[]): string {
   if (points.length < 2) return '';
   if (points.length === 2) {
@@ -65,11 +61,7 @@ export interface PathArrow extends Point {
   angleDeg: number;
 }
 
-/** Frecce di verso a distanza regolare lungo la curva (non lungo i singoli
- * segmenti, che hanno lunghezze molto diverse tra loro): campiona la curva,
- * calcola la lunghezza cumulativa e piazza una freccia ogni `spacing` px,
- * con l'angolo della tangente in quel punto per orientarla nel verso di
- * percorrenza. */
+// campiona la curva e piazza una freccia ogni `spacing` px, orientata sulla tangente
 export function computePathArrows(points: Point[], spacing = 90): PathArrow[] {
   if (points.length < 2) return [];
   const segments = catmullRomToBezierSegments(points);
@@ -91,8 +83,7 @@ export function computePathArrows(points: Point[], spacing = 90): PathArrow[] {
   const totalLength = cumulative[cumulative.length - 1];
   if (totalLength < spacing) return [];
 
-  // Margine iniziale/finale perché le frecce non finiscano sotto ai marker
-  // di inizio/fine tappa.
+  // margine perché le frecce non finiscano sotto ai marker di inizio/fine
   const margin = Math.min(spacing / 2, totalLength / 4);
   const arrows: PathArrow[] = [];
   let target = margin;

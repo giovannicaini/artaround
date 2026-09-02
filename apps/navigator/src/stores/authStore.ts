@@ -15,12 +15,7 @@ interface AuthState {
   logout: () => void;
 }
 
-/**
- * Sessione utente, unico store per tutta l'app — sostituisce il "vuoto" di
- * autenticazione di oggi. Il token vive in localStorage sotto la stessa
- * chiave del marketplace, quindi chi ha già fatto login lì entra già
- * autenticato qui.
- */
+// il token vive in localStorage sotto la stessa chiave del marketplace
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   status: 'idle',

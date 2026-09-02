@@ -34,11 +34,7 @@ import {
   LanguageSwitcher,
 } from '../components/ui';
 
-/**
- * Museo come sequenza di blocchi con scopi diversi — copertina, info
- * pratiche, una visita in evidenza (se combacia con gli interessi
- * salvati), poi l'elenco completo filtrabile — non un'unica lista.
- */
+// sequenza di blocchi (copertina, info, visita in evidenza, elenco), non un'unica lista
 export default function MuseumPage() {
   const navigate = useNavigate();
   const { museumId } = useParams();

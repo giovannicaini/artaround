@@ -7,11 +7,7 @@ interface I18nState {
   setLanguage: (language: AppLanguage) => void;
 }
 
-/**
- * Lingua dell'interfaccia — un solo store, letto/scritto ovunque serva
- * tradurre. Stessa chiave di localStorage del marketplace: la scelta
- * dell'utente vale per entrambe le app (stesso dominio).
- */
+// stessa chiave di localStorage del marketplace, la scelta vale per entrambe le app
 export const useI18nStore = create<I18nState>((set) => ({
   language: loadStoredLanguage(),
   setLanguage: (language) => {

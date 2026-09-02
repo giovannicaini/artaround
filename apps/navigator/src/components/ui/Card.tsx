@@ -5,7 +5,6 @@ interface BaseProps {
   className?: string;
 }
 
-/** Superficie di base: card statiche (info, testo). */
 export function Card({
   children,
   className = '',
@@ -18,9 +17,7 @@ export function Card({
   );
 }
 
-/** Variante cliccabile: liste di musei/visite. Bordo che si accende di
- * violetto e leggero sollevamento al tocco/hover — l'energia in più
- * richiesta per una UI "viva", non solo un cambio di sfondo. */
+// variante cliccabile, bordo viola e sollevamento al tocco/hover
 export function PressableCard({
   children,
   className = '',

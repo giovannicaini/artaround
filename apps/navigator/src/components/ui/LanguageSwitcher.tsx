@@ -17,16 +17,12 @@ function flagUrl(code: string): string {
 }
 
 interface LanguageSwitcherProps {
-  /** Se un museo ha attivato solo alcune lingue, limita la scelta a quelle. */
+  // se il museo ha attivato solo alcune lingue, limita la scelta a quelle
   languages?: AppLanguage[];
   variant?: 'glass' | 'panel';
 }
 
-/**
- * Stesso pattern visivo del selettore lingua del marketplace (bandiera +
- * menu a comparsa da flagcdn.com) — un solo posto in tutta l'app, non
- * un'altra versione ridisegnata per ogni schermata.
- */
+// stesso pattern del selettore lingua del marketplace, bandiera da flagcdn.com
 export function LanguageSwitcher({ languages, variant = 'panel' }: LanguageSwitcherProps) {
   const language = useI18nStore((state) => state.language);
   const setLanguage = useI18nStore((state) => state.setLanguage);

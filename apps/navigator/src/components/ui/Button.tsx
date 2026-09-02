@@ -27,10 +27,6 @@ const sizeClasses: Record<ButtonSize, string> = {
   lg: 'h-14 px-6 text-base gap-2.5 rounded-full',
 };
 
-/**
- * Unico bottone dell'app: ogni schermata lo usa invece di ridefinire
- * `className` ripetuti. Variante + dimensione bastano a coprire i casi.
- */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   {
     variant = 'primary',

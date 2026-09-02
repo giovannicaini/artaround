@@ -8,15 +8,8 @@ export interface RoutePoint {
   artworkId?: string;
 }
 
-/**
- * Risolve gli step ARTWORK/WAYPOINT (nell'ordine della visita) in punti con
- * coordinate reali sulla piantina — stesso algoritmo dell'anteprima percorso
- * del marketplace (visit-editor.ts::getVisitRoutePoints). I waypoint servono
- * solo a far piegare correttamente la linea intorno ai muri (una porta su un
- * corridoio, una svolta) e non vanno mai mostrati come tappa cliccabile al
- * visitatore — qui restano "kind: waypoint" apposta, così chi disegna la
- * mappa può escluderli dai marker numerati pur usandoli per la linea.
- */
+// step ARTWORK/WAYPOINT in punti con coordinate reali, i waypoint restano
+// "kind: waypoint" per essere esclusi dai marker numerati ma usati per la linea
 export function buildVisitRoutePoints(steps: VisitStep[], floors: MuseumFloor[]): RoutePoint[] {
   const points: RoutePoint[] = [];
   const orderedSteps = [...steps].sort((a, b) => a.order - b.order);

@@ -12,7 +12,7 @@ interface IconTileProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<IconTileVariant, string> = {
-  // Sopra immagini/foto (hero opera, copertina museo): vetro scuro sempre leggibile
+  // sopra immagini/foto serve un vetro scuro sempre leggibile
   glass: 'bg-surface-950/45 text-white backdrop-blur-md hover:bg-surface-950/65',
   panel: 'bg-surface-800 text-surface-200 border border-surface-700 hover:bg-surface-700',
   brand: 'gradient-aurora text-white shadow-glow',
@@ -24,10 +24,6 @@ const sizeClasses: Record<IconTileSize, string> = {
   lg: 'w-14 h-14 rounded-2xl [&>svg]:w-6 [&>svg]:h-6',
 };
 
-/**
- * Bottone a sola icona (indietro, chiudi, impostazioni...). Un solo posto
- * per le tre varianti di contesto invece di className ripetute ad ogni uso.
- */
 export const IconTile = forwardRef<HTMLButtonElement, IconTileProps>(function IconTile(
   { icon, variant = 'panel', size = 'md', label, className = '', ...rest },
   ref,

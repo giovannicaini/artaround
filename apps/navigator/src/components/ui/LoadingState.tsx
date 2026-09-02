@@ -6,10 +6,6 @@ interface LoadingStateProps {
   fullHeight?: boolean;
 }
 
-/**
- * Stato di caricamento centralizzato — prima riscritto quasi identico in
- * ogni pagina (HomePage, MuseumPage, VisitPlayerPage).
- */
 export function LoadingState({ message, fullHeight = true }: LoadingStateProps) {
   const t = useT();
   return (

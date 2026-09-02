@@ -1,4 +1,3 @@
-// Speech synthesis service
 class SpeechService {
   private synth: SpeechSynthesis | null = null;
   private utterance: SpeechSynthesisUtterance | null = null;
@@ -17,7 +16,6 @@ class SpeechService {
   speak(text: string, options?: { rate?: number; pitch?: number; lang?: string }): void {
     if (!this.synth) return;
 
-    // Cancel any ongoing speech
     this.stop();
 
     this.utterance = new SpeechSynthesisUtterance(text);
@@ -25,7 +23,6 @@ class SpeechService {
     this.utterance.pitch = options?.pitch || 1;
     this.utterance.lang = options?.lang || 'it-IT';
 
-    // Try to find an Italian voice
     const voices = this.synth.getVoices();
     const italianVoice = voices.find((v) => v.lang.startsWith('it'));
     if (italianVoice) {
@@ -72,7 +69,6 @@ class SpeechService {
 
 export const speechService = new SpeechService();
 
-// Speech Recognition types (not fully supported in all browsers)
 interface SpeechRecognitionEvent {
   results: { [index: number]: { [index: number]: { transcript: string } } };
 }
@@ -88,7 +84,6 @@ interface SpeechRecognitionInstance {
   stop(): void;
 }
 
-// Voice recognition service
 class VoiceRecognitionService {
   private recognition: SpeechRecognitionInstance | null = null;
   private isListening = false;
@@ -149,10 +144,7 @@ class VoiceRecognitionService {
 
 export const voiceRecognitionService = new VoiceRecognitionService();
 
-// Command parser for voice commands — vocabolario allineato 1:1 alla lista
-// di specifica ("prossimo, precedente, Cos'è questo, dimmi di più, dimmi
-// di meno, Non capisco, troppo semplice, Chi è l'autore, qual è lo stile,
-// Dov'è l'uscita/toilette/bar/shop, ci sono ostacoli").
+// vocabolario dei comandi vocali
 export function parseVoiceCommand(text: string): string | null {
   const commands: Record<string, string[]> = {
     next: ['prossimo', 'avanti', 'successivo', 'vai avanti', 'next'],
