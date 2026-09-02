@@ -6,9 +6,9 @@ import './ui-button';
 /**
  * UI Page Header
  *
- * A consistent page header with title, description, and action slot.
+ * Un'intestazione di pagina coerente con titolo, descrizione e slot azioni.
  *
- * @slot actions - Slot for action buttons
+ * @slot actions - Slot per i bottoni d'azione
  *
  * @example
  * ```html
@@ -41,7 +41,7 @@ export class UiPageHeader extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.style.display = 'block';
-    // Delay capture to ensure children are ready
+    // Ritarda la cattura per assicurarsi che i figli siano pronti
     requestAnimationFrame(() => {
       if (!this.actionsInitialized) {
         this.captureSlotContent();
@@ -52,11 +52,11 @@ export class UiPageHeader extends LitElement {
 
   // ─── Azioni ──────────────────────────────────────────────
   private captureSlotContent() {
-    // Capture children with slot="actions" attribute - keep original elements (not clones!)
+    // Cattura i figli con attributo slot="actions" - tiene gli elementi originali (non cloni!)
     const actionsSlotted = Array.from(this.querySelectorAll('[slot="actions"]')) as Element[];
     this.actionsContent = actionsSlotted.map((el) => {
       el.removeAttribute('slot');
-      return el; // Return original element, not clone
+      return el; // Ritorna l'elemento originale, non un clone
     });
   }
 
@@ -70,10 +70,10 @@ export class UiPageHeader extends LitElement {
   }
 
   protected updated() {
-    // Move actions content to the actions container (not clone - preserves event listeners)
+    // Sposta le azioni nel contenitore (non clona - preserva gli event listener)
     const actionsContainer = this.querySelector('.page-header-actions');
     if (actionsContainer && this.actionsContent.length > 0) {
-      // Only move if not already there
+      // Sposta solo se non è già lì
       this.actionsContent.forEach((node) => {
         if (node.parentElement !== actionsContainer) {
           actionsContainer.appendChild(node);

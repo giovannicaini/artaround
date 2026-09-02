@@ -12,9 +12,9 @@ export interface TabItem {
 /**
  * UI Tabs
  *
- * A consistent tabbed navigation component.
+ * Un componente di navigazione a tab coerente.
  *
- * @fires tab-change - Emits the selected tab id
+ * @fires tab-change - Emette l'id della tab selezionata
  *
  * @example
  * ```html

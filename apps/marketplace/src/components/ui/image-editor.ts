@@ -22,16 +22,16 @@ type SourceMode = 'file' | 'url';
 type EditorStep = 'source' | 'edit' | 'uploading';
 
 /**
- * Reusable Image Editor Component
+ * Componente Image Editor riutilizzabile
  *
- * Features:
- * - Load image from file or URL
- * - Preview with resize controls
- * - Visual crop selection
- * - Format and quality selection
- * - Upload to server with processing
+ * Funzionalità:
+ * - Carica immagine da file o URL
+ * - Anteprima con controlli di ridimensionamento
+ * - Selezione di ritaglio visuale
+ * - Selezione formato e qualità
+ * - Upload al server con elaborazione
  *
- * Usage:
+ * Uso:
  * <image-editor
  *   category="museums"
  *   .value=${museum.coverImage}
@@ -40,50 +40,50 @@ type EditorStep = 'source' | 'edit' | 'uploading';
  */
 @customElement('image-editor')
 export class ImageEditor extends LitElement {
-  /** Upload category (determines server subfolder) */
+  /** Categoria di upload (determina la sottocartella sul server) */
   @property({ type: String }) category: UploadCategory = 'misc';
 
-  /** Current image path/URL (for displaying current image and replacing) */
+  /** Percorso/URL dell'immagine attuale (per mostrarla e sostituirla) */
   @property({ type: String }) value = '';
 
-  /** Label shown above the component */
+  /** Etichetta mostrata sopra il componente */
   @property({ type: String }) label = '';
 
-  /** Whether this field is required */
+  /** Se il campo è obbligatorio */
   @property({ type: Boolean }) required = false;
 
-  /** Suggested max width for the output */
+  /** Larghezza massima suggerita per l'output */
   @property({ type: Number }) maxWidth = 1200;
 
-  /** Suggested max height for the output */
+  /** Altezza massima suggerita per l'output */
   @property({ type: Number }) maxHeight = 1200;
 
-  /** Default output format */
+  /** Formato di output di default */
   @property({ type: String }) defaultFormat: 'webp' | 'jpeg' | 'png' = 'webp';
 
-  /** Max output size in MB (0 = no limit) */
+  /** Dimensione massima output in MB (0 = nessun limite) */
   @property({ type: Number }) maxOutputSizeMb = 0;
 
-  // Internal state
+  // Stato interno
   @state() private step: EditorStep = 'source';
   @state() private sourceMode: SourceMode = 'file';
   @state() private urlInput = '';
   @state() private showSourcePicker = false;
 
-  // Loaded image state
+  // Stato dell'immagine caricata
   @state() private imageFile: File | null = null;
   @state() private imageDataUrl = '';
   @state() private originalWidth = 0;
   @state() private originalHeight = 0;
 
-  // Edit controls
+  // Controlli di modifica
   @state() private targetWidth = 0;
   @state() private targetHeight = 0;
   @state() private lockAspectRatio = true;
   @state() private outputFormat: 'webp' | 'jpeg' | 'png' = 'webp';
   @state() private outputQuality = 85;
 
-  // Crop state
+  // Stato del ritaglio
   @state() private cropEnabled = false;
   @state() private crop: CropRegion = { x: 0, y: 0, width: 0, height: 0 };
   @state() private dragging = false;
@@ -92,7 +92,7 @@ export class ImageEditor extends LitElement {
   @state() private dragStartY = 0;
   @state() private dragStartCrop: CropRegion = { x: 0, y: 0, width: 0, height: 0 };
 
-  // Upload state
+  // Stato dell'upload
   @state() private uploading = false;
   @state() private error = '';
   @state() private estimatedOutputSizeBytes = 0;
@@ -104,7 +104,7 @@ export class ImageEditor extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.outputFormat = this.defaultFormat;
-    // Bind global mouse handlers for crop drag
+    // Collega i gestori mouse globali per il drag del ritaglio
     this._onMouseMove = this._onMouseMove.bind(this);
     this._onMouseUp = this._onMouseUp.bind(this);
   }
@@ -171,8 +171,8 @@ export class ImageEditor extends LitElement {
       compressionFactor = 0.28;
     }
 
-    // Make estimate responsive to crop changes even when output width/height are fixed.
-    // Smaller crop areas usually reduce encoded complexity and final size.
+    // Rende la stima sensibile ai cambi di ritaglio anche a width/height fissi.
+    // Aree di ritaglio più piccole di solito riducono la complessità e la dimensione finale.
     const originalArea = Math.max(1, this.originalWidth * this.originalHeight);
     const croppedArea = Math.max(1, sourceWidth * sourceHeight);
     const cropRatio = Math.max(0.05, Math.min(1, croppedArea / originalArea));
@@ -274,12 +274,12 @@ export class ImageEditor extends LitElement {
     this.error = '';
 
     try {
-      // Try to load the image to get dimensions
+      // Prova a caricare l'immagine per ottenerne le dimensioni
       await this.loadImageDimensions(normalizedUrl);
       this.imageDataUrl = normalizedUrl;
-      this.imageFile = null; // URL mode, no local file
+      this.imageFile = null; // Modalità URL, nessun file locale
     } catch {
-      // Fallback for ORB/CORS/hotlink blocks: import directly server-side
+      // Fallback per blocchi ORB/CORS/hotlink: importa direttamente lato server
       this.uploading = true;
 
       try {
@@ -329,7 +329,7 @@ export class ImageEditor extends LitElement {
         this.originalWidth = img.naturalWidth;
         this.originalHeight = img.naturalHeight;
 
-        // Set initial target to fit within maxWidth/maxHeight
+        // Imposta il target iniziale per stare dentro maxWidth/maxHeight
         const scale = Math.min(
           1,
           this.maxWidth / img.naturalWidth,
@@ -338,14 +338,14 @@ export class ImageEditor extends LitElement {
         this.targetWidth = Math.round(img.naturalWidth * scale);
         this.targetHeight = Math.round(img.naturalHeight * scale);
 
-        // Reset crop to full image
+        // Resetta il ritaglio all'immagine intera
         this.crop = { x: 0, y: 0, width: img.naturalWidth, height: img.naturalHeight };
         this.cropEnabled = false;
 
         this.step = 'edit';
         resolve();
       };
-      img.onerror = () => reject(new Error('Failed to load image'));
+      img.onerror = () => reject(new Error('Caricamento immagine fallito'));
       img.src = src;
     });
   }
@@ -375,7 +375,7 @@ export class ImageEditor extends LitElement {
   private toggleCrop() {
     this.cropEnabled = !this.cropEnabled;
     if (this.cropEnabled && !this.hasCustomCropRegion()) {
-      // Set initial crop to center 80% region
+      // Imposta il ritaglio iniziale all'80% centrale
       const cw = Math.round(this.originalWidth * 0.8);
       const ch = Math.round(this.originalHeight * 0.8);
       this.crop = {
@@ -522,7 +522,7 @@ export class ImageEditor extends LitElement {
         format: this.outputFormat,
       };
 
-      // Apply crop whenever there is an active crop selection
+      // Applica il ritaglio quando c'è una selezione di ritaglio attiva
       if (this.cropEnabled || this.hasCustomCropRegion()) {
         options.cropX = this.crop.x;
         options.cropY = this.crop.y;
@@ -530,13 +530,13 @@ export class ImageEditor extends LitElement {
         options.cropHeight = this.crop.height;
       }
 
-      // Determine old path for replacement
+      // Determina il vecchio percorso per la sostituzione
       const oldPath = this.value && this.value.startsWith('/uploads/') ? this.value : undefined;
       const oldPathForUpload = this.maxOutputSizeBytes > 0 ? undefined : oldPath;
 
       let result;
       if (this.imageFile) {
-        // File upload
+        // Upload da file
         result = await uploadService.uploadFile(
           this.imageFile,
           this.category,
@@ -544,7 +544,7 @@ export class ImageEditor extends LitElement {
           oldPathForUpload,
         );
       } else if (this.imageDataUrl) {
-        // URL upload
+        // Upload da URL
         result = await uploadService.uploadFromUrl(
           this.imageDataUrl,
           this.category,
@@ -577,7 +577,7 @@ export class ImageEditor extends LitElement {
             composed: true,
           }),
         );
-        // Reset to source view
+        // Torna alla vista sorgente
         this.resetEditor();
       } else {
         this.error =
@@ -719,7 +719,7 @@ export class ImageEditor extends LitElement {
       <div
         class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 overflow-hidden"
       >
-        <!-- Tabs: File / URL -->
+        <!-- Tab: File / URL -->
         <div class="flex border-b border-surface-200 dark:border-surface-700">
           <button
             type="button"
@@ -841,14 +841,13 @@ export class ImageEditor extends LitElement {
   // ─── Helper di render ──────────────────────────────────────
 
   private renderEditor() {
-    //const scaleFactor = this.originalWidth > 0 ? 100 / this.originalWidth : 1;
     const outputDimensions = this.getOutputDimensions();
 
     return html`
       <div
         class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 overflow-hidden"
       >
-        <!-- Preview Area -->
+        <!-- Area di anteprima -->
         <div
           class="relative bg-[repeating-conic-gradient(#e5e7eb_0%_25%,transparent_0%_50%)_0_0/20px_20px] dark:bg-[repeating-conic-gradient(#374151_0%_25%,transparent_0%_50%)_0_0/20px_20px] flex items-center justify-center p-4"
         >
@@ -863,9 +862,9 @@ export class ImageEditor extends LitElement {
           </div>
         </div>
 
-        <!-- Controls -->
+        <!-- Controlli -->
         <div class="p-4 space-y-4 border-t border-surface-200 dark:border-surface-700">
-          <!-- Original info bar -->
+          <!-- Barra info originale -->
           <div class="flex items-center gap-2 flex-wrap">
             <ui-badge
               variant="secondary"
@@ -907,7 +906,7 @@ export class ImageEditor extends LitElement {
               : nothing}
           </div>
 
-          <!-- Resize controls -->
+          <!-- Controlli di ridimensionamento -->
           <div class="flex items-end gap-3 flex-wrap">
             <div class="w-28">
               <ui-input
@@ -979,7 +978,7 @@ export class ImageEditor extends LitElement {
             </div>
           </div>
 
-          <!-- Crop toggle -->
+          <!-- Toggle ritaglio -->
           <div class="flex items-center gap-3">
             <ui-button
               variant=${this.cropEnabled ? 'primary' : 'outline'}
@@ -1000,7 +999,7 @@ export class ImageEditor extends LitElement {
               : nothing}
           </div>
 
-          <!-- Action buttons -->
+          <!-- Bottoni azione -->
           <div
             class="flex items-center gap-3 pt-2 border-t border-surface-200 dark:border-surface-700"
           >
@@ -1040,7 +1039,7 @@ export class ImageEditor extends LitElement {
     const handleSize = 10;
 
     return html`
-      <!-- Dark overlay outside crop -->
+      <!-- Overlay scuro fuori dal ritaglio -->
       <div
         class="absolute inset-0 pointer-events-none"
         style="background:
@@ -1056,13 +1055,13 @@ export class ImageEditor extends LitElement {
         style="left:${cx}px; top:${cy + ch}px; width:${cw}px; bottom:0; background:rgba(0,0,0,0.5)"
       ></div>
 
-      <!-- Crop region (draggable) -->
+      <!-- Regione di ritaglio (trascinabile) -->
       <div
         class="absolute border-2 border-white cursor-move"
         style="left:${cx}px; top:${cy}px; width:${cw}px; height:${ch}px; box-shadow: 0 0 0 9999px rgba(0,0,0,0);"
         @mousedown=${(e: MouseEvent) => this.startCropDrag(e, 'move')}
       >
-        <!-- Rule of thirds guides -->
+        <!-- Guide regola dei terzi -->
         <div class="absolute inset-0 pointer-events-none">
           <div
             class="absolute"
@@ -1082,7 +1081,7 @@ export class ImageEditor extends LitElement {
           ></div>
         </div>
 
-        <!-- Resize handles -->
+        <!-- Maniglie di ridimensionamento -->
         <div
           class="absolute bg-white border border-surface-400 rounded-sm cursor-nw-resize"
           style="top:-${handleSize / 2}px; left:-${handleSize /

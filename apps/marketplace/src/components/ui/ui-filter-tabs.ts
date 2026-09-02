@@ -9,9 +9,9 @@ export interface FilterTab {
 /**
  * UI Filter Tabs
  *
- * A segmented button group for filtering content.
+ * Un gruppo di bottoni segmentati per filtrare i contenuti.
  *
- * @fires filter-change - Emits the selected filter value
+ * @fires filter-change - Emette il valore del filtro selezionato
  *
  * @example
  * ```html

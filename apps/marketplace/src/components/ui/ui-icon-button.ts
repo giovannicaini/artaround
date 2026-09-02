@@ -5,22 +5,22 @@ import './ui-icon';
 /**
  * UI Icon Button
  *
- * A small button containing only an icon, used for actions in cards/tables.
+ * Un piccolo bottone che contiene solo un'icona, usato per le azioni in card/tabelle.
  *
- * @fires click - Standard click event
+ * @fires click - Evento click standard
  *
  * @example
  * ```html
  * <ui-icon-button
  *   icon="edit"
- *   title="Edit"
+ *   title="Modifica"
  *   @click=${this.handleEdit}
  * ></ui-icon-button>
  *
  * <ui-icon-button
  *   icon="trash"
  *   variant="danger"
- *   title="Delete"
+ *   title="Elimina"
  *   @click=${this.handleDelete}
  * ></ui-icon-button>
  * ```

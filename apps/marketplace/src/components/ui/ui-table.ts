@@ -23,10 +23,10 @@ export interface TableAction {
 /**
  * UI Data Table
  *
- * A consistent data table with sorting and actions.
+ * Una tabella dati coerente con ordinamento e azioni.
  *
- * @fires row-action - Emits { action: string, row: object } when an action is clicked
- * @fires row-click - Emits { row: object } when a row is clicked
+ * @fires row-action - Emette { action: string, row: object } quando si clicca un'azione
+ * @fires row-click - Emette { row: object } quando si clicca una riga
  *
  * @example
  * ```html
@@ -197,14 +197,14 @@ export class UiTable extends LitElement {
               const rowId = row[this.rowKeyField] as string;
               const isSelected = this.selectedRowId && rowId === this.selectedRowId;
 
-              // Build row classes
+              // Costruisce le classi della riga
               let rowClasses = 'transition-colors border-l-4 ';
 
               if (isSelected) {
-                // Selected row - strong highlighting
+                // Riga selezionata - evidenziazione forte
                 rowClasses += 'bg-brand-100 dark:bg-brand-900/40 border-l-brand-500 ';
               } else {
-                // Non-selected rows
+                // Righe non selezionate
                 rowClasses += 'border-l-transparent ';
                 if (this.striped && index % 2 === 1) {
                   rowClasses += 'bg-surface-50/50 dark:bg-surface-800/25 ';
@@ -213,7 +213,7 @@ export class UiTable extends LitElement {
                 }
               }
 
-              // Hover effect for non-selected
+              // Effetto hover per le non selezionate
               if (!isSelected) {
                 rowClasses += 'hover:bg-surface-100 dark:hover:bg-surface-800/60 ';
               }

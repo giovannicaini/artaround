@@ -5,9 +5,9 @@ import './ui-button';
 /**
  * UI Pagination
  *
- * A consistent pagination component.
+ * Un componente di paginazione coerente.
  *
- * @fires page-change - Emits the new page number when a page is selected
+ * @fires page-change - Emette il nuovo numero di pagina quando ne viene selezionata una
  *
  * @example
  * ```html
@@ -53,18 +53,18 @@ export class UiPagination extends LitElement {
     let start = Math.max(1, this.page - half);
     let end = Math.min(this.totalPages, start + this.maxVisible - 1);
 
-    // Adjust start if we're near the end
+    // Aggiusta l'inizio se siamo vicini alla fine
     if (end - start + 1 < this.maxVisible) {
       start = Math.max(1, end - this.maxVisible + 1);
     }
 
-    // Add first page and ellipsis if needed
+    // Aggiunge la prima pagina e i puntini se serve
     if (start > 1) {
       pages.push(1);
       if (start > 2) pages.push('ellipsis');
     }
 
-    // Add visible pages
+    // Aggiunge le pagine visibili
     for (let i = start; i <= end; i++) {
       if (i !== 1 && i !== this.totalPages) {
         pages.push(i);
@@ -75,7 +75,7 @@ export class UiPagination extends LitElement {
       }
     }
 
-    // Add last page and ellipsis if needed
+    // Aggiunge l'ultima pagina e i puntini se serve
     if (end < this.totalPages) {
       if (end < this.totalPages - 1) pages.push('ellipsis');
       pages.push(this.totalPages);
