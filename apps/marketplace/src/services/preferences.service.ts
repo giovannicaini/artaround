@@ -52,11 +52,11 @@ class PreferencesService {
 
     const savedAccessibility = this.safeGetItem(PreferencesService.STORAGE_KEYS.accessibility);
     if (savedAccessibility) {
-      // Merge with defaults so new fields are always present
+      // merge coi default, così i campi nuovi restano presenti anche su un salvataggio vecchio
       try {
         this.accessibility = { ...this.accessibility, ...JSON.parse(savedAccessibility) };
       } catch {
-        // Ignore corrupted localStorage value
+        // valore corrotto in localStorage, ignoro
       }
     }
   }
@@ -73,7 +73,7 @@ class PreferencesService {
     try {
       localStorage.setItem(key, value);
     } catch {
-      // Ignore storage write failures (quota/private mode)
+      // quota piena o modalità privata, pazienza
     }
   }
 
@@ -81,7 +81,7 @@ class PreferencesService {
     try {
       localStorage.removeItem(key);
     } catch {
-      // Ignore storage remove failures
+      // idem
     }
   }
 
@@ -115,7 +115,6 @@ class PreferencesService {
     }
 
     root.setAttribute('data-theme', effectiveTheme);
-    // Sync the Tailwind 'dark' class
     if (effectiveTheme === 'dark') {
       root.classList.add('dark');
     } else {
@@ -140,44 +139,37 @@ class PreferencesService {
   private applyAccessibility() {
     const root = document.documentElement;
 
-    // Reduce motion
     root.style.setProperty(
       '--animation-duration',
       this.accessibility.reduceMotion ? '0.01ms' : '300ms',
     );
 
-    // High contrast
     if (this.accessibility.highContrast) {
       root.setAttribute('data-contrast', 'high');
     } else {
       root.removeAttribute('data-contrast');
     }
 
-    // Font size
     root.setAttribute('data-font-size', this.accessibility.fontSize);
 
-    // Letter spacing
     if (this.accessibility.letterSpacing === 'wide') {
       root.setAttribute('data-letter-spacing', 'wide');
     } else {
       root.removeAttribute('data-letter-spacing');
     }
 
-    // Dyslexic font
     if (this.accessibility.dyslexicFont) {
       root.setAttribute('data-font', 'dyslexic');
     } else {
       root.removeAttribute('data-font');
     }
 
-    // Underline links
     if (this.accessibility.underlineLinks) {
       root.setAttribute('data-underline-links', 'true');
     } else {
       root.removeAttribute('data-underline-links');
     }
 
-    // Focus visible
     if (this.accessibility.focusVisible) {
       root.setAttribute('data-focus-visible', 'true');
     } else {
@@ -193,7 +185,6 @@ class PreferencesService {
     window.dispatchEvent(new CustomEvent('accessibility-changed', { detail: this.accessibility }));
   }
 
-  // Museum selection
   private readSelectedMuseumFromStorage(): SelectedMuseumPreference | null {
     const saved = this.safeGetItem(PreferencesService.STORAGE_KEYS.selectedMuseum);
     if (!saved) return null;

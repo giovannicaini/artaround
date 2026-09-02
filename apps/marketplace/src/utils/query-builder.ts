@@ -1,7 +1,4 @@
-/**
- * Build URL query string from filters object.
- * Automatically filters out undefined, null, and empty string values.
- */
+// filtri -> query string, scartando undefined/null/stringa vuota
 export function buildQueryString(filters: Record<string, unknown>): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {
@@ -12,9 +9,6 @@ export function buildQueryString(filters: Record<string, unknown>): string {
   return params.toString();
 }
 
-/**
- * Build a full URL with query parameters from filters.
- */
 export function buildUrl(base: string, filters: Record<string, unknown>): string {
   const query = buildQueryString(filters);
   return query ? `${base}?${query}` : base;

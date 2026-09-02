@@ -1,14 +1,9 @@
 import type { AppLanguage } from '@artaround/shared';
 import { isLanguageFullyTranslated } from './translation-fields';
 
-/**
- * Forma "piatta" di una NavigatorAppConfig usata dai form di editing lato marketplace
- * (traduzioni espanse come proprietà dirette invece che annidate come nello schema server).
- *
- * Duplicata identica fino a poco fa in museums-management-page.ts e
- * navigator-default-config-page.ts: centralizzata qui perché entrambe le pagine editano
- * lo stesso tipo di configurazione (una per museo, una di default).
- */
+// forma "piatta" di NavigatorAppConfig per i form di editing (traduzioni come
+// proprietà dirette invece che annidate come nello schema server), condivisa
+// tra museums-management-page.ts e navigator-default-config-page.ts
 export interface NavigatorConfigFormData {
   id: string;
   name: string;

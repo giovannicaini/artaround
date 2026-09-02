@@ -1,8 +1,5 @@
-/**
- * History Service
- * Gestisce la navigazione avanti/indietro tra le pagine del marketplace
- * Salva lo stato in localStorage senza utilizzare le route del browser
- */
+// navigazione avanti/indietro tra le pagine del marketplace, salvata in
+// localStorage invece di usare le route del browser
 
 export interface HistoryState {
   route: string;
@@ -29,9 +26,6 @@ class HistoryService {
     this.loadFromStorage();
   }
 
-  /**
-   * Carica la history da localStorage
-   */
   private loadFromStorage(): void {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -40,7 +34,6 @@ class HistoryService {
         this.history = data.stack || [];
         this.currentIndex = data.currentIndex ?? -1;
 
-        // Valida l'indice
         if (this.currentIndex >= this.history.length) {
           this.currentIndex = this.history.length - 1;
         }
@@ -52,9 +45,6 @@ class HistoryService {
     }
   }
 
-  /**
-   * Salva la history in localStorage
-   */
   private saveToStorage(): void {
     try {
       const data: HistoryData = {
@@ -63,7 +53,6 @@ class HistoryService {
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 
-      // Salva anche lo stato corrente separatamente per un accesso rapido
       const currentState = this.getCurrentState();
       if (currentState) {
         localStorage.setItem(CURRENT_STATE_KEY, JSON.stringify(currentState));
@@ -73,12 +62,8 @@ class HistoryService {
     }
   }
 
-  /**
-   * Aggiunge un nuovo stato alla history
-   * Chiamato quando l'utente naviga verso una nuova pagina
-   */
   push(route: string, params: Record<string, string> = {}, title: string = ''): void {
-    // Se stiamo navigando programmaticamente (back/forward), non aggiungere
+    // se stiamo navigando con back/forward non riaggiungo lo stato
     if (this.isNavigating) {
       return;
     }
@@ -90,22 +75,19 @@ class HistoryService {
       timestamp: Date.now(),
     };
 
-    // Non aggiungere se è lo stesso stato corrente
     const currentState = this.getCurrentState();
     if (currentState && this.isSameState(currentState, newState)) {
       return;
     }
 
-    // Rimuovi tutti gli stati dopo l'indice corrente (come un browser normale)
+    // come un browser vero: navigare da metà stack taglia il resto
     if (this.currentIndex < this.history.length - 1) {
       this.history = this.history.slice(0, this.currentIndex + 1);
     }
 
-    // Aggiungi il nuovo stato
     this.history.push(newState);
     this.currentIndex = this.history.length - 1;
 
-    // Limita la dimensione della history
     if (this.history.length > MAX_HISTORY_SIZE) {
       const overflow = this.history.length - MAX_HISTORY_SIZE;
       this.history = this.history.slice(overflow);
@@ -116,10 +98,6 @@ class HistoryService {
     this.dispatchChangeEvent();
   }
 
-  /**
-   * Naviga indietro nella history
-   * Restituisce lo stato precedente o null se non disponibile
-   */
   back(): HistoryState | null {
     if (!this.canGoBack()) {
       return null;
@@ -131,8 +109,6 @@ class HistoryService {
     this.dispatchChangeEvent();
 
     const state = this.getCurrentState();
-
-    // Reset del flag dopo un tick per permettere la navigazione
     setTimeout(() => {
       this.isNavigating = false;
     }, 0);
@@ -140,10 +116,6 @@ class HistoryService {
     return state;
   }
 
-  /**
-   * Naviga avanti nella history
-   * Restituisce lo stato successivo o null se non disponibile
-   */
   forward(): HistoryState | null {
     if (!this.canGoForward()) {
       return null;
@@ -155,8 +127,6 @@ class HistoryService {
     this.dispatchChangeEvent();
 
     const state = this.getCurrentState();
-
-    // Reset del flag dopo un tick per permettere la navigazione
     setTimeout(() => {
       this.isNavigating = false;
     }, 0);
@@ -164,23 +134,14 @@ class HistoryService {
     return state;
   }
 
-  /**
-   * Verifica se è possibile andare indietro
-   */
   canGoBack(): boolean {
     return this.currentIndex > 0;
   }
 
-  /**
-   * Verifica se è possibile andare avanti
-   */
   canGoForward(): boolean {
     return this.currentIndex < this.history.length - 1;
   }
 
-  /**
-   * Restituisce lo stato corrente
-   */
   getCurrentState(): HistoryState | null {
     if (this.currentIndex >= 0 && this.currentIndex < this.history.length) {
       return this.history[this.currentIndex];
@@ -188,9 +149,6 @@ class HistoryService {
     return null;
   }
 
-  /**
-   * Restituisce lo stato salvato (per il ripristino all'avvio)
-   */
   getSavedState(): HistoryState | null {
     try {
       const stored = localStorage.getItem(CURRENT_STATE_KEY);
@@ -203,23 +161,14 @@ class HistoryService {
     return null;
   }
 
-  /**
-   * Restituisce il numero di elementi nella history prima dell'indice corrente
-   */
   getBackCount(): number {
     return this.currentIndex;
   }
 
-  /**
-   * Restituisce il numero di elementi nella history dopo l'indice corrente
-   */
   getForwardCount(): number {
     return this.history.length - 1 - this.currentIndex;
   }
 
-  /**
-   * Pulisce tutta la history
-   */
   clear(): void {
     this.history = [];
     this.currentIndex = -1;
@@ -228,9 +177,6 @@ class HistoryService {
     this.dispatchChangeEvent();
   }
 
-  /**
-   * Confronta due stati per verificare se sono uguali
-   */
   private isSameState(state1: HistoryState, state2: HistoryState): boolean {
     if (state1.route !== state2.route) {
       return false;
@@ -252,9 +198,6 @@ class HistoryService {
     return true;
   }
 
-  /**
-   * Dispatch un evento custom per notificare i cambiamenti di stato
-   */
   private dispatchChangeEvent(): void {
     window.dispatchEvent(
       new CustomEvent('history-state-changed', {
@@ -270,5 +213,4 @@ class HistoryService {
   }
 }
 
-// Singleton instance
 export const historyService = new HistoryService();
