@@ -20,31 +20,6 @@ export interface TableAction {
   condition?: (row: Record<string, unknown>) => boolean;
 }
 
-/**
- * UI Data Table
- *
- * A consistent data table with sorting and actions.
- *
- * @fires row-action - Emits { action: string, row: object } when an action is clicked
- * @fires row-click - Emits { row: object } when a row is clicked
- *
- * @example
- * ```html
- * <ui-table
- *   .columns=${[
- *     { key: 'name', label: 'Nome' },
- *     { key: 'email', label: 'Email' },
- *     { key: 'role', label: 'Ruolo' }
- *   ]}
- *   .data=${this.users}
- *   .actions=${[
- *     { icon: 'edit', label: 'Modifica', action: 'edit' },
- *     { icon: 'trash', label: 'Elimina', action: 'delete', variant: 'danger' }
- *   ]}
- *   @row-action=${this.handleRowAction}
- * ></ui-table>
- * ```
- */
 @customElement('ui-table')
 export class UiTable extends LitElement {
   @property({ type: Array }) columns: TableColumn[] = [];
@@ -59,7 +34,6 @@ export class UiTable extends LitElement {
   @property({ type: String }) sortDir: 'asc' | 'desc' = 'asc';
   @property({ type: Boolean }) externalSort = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -69,7 +43,6 @@ export class UiTable extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
   private handleSort(column: TableColumn) {
     if (!column.sortable) return;
 
@@ -122,7 +95,6 @@ export class UiTable extends LitElement {
     );
   }
 
-  // ─── Helpers ──────────────────────────────────────────────
   private get sortedData() {
     if (this.externalSort) return this.data;
     if (!this.sortKey) return this.data;
@@ -142,7 +114,6 @@ export class UiTable extends LitElement {
     return row[column.key];
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     const cellPadding = this.compact ? 'px-4 py-2' : 'px-6 py-4';
     const headerPadding = this.compact ? 'px-4 py-2' : 'px-6 py-3';
@@ -197,14 +168,11 @@ export class UiTable extends LitElement {
               const rowId = row[this.rowKeyField] as string;
               const isSelected = this.selectedRowId && rowId === this.selectedRowId;
 
-              // Build row classes
               let rowClasses = 'transition-colors border-l-4 ';
 
               if (isSelected) {
-                // Selected row - strong highlighting
                 rowClasses += 'bg-brand-100 dark:bg-brand-900/40 border-l-brand-500 ';
               } else {
-                // Non-selected rows
                 rowClasses += 'border-l-transparent ';
                 if (this.striped && index % 2 === 1) {
                   rowClasses += 'bg-surface-50/50 dark:bg-surface-800/25 ';
@@ -213,7 +181,6 @@ export class UiTable extends LitElement {
                 }
               }
 
-              // Hover effect for non-selected
               if (!isSelected) {
                 rowClasses += 'hover:bg-surface-100 dark:hover:bg-surface-800/60 ';
               }

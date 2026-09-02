@@ -15,14 +15,8 @@ import '../ui/ui-icon-button';
 import '../ui/ui-image-placeholder';
 import { __ } from '../../services/i18n.service';
 
-/**
- * Marker Editor Component
- *
- * Panel for adding/editing map markers (POI)
- */
 @customElement('marker-editor')
 export class MarkerEditor extends LitElement {
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -65,7 +59,6 @@ export class MarkerEditor extends LitElement {
   }
 
   updated(changedProperties: Map<string, unknown>) {
-    // When a marker is selected, switch to the list tab
     if (changedProperties.has('selectedMarker') && this.selectedMarker) {
       this.activeTab = 'list';
     }
@@ -101,7 +94,6 @@ export class MarkerEditor extends LitElement {
     this.addMarker();
   };
 
-  // ─── Render Entry ────────────────────────────────────────
   render() {
     return html`
       <div class="bg-surface-800 rounded-lg overflow-hidden border border-surface-700">
@@ -141,7 +133,6 @@ export class MarkerEditor extends LitElement {
     `;
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
   private renderAddForm() {
     const isArtworkType = [MarkerType.ARTWORK, MarkerType.SCULPTURE, MarkerType.PAINTING].includes(
       this.selectedType,
@@ -204,10 +195,7 @@ export class MarkerEditor extends LitElement {
                 .placeholder=${__('Seleziona opera')}
                 @select-change=${(e: CustomEvent) => {
                   this.selectedArtworkId = e.detail.value;
-                  // marker.artworkId deve essere il Wikidata ID (come in MapMarker),
-                  // non l'_id di Mongo: prima veniva usato artwork._id, per cui i marker
-                  // aggiunti da qui non si ricollegavano mai alla relativa opera
-                  // (focal point editor, indicatore "opera posizionata", ecc.).
+                  // artworkId deve essere il wikidataId, non l'_id Mongo
                   const artwork = this.artworks.find((a) => a.wikidataId === e.detail.value);
                   if (artwork) {
                     this.markerLabel = artwork.title;
@@ -260,7 +248,6 @@ export class MarkerEditor extends LitElement {
       `;
     }
 
-    // Get selected marker's artwork for focal point editor
     const selectedArtwork = this.selectedMarker?.artworkId
       ? this.artworks.find((a) => a.wikidataId === this.selectedMarker?.artworkId)
       : null;
@@ -366,7 +353,6 @@ export class MarkerEditor extends LitElement {
     `;
   }
 
-  // ─── Actions (Marker CRUD) ───────────────────────────────
   private updateMarkerType(type: MarkerType) {
     if (!this.selectedMarker) return;
     this.dispatchEvent(
@@ -431,8 +417,7 @@ export class MarkerEditor extends LitElement {
     const focalY = this.selectedMarker?.focalPoint?.y ?? 50;
     const focalZoom = this.selectedMarker?.focalZoom ?? 1;
 
-    // Calculate image transform: we move the image so that the focal point is at center
-    // offsetX/Y: how much to shift the image (negative = image moves left/up)
+    // sposto l'immagine perché il punto focale finisca al centro
     const offsetX = (50 - focalX) * focalZoom;
     const offsetY = (50 - focalY) * focalZoom;
 
@@ -521,20 +506,15 @@ export class MarkerEditor extends LitElement {
     const startFocalX = this.selectedMarker.focalPoint?.x ?? 50;
     const startFocalY = this.selectedMarker.focalPoint?.y ?? 50;
     const zoom = this.selectedMarker.focalZoom ?? 1;
-    // Calculate limits based on zoom
-    // When zoom = 1, image fits exactly, so focal must be 50 (no movement)
-    // When zoom = 2, image is 2x larger, so focal can be 25-75
-    // Formula: min = 50/zoom, max = 100 - 50/zoom
+    // con zoom 1 il focal è fisso a 50, con zoom maggiore può spostarsi di più
     const minFocal = 50 / zoom;
     const maxFocal = 100 - 50 / zoom;
 
     const onMove = (moveEvent: MouseEvent) => {
-      // Calculate how much the mouse moved as percentage of container
       const dx = ((moveEvent.clientX - startX) / rect.width) * 100;
       const dy = ((moveEvent.clientY - startY) / rect.height) * 100;
 
-      // Moving image right = focal point moves left (inverse)
-      // Divide by zoom because larger zoom = smaller movements have bigger effect
+      // spostare l'immagine a destra sposta il focal a sinistra, inverso
       const newFocalX = Math.max(minFocal, Math.min(maxFocal, startFocalX - dx / zoom));
       const newFocalY = Math.max(minFocal, Math.min(maxFocal, startFocalY - dy / zoom));
 
@@ -572,7 +552,6 @@ export class MarkerEditor extends LitElement {
     const startFocalY = this.selectedMarker.focalPoint?.y ?? 50;
     const zoom = this.selectedMarker.focalZoom ?? 1;
 
-    // Same limits for touch
     const minFocal = 50 / zoom;
     const maxFocal = 100 - 50 / zoom;
 
@@ -616,7 +595,6 @@ export class MarkerEditor extends LitElement {
     const delta = e.deltaY > 0 ? -0.2 : 0.2;
     const newZoom = Math.max(1, Math.min(10, currentZoom + delta));
 
-    // Recalculate limits for new zoom and clamp focal point
     const minFocal = 50 / newZoom;
     const maxFocal = 100 - 50 / newZoom;
     const newFocalX = Math.max(minFocal, Math.min(maxFocal, currentFocalX));
@@ -709,7 +687,6 @@ export class MarkerEditor extends LitElement {
       }),
     );
 
-    // Reset form
     this.markerLabel = '';
     this.markerDescription = '';
     this.selectedArtworkId = '';
