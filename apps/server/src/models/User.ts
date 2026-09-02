@@ -82,6 +82,12 @@ const userSchema = new Schema<UserDocument>(
       type: userPreferencesSchema,
       required: false,
     },
+    creditBalance: {
+      type: Number,
+      required: true,
+      default: 0,
+      min: 0,
+    },
     isActive: {
       type: Boolean,
       default: true,

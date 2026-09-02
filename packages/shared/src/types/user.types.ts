@@ -7,6 +7,10 @@ export interface User {
   role: UserRole; // Primary/global role
   roleAssignments?: RoleAssignment[]; // Contextual roles for specific resources
   preferences?: UserPreferences;
+  // Credito in euro spendibile nel marketplace: parte da 0, si ricarica (per ora
+  // senza un pagamento reale, vedi credit.types.ts) e si consuma acquistando
+  // item/visite a pagamento.
+  creditBalance: number;
   isActive: boolean;
   lastLogin?: Date;
   createdAt: Date;

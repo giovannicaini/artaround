@@ -9,6 +9,19 @@ type PurchaseRecord<T> = {
   visitId?: T;
 };
 
+// Porta con sé il codice errore del server (es. INSUFFICIENT_CREDIT) oltre al
+// messaggio, così chi chiama può offrire un'azione mirata (es. un pulsante
+// "Ricarica credito") invece di un semplice testo d'errore.
+export class PurchaseError extends Error {
+  constructor(
+    message: string,
+    public code?: string,
+  ) {
+    super(message);
+    this.name = 'PurchaseError';
+  }
+}
+
 export class MarketplaceService {
   async getItems(params?: {
     museumId?: string;
@@ -65,14 +78,16 @@ export class MarketplaceService {
   async purchaseItem(itemId: string): Promise<void> {
     const response = await apiService.post(`/marketplace/purchase/item/${itemId}`, {});
     if (!response.success) {
-      throw new Error(getErrorMessage(response, 'Impossibile acquistare item'));
+      const code = typeof response.error === 'object' ? response.error?.code : undefined;
+      throw new PurchaseError(getErrorMessage(response, 'Impossibile acquistare item'), code);
     }
   }
 
   async purchaseVisit(visitId: string): Promise<void> {
     const response = await apiService.post(`/marketplace/purchase/visit/${visitId}`, {});
     if (!response.success) {
-      throw new Error(getErrorMessage(response, 'Impossibile acquistare visita'));
+      const code = typeof response.error === 'object' ? response.error?.code : undefined;
+      throw new PurchaseError(getErrorMessage(response, 'Impossibile acquistare visita'), code);
     }
   }
 

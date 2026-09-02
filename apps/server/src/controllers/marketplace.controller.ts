@@ -1,9 +1,24 @@
 import { Request, Response, NextFunction } from 'express';
-import { ItemModel, ItemPurchase, VisitModel, VisitPurchase } from '../models/index.js';
+import {
+  ItemModel,
+  ItemPurchase,
+  VisitModel,
+  VisitPurchase,
+  User,
+  CreditTransaction,
+} from '../models/index.js';
 import { AppError } from '../middleware/index.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import { buildMuseumIdFilterValue } from '../utils/museum-id.util.js';
-import { UserRole } from '@artaround/shared';
+import { UserRole, CreditTransactionType } from '@artaround/shared';
+
+// Arrotonda ai centesimi: i saldi/importi sono euro come float (stessa
+// convenzione di Item.price/Visit.metadata.price), non centesimi interi —
+// senza arrotondare qui la sottrazione/somma ripetuta di float accumula
+// scarti (es. 0.1 + 0.2 !== 0.3).
+function round2(amount: number): number {
+  return Math.round(amount * 100) / 100;
+}
 
 export class MarketplaceController {
   // Get item catalog
@@ -138,7 +153,18 @@ export class MarketplaceController {
         throw new AppError(409, 'ALREADY_PURCHASED', 'You have already purchased this visit');
       }
 
-      // Create purchase record (simulated payment)
+      if (visit.metadata.price > 0) {
+        await MarketplaceController.chargeCredit(
+          req.user.id,
+          visit.metadata.price,
+          'visit',
+          String(visitId),
+          visit.title,
+        );
+      }
+
+      // Create purchase record (pagata col credito se a pagamento, nessun
+      // pagamento reale coinvolto — vedi chargeCredit)
       const purchase = new VisitPurchase({
         visitId,
         userId: req.user.id,
@@ -202,6 +228,16 @@ export class MarketplaceController {
         throw new AppError(409, 'ALREADY_PURCHASED', 'You have already purchased this item');
       }
 
+      if (item.price > 0) {
+        await MarketplaceController.chargeCredit(
+          req.user.id,
+          item.price,
+          'item',
+          String(itemId),
+          item.title,
+        );
+      }
+
       const purchase = new ItemPurchase({
         itemId,
         userId: req.user.id,
@@ -261,6 +297,142 @@ export class MarketplaceController {
       res.json({
         success: true,
         data: purchases,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ─── Credito ────────────────────────────────────────────
+  /**
+   * Addebita `price` euro sul saldo dell'utente e registra il movimento.
+   * Lancia INSUFFICIENT_CREDIT se il saldo non basta — va chiamata PRIMA di
+   * creare il record di acquisto, così un saldo insufficiente blocca
+   * l'acquisto invece di crearlo comunque "gratis".
+   */
+  private static async chargeCredit(
+    userId: string,
+    price: number,
+    relatedType: 'item' | 'visit',
+    relatedId: string,
+    description?: string,
+  ): Promise<void> {
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+    }
+
+    if (user.creditBalance < price) {
+      const missing = round2(price - user.creditBalance);
+      throw new AppError(
+        402,
+        'INSUFFICIENT_CREDIT',
+        `Credito insufficiente: mancano €${missing.toFixed(2)}. Ricarica il tuo credito per continuare.`,
+        { balance: user.creditBalance, price, missing },
+      );
+    }
+
+    user.creditBalance = round2(user.creditBalance - price);
+    await user.save();
+
+    await new CreditTransaction({
+      userId,
+      type: CreditTransactionType.PURCHASE,
+      amount: round2(-price),
+      balanceAfter: user.creditBalance,
+      description,
+      relatedType,
+      relatedId,
+    }).save();
+  }
+
+  // Saldo credito dell'utente autenticato
+  static async getCreditBalance(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      }
+
+      const user = await User.findById(req.user.id);
+      if (!user) {
+        throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+      }
+
+      res.json({
+        success: true,
+        data: { balance: user.creditBalance },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Ricarica credito (simulata): l'utente sceglie una cifra e il saldo viene
+   * accreditato direttamente, senza nessun pagamento reale — non c'è
+   * ancora un gateway di pagamento collegato.
+   */
+  static async topUpCredit(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      }
+
+      const amount = Number(req.body?.amount);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new AppError(400, 'INVALID_AMOUNT', "L'importo deve essere un numero positivo");
+      }
+      if (amount > 1000) {
+        throw new AppError(400, 'AMOUNT_TOO_HIGH', 'Massimo €1000 per singola ricarica');
+      }
+
+      const user = await User.findById(req.user.id);
+      if (!user) {
+        throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+      }
+
+      user.creditBalance = round2(user.creditBalance + round2(amount));
+      await user.save();
+
+      const transaction = await new CreditTransaction({
+        userId: req.user.id,
+        type: CreditTransactionType.TOPUP,
+        amount: round2(amount),
+        balanceAfter: user.creditBalance,
+        description: 'Ricarica credito',
+      }).save();
+
+      res.status(201).json({
+        success: true,
+        data: { balance: user.creditBalance, transaction },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Storico movimenti di credito dell'utente autenticato (più recenti prima)
+  static async getCreditTransactions(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      }
+
+      const transactions = await CreditTransaction.find({ userId: req.user.id })
+        .sort({ createdAt: -1 })
+        .limit(50);
+
+      res.json({
+        success: true,
+        data: transactions,
       });
     } catch (error) {
       next(error);

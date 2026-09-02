@@ -69,6 +69,9 @@ router.get('/', (req, res) => {
         myVisitPurchases: 'GET /api/marketplace/my-visit-purchases (auth)',
         purchaseItem: 'POST /api/marketplace/purchase/item/:itemId (auth)',
         purchaseVisit: 'POST /api/marketplace/purchase/visit/:visitId (auth)',
+        creditBalance: 'GET /api/marketplace/credit/balance (auth)',
+        creditTopup: 'POST /api/marketplace/credit/topup (auth)',
+        creditTransactions: 'GET /api/marketplace/credit/transactions (auth)',
       },
       utils: {
         translate: 'POST /api/utils/translate',

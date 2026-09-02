@@ -789,9 +789,7 @@ export class MuseumController {
       // affidabile (un PUT parziale poteva perdere name/level/dimensions e fallire
       // la validazione Mongoose). JSON round-trip forza un plain object su cui lo
       // spread funziona come atteso (il floor non ha campi Date, è sicuro).
-      const existingFloor = JSON.parse(
-        JSON.stringify(museum.floors![floorIndex]),
-      ) as MuseumFloor;
+      const existingFloor = JSON.parse(JSON.stringify(museum.floors![floorIndex])) as MuseumFloor;
       museum.floors![floorIndex] = {
         ...existingFloor,
         ...req.body,
@@ -859,9 +857,7 @@ export class MuseumController {
 
   static roomOutlineValidation = [
     body('floorId').trim().notEmpty().withMessage('Floor ID is required'),
-    body('polygon')
-      .isArray({ min: 3 })
-      .withMessage('Il contorno deve avere almeno 3 punti'),
+    body('polygon').isArray({ min: 3 }).withMessage('Il contorno deve avere almeno 3 punti'),
     body('polygon.*.x').isNumeric().withMessage('Invalid polygon point'),
     body('polygon.*.y').isNumeric().withMessage('Invalid polygon point'),
   ];

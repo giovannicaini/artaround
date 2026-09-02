@@ -253,6 +253,21 @@ export class AdminHeader extends LitElement {
                 : nothing}
             </div>
 
+            <!-- Credito: sempre visibile, click porta a "Il mio account" per
+                 ricaricare — stesso posto dove si gestisce il resto del profilo. -->
+            ${this.user
+              ? html`
+                  <button
+                    @click=${this.handleGoToAccount}
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success-50 dark:bg-surface-800 text-success-700 dark:text-success-500 hover:bg-success-100 dark:hover:bg-surface-700 transition-colors text-sm font-semibold"
+                    title=${__('Il mio credito')}
+                  >
+                    <ui-icon name="currency" size="xs"></ui-icon>
+                    <span>€${(this.user.creditBalance ?? 0).toFixed(2)}</span>
+                  </button>
+                `
+              : nothing}
+
             <!-- Theme Toggle -->
             <ui-icon-button
               @click=${this.toggleDarkMode}

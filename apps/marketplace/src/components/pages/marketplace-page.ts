@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { UserRole, type Item, type User, type Visit } from '@artaround/shared';
-import { marketplaceService } from '../../services/marketplace.service';
+import { marketplaceService, PurchaseError } from '../../services/marketplace.service';
 import { preferencesService } from '../../services/preferences.service';
 import '../ui/ui-page-header';
 import '../ui/ui-filter-tabs';
@@ -29,6 +29,7 @@ export class MarketplacePage extends LitElement {
   @state() private purchasedItemIds = new Set<string>();
   @state() private purchasedVisitIds = new Set<string>();
   @state() private purchasingId = '';
+  @state() private insufficientCredit = false;
 
   createRenderRoot() {
     return this;
@@ -69,11 +70,13 @@ export class MarketplacePage extends LitElement {
   private async handlePurchaseItem(item: Item) {
     this.purchasingId = item._id;
     this.error = '';
+    this.insufficientCredit = false;
     try {
       await marketplaceService.purchaseItem(item._id);
       this.purchasedItemIds = new Set([...this.purchasedItemIds, item._id]);
     } catch (e) {
       this.error = e instanceof Error ? e.message : __('Acquisto item non riuscito');
+      this.insufficientCredit = e instanceof PurchaseError && e.code === 'INSUFFICIENT_CREDIT';
     } finally {
       this.purchasingId = '';
     }
@@ -82,14 +85,26 @@ export class MarketplacePage extends LitElement {
   private async handlePurchaseVisit(visit: Visit) {
     this.purchasingId = visit._id;
     this.error = '';
+    this.insufficientCredit = false;
     try {
       await marketplaceService.purchaseVisit(visit._id);
       this.purchasedVisitIds = new Set([...this.purchasedVisitIds, visit._id]);
     } catch (e) {
       this.error = e instanceof Error ? e.message : __('Acquisto visita non riuscito');
+      this.insufficientCredit = e instanceof PurchaseError && e.code === 'INSUFFICIENT_CREDIT';
     } finally {
       this.purchasingId = '';
     }
+  }
+
+  private goToAccount() {
+    this.dispatchEvent(
+      new CustomEvent('navigate', {
+        detail: { route: 'settings' },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   private canBuyItem(item: Item): boolean {
@@ -241,7 +256,22 @@ export class MarketplacePage extends LitElement {
         ></ui-filter-tabs>
 
         ${this.error
-          ? html`<ui-alert variant="danger" .message=${this.error}></ui-alert>`
+          ? html`
+              <div class="space-y-2">
+                <ui-alert variant="danger" .message=${this.error}></ui-alert>
+                ${this.insufficientCredit
+                  ? html`
+                      <ui-button
+                        variant="secondary"
+                        size="sm"
+                        icon="currency"
+                        .label=${__('Ricarica credito')}
+                        @click=${() => this.goToAccount()}
+                      ></ui-button>
+                    `
+                  : nothing}
+              </div>
+            `
           : nothing}
         ${this.loading
           ? html`<ui-loading .text=${__('Caricamento marketplace...')}></ui-loading>`

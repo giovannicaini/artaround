@@ -3,10 +3,13 @@ import { customElement, property, state } from 'lit/decorators.js';
 import {
   CompetenceLevel,
   TimePreference,
+  CreditTransactionType,
   type User,
   type UserPreferences,
+  type CreditTransaction,
 } from '@artaround/shared';
 import { authService } from '../../services/auth.service';
+import { creditService } from '../../services/credit.service';
 import '../ui/ui-page-header';
 import '../ui/ui-card';
 import '../ui/ui-input';
@@ -14,7 +17,10 @@ import '../ui/ui-select';
 import '../ui/ui-button';
 import '../ui/ui-alert';
 import '../ui/ui-section-header';
+import '../ui/ui-icon';
 import { __ } from '../../services/i18n.service';
+
+const TOPUP_PRESETS = [5, 10, 20, 50];
 
 const COMPETENCE_LABELS: Record<CompetenceLevel, string> = {
   [CompetenceLevel.INFANTILE]: __('Infantile'),
@@ -55,8 +61,20 @@ export class SettingsPage extends LitElement {
   @state() private passwordError = '';
   @state() private passwordSuccess = '';
 
+  @state() private customTopUpAmount = '';
+  @state() private topUpLoading = false;
+  @state() private topUpError = '';
+  @state() private topUpSuccess = '';
+  @state() private transactions: CreditTransaction[] = [];
+  @state() private transactionsLoading = true;
+
   createRenderRoot() {
     return this;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    void this.loadTransactions();
   }
 
   willUpdate(changed: Map<string, unknown>) {
@@ -66,6 +84,17 @@ export class SettingsPage extends LitElement {
       this.competenceLevel = prefs.competenceLevel ?? CompetenceLevel.MEDIO;
       this.availableTime = prefs.availableTime ?? TimePreference.NORMALE;
       this.age = prefs.age !== undefined ? String(prefs.age) : '';
+    }
+  }
+
+  private async loadTransactions() {
+    this.transactionsLoading = true;
+    try {
+      this.transactions = await creditService.getTransactions();
+    } catch {
+      // Il saldo resta comunque visibile senza lo storico dei movimenti.
+    } finally {
+      this.transactionsLoading = false;
     }
   }
 
@@ -140,6 +169,187 @@ export class SettingsPage extends LitElement {
     }
   }
 
+  /**
+   * Ricarica simulata: nessun pagamento reale, l'importo scelto viene
+   * accreditato subito. Il saldo aggiornato arriva dal backend e viene
+   * propagato con lo stesso evento "user-updated" già usato dal salvataggio
+   * profilo, così l'header (che mostra il saldo) si aggiorna da solo.
+   */
+  private async handleTopUp(amount: number) {
+    this.topUpError = '';
+    this.topUpSuccess = '';
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      this.topUpError = __('Scegli un importo maggiore di zero');
+      return;
+    }
+
+    this.topUpLoading = true;
+    try {
+      const { balance, error } = await creditService.topUp(amount);
+      if (error) {
+        this.topUpError = error;
+        return;
+      }
+
+      this.topUpSuccess = `${__('Ricarica completata')}: +€${amount.toFixed(2)}`;
+      this.customTopUpAmount = '';
+      void this.loadTransactions();
+
+      if (this.user) {
+        const updatedUser: User = { ...this.user, creditBalance: balance };
+        this.dispatchEvent(
+          new CustomEvent('user-updated', {
+            detail: updatedUser,
+            bubbles: true,
+            composed: true,
+          }),
+        );
+      }
+    } finally {
+      this.topUpLoading = false;
+    }
+  }
+
+  private handleCustomTopUp(e: Event) {
+    e.preventDefault();
+    const amount = Number(this.customTopUpAmount);
+    void this.handleTopUp(amount);
+  }
+
+  private formatTransactionDate(value: string | Date): string {
+    return new Date(value).toLocaleDateString('it-IT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  private transactionLabel(transaction: CreditTransaction): string {
+    if (transaction.type === CreditTransactionType.TOPUP) {
+      return __('Ricarica credito');
+    }
+    return transaction.description || __('Acquisto');
+  }
+
+  private renderCreditCard() {
+    const balance = this.user?.creditBalance ?? 0;
+
+    return html`
+      <ui-card padding="lg">
+        <ui-section-header
+          .title=${__('Credito')}
+          .description=${__(
+            'Saldo spendibile nel marketplace. Nessun pagamento reale: scegli una cifra e ricaricala.',
+          )}
+        ></ui-section-header>
+
+        <div class="mt-4 flex items-center gap-3">
+          <div
+            class="w-12 h-12 rounded-full bg-success-50 dark:bg-surface-800 flex items-center justify-center flex-shrink-0"
+          >
+            <ui-icon name="currency" class="text-success-600 dark:text-success-500"></ui-icon>
+          </div>
+          <div>
+            <p class="text-2xl font-bold text-surface-900 dark:text-white">
+              €${balance.toFixed(2)}
+            </p>
+            <p class="text-xs text-surface-500 dark:text-surface-400">${__('Saldo disponibile')}</p>
+          </div>
+        </div>
+
+        ${this.topUpError
+          ? html`<ui-alert
+              class="block mt-4"
+              variant="danger"
+              .message=${this.topUpError}
+            ></ui-alert>`
+          : nothing}
+        ${this.topUpSuccess
+          ? html`<ui-alert
+              class="block mt-4"
+              variant="success"
+              .message=${this.topUpSuccess}
+            ></ui-alert>`
+          : nothing}
+
+        <div class="mt-4">
+          <p class="text-sm font-medium text-surface-700 dark:text-surface-300 mb-2">
+            ${__('Ricarica')}
+          </p>
+          <div class="flex flex-wrap gap-2 mb-3">
+            ${TOPUP_PRESETS.map(
+              (preset) => html`
+                <ui-button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  ?loading=${this.topUpLoading}
+                  .label=${`€${preset}`}
+                  @click=${() => this.handleTopUp(preset)}
+                ></ui-button>
+              `,
+            )}
+          </div>
+
+          <form @submit=${this.handleCustomTopUp} class="flex items-end gap-3">
+            <ui-input
+              type="number"
+              .label=${__('Importo personalizzato (€)')}
+              .value=${this.customTopUpAmount}
+              .hint=${__('Es. 15.50')}
+              @input-change=${(e: CustomEvent) => (this.customTopUpAmount = e.detail.value)}
+            ></ui-input>
+            <ui-button
+              type="submit"
+              variant="primary"
+              size="md"
+              ?loading=${this.topUpLoading}
+              .label=${__('Ricarica')}
+            ></ui-button>
+          </form>
+        </div>
+
+        ${this.transactionsLoading
+          ? nothing
+          : this.transactions.length > 0
+            ? html`
+                <div class="mt-6 pt-4 border-t border-surface-200 dark:border-surface-700">
+                  <p class="text-sm font-medium text-surface-700 dark:text-surface-300 mb-2">
+                    ${__('Movimenti recenti')}
+                  </p>
+                  <div class="space-y-1.5 max-h-56 overflow-y-auto">
+                    ${this.transactions.map(
+                      (transaction) => html`
+                        <div class="flex items-center justify-between text-sm py-1">
+                          <div class="min-w-0">
+                            <p class="text-surface-700 dark:text-surface-300 truncate">
+                              ${this.transactionLabel(transaction)}
+                            </p>
+                            <p class="text-xs text-surface-400">
+                              ${this.formatTransactionDate(transaction.createdAt)}
+                            </p>
+                          </div>
+                          <span
+                            class="font-semibold flex-shrink-0 ${transaction.amount >= 0
+                              ? 'text-success-600 dark:text-success-500'
+                              : 'text-danger-600 dark:text-danger-500'}"
+                          >
+                            ${transaction.amount >= 0 ? '+' : ''}€${transaction.amount.toFixed(2)}
+                          </span>
+                        </div>
+                      `,
+                    )}
+                  </div>
+                </div>
+              `
+            : nothing}
+      </ui-card>
+    `;
+  }
+
   render() {
     return html`
       <div class="max-w-2xl space-y-6">
@@ -147,6 +357,8 @@ export class SettingsPage extends LitElement {
           .title=${__('Il mio account')}
           .description=${__('Gestisci il tuo profilo e la tua password')}
         ></ui-page-header>
+
+        ${this.renderCreditCard()}
 
         <ui-card padding="lg">
           <ui-section-header

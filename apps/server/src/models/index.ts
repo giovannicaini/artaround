@@ -12,5 +12,7 @@ export { VisitPurchase } from './VisitPurchase.js';
 export type { VisitPurchaseDocument } from './VisitPurchase.js';
 export { ItemPurchase } from './ItemPurchase.js';
 export type { ItemPurchaseDocument } from './ItemPurchase.js';
+export { CreditTransaction } from './CreditTransaction.js';
+export type { CreditTransactionDocument } from './CreditTransaction.js';
 export { AppConfigModel } from './AppConfig.js';
 export type { AppConfigDocument } from './AppConfig.js';

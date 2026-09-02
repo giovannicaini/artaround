@@ -135,4 +135,10 @@ router.get('/my-purchases', authMiddleware, MarketplaceController.getMyPurchases
 router.get('/my-visit-purchases', authMiddleware, MarketplaceController.getMyPurchases);
 router.get('/my-item-purchases', authMiddleware, MarketplaceController.getMyItemPurchases);
 
+// Credito: nessun pagamento reale, l'utente sceglie una cifra e la ricarica
+// viene accreditata direttamente (vedi MarketplaceController.topUpCredit).
+router.get('/credit/balance', authMiddleware, MarketplaceController.getCreditBalance);
+router.post('/credit/topup', authMiddleware, MarketplaceController.topUpCredit);
+router.get('/credit/transactions', authMiddleware, MarketplaceController.getCreditTransactions);
+
 export default router;
