@@ -5,20 +5,8 @@ import type { NavigatorAppConfig } from '@artaround/shared';
 import { api } from '../lib/apiClient';
 import { buildBrandRamp } from '../lib/color';
 
-/**
- * Risolve quale NavigatorAppConfig applicare, in ordine di specificità:
- * 1. Config specifico DI QUESTO NAVIGATOR — richiesto esplicitamente via
- *    ?ncfg=slug nell'URL (es. un link/QR pensato per un pubblico preciso:
- *    "borghese-bambini" invece di "borghese-default"), cercato per slug
- *    tra i navigatorConfigs del museo.
- * 2. Config specifico DEL MUSEO — se il museo ne ha almeno uno ma nessuno
- *    corrisponde allo slug richiesto (o non ne è stato richiesto uno), si
- *    usa il primo configurato dal curatore per quel museo.
- * 3. Config GENERICO di piattaforma — AppConfig.navigatorDefaultConfigs,
- *    quando il museo non ha ancora nessun navigatorConfig proprio.
- * Se nessuno dei tre esiste, restano i token di default hardcoded
- * (l'identità "aurora" definita in main.css/tailwind.config.js).
- */
+// priorità: config con lo slug richiesto via ?ncfg=, poi il primo config del
+// museo, poi il default di piattaforma, altrimenti i token hardcoded
 function resolveConfig(
   requestedSlug: string | null,
   museumConfigs: NavigatorAppConfig[] | undefined,
@@ -52,8 +40,7 @@ export function useMuseumTheme(museumId: string | undefined) {
     staleTime: 5 * 60 * 1000,
   });
 
-  // I default di piattaforma cambiano raramente: cache lunga, e non serve
-  // aspettare che ci sia un museo selezionato per averli pronti.
+  // cambiano raramente: cache lunga
   const { data: defaultConfigs } = useQuery({
     queryKey: ['navigator-default-configs'],
     queryFn: () => api.getNavigatorDefaultConfigs(),
@@ -80,9 +67,7 @@ export function useMuseumTheme(museumId: string | undefined) {
 
     return () => {
       if (!ramp) return;
-      // Il museo/config attivo è cambiato o la schermata è stata lasciata:
-      // torna ai token di default invece di lasciare l'accento precedente
-      // "incollato" altrove nell'app.
+      // torna ai default, altrimenti l'accento resta "incollato" altrove
       for (const stop of Object.keys(ramp)) {
         root.style.removeProperty(`--color-brand-${stop}`);
       }

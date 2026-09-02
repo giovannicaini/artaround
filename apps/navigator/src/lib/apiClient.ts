@@ -12,7 +12,6 @@ import type {
   VisitPurchase,
 } from '@artaround/shared';
 
-// API base URL - configurable via environment variable
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 const TOKEN_KEY = 'authToken';
 
@@ -33,8 +32,7 @@ export class ApiError extends Error {
   }
 }
 
-// Stessa chiave del marketplace (localStorage è condiviso: stesso dominio,
-// path diverso), quindi un login nell'uno vale anche nell'altro.
+// stessa chiave del marketplace, localStorage è condiviso: un login vale per entrambi
 export function getToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY);
@@ -47,7 +45,7 @@ export function setToken(token: string): void {
   try {
     localStorage.setItem(TOKEN_KEY, token);
   } catch {
-    // storage non disponibile (privacy mode/quota) - login resta valido per la sessione corrente
+    // login resta valido per questa sessione anche senza storage
   }
 }
 
@@ -95,8 +93,7 @@ export const api = {
   register: (data: RegisterRequest): Promise<{ user: User; token: string }> =>
     request<{ user: User; token: string }>('/auth/register', {
       method: 'POST',
-      // Il Navigator crea sempre visitatori: nessuna scelta di ruolo in
-      // un'app pensata per chi visita un museo, non per chi ci lavora.
+      // il Navigator crea sempre visitatori, nessuna scelta di ruolo
       body: JSON.stringify({ ...data, role: 'visitor' }),
     }),
 
@@ -119,8 +116,7 @@ export const api = {
   getMuseumConfig: (id: string): Promise<MuseumConfigResponse> =>
     request<MuseumConfigResponse>(`/museums/${id}/config`),
 
-  // Default di piattaforma per il tema del Navigator, usati quando un museo
-  // non ha un proprio navigatorConfig (vedi hooks/useMuseumTheme).
+  // default di piattaforma, usati quando il museo non ha un navigatorConfig proprio
   getNavigatorDefaultConfigs: (): Promise<NavigatorAppConfig[]> =>
     request<NavigatorAppConfig[]>('/utils/navigator-default-config'),
 
