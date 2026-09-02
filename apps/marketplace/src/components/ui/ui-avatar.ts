@@ -11,12 +11,12 @@ export class UiAvatar extends LitElement {
 
   @state() private imageError = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
-  // ─── Helpers ──────────────────────────────────────────────
+  // ─── Helper ──────────────────────────────────────────────
   private get sizeClasses() {
     const sizes: Record<string, string> = {
       xs: 'w-6 h-6 text-2xs',

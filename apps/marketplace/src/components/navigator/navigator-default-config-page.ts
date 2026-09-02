@@ -68,7 +68,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
     ];
   }
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -78,7 +78,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
     this.loadConfigs();
   }
 
-  // ─── Data Loading & State ────────────────────────────────
+  // ─── Caricamento dati e stato ────────────────────────────────
   private getEmptyConfig(index: number): NavigatorConfigFormData {
     return {
       id: `default-cfg-${Date.now()}-${index}`,
@@ -348,7 +348,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
     `;
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
+  // ─── Helper di render ──────────────────────────────────────
   private renderColorField(
     config: NavigatorConfigFormData,
     fieldKey: NavigatorColorFieldKey,
@@ -438,7 +438,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
     `;
   }
 
-  // ─── Validation & Save ───────────────────────────────────
+  // ─── Validazione e salvataggio ───────────────────────────────────
   private validateBeforeSave(): string | null {
     if (!this.configs.length) {
       return __('La configurazione default è obbligatoria');
@@ -651,7 +651,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
     URL.revokeObjectURL(downloadUrl);
   }
 
-  // ─── Render Entry ────────────────────────────────────────
+  // ─── Render principale ────────────────────────────────────────
   render() {
     const displayOptions = [
       { value: 'standalone', label: __('Standalone') },

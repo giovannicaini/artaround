@@ -96,7 +96,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     }));
   }
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener('ui-language-changed', this.handleLanguageChanged as EventListener);
@@ -159,7 +159,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     void this.loadMuseumLanguages();
   }
 
-  // ─── Language Helpers ────────────────────────────────────
+  // ─── Helper lingua ────────────────────────────────────
   private async loadMuseumLanguages(): Promise<void> {
     const museumId = this.selectedMuseumId;
     if (!museumId) {
@@ -268,7 +268,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
-  // ─── Actions (Field Updates) ─────────────────────────────
+  // ─── Azioni (aggiornamento campi) ─────────────────────────────
   private handleWikidataSelect(e: CustomEvent) {
     this.referenceId = e.detail.id;
     this.referenceTitle = e.detail.label;
@@ -284,7 +284,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     this.price = parseFloat(e.detail.value) || 0;
   }
 
-  // ─── Computed & Validation ───────────────────────────────
+  // ─── Valori calcolati e validazione ───────────────────────────────
   private getWordCount(): number {
     return this.text.trim().split(/\s+/).filter(Boolean).length;
   }
@@ -358,7 +358,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     return null;
   }
 
-  // ─── Submit Flow ─────────────────────────────────────────
+  // ─── Flusso di invio ─────────────────────────────────────────
   private async handleSubmit(e: Event) {
     e.preventDefault();
 
@@ -431,7 +431,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
-  // ─── Form State Helpers ──────────────────────────────────
+  // ─── Helper stato form ──────────────────────────────────
   private resetForm() {
     this.referenceType = ItemReferenceType.ARTWORK;
     this.referenceId = '';
@@ -487,7 +487,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     return this.translationModeByLang[lang] === 'ai' ? 'ai' : 'manual';
   }
 
-  // ─── Render Entry ────────────────────────────────────────
+  // ─── Render principale ────────────────────────────────────────
   render() {
     const needsWikidataRef = [
       ItemReferenceType.ARTWORK,

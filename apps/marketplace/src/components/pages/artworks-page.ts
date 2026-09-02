@@ -135,7 +135,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     return getPermissions(this.user);
   }
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   connectedCallback() {
     super.connectedCallback();
     this.loadFilterOptions();
@@ -178,7 +178,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     this.loadArtworks();
   }
 
-  // ─── Data Helpers ────────────────────────────────────────
+  // ─── Helper dati ────────────────────────────────────────
   private parseYearFromText(yearValue?: string): number | null {
     if (!yearValue) return null;
     const match = yearValue.match(/-?\d{1,4}/);
@@ -206,7 +206,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     return candidates;
   }
 
-  // ─── Data Loading ────────────────────────────────────────
+  // ─── Caricamento dati ────────────────────────────────────────
   private async loadFilterOptions() {
     if (!this.selectedMuseumId) {
       this.availableRooms = [];
@@ -340,7 +340,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
-  // ─── Actions (Filters / CRUD / View) ────────────────────
+  // ─── Azioni (filtri / CRUD / vista) ────────────────────
   private async openArtworkDetail(artworkId: string) {
     if (!artworkId) return;
 
@@ -430,7 +430,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     this.loadArtworks();
   }
 
-  // ─── Computed State & Table Helpers ─────────────────────
+  // ─── Stato calcolato e helper tabella ─────────────────────
   private getArtworkImageAttrs(imagePath: string, sizes: string) {
     return uploadService.getResponsiveImageAttrs(imagePath, {
       widths: [480, 768, 1200],
@@ -666,7 +666,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
+  // ─── Helper di render ──────────────────────────────────────
   private renderTable(items: Artwork[]) {
     return html`
       <ui-table
@@ -1536,7 +1536,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
-  // ─── Render Entry ────────────────────────────────────────
+  // ─── Render principale ────────────────────────────────────────
   render() {
     return html`
       ${this.viewMode === 'create'
@@ -1564,7 +1564,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
-  // ─── Navigation State Sync ───────────────────────────────
+  // ─── Sincronizzazione stato navigazione ───────────────────────────────
   /**
    * Emits an event to notify the parent about state changes (viewMode, selected artwork)
    * Used for history management

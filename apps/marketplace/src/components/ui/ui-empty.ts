@@ -29,7 +29,7 @@ export class UiEmpty extends LitElement {
   @state() private actionContent: Element[] = [];
   private actionInitialized = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -44,7 +44,7 @@ export class UiEmpty extends LitElement {
     });
   }
 
-  // ─── Helpers ──────────────────────────────────────────────
+  // ─── Helper ──────────────────────────────────────────────
   private captureSlotContent() {
     const actionSlotted = Array.from(this.querySelectorAll('[slot="action"]')) as Element[];
     this.actionContent = actionSlotted.map((el) => {

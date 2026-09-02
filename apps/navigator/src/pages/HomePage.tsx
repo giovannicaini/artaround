@@ -28,14 +28,20 @@ import {
 } from '../components/ui';
 import type { Museum, Visit } from '@artaround/shared';
 
-// feed di blocchi diversi (vetrina, ripresa, righe orizzontali), non un'unica griglia
+/**
+ * Home come un feed di blocchi diversi tra loro (non la stessa card
+ * ripetuta) — vetrina in evidenza, ripresa visita, righe a scorrimento
+ * orizzontale — stile Spotify/Netflix invece di un'unica griglia.
+ */
 export default function HomePage() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const language = useI18nStore((state) => state.language);
   const t = useT();
   const { config } = useMuseumTheme(undefined); // solo per i default di piattaforma
-  // stato lazy per evitare un giro di render in più rispetto a un useEffect
+  // Letto una sola volta all'avvio della schermata: uno stato locale con
+  // inizializzatore lazy evita un giro extra di render rispetto a un
+  // useEffect che chiama setState in modo sincrono.
   const [progress] = useState<VisitProgress | null>(() => loadVisitProgress());
 
   const {

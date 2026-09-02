@@ -8,7 +8,7 @@ export class UiListRow extends LitElement {
   @property({ type: Boolean }) disabled = false;
   @property({ attribute: false }) renderTrailing: (() => unknown) | null = null;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }

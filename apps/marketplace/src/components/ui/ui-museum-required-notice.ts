@@ -9,12 +9,12 @@ export class UiMuseumRequiredNotice extends LitElement {
   @property({ type: String }) subject = 'risorse';
   @property({ type: String }) buttonLabel = '';
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
   private handleSelectMuseum() {
     this.dispatchEvent(
       new CustomEvent('select-museum', {

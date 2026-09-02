@@ -28,7 +28,12 @@ function normalizedIndex(language: AppLanguage): Map<string, string> {
   return index;
 }
 
-// la chiave di traduzione è il testo italiano stesso, non un id astratto
+/**
+ * Stessa convenzione del marketplace (services/i18n.service.ts): la chiave
+ * di traduzione È il testo sorgente in italiano, non un identificatore
+ * astratto — i dizionari (packages/shared/src/locales/*.json) sono
+ * condivisi tra le due app.
+ */
 export function translate(language: AppLanguage, textOrKey: string): string {
   const current = localesByLanguage[language][textOrKey];
   if (typeof current === 'string' && current.trim() !== '') return current;
@@ -54,6 +59,7 @@ const BCP47_BY_LANGUAGE: Record<AppLanguage, string> = {
   es: 'es-ES',
 };
 
+/** Codice lingua per la sintesi vocale (SpeechSynthesisUtterance.lang). */
 export function toSpeechLocale(language: AppLanguage): string {
   return BCP47_BY_LANGUAGE[language];
 }
@@ -78,7 +84,11 @@ export function storeLanguage(language: AppLanguage): void {
   }
 }
 
-// traduce un campo con una mappa *Translations opzionale a fianco
+/**
+ * Traduzione di un campo di contenuto (nome museo, titolo visita, testo di
+ * un item...) che porta con sé una mappa `*Translations` opzionale — mai
+ * per l'italiano stesso, che è già il valore base.
+ */
 export function localizedField(
   language: AppLanguage,
   base: string,
@@ -88,7 +98,8 @@ export function localizedField(
   return translations?.[language] || base;
 }
 
-// sostituisce i segnaposto {nome} in un template già tradotto
+/** Sostituisce i segnaposto {nome} in un template già tradotto — per le
+ * frasi generate a runtime (risposte vocali con nomi propri dentro). */
 export function format(template: string, vars: Record<string, string>): string {
   return template.replace(/\{(\w+)\}/g, (_, key: string) => vars[key] ?? '');
 }

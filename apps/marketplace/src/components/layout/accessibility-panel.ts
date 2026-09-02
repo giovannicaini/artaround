@@ -15,7 +15,7 @@ export class AccessibilityPanel extends LitElement {
   @state() private settings: AccessibilitySettings = preferencesService.getAccessibility();
   @state() private theme: Theme = preferencesService.getTheme();
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -34,7 +34,7 @@ export class AccessibilityPanel extends LitElement {
     super.disconnectedCallback();
   }
 
-  // ─── Actions & State Updates ─────────────────────────────
+  // ─── Azioni e aggiornamenti di stato ─────────────────────────────
   private handleA11yChanged = (e: CustomEvent) => {
     this.settings = { ...e.detail };
   };
@@ -91,7 +91,7 @@ export class AccessibilityPanel extends LitElement {
     this.theme = 'auto';
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
+  // ─── Helper di render ──────────────────────────────────────
   private renderToggleRow(
     label: string,
     description: string,
@@ -137,7 +137,7 @@ export class AccessibilityPanel extends LitElement {
     `;
   }
 
-  // ─── Render Entry ────────────────────────────────────────
+  // ─── Render principale ────────────────────────────────────────
   render() {
     if (!this.open) return html``;
 

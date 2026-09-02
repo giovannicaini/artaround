@@ -6,7 +6,7 @@ export class UiSectionHeader extends LitElement {
   @property({ type: String }) title = '';
   @property({ type: String }) description = '';
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }

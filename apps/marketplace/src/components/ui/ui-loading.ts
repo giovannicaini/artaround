@@ -17,7 +17,7 @@ export class UiLoading extends LitElement {
   @property({ type: String }) text = '';
   @property({ type: String }) size: 'sm' | 'md' | 'lg' = 'md';
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }

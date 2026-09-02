@@ -15,7 +15,7 @@ export class UiScrollTop extends LitElement {
 
   private scrollThreshold = 300;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -31,7 +31,7 @@ export class UiScrollTop extends LitElement {
     super.disconnectedCallback();
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
   private handleScroll = () => {
     this.visible = window.scrollY > this.scrollThreshold;
   };

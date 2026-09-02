@@ -14,7 +14,7 @@ export class UiTextarea extends LitElement {
   @property({ type: Boolean }) disabled = false;
   @property({ type: Boolean }) showCount = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -24,7 +24,7 @@ export class UiTextarea extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
   private handleInput(e: Event) {
     const target = e.target as HTMLTextAreaElement;
     this.value = target.value;

@@ -29,7 +29,7 @@ export class AdminHeader extends LitElement {
   @state() private a11yPanelOpen = false;
   @state() private uiLanguage: AppLanguage = i18nService.getLanguage();
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -64,7 +64,7 @@ export class AdminHeader extends LitElement {
     super.disconnectedCallback();
   }
 
-  // ─── Actions & Event Handlers ───────────────────────────
+  // ─── Azioni e gestori eventi ───────────────────────────
   private handleMuseumChanged = (event: CustomEvent) => {
     this.selectedMuseum = event.detail || null;
     void this.hydrateSelectedMuseumLocalization();
@@ -169,7 +169,7 @@ export class AdminHeader extends LitElement {
     return this.selectedMuseum.nameTranslations?.[currentLanguage] || this.selectedMuseum.name;
   }
 
-  // ─── Render Entry ────────────────────────────────────────
+  // ─── Render principale ────────────────────────────────────────
   render() {
     const marginLeft = this.sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64';
 

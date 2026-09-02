@@ -28,7 +28,7 @@ export class UiAlert extends LitElement {
 
   @state() private visible = true;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -38,7 +38,7 @@ export class UiAlert extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
   private get variantConfig() {
     const configs = {
       success: {

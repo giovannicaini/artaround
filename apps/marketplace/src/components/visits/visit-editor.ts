@@ -142,7 +142,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     ];
   }
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   async connectedCallback() {
     super.connectedCallback();
     window.addEventListener('ui-language-changed', this.handleLanguageChanged as EventListener);
@@ -180,7 +180,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     void this.loadFloorsForMuseum();
   }
 
-  // ─── Data Loading ────────────────────────────────────────
+  // ─── Caricamento dati ────────────────────────────────────────
   private async loadMuseums() {
     this.loadingMuseums = true;
     try {
@@ -543,7 +543,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
-  // ─── Actions (Museum / Steps / Save) ────────────────────
+  // ─── Azioni (museo / tappe / salvataggio) ────────────────────
   private async handleMuseumChange(e: CustomEvent) {
     this.museumId = e.detail.value;
     // Reload artworks when museum changes
@@ -753,7 +753,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     );
   }
 
-  // ─── Render Entry ────────────────────────────────────────
+  // ─── Render principale ────────────────────────────────────────
   render() {
     if (this.loadingVisit) {
       return html`<ui-loading size="lg" .text=${__('Caricamento visita...')}></ui-loading>`;
@@ -828,7 +828,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
+  // ─── Helper di render ──────────────────────────────────────
   private renderActiveTab() {
     switch (this.activeTab) {
       case 'info':
@@ -1177,7 +1177,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
-  // ─── Actions (Costruzione percorso dalla mappa) ─────────
+  // ─── Azioni (costruzione percorso dalla mappa) ─────────
   /**
    * Click su un punto vuoto della mappa nel tab "Mappa": crea una nuova
    * svolta (marker WAYPOINT) sul piano corrente e la accoda subito come

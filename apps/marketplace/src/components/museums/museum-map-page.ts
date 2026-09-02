@@ -31,7 +31,7 @@ import { __ } from '../../services/i18n.service';
  */
 @customElement('museum-map-page')
 export class MuseumMapPage extends LitElement {
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -110,7 +110,7 @@ export class MuseumMapPage extends LitElement {
     await this.loadData();
   }
 
-  // ─── Data Loading ────────────────────────────────────────
+  // ─── Caricamento dati ────────────────────────────────────────
   private async loadData() {
     if (!this.museumId) {
       this.error = __('ID museo non specificato');
@@ -155,7 +155,7 @@ export class MuseumMapPage extends LitElement {
     return this.currentFloor?.markers || [];
   }
 
-  // ─── Render Entry ────────────────────────────────────────
+  // ─── Render principale ────────────────────────────────────────
   render() {
     if (this.loading) {
       return html`
@@ -332,7 +332,7 @@ export class MuseumMapPage extends LitElement {
     `;
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
+  // ─── Helper di render ──────────────────────────────────────
   private renderArtworkItem(artwork: Artwork) {
     const hasPosition = this.floors.some((f) =>
       f.markers?.some((m) => m.artworkId === artwork.wikidataId),
@@ -379,7 +379,7 @@ export class MuseumMapPage extends LitElement {
     `;
   }
 
-  // ─── Actions (Floors / Markers / Save) ──────────────────
+  // ─── Azioni (piani / marker / salvataggio) ──────────────────
   private async goBack() {
     if (this.hasChanges) {
       const confirmed = await modalService.confirm({
@@ -569,7 +569,7 @@ export class MuseumMapPage extends LitElement {
     }
   }
 
-  // ─── Actions (Sale / Contorno) ───────────────────────────
+  // ─── Azioni (sale / contorno) ───────────────────────────
   private readonly CLOSE_POLYGON_THRESHOLD_PX = 12;
 
   private handleRoomOutlineStart(e: CustomEvent) {

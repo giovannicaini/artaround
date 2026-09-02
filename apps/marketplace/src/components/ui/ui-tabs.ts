@@ -34,7 +34,7 @@ export class UiTabs extends LitElement {
   @property({ type: String }) activeTab = '';
   @property({ type: String }) variant: 'underline' | 'pills' = 'underline';
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -49,7 +49,7 @@ export class UiTabs extends LitElement {
     this.style.minWidth = '0';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
   private handleTabClick(tabId: string) {
     if (tabId === this.activeTab) return;
     this.dispatchEvent(
@@ -69,7 +69,7 @@ export class UiTabs extends LitElement {
     return this.renderUnderline();
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
+  // ─── Helper di render ──────────────────────────────────────
   private renderUnderline() {
     return html`
       <div class="border-b border-surface-200 dark:border-surface-700 overflow-x-auto">

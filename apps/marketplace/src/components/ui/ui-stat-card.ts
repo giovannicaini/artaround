@@ -9,7 +9,7 @@ export class UiStatCard extends LitElement {
   @property({ type: Number }) value = 0;
   @property({ type: String }) icon = 'chart';
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }

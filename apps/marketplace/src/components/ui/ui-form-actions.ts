@@ -33,7 +33,7 @@ export class UiFormActions extends LitElement {
   @property({ type: String }) submitVariant: 'primary' | 'danger' = 'primary';
   @property({ type: String }) align: 'left' | 'center' | 'right' | 'between' = 'right';
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -43,7 +43,7 @@ export class UiFormActions extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
   private handleCancel() {
     this.dispatchEvent(new CustomEvent('cancel', { bubbles: true, composed: true }));
   }

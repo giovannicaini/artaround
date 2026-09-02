@@ -214,7 +214,7 @@ export class ImageEditor extends LitElement {
     }
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
 
   private handleFileSelect(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -350,7 +350,7 @@ export class ImageEditor extends LitElement {
     });
   }
 
-  // ─── Helpers ──────────────────────────────────────────────
+  // ─── Helper ──────────────────────────────────────────────
 
   private handleWidthChange(e: CustomEvent) {
     const w = parseInt(e.detail.value, 10) || 0;
@@ -402,7 +402,7 @@ export class ImageEditor extends LitElement {
     this.crop = { x: 0, y: 0, width: this.originalWidth, height: this.originalHeight };
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
 
   private getImageElement(): HTMLImageElement | null {
     return this.querySelector('.image-editor-preview') as HTMLImageElement;
@@ -501,7 +501,7 @@ export class ImageEditor extends LitElement {
     document.removeEventListener('mouseup', this._onMouseUp);
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
 
   private async handleSave() {
     this.uploading = true;
@@ -838,7 +838,7 @@ export class ImageEditor extends LitElement {
     `;
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
+  // ─── Helper di render ──────────────────────────────────────
 
   private renderEditor() {
     //const scaleFactor = this.originalWidth > 0 ? 100 / this.originalWidth : 1;

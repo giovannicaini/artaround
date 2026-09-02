@@ -27,7 +27,7 @@ export class UiCombobox extends LitElement {
   @state() private open = false;
   @state() private focusedIndex = -1;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -43,7 +43,7 @@ export class UiCombobox extends LitElement {
     document.removeEventListener('click', this._onOutsideClick);
   }
 
-  // ─── Helpers ──────────────────────────────────────────────
+  // ─── Helper ──────────────────────────────────────────────
   private _onOutsideClick(e: MouseEvent) {
     if (!this.contains(e.target as Node)) {
       this.closeDropdown();
@@ -60,7 +60,7 @@ export class UiCombobox extends LitElement {
     return this.options.filter((o) => o.label.toLowerCase().includes(q));
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
   private openDropdown() {
     if (this.disabled) return;
     this.open = true;

@@ -79,7 +79,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
   @state() private filterLanguageLevel: LanguageLevel | '' = '';
   @state() private filterIsFree: 'true' | 'false' | '' = '';
 
-  // ─── Computed State ──────────────────────────────────────
+  // ─── Stato calcolato ──────────────────────────────────────
   private get permissions(): PermissionSet {
     return getPermissions(this.user);
   }
@@ -108,7 +108,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     return LANGUAGE_LEVEL_OPTIONS_IT.map((option) => ({ ...option, label: __(option.label) }));
   }
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   connectedCallback() {
     super.connectedCallback();
     this.loadItems();
@@ -125,7 +125,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     this.loadItems();
   }
 
-  // ─── Data Loading ────────────────────────────────────────
+  // ─── Caricamento dati ────────────────────────────────────────
   /**
    * Applica i filtri attivi (tipo riferimento, durata, livello, gratuito/a
    * pagamento) + ricerca testuale a un array di item in memoria — usato in
@@ -230,7 +230,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     this.applyFilters();
   }
 
-  // ─── List / Form Actions ─────────────────────────────────
+  // ─── Azioni lista / form ─────────────────────────────────
   private handleViewItem(item: Item) {
     this.selectedItem = item;
     this.viewMode = 'view';
@@ -300,7 +300,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     this.selectedItem = null;
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
+  // ─── Helper di render ──────────────────────────────────────
   private renderSelectedItemImage() {
     const item = this.selectedItem;
     if (!item) return nothing;

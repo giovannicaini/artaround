@@ -24,7 +24,7 @@ export class UiCheckbox extends LitElement {
   @property({ type: Boolean }) checked = false;
   @property({ type: Boolean }) disabled = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -34,7 +34,7 @@ export class UiCheckbox extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
   private handleChange(e: Event) {
     const target = e.target as HTMLInputElement;
     this.dispatchEvent(

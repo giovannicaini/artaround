@@ -86,12 +86,12 @@ export class UiIcon extends LitElement {
   @property({ type: String }) name = 'home';
   @property({ type: String }) size: 'xs' | 'sm' | 'md' | 'lg' = 'md';
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
-  // ─── Helpers ──────────────────────────────────────────────
+  // ─── Helper ──────────────────────────────────────────────
   private get sizeClasses() {
     const sizes: Record<string, string> = {
       xs: 'w-4 h-4',

@@ -32,7 +32,7 @@ export class UiFilterTabs extends LitElement {
   @property({ type: String }) value = '';
   @property({ type: String }) size: 'sm' | 'md' = 'md';
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -48,7 +48,7 @@ export class UiFilterTabs extends LitElement {
     this.style.minWidth = '0';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
   private handleClick(tabValue: string) {
     if (tabValue === this.value) return;
     this.dispatchEvent(

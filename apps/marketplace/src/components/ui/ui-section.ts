@@ -24,7 +24,7 @@ export class UiSection extends LitElement {
   @property({ type: String }) description = '';
   @property({ attribute: false }) renderContent: (() => unknown) | null = null;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }

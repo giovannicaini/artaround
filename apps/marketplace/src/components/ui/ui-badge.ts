@@ -17,7 +17,7 @@ export class UiBadge extends LitElement {
   @property({ type: String }) icon = '';
   @property({ type: String }) label = '';
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -32,7 +32,7 @@ export class UiBadge extends LitElement {
     }
   }
 
-  // ─── Helpers ──────────────────────────────────────────────
+  // ─── Helper ──────────────────────────────────────────────
   private get variantClasses() {
     const variants: Record<string, string> = {
       default: 'bg-surface-100 text-surface-700 dark:bg-surface-800 dark:text-surface-300',

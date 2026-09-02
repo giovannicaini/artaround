@@ -11,6 +11,7 @@ import './components/auth/login-page';
 import './components/layout/admin-sidebar';
 import './components/layout/admin-header';
 import './components/ui/ui-scroll-top';
+import './components/ui/ui-button';
 
 // Le pagine vere e proprie vengono caricate on-demand (vedi PAGE_LOADERS più sotto):
 // evita di mettere ~700KB di componenti nel bundle iniziale quando l'utente ne visita
@@ -36,7 +37,7 @@ const PAGE_LOADERS: Record<string, () => Promise<unknown>> = {
 
 @customElement('app-root')
 export class AppRoot extends LitElement {
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -50,7 +51,7 @@ export class AppRoot extends LitElement {
   @state()
   private routeParams: Record<string, string> = {};
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   @state()
   private pageTitle = 'Dashboard';
 
@@ -66,6 +67,13 @@ export class AppRoot extends LitElement {
   // Tracking dei moduli-pagina caricati on-demand (vedi PAGE_LOADERS)
   private loadedPageModules = new Set<string>();
   private pendingPageModules = new Set<string>();
+  // Route il cui chunk non è stato caricabile (vedi ensurePageLoaded/handlePageLoadError):
+  // pilota lo spinner "vs" messaggio d'errore in renderPageLoading.
+  private pageLoadError: string | null = null;
+
+  // sessionStorage key usata per ricordare l'ultimo reload automatico tentato per un
+  // chunk non caricabile (vedi handlePageLoadError) e non entrare in un loop di reload.
+  private static readonly CHUNK_RELOAD_KEY = 'mp_chunk_reload_at';
 
   connectedCallback() {
     super.connectedCallback();
@@ -108,7 +116,7 @@ export class AppRoot extends LitElement {
     return __(label);
   }
 
-  // ─── Auth & Navigation ───────────────────────────────────
+  // ─── Autenticazione e navigazione ───────────────────────────────────
   async checkAuth() {
     // Check if there's a token first - avoid unnecessary API calls
     const token = localStorage.getItem('authToken');
@@ -191,7 +199,7 @@ export class AppRoot extends LitElement {
     }
   }
 
-  // ─── Route Renderers ─────────────────────────────────────
+  // ─── Renderer delle rotte ─────────────────────────────────────
   /**
    * Assicura che il componente della pagina richiesta sia caricato prima di renderizzarla.
    * Ritorna true se già disponibile (nessuna pagina da caricare, o già caricata),
@@ -206,12 +214,13 @@ export class AppRoot extends LitElement {
 
     if (!this.pendingPageModules.has(route)) {
       this.pendingPageModules.add(route);
+      this.pageLoadError = null;
       loader()
         .then(() => {
           this.loadedPageModules.add(route);
         })
         .catch((error) => {
-          console.error(`Errore nel caricamento della pagina "${route}":`, error);
+          this.handlePageLoadError(route, error);
         })
         .finally(() => {
           this.pendingPageModules.delete(route);
@@ -222,7 +231,50 @@ export class AppRoot extends LitElement {
     return false;
   }
 
-  private renderPageLoading() {
+  /**
+   * I chunk delle pagine sono file con hash nel nome (vedi vite.config.ts,
+   * emptyOutDir: true): ogni nuovo deploy li rigenera e cancella quelli vecchi. Una
+   * tab rimasta aperta a cavallo di un deploy continua a usare l'indice/manifest
+   * della build precedente, quindi il primo import() di una pagina non ancora
+   * caricata in questa sessione punta a un file che sul server non esiste più e
+   * fallisce sempre allo stesso modo (da cui lo spinner infinito su "alcune pagine
+   * sì, altre no" finché non si fa F5, che scarica l'index.html aggiornato).
+   * Un retry dello stesso import() non risolve nulla: serve un reload completo.
+   * Lo facciamo una sola volta (guardia via sessionStorage) per non entrare in loop
+   * se il problema è invece un errore di rete reale.
+   */
+  private handlePageLoadError(route: string, error: unknown) {
+    console.error(`Errore nel caricamento della pagina "${route}":`, error);
+
+    const lastReload = Number(sessionStorage.getItem(AppRoot.CHUNK_RELOAD_KEY) || 0);
+    if (Date.now() - lastReload > 10_000) {
+      sessionStorage.setItem(AppRoot.CHUNK_RELOAD_KEY, String(Date.now()));
+      window.location.reload();
+      return;
+    }
+
+    // Abbiamo già ricaricato di recente e continua a fallire: non è uno stale chunk,
+    // niente altro reload automatico, mostriamo un errore con retry manuale.
+    this.pageLoadError = route;
+  }
+
+  private renderPageLoading(route: string) {
+    if (this.pageLoadError === route) {
+      return html`
+        <div class="flex flex-col items-center justify-center min-h-[300px] gap-3 text-center">
+          <p class="text-sm text-surface-500 dark:text-surface-400">
+            ${__('Impossibile caricare questa pagina.')}
+          </p>
+          <ui-button
+            variant="secondary"
+            size="sm"
+            .label=${__('Ricarica')}
+            @click=${() => window.location.reload()}
+          ></ui-button>
+        </div>
+      `;
+    }
+
     return html`
       <div class="flex items-center justify-center min-h-[300px]">
         <div
@@ -234,7 +286,7 @@ export class AppRoot extends LitElement {
 
   renderPage() {
     if (!this.ensurePageLoaded(this.currentRoute)) {
-      return this.renderPageLoading();
+      return this.renderPageLoading(this.currentRoute);
     }
 
     switch (this.currentRoute) {
@@ -326,7 +378,7 @@ export class AppRoot extends LitElement {
     }
   }
 
-  // ─── Render Entry ────────────────────────────────────────
+  // ─── Render principale ────────────────────────────────────────
   render() {
     // Show loading spinner while checking auth
     if (this.loading) {
@@ -398,7 +450,7 @@ export class AppRoot extends LitElement {
     `;
   }
 
-  // ─── UI Actions & Events ─────────────────────────────────
+  // ─── Azioni ed eventi UI ─────────────────────────────────
   private handleSidebarToggle() {
     this.sidebarCollapsed = !this.sidebarCollapsed;
   }
@@ -499,7 +551,7 @@ export class AppRoot extends LitElement {
     this.pushToHistory(this.currentRoute, params, this.pageTitle);
   }
 
-  // ─── Permissions ──────────────────────────────────────────
+  // ─── Permessi ──────────────────────────────────────────
   private requiresMuseumConfigAccess(route: string): boolean {
     return (
       route === 'museum-edit' ||
@@ -550,7 +602,7 @@ export class AppRoot extends LitElement {
     );
   }
 
-  // ─── History Management ──────────────────────────────────
+  // ─── Gestione history ──────────────────────────────────
   /**
    * Ripristina lo stato della navigazione dal localStorage all'avvio
    */

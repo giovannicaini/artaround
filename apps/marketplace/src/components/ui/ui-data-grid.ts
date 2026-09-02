@@ -24,7 +24,7 @@ export class UiDataGrid extends LitElement {
   @property({ attribute: false }) renderItem: ((item: unknown, index: number) => unknown) | null =
     null;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -34,7 +34,7 @@ export class UiDataGrid extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Helpers ──────────────────────────────────────────────
+  // ─── Helper ──────────────────────────────────────────────
   private getGridClasses() {
     const colClasses: Record<number, string> = {
       1: 'grid-cols-1',

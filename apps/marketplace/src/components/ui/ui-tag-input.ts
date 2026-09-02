@@ -32,7 +32,7 @@ export class UiTagInput extends LitElement {
 
   @state() private inputValue = '';
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -42,7 +42,7 @@ export class UiTagInput extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
   private handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter' && this.inputValue.trim()) {
       e.preventDefault();

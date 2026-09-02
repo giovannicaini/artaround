@@ -22,7 +22,7 @@ import { __ } from '../../services/i18n.service';
  */
 @customElement('marker-editor')
 export class MarkerEditor extends LitElement {
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -101,7 +101,7 @@ export class MarkerEditor extends LitElement {
     this.addMarker();
   };
 
-  // ─── Render Entry ────────────────────────────────────────
+  // ─── Render principale ────────────────────────────────────────
   render() {
     return html`
       <div class="bg-surface-800 rounded-lg overflow-hidden border border-surface-700">
@@ -141,7 +141,7 @@ export class MarkerEditor extends LitElement {
     `;
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
+  // ─── Helper di render ──────────────────────────────────────
   private renderAddForm() {
     const isArtworkType = [MarkerType.ARTWORK, MarkerType.SCULPTURE, MarkerType.PAINTING].includes(
       this.selectedType,
@@ -366,7 +366,7 @@ export class MarkerEditor extends LitElement {
     `;
   }
 
-  // ─── Actions (Marker CRUD) ───────────────────────────────
+  // ─── Azioni (CRUD marker) ───────────────────────────────
   private updateMarkerType(type: MarkerType) {
     if (!this.selectedMarker) return;
     this.dispatchEvent(

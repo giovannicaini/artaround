@@ -42,7 +42,7 @@ export class MuseumsPage extends LitElement {
   @state() private museumStats: Map<string, MuseumStats> = new Map();
   @state() private loadingStats = false;
 
-  // ─── Render Helpers ──────────────────────────────────────
+  // ─── Helper di render ──────────────────────────────────────
   private renderMuseumTag(type: MuseumTagType) {
     const config: Record<MuseumTagType, { label: string; classes: string }> = {
       selected: {
@@ -159,7 +159,7 @@ export class MuseumsPage extends LitElement {
     );
   }
 
-  // ─── Table Configuration ─────────────────────────────────
+  // ─── Configurazione tabella ─────────────────────────────────
   private get columns(): TableColumn[] {
     return [
       {
@@ -255,7 +255,7 @@ export class MuseumsPage extends LitElement {
     ];
   }
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -266,7 +266,7 @@ export class MuseumsPage extends LitElement {
     this.currentSelectedMuseumId = preferencesService.getSelectedMuseum()?._id || '';
   }
 
-  // ─── Data Loading ────────────────────────────────────────
+  // ─── Caricamento dati ────────────────────────────────────────
   private async loadMuseums() {
     this.loading = true;
     this.error = '';
@@ -317,7 +317,7 @@ export class MuseumsPage extends LitElement {
     }
   }
 
-  // ─── Filtering / Actions ─────────────────────────────────
+  // ─── Filtri / azioni ─────────────────────────────────
   private getMuseumRoles(museumId: string): string[] {
     if (!this.user?.roleAssignments) return [];
 

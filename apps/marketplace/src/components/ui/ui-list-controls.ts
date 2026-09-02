@@ -11,12 +11,12 @@ export class UiListControls extends LitElement {
   @property({ attribute: false }) renderSummary: (() => unknown) | null = null;
   @property({ attribute: false }) renderContent: (() => unknown) | null = null;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
   private toggle() {
     this.collapsed = !this.collapsed;
     this.dispatchEvent(

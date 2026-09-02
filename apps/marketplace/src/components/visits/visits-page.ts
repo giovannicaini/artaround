@@ -51,12 +51,12 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
   @state() private filterPublished: 'all' | 'published' | 'draft' = 'all';
   @state() private publishing = false;
 
-  // ─── Computed State ──────────────────────────────────────
+  // ─── Stato calcolato ──────────────────────────────────────
   private get permissions(): PermissionSet {
     return getPermissions(this.user);
   }
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   connectedCallback() {
     super.connectedCallback();
     this.loadVisits();
@@ -72,7 +72,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     this.loadVisits();
   }
 
-  // ─── Data Loading / Filters ──────────────────────────────
+  // ─── Caricamento dati / filtri ──────────────────────────────
   private async loadVisits() {
     this.loading = true;
     this.error = '';
@@ -120,7 +120,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     return filtered;
   }
 
-  // ─── List / Form Actions ─────────────────────────────────
+  // ─── Azioni lista / form ─────────────────────────────────
   private handleCreateVisit() {
     this.selectedVisit = null;
     this.viewMode = 'create';
@@ -208,7 +208,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     this.backToListView();
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
+  // ─── Helper di render ──────────────────────────────────────
   private renderVisitsList() {
     return html`
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

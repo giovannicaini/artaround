@@ -14,7 +14,7 @@ import { __ } from '../../services/i18n.service';
  */
 @customElement('floor-manager')
 export class FloorManager extends LitElement {
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -46,7 +46,7 @@ export class FloorManager extends LitElement {
     dimensions: { width: 800, height: 600 },
   };
 
-  // ─── Render Entry ────────────────────────────────────────
+  // ─── Render principale ────────────────────────────────────────
   render() {
     // Con il form di aggiunta aperto il pannello resta visibile: non ha senso
     // poterlo nascondere mentre si sta compilando.
@@ -94,7 +94,7 @@ export class FloorManager extends LitElement {
     `;
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
+  // ─── Helper di render ──────────────────────────────────────
   private renderFloorItem(floor: MuseumFloor) {
     const markerCount = floor.markers?.length || 0;
     const connectionCount = floor.connections?.length || 0;
@@ -247,7 +247,7 @@ export class FloorManager extends LitElement {
     `;
   }
 
-  // ─── Actions (Upload / CRUD) ─────────────────────────────
+  // ─── Azioni (upload / CRUD) ─────────────────────────────
   private triggerFileUpload() {
     const input = this.querySelector('input[type="file"]') as HTMLInputElement;
     input?.click();

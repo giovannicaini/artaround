@@ -16,7 +16,7 @@ export class UiImagePlaceholder extends LitElement {
   @property({ type: String }) size: PlaceholderSize = 'md';
   @state() private isDark = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -44,7 +44,7 @@ export class UiImagePlaceholder extends LitElement {
 
   private observer?: MutationObserver;
 
-  // ─── Helpers ──────────────────────────────────────────────
+  // ─── Helper ──────────────────────────────────────────────
   private getSizeClasses(): string {
     const sizes: Record<PlaceholderSize, string> = {
       xs: 'w-6 h-6',

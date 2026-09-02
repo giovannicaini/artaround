@@ -14,7 +14,7 @@ export class UiResourceListCard extends LitElement {
   @property({ attribute: false }) renderItems: (() => unknown) | null = null;
   @property({ attribute: false }) renderActions: (() => unknown) | null = null;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }

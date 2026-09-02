@@ -283,7 +283,7 @@ export class MuseumsManagementPage extends LitElement {
     ];
   }
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -329,7 +329,7 @@ export class MuseumsManagementPage extends LitElement {
     super.disconnectedCallback();
   }
 
-  // ─── Form & Navigator Helpers ────────────────────────────
+  // ─── Helper form e Navigator ────────────────────────────
   private getEmptyFormData(): MuseumFormData {
     return {
       wikidataId: '',
@@ -1057,7 +1057,7 @@ export class MuseumsManagementPage extends LitElement {
     );
   }
 
-  // ─── Data Loading ────────────────────────────────────────
+  // ─── Caricamento dati ────────────────────────────────────────
   private async loadMuseums() {
     this.loading = true;
     this.error = '';
@@ -1319,7 +1319,7 @@ export class MuseumsManagementPage extends LitElement {
     `;
   }
 
-  // ─── Actions (Modes / Curators / CRUD) ───────────────────
+  // ─── Azioni (modalità / curatori / CRUD) ───────────────────
   private openCreateForm() {
     this.formData = this.getEmptyFormData();
     this.viewMode = 'create';
@@ -1733,7 +1733,7 @@ export class MuseumsManagementPage extends LitElement {
     }
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
+  // ─── Helper di render ──────────────────────────────────────
   private renderNavigatorColorField(
     config: NavigatorConfigFormData,
     key: NavigatorColorFieldKey,
@@ -2394,7 +2394,7 @@ export class MuseumsManagementPage extends LitElement {
     `;
   }
 
-  // ─── Render Entry ────────────────────────────────────────
+  // ─── Render principale ────────────────────────────────────────
   render() {
     const isFocusedConfigMode = this.configMode !== 'full';
 
@@ -2436,7 +2436,7 @@ export class MuseumsManagementPage extends LitElement {
     `;
   }
 
-  // ─── View Renderers ──────────────────────────────────────
+  // ─── Renderer delle viste ──────────────────────────────────────
   private renderList() {
     const museums = this.sortedMuseums;
 

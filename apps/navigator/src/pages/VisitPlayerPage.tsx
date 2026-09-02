@@ -56,7 +56,9 @@ import {
 import MapView from '../components/MapView';
 import { buildVisitRoutePoints, type RoutePoint } from '../services/mapRoute';
 
-// fade con scivolamento nel verso di navigazione, custom riceve la direzione
+// Transizione tra una tappa e l'altra (avanti/indietro): un fade con un
+// piccolo scivolamento nel verso di navigazione, invece del cambio secco
+// di immagine/testo — "custom" riceve la direzione (1 avanti, -1 indietro).
 const stepImageVariants = {
   enter: { opacity: 0, scale: 0.97 },
   center: { opacity: 1, scale: 1 },
@@ -99,7 +101,7 @@ async function loadVisitData(visitId: string): Promise<{
         routePoints = buildVisitRoutePoints(visit.steps, museum.floors || []);
       }
     } catch {
-      // la mappa è un'aggiunta, non un requisito
+      // La mappa è un'aggiunta, non un requisito: la visita resta fruibile senza.
     }
   }
 
@@ -232,7 +234,9 @@ export default function VisitPlayerPage() {
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [showItemList, setShowItemList] = useState(false);
   const [showMap, setShowMap] = useState(false);
-  // punto associato alla tappa corrente, per centrare/evidenziare la mappa
+  // Punto sulla mappa a cui è associata la tappa LOGISTIC/NAVIGATION
+  // corrente (se scelto dal curatore): usato per centrare/evidenziare la
+  // mappa quando si apre da qui invece che dalle opere.
   const [mapFocusMarkerId, setMapFocusMarkerId] = useState<string | undefined>();
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -241,6 +245,8 @@ export default function VisitPlayerPage() {
     enabled: !!visitId,
   });
 
+  // Una volta caricata, la visita entra nello store di sessione con i
+  // default di livello/durata proposti dalle preferenze dell'utente.
   useEffect(() => {
     if (!data) return;
     start(data.visit, data.steps, {
@@ -252,7 +258,10 @@ export default function VisitPlayerPage() {
 
   const currentStep = steps[currentStepIndex] ?? null;
 
-  // verso della transizione, dedotto dal confronto con l'indice precedente
+  // Verso della transizione tra tappe (1 avanti, -1 indietro): dedotto dal
+  // confronto con l'indice precedente invece di doverlo passare a mano da
+  // ogni singolo punto che cambia tappa (bottoni, tastiera, comandi vocali,
+  // lista tappe, click sulla mappa...).
   const prevStepIndexRef = useRef(currentStepIndex);
   const [stepDirection, setStepDirection] = useState(1);
   useEffect(() => {
@@ -262,6 +271,7 @@ export default function VisitPlayerPage() {
     }
   }, [currentStepIndex]);
 
+  // Salva l'avanzamento per la card "Riprendi" in Home.
   useEffect(() => {
     if (!visit || !currentStep) return;
     saveVisitProgress({
@@ -290,7 +300,9 @@ export default function VisitPlayerPage() {
     [setSpeaking, language],
   );
 
-  // senza argomento apre la mappa generale, altrimenti centrata sul punto dato
+  // Apre la mappa, opzionalmente centrata/evidenziata su un punto preciso
+  // (tappa LOGISTIC/NAVIGATION associata) — senza argomento è la mappa
+  // generale come prima, dalla scheda "Servizi".
   const openMap = useCallback((focusMarkerId?: string) => {
     setMapFocusMarkerId(focusMarkerId);
     setShowMap(true);
@@ -469,9 +481,12 @@ export default function VisitPlayerPage() {
   const isArtwork = !!artworkStep;
   const logisticStep = currentStep?.kind === 'logistic' ? currentStep : null;
   const navigationStep = currentStep?.kind === 'navigation' ? currentStep : null;
-  // mappa integrata al posto dell'immagine caricata
+  // Scelta del curatore per questa tappa "Indicazioni": mappa integrata al
+  // posto dell'immagine caricata (vedi VisitStep.navigationVisual).
   const showMapVisual = navigationStep?.visual === 'map';
-  // per "Vedi sulla mappa" e per centrare la mappa integrata
+  // Il punto sulla mappa associato alla tappa corrente (se scelto in fase di
+  // creazione della visita) — per "Vedi sulla mappa" e per centrare la
+  // mappa integrata quando showMapVisual è true.
   const stepMapMarkerId = logisticStep?.mapMarkerId || navigationStep?.mapMarkerId;
   const heroImage =
     artworkStep?.artwork.image ||
@@ -1147,7 +1162,9 @@ export default function VisitPlayerPage() {
             .filter((s): s is Extract<PlayerStep, { kind: 'artwork' }> => s.kind === 'artwork')
             .map((s) => s.artwork.wikidataId)}
           onMarkerClick={(marker) => {
-            // conta solo che porti a un'opera della visita, non l'icona specifica
+            // Un'opera sulla mappa può essere segnata come artwork, sculpture
+            // o painting a seconda del tipo scelto dal curatore: qui conta
+            // solo che porti a un'opera della visita, non l'icona specifica.
             if (marker.artworkId) {
               const idx = steps.findIndex(
                 (s) => s.kind === 'artwork' && s.artwork.wikidataId === marker.artworkId,

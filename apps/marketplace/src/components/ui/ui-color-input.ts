@@ -7,7 +7,7 @@ export class UiColorInput extends LitElement {
   @property({ type: String }) label = '';
   @property({ type: Boolean }) disabled = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -17,7 +17,7 @@ export class UiColorInput extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
   private handleInput(event: Event) {
     const target = event.target as HTMLInputElement;
     this.value = target.value;

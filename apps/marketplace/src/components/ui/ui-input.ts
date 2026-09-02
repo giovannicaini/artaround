@@ -12,7 +12,7 @@ export class UiInput extends LitElement {
   @property({ type: Boolean }) required = false;
   @property({ type: Boolean }) disabled = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -22,7 +22,7 @@ export class UiInput extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
   private handleInput(e: Event) {
     const target = e.target as HTMLInputElement;
     this.value = target.value;

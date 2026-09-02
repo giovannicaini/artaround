@@ -7,7 +7,12 @@ import {
   type Visit,
 } from '@artaround/shared';
 
-// una tappa: opera, o step logistico/di navigazione, ognuno con la sua card
+/**
+ * Una tappa del player. Non solo opere: una visita ha anche step logistici
+ * (info pratiche scritte dal curatore) e di navigazione (indicazioni tra
+ * un'opera e l'altra) — prima scartati in fase di caricamento, ora tappe
+ * a pieno titolo con una propria card nel player.
+ */
 export type PlayerStep =
   | { kind: 'artwork'; id: string; artwork: Artwork; items: Item[] }
   | {
@@ -23,7 +28,9 @@ export type PlayerStep =
       id: string;
       text: string;
       image?: string;
-      // 'map' mostra la mappa integrata al posto dell'immagine caricata
+      // 'map' mostra la mappa integrata (centrata su mapMarkerId se presente)
+      // al posto dell'immagine caricata — scelta fatta dal curatore nel
+      // marketplace, vedi VisitStep.navigationVisual.
       visual?: 'image' | 'map';
       mapMarkerId?: string;
     };
@@ -52,7 +59,10 @@ interface VisitSessionState {
   reset: () => void;
 }
 
-// stato di una visita in corso
+/**
+ * Stato di una visita in corso — sostituisce NavigatorContext. Nessun
+ * "supporto legacy": le pagine leggono direttamente questi campi.
+ */
 export const useVisitSessionStore = create<VisitSessionState>((set, get) => ({
   visit: null,
   steps: [],

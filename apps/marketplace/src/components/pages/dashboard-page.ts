@@ -52,11 +52,11 @@ export class DashboardPage extends LitElement {
   @state() private myItems: Item[] = [];
   @state() private myVisits: Visit[] = [];
 
-  // ─── Internal State ──────────────────────────────────────
+  // ─── Stato interno ──────────────────────────────────────
   private museumIndexById = new Map<string, Museum>();
   private museumsCache: Museum[] | null = null;
 
-  // ─── Helpers ──────────────────────────────────────────────
+  // ─── Helper ──────────────────────────────────────────────
   private async getMuseumsCached(): Promise<Museum[]> {
     if (this.museumsCache) {
       return this.museumsCache;
@@ -68,7 +68,7 @@ export class DashboardPage extends LitElement {
     return museums;
   }
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -85,7 +85,7 @@ export class DashboardPage extends LitElement {
     super.disconnectedCallback();
   }
 
-  // ─── UI Actions ──────────────────────────────────────────
+  // ─── Azioni UI ──────────────────────────────────────────
   private handleMuseumChanged = (event: CustomEvent) => {
     this.selectedMuseum = event.detail || null;
     this.showMuseumSelector = false;
@@ -112,7 +112,7 @@ export class DashboardPage extends LitElement {
     preferencesService.clearSelectedMuseum();
   }
 
-  // ─── Data Loading ────────────────────────────────────────
+  // ─── Caricamento dati ────────────────────────────────────────
   private async loadDashboardData() {
     this.loading = true;
     this.loadError = '';
@@ -209,7 +209,7 @@ export class DashboardPage extends LitElement {
     return this.museumIndexById.get(museumId)?.name || museumId;
   }
 
-  // ─── User Scoped Data ────────────────────────────────────
+  // ─── Dati specifici dell'utente ────────────────────────────────────
   private async loadUserScopedLists(): Promise<void> {
     if (!this.user?._id) return;
 
@@ -278,7 +278,7 @@ export class DashboardPage extends LitElement {
       .slice(0, 5);
   }
 
-  // ─── Navigation Actions ──────────────────────────────────
+  // ─── Azioni di navigazione ──────────────────────────────────
   private formatDate(value?: string | Date): string {
     if (!value) return '-';
     try {
@@ -341,7 +341,7 @@ export class DashboardPage extends LitElement {
     this.goToRoute('visits');
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
+  // ─── Helper di render ──────────────────────────────────────
   private getVisitStatusBadge(visit: Visit) {
     return visit.isPublished
       ? html`<ui-badge variant="success" size="sm" .label=${__('Pubblicata')}></ui-badge>`

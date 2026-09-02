@@ -21,7 +21,7 @@ export class UiSearchListPicker extends LitElement {
 
   @state() private query = '';
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -31,7 +31,7 @@ export class UiSearchListPicker extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
   private handleSelect(value: string) {
     this.value = value;
     this.dispatchEvent(

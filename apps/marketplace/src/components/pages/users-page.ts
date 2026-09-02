@@ -103,7 +103,7 @@ export class UsersPage extends LitElement {
     resourceId: '',
   };
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -139,7 +139,7 @@ export class UsersPage extends LitElement {
     }
   }
 
-  // ─── Data Loading ────────────────────────────────────────
+  // ─── Caricamento dati ────────────────────────────────────────
   private async loadUsers() {
     this.loading = true;
     this.error = '';
@@ -168,7 +168,7 @@ export class UsersPage extends LitElement {
     }
   }
 
-  // ─── Actions (Filters / CRUD / Roles) ───────────────────
+  // ─── Azioni (filtri / CRUD / ruoli) ───────────────────
   private handleFilterRole(role: UserRole | '') {
     this.filterRole = role;
     this.page = 1;
@@ -388,7 +388,7 @@ export class UsersPage extends LitElement {
     }
   }
 
-  // ─── Render Entry ────────────────────────────────────────
+  // ─── Render principale ────────────────────────────────────────
   render() {
     return html`
       <div class="users-page">
@@ -400,7 +400,7 @@ export class UsersPage extends LitElement {
     `;
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
+  // ─── Helper di render ──────────────────────────────────────
   private renderList() {
     return html`
       <!-- Header -->

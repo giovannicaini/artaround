@@ -57,7 +57,10 @@ function hslToRgbTriplet(h: number, s: number, l: number): string {
   return `${toByte(r)} ${toByte(g)} ${toByte(b)}`;
 }
 
-// forma di luminosità della rampa di default, riusabile con una tinta qualsiasi
+// Stessa "forma" di luminosità della rampa bronzo di default, applicata a
+// una tinta qualsiasi: così un colore di un museo produce una scala a 11
+// passi coerente con --alpha-value (bg-brand-500/40 ecc.) invece di un
+// singolo tono piatto.
 const LIGHTNESS_CURVE: Record<string, number> = {
   '50': 95,
   '100': 90,
@@ -72,7 +75,12 @@ const LIGHTNESS_CURVE: Record<string, number> = {
   '950': 12,
 };
 
-// genera una rampa di 11 triplette RGB da un colore esadecimale, null se non valido
+/**
+ * Genera una rampa di 11 triplette RGB (per le variabili --color-brand-*)
+ * a partire da un colore esadecimale singolo. Ritorna null se l'hex non è
+ * valido, così il chiamante può ignorare in sicurezza un valore malformato
+ * inserito dal curatore.
+ */
 export function buildBrandRamp(hex: string): Record<string, string> | null {
   const hsl = hexToHsl(hex);
   if (!hsl) return null;

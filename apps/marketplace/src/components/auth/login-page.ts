@@ -15,12 +15,12 @@ export class LoginPage extends LitElement {
   @state() private loading = false;
   @state() private error = '';
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
   private async handleSubmit(e: Event) {
     e.preventDefault();
 
@@ -57,7 +57,7 @@ export class LoginPage extends LitElement {
     }
   }
 
-  // ─── Render Entry ────────────────────────────────────────
+  // ─── Render principale ────────────────────────────────────────
   render() {
     return html`
       <div

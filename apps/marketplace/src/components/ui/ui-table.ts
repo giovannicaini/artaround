@@ -59,7 +59,7 @@ export class UiTable extends LitElement {
   @property({ type: String }) sortDir: 'asc' | 'desc' = 'asc';
   @property({ type: Boolean }) externalSort = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -69,7 +69,7 @@ export class UiTable extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
   private handleSort(column: TableColumn) {
     if (!column.sortable) return;
 
@@ -122,7 +122,7 @@ export class UiTable extends LitElement {
     );
   }
 
-  // ─── Helpers ──────────────────────────────────────────────
+  // ─── Helper ──────────────────────────────────────────────
   private get sortedData() {
     if (this.externalSort) return this.data;
     if (!this.sortKey) return this.data;

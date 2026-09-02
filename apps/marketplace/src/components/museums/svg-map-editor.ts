@@ -31,7 +31,7 @@ export interface MapClickEvent {
  */
 @customElement('svg-map-editor')
 export class SvgMapEditor extends LitElement {
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -137,7 +137,7 @@ export class SvgMapEditor extends LitElement {
     return this.floors.find((f) => f.id === this.selectedFloorId) || this.floors[0] || null;
   }
 
-  // ─── Render Entry ────────────────────────────────────────
+  // ─── Render principale ────────────────────────────────────────
   render() {
     const floor = this.currentFloor;
 
@@ -278,7 +278,7 @@ export class SvgMapEditor extends LitElement {
     `;
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
+  // ─── Helper di render ──────────────────────────────────────
   private renderMarker(marker: MapMarker) {
     const isSelected = this.selectedMarkerId === marker.id;
 
@@ -534,7 +534,7 @@ export class SvgMapEditor extends LitElement {
     `;
   }
 
-  // ─── Actions (Viewport / Interaction) ────────────────────
+  // ─── Azioni (viewport / interazione) ────────────────────
   private selectFloor(floorId: string) {
     this.dispatchEvent(
       new CustomEvent('floor-select', {

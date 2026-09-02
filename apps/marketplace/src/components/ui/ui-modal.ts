@@ -15,7 +15,7 @@ export class UiModal extends LitElement {
   @property({ type: Boolean }) loading = false;
   @property({ type: Boolean }) hideCancel = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -31,7 +31,7 @@ export class UiModal extends LitElement {
     document.removeEventListener('keydown', this.handleKeydown.bind(this));
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
   private handleConfirm() {
     this.dispatchEvent(
       new CustomEvent('confirm', {

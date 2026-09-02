@@ -33,7 +33,7 @@ export class UiPageHeader extends LitElement {
   @state() private actionsContent: Element[] = [];
   private actionsInitialized = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -50,7 +50,7 @@ export class UiPageHeader extends LitElement {
     });
   }
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Azioni ──────────────────────────────────────────────
   private captureSlotContent() {
     // Capture children with slot="actions" attribute - keep original elements (not clones!)
     const actionsSlotted = Array.from(this.querySelectorAll('[slot="actions"]')) as Element[];

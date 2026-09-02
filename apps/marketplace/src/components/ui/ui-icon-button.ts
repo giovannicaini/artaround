@@ -33,12 +33,12 @@ export class UiIconButton extends LitElement {
   @property({ type: String }) size: 'xs' | 'sm' | 'md' = 'sm';
   @property({ type: Boolean }) disabled = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
+  // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
-  // ─── Helpers ──────────────────────────────────────────────
+  // ─── Helper ──────────────────────────────────────────────
   private getVariantClasses(): string {
     const variants = {
       default:
