@@ -4,7 +4,7 @@ import { customElement, property } from 'lit/decorators.js';
 /**
  * UI Loading State
  *
- * A consistent loading spinner with optional text.
+ * Uno spinner di caricamento coerente con testo opzionale.
  *
  * @example
  * ```html

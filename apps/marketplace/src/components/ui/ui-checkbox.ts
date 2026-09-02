@@ -4,9 +4,9 @@ import { customElement, property } from 'lit/decorators.js';
 /**
  * UI Checkbox
  *
- * A consistent checkbox input with label.
+ * Un input checkbox coerente con etichetta.
  *
- * @fires checkbox-change - Emits the checked state
+ * @fires checkbox-change - Emette lo stato di selezione
  *
  * @example
  * ```html

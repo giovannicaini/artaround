@@ -9,7 +9,7 @@ export type AlertVariant = 'success' | 'danger' | 'warning' | 'info';
 /**
  * UI Alert
  *
- * A consistent alert/notification box with icon.
+ * Un box di alert/notifica coerente con icona.
  *
  * @example
  * ```html

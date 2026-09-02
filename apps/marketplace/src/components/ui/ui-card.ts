@@ -4,13 +4,13 @@ import { customElement, property } from 'lit/decorators.js';
 /**
  * UI Card
  *
- * A simple card container that applies styling via CSS classes.
- * Uses Light DOM - applies classes to host element, children remain untouched.
+ * Un semplice contenitore card che applica lo stile via classi CSS.
+ * Usa il Light DOM - applica le classi all'host, i figli restano intatti.
  *
  * @example
  * ```html
  * <ui-card>
- *   <p>Card content</p>
+ *   <p>Contenuto della card</p>
  * </ui-card>
  * ```
  */
@@ -69,5 +69,5 @@ export class UiCard extends LitElement {
     }
   }
 
-  // No render() - children are managed by parent Lit template
+  // Niente render() - i figli sono gestiti dal template Lit del genitore
 }

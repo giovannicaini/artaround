@@ -5,10 +5,10 @@ type PlaceholderType = 'artwork' | 'museum' | 'content' | 'user' | 'default';
 type PlaceholderSize = 'xs' | 'sm' | 'md' | 'lg' | 'full';
 
 /**
- * Image Placeholder Component
+ * Componente Image Placeholder
  *
- * Shows a stylized placeholder when an image fails to load or is not available.
- * Uses inline SVG icons for different content types.
+ * Mostra un placeholder stilizzato quando un'immagine non carica o non è disponibile.
+ * Usa icone SVG inline per i diversi tipi di contenuto.
  */
 @customElement('ui-image-placeholder')
 export class UiImagePlaceholder extends LitElement {
@@ -24,10 +24,10 @@ export class UiImagePlaceholder extends LitElement {
   connectedCallback() {
     super.connectedCallback();
 
-    // Check for dark mode
+    // Controlla la dark mode
     this.isDark = document.documentElement.classList.contains('dark');
 
-    // Listen for dark mode changes
+    // Ascolta i cambi di dark mode
     this.observer = new MutationObserver(() => {
       this.isDark = document.documentElement.classList.contains('dark');
     });
@@ -59,7 +59,7 @@ export class UiImagePlaceholder extends LitElement {
   private getIcon() {
     switch (this.type) {
       case 'artwork':
-        // Framed artwork/painting icon
+        // Icona quadro incorniciato
         return html`
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -69,7 +69,7 @@ export class UiImagePlaceholder extends LitElement {
         `;
 
       case 'museum':
-        // Museum building icon
+        // Icona edificio museo
         return html`
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M3 21h18" />
@@ -83,7 +83,7 @@ export class UiImagePlaceholder extends LitElement {
         `;
 
       case 'content':
-        // Document/text icon
+        // Icona documento/testo
         return html`
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path
@@ -98,7 +98,7 @@ export class UiImagePlaceholder extends LitElement {
         `;
 
       case 'user':
-        // User avatar icon
+        // Icona avatar utente
         return html`
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <circle cx="12" cy="8" r="4" />
@@ -107,7 +107,7 @@ export class UiImagePlaceholder extends LitElement {
         `;
 
       default:
-        // Generic image icon
+        // Icona immagine generica
         return html`
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <rect x="3" y="3" width="18" height="18" rx="2" />

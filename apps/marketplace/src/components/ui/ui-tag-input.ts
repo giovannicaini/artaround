@@ -7,15 +7,15 @@ import { __ } from '../../services/i18n.service';
 /**
  * UI Tag Input
  *
- * A consistent input for managing a list of tags.
+ * Un input coerente per gestire una lista di tag.
  *
- * @fires tags-change - Emits the updated tags array
+ * @fires tags-change - Emette l'array di tag aggiornato
  *
  * @example
  * ```html
  * <ui-tag-input
  *   label="Tags"
- *   placeholder="Add a tag..."
+ *   placeholder="Aggiungi un tag..."
  *   .tags=${this.tags}
  *   @tags-change=${(e) => this.tags = e.detail.tags}
  * ></ui-tag-input>

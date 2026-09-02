@@ -5,8 +5,8 @@ import './ui-image-placeholder';
 /**
  * UI Data Grid
  *
- * A consistent responsive grid of cards with images.
- * Commonly used for displaying items, artworks, visits, etc.
+ * Una griglia responsive coerente di card con immagini.
+ * Usata comunemente per mostrare item, opere, visite, ecc.
  *
  * @example
  * ```html

@@ -5,8 +5,8 @@ import './ui-icon';
 /**
  * UI Section
  *
- * A form/page section with title and optional icon.
- * Used for grouping related content with a consistent header style.
+ * Una sezione form/pagina con titolo e icona opzionale.
+ * Usata per raggruppare contenuti correlati con uno stile di intestazione coerente.
  *
  * @example
  * ```html

@@ -5,9 +5,9 @@ import './ui-icon';
 /**
  * UI Empty State
  *
- * A consistent empty state with icon, title, description, and optional action.
+ * Uno stato vuoto coerente con icona, titolo, descrizione e azione opzionale.
  *
- * @slot action - Slot for action button
+ * @slot action - Slot per il bottone d'azione
  *
  * @example
  * ```html
@@ -49,14 +49,14 @@ export class UiEmpty extends LitElement {
     const actionSlotted = Array.from(this.querySelectorAll('[slot="action"]')) as Element[];
     this.actionContent = actionSlotted.map((el) => {
       el.removeAttribute('slot');
-      return el; // Keep original element, not clone - preserves event listeners
+      return el; // Tiene l'elemento originale, non un clone - preserva gli event listener
     });
   }
 
   protected updated() {
     const actionContainer = this.querySelector('.empty-action-container');
     if (actionContainer && this.actionContent.length > 0) {
-      // Move elements (not clone) to preserve event listeners
+      // Sposta gli elementi (non clona) per preservare gli event listener
       this.actionContent.forEach((node) => {
         if (node.parentElement !== actionContainer) {
           actionContainer.appendChild(node);

@@ -7,10 +7,10 @@ import './ui-button';
 /**
  * UI Search Bar
  *
- * A consistent search input with optional search button.
+ * Un input di ricerca coerente con bottone di ricerca opzionale.
  *
- * @fires search - Emits the search query when Enter is pressed or button clicked
- * @fires input-change - Emits on every input change for live filtering
+ * @fires search - Emette la query di ricerca quando si preme Invio o si clicca il bottone
+ * @fires input-change - Emette a ogni cambio input per il filtro live
  *
  * @example
  * ```html

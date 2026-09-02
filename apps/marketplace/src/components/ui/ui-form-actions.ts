@@ -6,10 +6,10 @@ import { __ } from '../../services/i18n.service';
 /**
  * UI Form Actions
  *
- * A consistent form footer with cancel and submit buttons.
+ * Un footer form coerente con bottoni annulla e invia.
  *
- * @fires cancel - Emitted when cancel button is clicked
- * @fires submit - Emitted when submit button is clicked
+ * @fires cancel - Emesso quando si clicca il bottone annulla
+ * @fires submit - Emesso quando si clicca il bottone invia
  *
  * @example
  * ```html
