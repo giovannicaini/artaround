@@ -14,7 +14,6 @@ type BatchTranslationOutput = {
 };
 
 export class TranslationService {
-  // Translate text using OpenAI only
   static async translate(text: string, sourceLang: string, targetLang: string): Promise<string> {
     try {
       return await AIService.createChatCompletion(
@@ -39,7 +38,6 @@ export class TranslationService {
     }
   }
 
-  // Batch translate multiple texts
   static async batchTranslate(
     sourceLang: string,
     items: BatchTranslationInput[],
