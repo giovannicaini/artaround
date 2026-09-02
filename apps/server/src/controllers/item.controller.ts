@@ -14,12 +14,6 @@ import {
   type AppLanguage,
 } from '@artaround/shared';
 
-/**
- * Item Controller
- *
- * Manages content items that reference artworks, authors, movements, etc.
- */
-
 export class ItemController {
   private static async getMuseumActiveLanguages(museumId: string): Promise<AppLanguage[]> {
     const museum = await MuseumModel.findById(museumId).select('activeLanguages').lean();
@@ -65,7 +59,6 @@ export class ItemController {
     }
   }
 
-  // Validation rules for the new Item structure
   static createValidation = [
     body('museumId').isString().notEmpty().withMessage('Museum ID is required'),
     body('referenceType')
@@ -83,16 +76,12 @@ export class ItemController {
       .isObject()
       .withMessage('translatedTitles must be an object'),
     body('translatedTexts').optional().isObject().withMessage('translatedTexts must be an object'),
-    // duration/languageLevel sono campi diretti dell'Item (un item = una combinazione
-    // durata×livello). "contentMatrix" era il nome di un vecchio modello ad array
-    // annidato, mai più esistito nello schema: questa validazione lo richiedeva
-    // comunque, quindi ogni creazione di item falliva sempre con 400.
+    // un item = una combinazione durata×livello
     body('duration').isIn(Object.values(ContentDuration)).withMessage('Invalid duration'),
     body('languageLevel').isIn(Object.values(LanguageLevel)).withMessage('Invalid language level'),
     body('license').notEmpty().withMessage('License is required'),
   ];
 
-  // Get all items with filters and pagination
   static async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const {
@@ -112,9 +101,6 @@ export class ItemController {
       if (referenceType) filter.referenceType = referenceType;
       if (referenceId) filter.referenceId = referenceId;
       if (authorId) filter.authorId = authorId;
-      // NB: duration/languageLevel sono campi diretti dell'Item, non annidati sotto
-      // "contentMatrix" (quel path non esiste più nello schema: prima di questo fix
-      // questi due filtri non trovavano mai nulla).
       if (duration) filter.duration = duration;
       if (languageLevel) filter.languageLevel = languageLevel;
       if (isFree !== undefined) filter.isFree = isFree === 'true';
@@ -157,7 +143,6 @@ export class ItemController {
     }
   }
 
-  // Get items for a specific artwork (by Wikidata ID)
   static async getByArtwork(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { artworkId } = req.params;
@@ -182,7 +167,6 @@ export class ItemController {
     }
   }
 
-  // Get items for a specific author (by Wikidata ID)
   static async getByAuthor(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { authorWikidataId } = req.params;
@@ -203,7 +187,6 @@ export class ItemController {
     }
   }
 
-  // Get items by reference (generic - works for any reference type)
   static async getByReference(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { referenceType, referenceId } = req.params;
@@ -224,7 +207,6 @@ export class ItemController {
     }
   }
 
-  // Search items
   static async search(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { q, museumId, referenceType, tags, page = '1', limit = '50' } = req.query;
@@ -274,7 +256,6 @@ export class ItemController {
     }
   }
 
-  // Get item by ID
   static async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -293,7 +274,6 @@ export class ItemController {
     }
   }
 
-  // Create item (author only)
   static async create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
@@ -355,7 +335,6 @@ export class ItemController {
     }
   }
 
-  // Update item (owner only)
   static async update(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -369,8 +348,7 @@ export class ItemController {
         throw new AppError(404, 'ITEM_NOT_FOUND', 'Item not found');
       }
 
-      // Autore proprietario, admin o curatore (gestisce tutto il contenuto del suo museo,
-      // stesso criterio già usato per gli artwork) possono modificare l'item.
+      // autore proprietario, admin, o curatore del museo (stesso criterio degli artwork)
       const canManage =
         item.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
       if (!canManage) {
@@ -395,7 +373,6 @@ export class ItemController {
     }
   }
 
-  // Delete item (owner only)
   static async delete(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -409,7 +386,6 @@ export class ItemController {
         throw new AppError(404, 'ITEM_NOT_FOUND', 'Item not found');
       }
 
-      // Stesso criterio dell'update: autore proprietario, admin o curatore.
       const canManage =
         item.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
       if (!canManage) {
@@ -427,7 +403,6 @@ export class ItemController {
     }
   }
 
-  // Get user's own items
   static async getMyItems(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) {

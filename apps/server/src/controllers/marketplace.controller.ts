@@ -12,16 +12,12 @@ import { AuthRequest } from '../middleware/auth.middleware.js';
 import { buildMuseumIdFilterValue } from '../utils/museum-id.util.js';
 import { UserRole, CreditTransactionType } from '@artaround/shared';
 
-// Arrotonda ai centesimi: i saldi/importi sono euro come float (stessa
-// convenzione di Item.price/Visit.metadata.price), non centesimi interi —
-// senza arrotondare qui la sottrazione/somma ripetuta di float accumula
-// scarti (es. 0.1 + 0.2 !== 0.3).
+// i saldi sono euro come float, arrotondo per evitare scarti tipo 0.1+0.2 !== 0.3
 function round2(amount: number): number {
   return Math.round(amount * 100) / 100;
 }
 
 export class MarketplaceController {
-  // Get item catalog
   static async getItems(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const {
@@ -68,7 +64,6 @@ export class MarketplaceController {
     }
   }
 
-  // Get published visits (marketplace catalog)
   static async getVisits(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const {
@@ -90,7 +85,6 @@ export class MarketplaceController {
       const limitNum = parseInt(limit as string, 10);
       const skip = (pageNum - 1) * limitNum;
 
-      // Sorting
       let sort: Record<string, 1 | -1> = { createdAt: -1 };
       if (sortBy === 'rating') sort = { 'metadata.rating': -1 };
       if (sortBy === 'price') sort = { 'metadata.price': 1 };
@@ -116,7 +110,6 @@ export class MarketplaceController {
     }
   }
 
-  // Purchase visit (simulated)
   static async purchaseVisit(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { visitId } = req.params;
@@ -125,11 +118,7 @@ export class MarketplaceController {
         throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
       }
 
-      // Le visite sono il prodotto finito destinato al visitatore finale: per specifica
-      // il Navigator (app usata durante la visita) fornisce "accesso al marketplace" per
-      // scegliere/acquistare la visita da eseguire, quindi qui NON va ristretto agli autori
-      // (a differenza degli item, mattoncini che gli autori riusano per costruire nuove
-      // visite — vedi purchaseItem).
+      // le visite le compra chiunque, non solo gli autori (a differenza degli item)
       const visit = await VisitModel.findById(visitId);
       if (!visit) {
         throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
@@ -143,7 +132,6 @@ export class MarketplaceController {
         throw new AppError(400, 'VISIT_NOT_PUBLISHED', 'This visit is not available for purchase');
       }
 
-      // Check if already purchased
       const existing = await VisitPurchase.findOne({
         userId: req.user.id,
         visitId,
@@ -163,8 +151,6 @@ export class MarketplaceController {
         );
       }
 
-      // Create purchase record (pagata col credito se a pagamento, nessun
-      // pagamento reale coinvolto — vedi chargeCredit)
       const purchase = new VisitPurchase({
         visitId,
         userId: req.user.id,
@@ -173,7 +159,6 @@ export class MarketplaceController {
 
       await purchase.save();
 
-      // Update visit statistics
       visit.metadata.purchasesCount += 1;
       visit.metadata.downloadsCount += 1;
       await visit.save();
@@ -188,7 +173,6 @@ export class MarketplaceController {
     }
   }
 
-  // Purchase item
   static async purchaseItem(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { itemId } = req.params;
@@ -197,11 +181,7 @@ export class MarketplaceController {
         throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
       }
 
-      // Gli item sono mattoncini di contenuto pensati per essere riusati dagli autori nel
-      // costruire nuove visite (vedi specifica: "editor + marketplace... selezionarne una
-      // sequenza per una specifica visita"), non un prodotto per il visitatore finale —
-      // a differenza delle visite (vedi purchaseVisit). Vincolo applicato finora solo
-      // lato frontend (canBuyItem) e quindi aggirabile chiamando l'API direttamente.
+      // gli item li comprano solo gli autori, li riusano per costruire visite
       if (req.user.role !== UserRole.AUTHOR) {
         throw new AppError(
           403,
@@ -259,7 +239,6 @@ export class MarketplaceController {
     }
   }
 
-  // Get user's purchased visits
   static async getMyPurchases(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) {
@@ -279,7 +258,6 @@ export class MarketplaceController {
     }
   }
 
-  // Get user's purchased items
   static async getMyItemPurchases(
     req: AuthRequest,
     res: Response,
@@ -303,13 +281,8 @@ export class MarketplaceController {
     }
   }
 
-  // ─── Credito ────────────────────────────────────────────
-  /**
-   * Addebita `price` euro sul saldo dell'utente e registra il movimento.
-   * Lancia INSUFFICIENT_CREDIT se il saldo non basta — va chiamata PRIMA di
-   * creare il record di acquisto, così un saldo insufficiente blocca
-   * l'acquisto invece di crearlo comunque "gratis".
-   */
+  // scala price dal saldo e registra il movimento, va chiamata prima di
+  // creare l'acquisto così se il credito non basta non si crea niente
   private static async chargeCredit(
     userId: string,
     price: number,
@@ -346,7 +319,6 @@ export class MarketplaceController {
     }).save();
   }
 
-  // Saldo credito dell'utente autenticato
   static async getCreditBalance(
     req: AuthRequest,
     res: Response,
@@ -371,11 +343,7 @@ export class MarketplaceController {
     }
   }
 
-  /**
-   * Ricarica credito (simulata): l'utente sceglie una cifra e il saldo viene
-   * accreditato direttamente, senza nessun pagamento reale — non c'è
-   * ancora un gateway di pagamento collegato.
-   */
+  // ricarica simulata, nessun pagamento reale collegato
   static async topUpCredit(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) {
@@ -415,7 +383,6 @@ export class MarketplaceController {
     }
   }
 
-  // Storico movimenti di credito dell'utente autenticato (più recenti prima)
   static async getCreditTransactions(
     req: AuthRequest,
     res: Response,

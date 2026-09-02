@@ -165,7 +165,6 @@ export class UtilsController {
     }
   }
 
-  // Get Wikidata entity
   static async getWikidataEntity(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
@@ -188,7 +187,6 @@ export class UtilsController {
     }
   }
 
-  // Search Wikidata
   static async searchWikidata(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { q, limit = '10', type = 'artwork', museumId } = req.query;
@@ -424,7 +422,6 @@ export class UtilsController {
     }
   }
 
-  // Translate text
   static translateValidation = [
     body('text').notEmpty().withMessage('Text is required'),
     body('sourceLang').notEmpty().withMessage('Source language is required'),
