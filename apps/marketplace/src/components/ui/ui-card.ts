@@ -1,19 +1,6 @@
 import { LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
-/**
- * UI Card
- *
- * A simple card container that applies styling via CSS classes.
- * Uses Light DOM - applies classes to host element, children remain untouched.
- *
- * @example
- * ```html
- * <ui-card>
- *   <p>Card content</p>
- * </ui-card>
- * ```
- */
 @customElement('ui-card')
 export class UiCard extends LitElement {
   @property({ type: String }) padding: 'none' | 'sm' | 'md' | 'lg' = 'md';

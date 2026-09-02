@@ -8,10 +8,6 @@ export interface ComboboxOption {
   label: string;
 }
 
-/**
- * Searchable combobox (select con ricerca).
- * Emette l'evento `combobox-change` con `{ value, label }`.
- */
 @customElement('ui-combobox')
 export class UiCombobox extends LitElement {
   @property({ type: String }) label = '';

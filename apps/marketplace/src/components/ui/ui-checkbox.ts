@@ -1,22 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
-/**
- * UI Checkbox
- *
- * A consistent checkbox input with label.
- *
- * @fires checkbox-change - Emits the checked state
- *
- * @example
- * ```html
- * <ui-checkbox
- *   label="Accetto i termini"
- *   .checked=${this.accepted}
- *   @checkbox-change=${(e) => this.accepted = e.detail.checked}
- * ></ui-checkbox>
- * ```
- */
 @customElement('ui-checkbox')
 export class UiCheckbox extends LitElement {
   @property({ type: String }) label = '';

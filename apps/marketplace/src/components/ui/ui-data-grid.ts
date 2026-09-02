@@ -2,21 +2,6 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './ui-image-placeholder';
 
-/**
- * UI Data Grid
- *
- * A consistent responsive grid of cards with images.
- * Commonly used for displaying items, artworks, visits, etc.
- *
- * @example
- * ```html
- * <ui-data-grid
- *   .items=${this.items}
- *   .columns=${3}
- *   .renderItem=${(item) => html`<my-card .item=${item}></my-card>`}
- * ></ui-data-grid>
- * ```
- */
 @customElement('ui-data-grid')
 export class UiDataGrid extends LitElement {
   @property({ type: Array }) items: unknown[] = [];

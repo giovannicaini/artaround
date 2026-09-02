@@ -6,18 +6,6 @@ import { __ } from '../../services/i18n.service';
 
 export type AlertVariant = 'success' | 'danger' | 'warning' | 'info';
 
-/**
- * UI Alert
- *
- * A consistent alert/notification box with icon.
- *
- * @example
- * ```html
- * <ui-alert variant="danger" .message=${__('Si è verificato un errore')}></ui-alert>
- * <ui-alert variant="success" .message=${__('Operazione completata!')}></ui-alert>
- * <ui-alert variant="info" title="Nota" message="Informazione importante"></ui-alert>
- * ```
- */
 @customElement('ui-alert')
 export class UiAlert extends LitElement {
   @property({ type: String }) variant: AlertVariant = 'info';

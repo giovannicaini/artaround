@@ -4,12 +4,6 @@ import { customElement, property, state } from 'lit/decorators.js';
 type PlaceholderType = 'artwork' | 'museum' | 'content' | 'user' | 'default';
 type PlaceholderSize = 'xs' | 'sm' | 'md' | 'lg' | 'full';
 
-/**
- * Image Placeholder Component
- *
- * Shows a stylized placeholder when an image fails to load or is not available.
- * Uses inline SVG icons for different content types.
- */
 @customElement('ui-image-placeholder')
 export class UiImagePlaceholder extends LitElement {
   @property({ type: String }) type: PlaceholderType = 'default';

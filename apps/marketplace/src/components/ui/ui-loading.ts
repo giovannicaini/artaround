@@ -1,17 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
-/**
- * UI Loading State
- *
- * A consistent loading spinner with optional text.
- *
- * @example
- * ```html
- * <ui-loading .text=${__('Caricamento contenuti...')}></ui-loading>
- * <ui-loading size="sm"></ui-loading>
- * ```
- */
 @customElement('ui-loading')
 export class UiLoading extends LitElement {
   @property({ type: String }) text = '';

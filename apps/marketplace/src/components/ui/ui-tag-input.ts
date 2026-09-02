@@ -4,23 +4,6 @@ import './ui-icon';
 import './ui-badge';
 import { __ } from '../../services/i18n.service';
 
-/**
- * UI Tag Input
- *
- * A consistent input for managing a list of tags.
- *
- * @fires tags-change - Emits the updated tags array
- *
- * @example
- * ```html
- * <ui-tag-input
- *   label="Tags"
- *   placeholder="Add a tag..."
- *   .tags=${this.tags}
- *   @tags-change=${(e) => this.tags = e.detail.tags}
- * ></ui-tag-input>
- * ```
- */
 @customElement('ui-tag-input')
 export class UiTagInput extends LitElement {
   @property({ type: String }) label = '';

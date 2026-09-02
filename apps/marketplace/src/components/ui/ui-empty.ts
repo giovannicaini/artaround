@@ -2,24 +2,6 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import './ui-icon';
 
-/**
- * UI Empty State
- *
- * A consistent empty state with icon, title, description, and optional action.
- *
- * @slot action - Slot for action button
- *
- * @example
- * ```html
- * <ui-empty
- *   icon="document"
- *   .title=${__('Nessun contenuto')}
- *   .description=${__('Non ci sono ancora contenuti')}
- * >
- *   <ui-button slot="action" variant="primary" icon="plus" .label=${__('Crea il primo')}></ui-button>
- * </ui-empty>
- * ```
- */
 @customElement('ui-empty')
 export class UiEmpty extends LitElement {
   @property({ type: String }) icon = 'folder';

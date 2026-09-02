@@ -3,25 +3,6 @@ import { customElement, property } from 'lit/decorators.js';
 import './ui-button';
 import { __ } from '../../services/i18n.service';
 
-/**
- * UI Form Actions
- *
- * A consistent form footer with cancel and submit buttons.
- *
- * @fires cancel - Emitted when cancel button is clicked
- * @fires submit - Emitted when submit button is clicked
- *
- * @example
- * ```html
- * <ui-form-actions
- *   submitLabel="Crea Contenuto"
- *   submitIcon="save"
- *   .loading=${this.saving}
- *   @cancel=${() => this.viewMode = 'list'}
- *   @submit=${this.handleSubmit}
- * ></ui-form-actions>
- * ```
- */
 @customElement('ui-form-actions')
 export class UiFormActions extends LitElement {
   @property({ type: String }) submitLabel = '';

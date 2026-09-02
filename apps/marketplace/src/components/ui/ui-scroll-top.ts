@@ -3,12 +3,6 @@ import { customElement, state } from 'lit/decorators.js';
 import './ui-icon';
 import { __ } from '../../services/i18n.service';
 
-/**
- * Scroll to Top Button
- *
- * A floating button that appears when the user scrolls down,
- * allowing them to quickly return to the top of the page.
- */
 @customElement('ui-scroll-top')
 export class UiScrollTop extends LitElement {
   @state() private visible = false;

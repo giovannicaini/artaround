@@ -2,22 +2,6 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './ui-button';
 
-/**
- * UI Pagination
- *
- * A consistent pagination component.
- *
- * @fires page-change - Emits the new page number when a page is selected
- *
- * @example
- * ```html
- * <ui-pagination
- *   .page=${1}
- *   .totalPages=${10}
- *   @page-change=${(e) => this.page = e.detail.page}
- * ></ui-pagination>
- * ```
- */
 @customElement('ui-pagination')
 export class UiPagination extends LitElement {
   @property({ type: Number }) page = 1;
