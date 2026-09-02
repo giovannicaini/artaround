@@ -17,10 +17,8 @@ export class UiImagePlaceholder extends LitElement {
   connectedCallback() {
     super.connectedCallback();
 
-    // Check for dark mode
     this.isDark = document.documentElement.classList.contains('dark');
 
-    // Listen for dark mode changes
     this.observer = new MutationObserver(() => {
       this.isDark = document.documentElement.classList.contains('dark');
     });
@@ -51,7 +49,6 @@ export class UiImagePlaceholder extends LitElement {
   private getIcon() {
     switch (this.type) {
       case 'artwork':
-        // Framed artwork/painting icon
         return html`
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -61,7 +58,6 @@ export class UiImagePlaceholder extends LitElement {
         `;
 
       case 'museum':
-        // Museum building icon
         return html`
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M3 21h18" />
@@ -75,7 +71,6 @@ export class UiImagePlaceholder extends LitElement {
         `;
 
       case 'content':
-        // Document/text icon
         return html`
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path
@@ -90,7 +85,6 @@ export class UiImagePlaceholder extends LitElement {
         `;
 
       case 'user':
-        // User avatar icon
         return html`
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <circle cx="12" cy="8" r="4" />
@@ -99,7 +93,6 @@ export class UiImagePlaceholder extends LitElement {
         `;
 
       default:
-        // Generic image icon
         return html`
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <rect x="3" y="3" width="18" height="18" rx="2" />

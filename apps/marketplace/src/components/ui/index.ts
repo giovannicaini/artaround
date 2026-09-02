@@ -1,4 +1,4 @@
-// UI Components - Core
+// base
 export * from './ui-icon';
 export * from './ui-button';
 export * from './ui-icon-button';
@@ -12,18 +12,18 @@ export * from './ui-badge';
 export * from './ui-avatar';
 export * from './ui-brand-mark';
 
-// UI Components - Feedback
+// feedback
 export * from './ui-alert';
 export * from './ui-loading';
 export * from './ui-empty';
 export * from './ui-modal';
 
-// UI Components - Navigation
+// navigazione
 export * from './ui-tabs';
 export * from './ui-pagination';
 export * from './ui-filter-tabs';
 
-// UI Components - Layout
+// layout
 export * from './ui-page-header';
 export * from './ui-section';
 export * from './ui-form-actions';
@@ -36,12 +36,12 @@ export * from './ui-media-card';
 export * from './ui-museum-required-notice';
 export * from './ui-panel-section';
 
-// UI Components - Data Display
+// dati
 export * from './ui-table';
 export * from './ui-data-grid';
 export * from './ui-image-placeholder';
 
-// UI Components - Inputs
+// input
 export * from './ui-search-bar';
 export * from './ui-search-list-picker';
 export * from './ui-tag-input';

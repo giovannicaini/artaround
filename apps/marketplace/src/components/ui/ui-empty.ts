@@ -36,7 +36,7 @@ export class UiEmpty extends LitElement {
   protected updated() {
     const actionContainer = this.querySelector('.empty-action-container');
     if (actionContainer && this.actionContent.length > 0) {
-      // Move elements (not clone) to preserve event listeners
+      // sposto i nodi originali, non cloni, per non perdere gli event listener
       this.actionContent.forEach((node) => {
         if (node.parentElement !== actionContainer) {
           actionContainer.appendChild(node);

@@ -55,6 +55,4 @@ export class UiCard extends LitElement {
       }
     }
   }
-
-  // No render() - children are managed by parent Lit template
 }
