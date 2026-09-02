@@ -25,10 +25,10 @@ const router = Router();
  *         referenceType:
  *           type: string
  *           enum: [artwork, author, movement, period, museum]
- *           description: Type of entity this item references
+ *           description: Tipo di entità a cui si riferisce questo item
  *         referenceId:
  *           type: string
- *           description: Wikidata ID of the referenced entity
+ *           description: ID Wikidata dell'entità referenziata
  *         title:
  *           type: string
  *         titleTranslations:
@@ -47,7 +47,7 @@ const router = Router();
  *           enum: [infantile, elementare, medio, specialistico]
  *         authorId:
  *           type: string
- *           description: User ID of the content creator
+ *           description: ID dell'utente che ha creato il contenuto
  *         license:
  *           type: string
  *           enum: [CC0, CC-BY, CC-BY-SA, CC-BY-NC, CC-BY-NC-SA, proprietary]
@@ -64,8 +64,8 @@ const router = Router();
  * /api/items:
  *   get:
  *     tags: [Items]
- *     summary: Get all items
- *     description: Get list of content items with filters
+ *     summary: Lista tutti gli item
+ *     description: Ottiene la lista degli item di contenuto con filtri
  *     parameters:
  *       - in: query
  *         name: referenceType
@@ -76,7 +76,7 @@ const router = Router();
  *         name: referenceId
  *         schema:
  *           type: string
- *         description: Wikidata ID of referenced entity
+ *         description: ID Wikidata dell'entità referenziata
  *       - in: query
  *         name: authorId
  *         schema:
@@ -107,7 +107,7 @@ const router = Router();
  *           default: 50
  *     responses:
  *       200:
- *         description: List of items with pagination
+ *         description: Lista item con paginazione
  */
 router.get('/', ItemController.getAll);
 
@@ -116,15 +116,15 @@ router.get('/', ItemController.getAll);
  * /api/items/search:
  *   get:
  *     tags: [Items]
- *     summary: Search items
- *     description: Full-text search in items
+ *     summary: Cerca item
+ *     description: Ricerca full-text negli item
  *     parameters:
  *       - in: query
  *         name: q
  *         required: true
  *         schema:
  *           type: string
- *         description: Search term
+ *         description: Termine di ricerca
  *       - in: query
  *         name: referenceType
  *         schema:
@@ -133,7 +133,7 @@ router.get('/', ItemController.getAll);
  *         name: tags
  *         schema:
  *           type: string
- *         description: Comma-separated tags
+ *         description: Tag separati da virgola
  *       - in: query
  *         name: page
  *         schema:
@@ -146,7 +146,7 @@ router.get('/', ItemController.getAll);
  *           default: 50
  *     responses:
  *       200:
- *         description: Search results
+ *         description: Risultati della ricerca
  */
 router.get('/search', ItemController.search);
 
@@ -155,13 +155,13 @@ router.get('/search', ItemController.search);
  * /api/items/my-items:
  *   get:
  *     tags: [Items]
- *     summary: Get my items
- *     description: Get items created by authenticated user
+ *     summary: Ottieni i miei item
+ *     description: Ottiene gli item creati dall'utente autenticato
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: User's items
+ *         description: Item dell'utente
  */
 router.get('/my-items', authenticate, ItemController.getMyItems);
 
@@ -170,15 +170,15 @@ router.get('/my-items', authenticate, ItemController.getMyItems);
  * /api/items/artwork/{artworkId}:
  *   get:
  *     tags: [Items]
- *     summary: Get items for an artwork
- *     description: Get all content items referencing a specific artwork
+ *     summary: Ottieni gli item di un'opera
+ *     description: Ottiene tutti gli item di contenuto che si riferiscono a un'opera specifica
  *     parameters:
  *       - in: path
  *         name: artworkId
  *         required: true
  *         schema:
  *           type: string
- *         description: Artwork's Wikidata ID
+ *         description: ID Wikidata dell'opera
  *       - in: query
  *         name: duration
  *         schema:
@@ -189,7 +189,7 @@ router.get('/my-items', authenticate, ItemController.getMyItems);
  *           type: string
  *     responses:
  *       200:
- *         description: Items for the artwork
+ *         description: Item dell'opera
  */
 router.get('/artwork/:artworkId', ItemController.getByArtwork);
 
@@ -198,18 +198,18 @@ router.get('/artwork/:artworkId', ItemController.getByArtwork);
  * /api/items/author/{authorWikidataId}:
  *   get:
  *     tags: [Items]
- *     summary: Get items for an author
- *     description: Get all content items about a specific artist
+ *     summary: Ottieni gli item di un autore
+ *     description: Ottiene tutti gli item di contenuto su un artista specifico
  *     parameters:
  *       - in: path
  *         name: authorWikidataId
  *         required: true
  *         schema:
  *           type: string
- *         description: Author's Wikidata ID
+ *         description: ID Wikidata dell'autore
  *     responses:
  *       200:
- *         description: Items about the author
+ *         description: Item sull'autore
  */
 router.get('/author/:authorWikidataId', ItemController.getByAuthor);
 
@@ -218,8 +218,8 @@ router.get('/author/:authorWikidataId', ItemController.getByAuthor);
  * /api/items/reference/{referenceType}/{referenceId}:
  *   get:
  *     tags: [Items]
- *     summary: Get items by reference
- *     description: Get content items by reference type and ID
+ *     summary: Ottieni item per riferimento
+ *     description: Ottiene gli item di contenuto per tipo e ID di riferimento
  *     parameters:
  *       - in: path
  *         name: referenceType
@@ -232,10 +232,10 @@ router.get('/author/:authorWikidataId', ItemController.getByAuthor);
  *         required: true
  *         schema:
  *           type: string
- *         description: Wikidata ID
+ *         description: ID Wikidata
  *     responses:
  *       200:
- *         description: Items for the reference
+ *         description: Item per il riferimento richiesto
  */
 router.get('/reference/:referenceType/:referenceId', ItemController.getByReference);
 
@@ -244,7 +244,7 @@ router.get('/reference/:referenceType/:referenceId', ItemController.getByReferen
  * /api/items/{id}:
  *   get:
  *     tags: [Items]
- *     summary: Get item by ID
+ *     summary: Ottieni item per ID
  *     parameters:
  *       - in: path
  *         name: id
@@ -253,9 +253,9 @@ router.get('/reference/:referenceType/:referenceId', ItemController.getByReferen
  *           type: string
  *     responses:
  *       200:
- *         description: Item details
+ *         description: Dettagli item
  *       404:
- *         description: Item not found
+ *         description: Item non trovato
  */
 router.get('/:id', ItemController.getById);
 
@@ -264,7 +264,7 @@ router.get('/:id', ItemController.getById);
  * /api/items:
  *   post:
  *     tags: [Items]
- *     summary: Create item
+ *     summary: Crea item
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -275,7 +275,7 @@ router.get('/:id', ItemController.getById);
  *             $ref: '#/components/schemas/Item'
  *     responses:
  *       201:
- *         description: Item created
+ *         description: Item creato
  */
 router.post(
   '/',
@@ -290,7 +290,7 @@ router.post(
  * /api/items/{id}:
  *   put:
  *     tags: [Items]
- *     summary: Update item
+ *     summary: Aggiorna item
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -307,7 +307,7 @@ router.post(
  *             $ref: '#/components/schemas/Item'
  *     responses:
  *       200:
- *         description: Item updated
+ *         description: Item aggiornato
  */
 router.put(
   '/:id',
@@ -321,7 +321,7 @@ router.put(
  * /api/items/{id}:
  *   delete:
  *     tags: [Items]
- *     summary: Delete item
+ *     summary: Elimina item
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -332,7 +332,7 @@ router.put(
  *           type: string
  *     responses:
  *       200:
- *         description: Item deleted
+ *         description: Item eliminato
  */
 router.delete(
   '/:id',

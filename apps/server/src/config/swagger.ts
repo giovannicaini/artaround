@@ -37,15 +37,15 @@ const swaggerDefinition = {
   servers: [
     {
       url: `https://site2519.tw.cs.unibo.it:${config.port}`,
-      description: 'Development server',
+      description: 'Server di sviluppo',
     },
     {
       url: `http://localhost:${config.port}`,
-      description: 'Development/Production server',
+      description: 'Server di sviluppo/produzione',
     },
     {
       url: 'https://artaround.giovannicaini.it',
-      description: 'Development server',
+      description: 'Server di sviluppo',
     },
   ],
   components: {

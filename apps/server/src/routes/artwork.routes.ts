@@ -31,10 +31,10 @@ const router = Router();
  *       properties:
  *         wikidataId:
  *           type: string
- *           description: Wikidata Q number (e.g., Q12418 for Mona Lisa)
+ *           description: Q number Wikidata (es. Q12418 per la Gioconda)
  *         museumId:
  *           type: string
- *           description: Museum's Wikidata ID that owns the artwork
+ *           description: ID Wikidata del museo proprietario dell'opera
  *         title:
  *           type: string
  *         titleTranslations:
@@ -43,7 +43,7 @@ const router = Router();
  *             type: string
  *         authorWikidataId:
  *           type: string
- *           description: Artist's Wikidata ID
+ *           description: ID Wikidata dell'artista
  *         authorName:
  *           type: string
  *         year:
@@ -94,29 +94,29 @@ const router = Router();
  * @swagger
  * /api/artworks:
  *   get:
- *     summary: Get all artworks
+ *     summary: Lista tutte le opere
  *     tags: [Artworks]
  *     parameters:
  *       - in: query
  *         name: museumId
  *         schema:
  *           type: string
- *         description: Filter by museum Wikidata ID
+ *         description: Filtra per ID Wikidata del museo
  *       - in: query
  *         name: authorWikidataId
  *         schema:
  *           type: string
- *         description: Filter by author Wikidata ID
+ *         description: Filtra per ID Wikidata dell'autore
  *       - in: query
  *         name: artworkType
  *         schema:
  *           type: string
- *         description: Filter by artwork type
+ *         description: Filtra per tipo di opera
  *       - in: query
  *         name: search
  *         schema:
  *           type: string
- *         description: Text search
+ *         description: Ricerca testuale
  *       - in: query
  *         name: page
  *         schema:
@@ -129,7 +129,7 @@ const router = Router();
  *           default: 50
  *     responses:
  *       200:
- *         description: List of artworks with pagination
+ *         description: Lista opere con paginazione
  */
 router.get('/', getArtworks);
 
@@ -137,7 +137,7 @@ router.get('/', getArtworks);
  * @swagger
  * /api/artworks/museum/{museumId}:
  *   get:
- *     summary: Get all artworks for a specific museum
+ *     summary: Lista tutte le opere di un museo specifico
  *     tags: [Artworks]
  *     parameters:
  *       - in: path
@@ -145,10 +145,10 @@ router.get('/', getArtworks);
  *         required: true
  *         schema:
  *           type: string
- *         description: Museum's Wikidata ID
+ *         description: ID Wikidata del museo
  *     responses:
  *       200:
- *         description: List of artworks in the museum
+ *         description: Lista opere del museo
  */
 router.get('/museum/:museumId', getArtworksByMuseum);
 
@@ -156,7 +156,7 @@ router.get('/museum/:museumId', getArtworksByMuseum);
  * @swagger
  * /api/artworks/wikidata/{wikidataId}:
  *   get:
- *     summary: Get artwork by Wikidata ID
+ *     summary: Ottieni opera per ID Wikidata
  *     tags: [Artworks]
  *     parameters:
  *       - in: path
@@ -164,12 +164,12 @@ router.get('/museum/:museumId', getArtworksByMuseum);
  *         required: true
  *         schema:
  *           type: string
- *         description: Artwork's Wikidata Q number
+ *         description: Q number Wikidata dell'opera
  *     responses:
  *       200:
- *         description: The artwork
+ *         description: L'opera
  *       404:
- *         description: Artwork not found
+ *         description: Opera non trovata
  */
 router.get('/wikidata/:wikidataId', getArtworkByWikidataId);
 
@@ -177,7 +177,7 @@ router.get('/wikidata/:wikidataId', getArtworkByWikidataId);
  * @swagger
  * /api/artworks/{id}:
  *   get:
- *     summary: Get artwork by ID (MongoDB _id)
+ *     summary: Ottieni opera per ID (MongoDB _id)
  *     tags: [Artworks]
  *     parameters:
  *       - in: path
@@ -187,9 +187,9 @@ router.get('/wikidata/:wikidataId', getArtworkByWikidataId);
  *           type: string
  *     responses:
  *       200:
- *         description: The artwork
+ *         description: L'opera
  *       404:
- *         description: Artwork not found
+ *         description: Opera non trovata
  */
 router.get('/:id', getArtwork);
 
@@ -197,7 +197,7 @@ router.get('/:id', getArtwork);
  * @swagger
  * /api/artworks:
  *   post:
- *     summary: Create a new artwork
+ *     summary: Crea una nuova opera
  *     tags: [Artworks]
  *     security:
  *       - bearerAuth: []
@@ -209,9 +209,9 @@ router.get('/:id', getArtwork);
  *             $ref: '#/components/schemas/Artwork'
  *     responses:
  *       201:
- *         description: Artwork created
+ *         description: Opera creata
  *       409:
- *         description: Artwork with this Wikidata ID already exists
+ *         description: Esiste già un'opera con questo ID Wikidata
  */
 router.post('/', authenticate, authorizeRoles(UserRole.ADMIN, UserRole.CURATOR), createArtwork);
 
@@ -219,7 +219,7 @@ router.post('/', authenticate, authorizeRoles(UserRole.ADMIN, UserRole.CURATOR),
  * @swagger
  * /api/artworks/{id}:
  *   put:
- *     summary: Update an artwork
+ *     summary: Aggiorna un'opera
  *     tags: [Artworks]
  *     security:
  *       - bearerAuth: []
@@ -237,9 +237,9 @@ router.post('/', authenticate, authorizeRoles(UserRole.ADMIN, UserRole.CURATOR),
  *             $ref: '#/components/schemas/Artwork'
  *     responses:
  *       200:
- *         description: Artwork updated
+ *         description: Opera aggiornata
  *       404:
- *         description: Artwork not found
+ *         description: Opera non trovata
  */
 router.put('/:id', authenticate, authorizeRoles(UserRole.ADMIN, UserRole.CURATOR), updateArtwork);
 
@@ -247,7 +247,7 @@ router.put('/:id', authenticate, authorizeRoles(UserRole.ADMIN, UserRole.CURATOR
  * @swagger
  * /api/artworks/{id}/map-position:
  *   put:
- *     summary: Update artwork's map position
+ *     summary: Aggiorna la posizione sulla mappa dell'opera
  *     tags: [Artworks]
  *     security:
  *       - bearerAuth: []
@@ -274,7 +274,7 @@ router.put('/:id', authenticate, authorizeRoles(UserRole.ADMIN, UserRole.CURATOR
  *                 type: number
  *     responses:
  *       200:
- *         description: Map position updated
+ *         description: Posizione sulla mappa aggiornata
  */
 router.put(
   '/:id/map-position',
@@ -287,7 +287,7 @@ router.put(
  * @swagger
  * /api/artworks/{id}:
  *   delete:
- *     summary: Delete an artwork
+ *     summary: Elimina un'opera
  *     tags: [Artworks]
  *     security:
  *       - bearerAuth: []
@@ -299,9 +299,9 @@ router.put(
  *           type: string
  *     responses:
  *       200:
- *         description: Artwork deleted
+ *         description: Opera eliminata
  *       404:
- *         description: Artwork not found
+ *         description: Opera non trovata
  */
 router.delete('/:id', authenticate, authorizeRoles(UserRole.ADMIN), deleteArtwork);
 

@@ -20,39 +20,39 @@ const router = Router();
  *       properties:
  *         order:
  *           type: number
- *           description: Step order in the visit sequence
+ *           description: Ordine della tappa nella sequenza della visita
  *         type:
  *           type: string
  *           enum: [artwork, logistic, navigation]
  *         artworkId:
  *           type: string
- *           description: Artwork Wikidata ID (required for artwork steps)
+ *           description: ID Wikidata dell'opera (richiesto per le tappe artwork)
  *         itemIds:
  *           type: array
  *           items:
  *             type: string
- *           description: Content item IDs available for this step (only for artwork steps)
+ *           description: ID degli item di contenuto disponibili per questa tappa (solo per tappe artwork)
  *         logisticTitle:
  *           type: string
- *           description: Title for logistic step (e.g., "Informazioni utili")
+ *           description: Titolo della tappa logistica (es. "Informazioni utili")
  *         logisticText:
  *           type: string
- *           description: Logistic info text (for logistic steps)
+ *           description: Testo informativo (per tappe logistiche)
  *         logisticIcon:
  *           type: string
- *           description: Icon name for logistic step (ticket, info, clock, etc.)
+ *           description: Nome icona per la tappa logistica (ticket, info, clock, ecc.)
  *         navigationText:
  *           type: string
- *           description: Navigation instructions (for navigation steps)
+ *           description: Indicazioni di navigazione (per tappe di navigazione)
  *         navigationImage:
  *           type: string
- *           description: Image URL showing the path
+ *           description: URL dell'immagine che mostra il percorso
  *         fromRoom:
  *           type: string
- *           description: Starting room/area (for navigation)
+ *           description: Sala/area di partenza (per la navigazione)
  *         toRoom:
  *           type: string
- *           description: Destination room/area (for navigation)
+ *           description: Sala/area di destinazione (per la navigazione)
  *     Visit:
  *       type: object
  *       required:
@@ -64,7 +64,7 @@ const router = Router();
  *       properties:
  *         museumId:
  *           type: string
- *           description: Museum's Wikidata ID
+ *           description: ID Wikidata del museo
  *         title:
  *           type: string
  *         description:
@@ -107,14 +107,14 @@ const router = Router();
  * /api/visits:
  *   get:
  *     tags: [Visits]
- *     summary: Get all visits
- *     description: Get list of visits with filters
+ *     summary: Lista tutte le visite
+ *     description: Ottiene la lista delle visite con filtri
  *     parameters:
  *       - in: query
  *         name: museumId
  *         schema:
  *           type: string
- *         description: Museum's Wikidata ID
+ *         description: ID Wikidata del museo
  *       - in: query
  *         name: authorId
  *         schema:
@@ -144,7 +144,7 @@ const router = Router();
  *           default: 20
  *     responses:
  *       200:
- *         description: List of visits with pagination
+ *         description: Lista visite con paginazione
  */
 router.get('/', VisitController.getAll);
 
@@ -153,13 +153,13 @@ router.get('/', VisitController.getAll);
  * /api/visits/my-visits:
  *   get:
  *     tags: [Visits]
- *     summary: Get my visits
- *     description: Get visits created by authenticated user
+ *     summary: Ottieni le mie visite
+ *     description: Ottiene le visite create dall'utente autenticato
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: User's visits
+ *         description: Visite dell'utente
  */
 router.get('/my-visits', authenticate, VisitController.getMyVisits);
 
@@ -168,22 +168,22 @@ router.get('/my-visits', authenticate, VisitController.getMyVisits);
  * /api/visits/museum/{museumId}:
  *   get:
  *     tags: [Visits]
- *     summary: Get visits for a museum
- *     description: Get all visits for a specific museum
+ *     summary: Ottieni le visite di un museo
+ *     description: Ottiene tutte le visite di un museo specifico
  *     parameters:
  *       - in: path
  *         name: museumId
  *         required: true
  *         schema:
  *           type: string
- *         description: Museum's Wikidata ID
+ *         description: ID Wikidata del museo
  *       - in: query
  *         name: isPublished
  *         schema:
  *           type: boolean
  *     responses:
  *       200:
- *         description: Visits for the museum
+ *         description: Visite del museo
  */
 router.get('/museum/:museumId', VisitController.getByMuseum);
 
@@ -192,7 +192,7 @@ router.get('/museum/:museumId', VisitController.getByMuseum);
  * /api/visits/{id}:
  *   get:
  *     tags: [Visits]
- *     summary: Get visit by ID
+ *     summary: Ottieni visita per ID
  *     parameters:
  *       - in: path
  *         name: id
@@ -201,9 +201,9 @@ router.get('/museum/:museumId', VisitController.getByMuseum);
  *           type: string
  *     responses:
  *       200:
- *         description: Visit details
+ *         description: Dettagli visita
  *       404:
- *         description: Visit not found
+ *         description: Visita non trovata
  */
 router.get('/:id', VisitController.getById);
 
@@ -212,7 +212,7 @@ router.get('/:id', VisitController.getById);
  * /api/visits:
  *   post:
  *     tags: [Visits]
- *     summary: Create visit
+ *     summary: Crea visita
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -223,7 +223,7 @@ router.get('/:id', VisitController.getById);
  *             $ref: '#/components/schemas/Visit'
  *     responses:
  *       201:
- *         description: Visit created
+ *         description: Visita creata
  */
 router.post(
   '/',
@@ -238,7 +238,7 @@ router.post(
  * /api/visits/{id}:
  *   put:
  *     tags: [Visits]
- *     summary: Update visit
+ *     summary: Aggiorna visita
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -255,7 +255,7 @@ router.post(
  *             $ref: '#/components/schemas/Visit'
  *     responses:
  *       200:
- *         description: Visit updated
+ *         description: Visita aggiornata
  */
 router.put(
   '/:id',
@@ -269,7 +269,7 @@ router.put(
  * /api/visits/{id}/steps:
  *   post:
  *     tags: [Visits]
- *     summary: Add step to visit
+ *     summary: Aggiungi tappa alla visita
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -286,7 +286,7 @@ router.put(
  *             $ref: '#/components/schemas/VisitStep'
  *     responses:
  *       200:
- *         description: Step added
+ *         description: Tappa aggiunta
  */
 router.post(
   '/:id/steps',
@@ -300,7 +300,7 @@ router.post(
  * /api/visits/{id}/steps/{stepOrder}:
  *   put:
  *     tags: [Visits]
- *     summary: Update step in visit
+ *     summary: Aggiorna tappa della visita
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -322,7 +322,7 @@ router.post(
  *             $ref: '#/components/schemas/VisitStep'
  *     responses:
  *       200:
- *         description: Step updated
+ *         description: Tappa aggiornata
  */
 router.put(
   '/:id/steps/:stepOrder',
@@ -336,7 +336,7 @@ router.put(
  * /api/visits/{id}/steps/{stepOrder}:
  *   delete:
  *     tags: [Visits]
- *     summary: Delete step from visit
+ *     summary: Elimina tappa dalla visita
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -352,7 +352,7 @@ router.put(
  *           type: number
  *     responses:
  *       200:
- *         description: Step deleted
+ *         description: Tappa eliminata
  */
 router.delete(
   '/:id/steps/:stepOrder',
@@ -366,7 +366,7 @@ router.delete(
  * /api/visits/{id}/reorder:
  *   post:
  *     tags: [Visits]
- *     summary: Reorder visit steps
+ *     summary: Riordina le tappe della visita
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -393,7 +393,7 @@ router.delete(
  *                       type: number
  *     responses:
  *       200:
- *         description: Steps reordered
+ *         description: Tappe riordinate
  */
 router.post(
   '/:id/reorder',
@@ -407,7 +407,7 @@ router.post(
  * /api/visits/{id}/publish:
  *   post:
  *     tags: [Visits]
- *     summary: Publish visit
+ *     summary: Pubblica visita
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -418,7 +418,7 @@ router.post(
  *           type: string
  *     responses:
  *       200:
- *         description: Visit published
+ *         description: Visita pubblicata
  */
 router.post(
   '/:id/publish',
@@ -432,7 +432,7 @@ router.post(
  * /api/visits/{id}/unpublish:
  *   post:
  *     tags: [Visits]
- *     summary: Unpublish visit
+ *     summary: Rimuovi pubblicazione visita
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -443,7 +443,7 @@ router.post(
  *           type: string
  *     responses:
  *       200:
- *         description: Visit unpublished
+ *         description: Pubblicazione rimossa
  */
 router.post(
   '/:id/unpublish',
@@ -457,7 +457,7 @@ router.post(
  * /api/visits/{id}:
  *   delete:
  *     tags: [Visits]
- *     summary: Delete visit
+ *     summary: Elimina visita
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -468,7 +468,7 @@ router.post(
  *           type: string
  *     responses:
  *       200:
- *         description: Visit deleted
+ *         description: Visita eliminata
  */
 router.delete(
   '/:id',
