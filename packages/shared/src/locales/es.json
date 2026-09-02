@@ -966,5 +966,7 @@
   "Vai": "Ir",
   "Vuoi passare a questa opera?": "¿Quieres pasar a esta obra?",
   "Vuoi passare a \"{title}\"?": "¿Quieres pasar a \"{title}\"?",
-  "Nessuna descrizione disponibile.": "No hay descripción disponible."
+  "Nessuna descrizione disponibile.": "No hay descripción disponible.",
+  "Costruisci il percorso direttamente sulla mappa: clicca un'opera per aggiungerla come prossima tappa, clicca un punto vuoto per inserire una svolta. Per cambiare piano, clicca le scale o l'ascensore per agganciarci il percorso, poi seleziona l'altro piano dal menu qui sotto e clicca le scale/ascensore corrispondente per continuare da lì. Le tappe vengono numerate nell'ordine dei click; puoi riordinarle o rimuoverle anche dalla tab Percorso.": "Construye el recorrido directamente en el mapa: haz clic en una obra para añadirla como próxima parada, haz clic en un punto vacío para insertar un giro. Para cambiar de planta, haz clic en la escalera o el ascensor para enganchar allí el recorrido, luego elige la otra planta en el menú de abajo y haz clic en la escalera/ascensor correspondiente para continuar desde ahí. Las paradas se numeran en el orden de los clics; también puedes reordenarlas o eliminarlas desde la pestaña Recorrido.",
+  "Click su un'opera, una svolta o scale/ascensore: aggiungi tappa • Click su un punto vuoto: crea una svolta • Scroll: zoom": "Clic en una obra, un giro o escalera/ascensor: añade una parada • Clic en un punto vacío: crea un giro • Desplazar: zoom"
 }

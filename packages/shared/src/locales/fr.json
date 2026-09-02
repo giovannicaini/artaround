@@ -966,5 +966,7 @@
   "Vai": "Aller",
   "Vuoi passare a questa opera?": "Voulez-vous passer à cette œuvre ?",
   "Vuoi passare a \"{title}\"?": "Voulez-vous passer à « {title} » ?",
-  "Nessuna descrizione disponibile.": "Aucune description disponible."
+  "Nessuna descrizione disponibile.": "Aucune description disponible.",
+  "Costruisci il percorso direttamente sulla mappa: clicca un'opera per aggiungerla come prossima tappa, clicca un punto vuoto per inserire una svolta. Per cambiare piano, clicca le scale o l'ascensore per agganciarci il percorso, poi seleziona l'altro piano dal menu qui sotto e clicca le scale/ascensore corrispondente per continuare da lì. Le tappe vengono numerate nell'ordine dei click; puoi riordinarle o rimuoverle anche dalla tab Percorso.": "Construisez le parcours directement sur la carte : cliquez sur une œuvre pour l'ajouter comme prochaine étape, cliquez sur un point vide pour insérer un virage. Pour changer d'étage, cliquez sur l'escalier ou l'ascenseur pour y accrocher le parcours, puis choisissez l'autre étage dans le menu ci-dessous et cliquez sur l'escalier/ascenseur correspondant pour continuer à partir de là. Les étapes sont numérotées dans l'ordre des clics ; vous pouvez aussi les réorganiser ou les supprimer depuis l'onglet Parcours.",
+  "Click su un'opera, una svolta o scale/ascensore: aggiungi tappa • Click su un punto vuoto: crea una svolta • Scroll: zoom": "Clic sur une œuvre, un virage ou un escalier/ascenseur : ajoute une étape • Clic sur un point vide : crée un virage • Molette : zoom"
 }

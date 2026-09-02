@@ -17,6 +17,7 @@ import {
   type TargetAudience,
   type Museum,
   type MuseumFloor,
+  type MapMarker,
   type AppLanguage,
   isSupportedAppLanguage,
 } from '@artaround/shared';
@@ -1054,22 +1055,35 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
 
     return html`
       <div class="space-y-4">
-        <p class="text-sm text-surface-500 dark:text-surface-400">
-          ${__(
-            "Anteprima di sola lettura: il percorso segue l'ordine delle tappe nella tab Percorso.",
+        <ui-alert
+          variant="info"
+          .message=${__(
+            "Costruisci il percorso direttamente sulla mappa: clicca un'opera per aggiungerla come prossima tappa, clicca un punto vuoto per inserire una svolta. Per cambiare piano, clicca le scale o l'ascensore per agganciarci il percorso, poi seleziona l'altro piano dal menu qui sotto e clicca le scale/ascensore corrispondente per continuare da lì. Le tappe vengono numerate nell'ordine dei click; puoi riordinarle o rimuoverle anche dalla tab Percorso.",
           )}
-        </p>
+        ></ui-alert>
 
-        ${this.floors.length > 1
-          ? html`
-              <ui-select
-                .label=${__('Piano')}
-                .value=${floorId}
-                .options=${this.floors.map((f) => ({ value: f.id, label: f.name }))}
-                @select-change=${(e: CustomEvent) => (this.mapTabFloorId = e.detail.value)}
-              ></ui-select>
-            `
-          : nothing}
+        <div class="flex items-end justify-between gap-3 flex-wrap">
+          ${this.floors.length > 1
+            ? html`
+                <ui-select
+                  .label=${__('Piano')}
+                  .value=${floorId}
+                  .options=${this.floors.map((f) => ({ value: f.id, label: f.name }))}
+                  @select-change=${(e: CustomEvent) => (this.mapTabFloorId = e.detail.value)}
+                ></ui-select>
+              `
+            : html`<div></div>`}
+
+          <ui-button
+            type="button"
+            variant="secondary"
+            size="sm"
+            icon="arrow-left"
+            .label=${__('Annulla ultima tappa')}
+            ?disabled=${this.steps.length === 0}
+            @click=${() => this.undoLastRouteStep()}
+          ></ui-button>
+        </div>
 
         <svg-map-editor
           .floors=${this.floors}
@@ -1077,20 +1091,120 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
           .artworks=${this.artworks}
           .routeStops=${floorPoints}
           ?editMode=${false}
+          routeBuildMode
+          @route-point-add=${this.handleRoutePointAdd}
+          @route-marker-add=${this.handleRouteMarkerAdd}
         ></svg-map-editor>
 
         ${allPoints.length < 2
           ? html`
               <ui-alert
-                variant="info"
+                variant="warning"
                 .message=${__(
-                  'Aggiungi almeno due tappe con una posizione sulla mappa (opere o waypoint) per vedere il percorso disegnato.',
+                  'Aggiungi almeno due tappe posizionate sulla mappa (opere o svolte) per vedere il percorso disegnato.',
                 )}
               ></ui-alert>
             `
           : nothing}
       </div>
     `;
+  }
+
+  // ─── Actions (Costruzione percorso dalla mappa) ─────────
+  /**
+   * Click su un punto vuoto della mappa nel tab "Mappa": crea una nuova
+   * svolta (marker WAYPOINT) sul piano corrente e la accoda subito come
+   * prossima tappa del percorso, così il segmento si vede disegnato senza
+   * dover passare dai select della tab Percorso.
+   */
+  private async handleRoutePointAdd(e: CustomEvent<{ x: number; y: number }>) {
+    const floorId = this.mapTabFloorId || this.floors[0]?.id;
+    if (!floorId) return;
+
+    const marker: MapMarker = {
+      id: `marker-${Date.now()}`,
+      floorId,
+      x: e.detail.x,
+      y: e.detail.y,
+      type: MarkerType.WAYPOINT,
+      isVisible: true,
+    };
+
+    try {
+      await museumService.addMarker(this.museumId, floorId, marker);
+    } catch (err) {
+      console.error('Error adding waypoint marker:', err);
+      this.error = __('Impossibile aggiungere la svolta sulla mappa');
+      return;
+    }
+
+    this.floors = this.floors.map((f) =>
+      f.id === floorId ? { ...f, markers: [...(f.markers || []), marker] } : f,
+    );
+
+    this.appendStep({
+      id: this.generateStepId(),
+      order: this.steps.length,
+      type: VisitStepType.WAYPOINT,
+      isOptional: false,
+      mapMarkerId: marker.id,
+    });
+  }
+
+  /**
+   * Click su un marker esistente nel tab "Mappa": un'opera diventa una tappa
+   * ARTWORK, una svolta già presente (piazzata prima, anche da un'altra
+   * visita) viene riusata come tappa WAYPOINT invece di duplicarla. Scale,
+   * ascensori, scale mobili e rampe collegano due piani: cliccarli fa la
+   * stessa cosa di una svolta, così l'ultima opera di un piano si aggancia
+   * esattamente alle scale invece di dover piazzare una svolta approssimata
+   * lì vicino — poi basta cambiare piano dal menu "Piano" e cliccare le
+   * scale/ascensore corrispondente sul piano d'arrivo per continuare il
+   * percorso. Gli altri tipi di marker (ingressi, servizi...) restano
+   * fuori dal percorso.
+   */
+  private handleRouteMarkerAdd(e: CustomEvent<MapMarker>) {
+    const marker = e.detail;
+    const CONNECTOR_TYPES: MarkerType[] = [
+      MarkerType.WAYPOINT,
+      MarkerType.STAIRS,
+      MarkerType.ELEVATOR,
+      MarkerType.ESCALATOR,
+      MarkerType.RAMP,
+    ];
+
+    if (CONNECTOR_TYPES.includes(marker.type)) {
+      this.appendStep({
+        id: this.generateStepId(),
+        order: this.steps.length,
+        type: VisitStepType.WAYPOINT,
+        isOptional: false,
+        mapMarkerId: marker.id,
+      });
+      return;
+    }
+
+    if (!marker.artworkId) return;
+
+    this.appendStep({
+      id: this.generateStepId(),
+      order: this.steps.length,
+      type: VisitStepType.ARTWORK,
+      isOptional: false,
+      artworkId: marker.artworkId,
+    });
+  }
+
+  private appendStep(step: VisitStep) {
+    this.steps = [...this.steps, step];
+  }
+
+  private undoLastRouteStep() {
+    if (this.steps.length === 0) return;
+    this.steps = this.steps.slice(0, -1);
+    if (this.editingStepIndex !== null && this.editingStepIndex >= this.steps.length) {
+      this.editingStepIndex = null;
+    }
   }
 
   private renderStepsContent() {

@@ -45,6 +45,13 @@ export class SvgMapEditor extends LitElement {
   @property({ type: Boolean })
   editMode = true;
 
+  // Modalità "costruzione percorso" (usata dall'editor di visita, con editMode
+  // false): il click su un'opera/waypoint aggiunge una tappa al percorso, il
+  // click su un punto vuoto crea una nuova svolta. Indipendente da editMode,
+  // che resta riservato alla gestione marker/sale lato museo.
+  @property({ type: Boolean })
+  routeBuildMode = false;
+
   @property({ type: String })
   selectedMarkerId: string | null = null;
 
@@ -140,23 +147,30 @@ export class SvgMapEditor extends LitElement {
         <div
           class="flex items-center justify-between p-3 bg-surface-800 border-b border-surface-700"
         >
-          <!-- Floor Tabs -->
-          <div class="flex gap-1">
-            ${this.floors.map(
-              (f) => html`
-                <button
-                  class="px-3 py-1.5 rounded text-sm font-medium transition-colors ${this
-                    .selectedFloorId === f.id ||
-                  (!this.selectedFloorId && f === this.floors[0])
-                    ? 'bg-brand-500 text-white'
-                    : 'bg-surface-700 text-surface-300 hover:bg-surface-600'}"
-                  @click=${() => this.selectFloor(f.id)}
-                >
-                  ${f.name}
-                </button>
-              `,
-            )}
-          </div>
+          <!-- Floor Tabs: solo in editMode. Nelle mappe di sola anteprima (es. tab
+               Mappa dell'editor di visita) il cambio piano passa dal dropdown del
+               chiamante, che è l'unico ad aggiornare selectedFloorId in quel
+               contesto: questi pulsanti lì non farebbero nulla. -->
+          ${this.editMode
+            ? html`
+                <div class="flex gap-1">
+                  ${this.floors.map(
+                    (f) => html`
+                      <button
+                        class="px-3 py-1.5 rounded text-sm font-medium transition-colors ${this
+                          .selectedFloorId === f.id ||
+                        (!this.selectedFloorId && f === this.floors[0])
+                          ? 'bg-brand-500 text-white'
+                          : 'bg-surface-700 text-surface-300 hover:bg-surface-600'}"
+                        @click=${() => this.selectFloor(f.id)}
+                      >
+                        ${f.name}
+                      </button>
+                    `,
+                  )}
+                </div>
+              `
+            : html`<div></div>`}
 
           <!-- Zoom Controls -->
           <div class="flex items-center gap-2">
@@ -189,7 +203,7 @@ export class SvgMapEditor extends LitElement {
 
         <!-- Map Container -->
         <div
-          class="relative overflow-hidden bg-surface-950 ${this.editMode
+          class="relative overflow-hidden bg-surface-950 ${this.editMode || this.routeBuildMode
             ? 'cursor-crosshair'
             : 'cursor-grab'}"
           style="height: 500px;"
@@ -251,7 +265,9 @@ export class SvgMapEditor extends LitElement {
           <div>
             ${this.editMode
               ? `✏️ ${__('Click: aggiungi marker • Scroll: zoom • Tasto destro: sposta')}`
-              : `👁️ ${__('Modalità Visualizzazione')}`}
+              : this.routeBuildMode
+                ? `🧭 ${__("Click su un'opera, una svolta o scale/ascensore: aggiungi tappa • Click su un punto vuoto: crea una svolta • Scroll: zoom")}`
+                : `👁️ ${__('Modalità Visualizzazione')}`}
           </div>
         </div>
       </div>
@@ -596,7 +612,7 @@ export class SvgMapEditor extends LitElement {
   }
 
   private handleMapClick(e: MouseEvent) {
-    if (!this.editMode) return;
+    if (!this.editMode && !this.routeBuildMode) return;
 
     const point = this.eventToFloorPoint(e);
 
@@ -615,6 +631,19 @@ export class SvgMapEditor extends LitElement {
       return;
     }
 
+    if (this.routeBuildMode) {
+      // Click su un punto vuoto della mappa: il chiamante crea lì una nuova
+      // svolta (waypoint) e la accoda come prossima tappa del percorso.
+      this.dispatchEvent(
+        new CustomEvent('route-point-add', {
+          detail: point,
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      return;
+    }
+
     this.dispatchEvent(
       new CustomEvent('map-click', {
         detail: point,
@@ -626,6 +655,21 @@ export class SvgMapEditor extends LitElement {
 
   private handleMarkerClick(e: Event, marker: MapMarker) {
     e.stopPropagation();
+
+    if (this.routeBuildMode) {
+      // Click su un'opera o su una svolta già esistente: il chiamante decide
+      // che tipo di tappa aggiungere in base a marker.type/artworkId, così una
+      // svolta piazzata in precedenza (es. da un'altra visita) può essere
+      // riusata invece di crearne una nuova nello stesso punto.
+      this.dispatchEvent(
+        new CustomEvent('route-marker-add', {
+          detail: marker,
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      return;
+    }
 
     this.dispatchEvent(
       new CustomEvent('marker-select', {
