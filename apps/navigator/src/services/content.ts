@@ -1,5 +1,5 @@
 import { LanguageLevel, ContentDuration, type AppLanguage, type Item } from '@artaround/shared';
-import type { PlayerStep } from '../stores/visitSessionStore';
+import type { PlayerStep } from '../context/visitSessionStore';
 
 // sceglie l'item più vicino alle preferenze correnti, tra quelli disponibili per una tappa
 export function pickItemForPreferences(

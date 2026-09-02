@@ -14,13 +14,13 @@ import {
   Sparkles,
   UserCircle,
 } from 'lucide-react';
-import { api } from '../lib/apiClient';
-import { useAuthStore } from '../stores/authStore';
-import { useI18nStore } from '../stores/i18nStore';
-import { useT } from '../hooks/useT';
-import { useMuseumTheme } from '../hooks/useMuseumTheme';
-import { interestAffinity } from '../lib/personalization';
-import { localizedField } from '../lib/i18n';
+import { api } from '../services/apiClient';
+import { useAuthStore } from '../context/authStore';
+import { useI18nStore } from '../context/i18nStore';
+import { useT } from '../services/useT';
+import { useMuseumTheme } from '../services/useMuseumTheme';
+import { interestAffinity } from '../services/personalization';
+import { localizedField } from '../services/i18n';
 import { LanguageLevel, type Visit } from '@artaround/shared';
 import {
   IconTile,

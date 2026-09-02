@@ -2,8 +2,8 @@ import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import type { NavigatorAppConfig } from '@artaround/shared';
-import { api } from '../lib/apiClient';
-import { buildBrandRamp } from '../lib/color';
+import { api } from './apiClient';
+import { buildBrandRamp } from './color';
 
 // priorità: config con lo slug richiesto via ?ncfg=, poi il primo config del
 // museo, poi il default di piattaforma, altrimenti i token hardcoded

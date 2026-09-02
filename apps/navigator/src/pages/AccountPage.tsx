@@ -11,11 +11,11 @@ import {
   Sparkles,
   ExternalLink,
 } from 'lucide-react';
-import { api } from '../lib/apiClient';
-import { useAuthStore } from '../stores/authStore';
-import { useI18nStore } from '../stores/i18nStore';
-import { useT } from '../hooks/useT';
-import { localizedField } from '../lib/i18n';
+import { api } from '../services/apiClient';
+import { useAuthStore } from '../context/authStore';
+import { useI18nStore } from '../context/i18nStore';
+import { useT } from '../services/useT';
+import { localizedField } from '../services/i18n';
 import {
   CompetenceLevel,
   TimePreference,

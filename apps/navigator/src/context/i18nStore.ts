@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { AppLanguage } from '@artaround/shared';
-import { loadStoredLanguage, storeLanguage } from '../lib/i18n';
+import { loadStoredLanguage, storeLanguage } from '../services/i18n';
 
 interface I18nState {
   language: AppLanguage;

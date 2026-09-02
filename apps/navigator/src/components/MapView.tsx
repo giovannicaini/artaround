@@ -2,11 +2,11 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { ZoomIn, ZoomOut, Maximize2, Navigation, X } from 'lucide-react';
 import type { MuseumMap, MapMarker } from '@artaround/shared';
 import { MarkerType } from '@artaround/shared';
-import { useT } from '../hooks/useT';
-import { format } from '../lib/i18n';
-import { polygonCentroid } from '../lib/geometry';
-import { buildSmoothPath, computePathArrows } from '../lib/routePath';
-import type { RoutePoint } from '../lib/mapRoute';
+import { useT } from '../services/useT';
+import { format } from '../services/i18n';
+import { polygonCentroid } from '../services/geometry';
+import { buildSmoothPath, computePathArrows } from '../services/routePath';
+import type { RoutePoint } from '../services/mapRoute';
 import { Sheet } from './ui/Sheet';
 import { Button } from './ui/Button';
 

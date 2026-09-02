@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { User, LoginRequest, RegisterRequest, UserPreferences } from '@artaround/shared';
-import { api, getToken, setToken, clearToken } from '../lib/apiClient';
+import { api, getToken, setToken, clearToken } from '../services/apiClient';
 
 interface AuthState {
   user: User | null;

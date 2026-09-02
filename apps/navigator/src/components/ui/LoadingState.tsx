@@ -1,5 +1,5 @@
 import { Compass } from 'lucide-react';
-import { useT } from '../../hooks/useT';
+import { useT } from '../../services/useT';
 
 interface LoadingStateProps {
   message?: string;

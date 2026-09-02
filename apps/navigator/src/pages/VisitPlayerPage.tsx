@@ -25,17 +25,17 @@ import {
   Navigation as NavigationIcon,
   Home,
 } from 'lucide-react';
-import { api } from '../lib/apiClient';
-import { useAuthStore } from '../stores/authStore';
-import { useI18nStore } from '../stores/i18nStore';
-import { useT } from '../hooks/useT';
-import { useMuseumTheme } from '../hooks/useMuseumTheme';
-import { useVisitSessionStore, type PlayerStep } from '../stores/visitSessionStore';
+import { api } from '../services/apiClient';
+import { useAuthStore } from '../context/authStore';
+import { useI18nStore } from '../context/i18nStore';
+import { useT } from '../services/useT';
+import { useMuseumTheme } from '../services/useMuseumTheme';
+import { useVisitSessionStore, type PlayerStep } from '../context/visitSessionStore';
 import { speechService, voiceRecognitionService, parseVoiceCommand } from '../services/speech';
-import { getStepText } from '../lib/content';
-import { format, toSpeechLocale } from '../lib/i18n';
-import { defaultLanguageLevel, defaultContentDuration } from '../lib/personalization';
-import { saveVisitProgress } from '../lib/visitProgress';
+import { getStepText } from '../services/content';
+import { format, toSpeechLocale } from '../services/i18n';
+import { defaultLanguageLevel, defaultContentDuration } from '../services/personalization';
+import { saveVisitProgress } from '../services/visitProgress';
 import {
   LanguageLevel,
   ContentDuration,
@@ -54,7 +54,7 @@ import {
   LanguageSwitcher,
 } from '../components/ui';
 import MapView from '../components/MapView';
-import { buildVisitRoutePoints, type RoutePoint } from '../lib/mapRoute';
+import { buildVisitRoutePoints, type RoutePoint } from '../services/mapRoute';
 
 // fade con scivolamento nel verso di navigazione, custom riceve la direzione
 const stepImageVariants = {

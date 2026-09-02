@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { AppLanguage } from '@artaround/shared';
-import { useI18nStore } from '../../stores/i18nStore';
-import { useT } from '../../hooks/useT';
+import { useI18nStore } from '../../context/i18nStore';
+import { useT } from '../../services/useT';
 
 const ALL_OPTIONS: Array<{ value: AppLanguage; label: string; flagCode: string }> = [
   { value: 'it', label: 'Italiano', flagCode: 'it' },

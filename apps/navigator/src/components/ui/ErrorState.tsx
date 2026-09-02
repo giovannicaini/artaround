@@ -1,6 +1,6 @@
 import { AlertCircle } from 'lucide-react';
 import { Button } from './Button';
-import { useT } from '../../hooks/useT';
+import { useT } from '../../services/useT';
 
 interface ErrorStateProps {
   title?: string;

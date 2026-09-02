@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { useAuthStore } from './stores/authStore';
+import { useAuthStore } from './context/authStore';
 import HomePage from './pages/HomePage';
 import MuseumPage from './pages/MuseumPage';
 import VisitPlayerPage from './pages/VisitPlayerPage';

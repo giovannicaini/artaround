@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
-import { useI18nStore } from '../stores/i18nStore';
-import { translate } from '../lib/i18n';
+import { useI18nStore } from '../context/i18nStore';
+import { translate } from './i18n';
 
 // la chiave è il testo italiano stesso, come nel marketplace
 export function useT() {
