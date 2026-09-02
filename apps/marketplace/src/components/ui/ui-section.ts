@@ -24,7 +24,6 @@ export class UiSection extends LitElement {
   @property({ type: String }) description = '';
   @property({ attribute: false }) renderContent: (() => unknown) | null = null;
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -34,7 +33,6 @@ export class UiSection extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     const hasHeader = this.title || this.description;
 

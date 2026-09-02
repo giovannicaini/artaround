@@ -3,25 +3,6 @@ import { customElement, property, state } from 'lit/decorators.js';
 import './ui-icon';
 import './ui-button';
 
-/**
- * UI Page Header
- *
- * A consistent page header with title, description, and action slot.
- *
- * @slot actions - Slot for action buttons
- *
- * @example
- * ```html
- * <ui-page-header
- *   title="Contents"
- *   .description=${__('Gestisci i tuoi contenuti')}
- *   .count=${100}
- *   .countLabel=${__('contenuti totali')}
- * >
- *   <ui-button slot="actions" variant="primary" icon="plus" label="Nuovo"></ui-button>
- * </ui-page-header>
- * ```
- */
 @customElement('ui-page-header')
 export class UiPageHeader extends LitElement {
   @property({ type: String }) title = '';
@@ -33,7 +14,6 @@ export class UiPageHeader extends LitElement {
   @state() private actionsContent: Element[] = [];
   private actionsInitialized = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -41,7 +21,6 @@ export class UiPageHeader extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.style.display = 'block';
-    // Delay capture to ensure children are ready
     requestAnimationFrame(() => {
       if (!this.actionsInitialized) {
         this.captureSlotContent();
@@ -50,9 +29,8 @@ export class UiPageHeader extends LitElement {
     });
   }
 
-  // ─── Actions ──────────────────────────────────────────────
   private captureSlotContent() {
-    // Capture children with slot="actions" attribute - keep original elements (not clones!)
+    // prendo gli elementi originali con slot="actions", non cloni
     const actionsSlotted = Array.from(this.querySelectorAll('[slot="actions"]')) as Element[];
     this.actionsContent = actionsSlotted.map((el) => {
       el.removeAttribute('slot');
@@ -70,10 +48,9 @@ export class UiPageHeader extends LitElement {
   }
 
   protected updated() {
-    // Move actions content to the actions container (not clone - preserves event listeners)
+    // sposto i nodi originali (non cloni, altrimenti perdo gli event listener)
     const actionsContainer = this.querySelector('.page-header-actions');
     if (actionsContainer && this.actionsContent.length > 0) {
-      // Only move if not already there
       this.actionsContent.forEach((node) => {
         if (node.parentElement !== actionsContainer) {
           actionsContainer.appendChild(node);
@@ -82,7 +59,6 @@ export class UiPageHeader extends LitElement {
     }
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     const countText =
       this.count !== undefined ? `${this.count} ${this.countLabel}` : this.countLabel;

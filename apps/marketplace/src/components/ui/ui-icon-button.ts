@@ -2,29 +2,6 @@ import { LitElement, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './ui-icon';
 
-/**
- * UI Icon Button
- *
- * A small button containing only an icon, used for actions in cards/tables.
- *
- * @fires click - Standard click event
- *
- * @example
- * ```html
- * <ui-icon-button
- *   icon="edit"
- *   title="Edit"
- *   @click=${this.handleEdit}
- * ></ui-icon-button>
- *
- * <ui-icon-button
- *   icon="trash"
- *   variant="danger"
- *   title="Delete"
- *   @click=${this.handleDelete}
- * ></ui-icon-button>
- * ```
- */
 @customElement('ui-icon-button')
 export class UiIconButton extends LitElement {
   @property({ type: String }) icon = '';
@@ -33,12 +10,10 @@ export class UiIconButton extends LitElement {
   @property({ type: String }) size: 'xs' | 'sm' | 'md' = 'sm';
   @property({ type: Boolean }) disabled = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
-  // ─── Helpers ──────────────────────────────────────────────
   private getVariantClasses(): string {
     const variants = {
       default:
@@ -71,7 +46,6 @@ export class UiIconButton extends LitElement {
     return iconSizes[this.size] as 'xs' | 'sm' | 'md';
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <button

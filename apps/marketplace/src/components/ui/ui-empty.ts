@@ -29,7 +29,6 @@ export class UiEmpty extends LitElement {
   @state() private actionContent: Element[] = [];
   private actionInitialized = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -44,7 +43,6 @@ export class UiEmpty extends LitElement {
     });
   }
 
-  // ─── Helpers ──────────────────────────────────────────────
   private captureSlotContent() {
     const actionSlotted = Array.from(this.querySelectorAll('[slot="action"]')) as Element[];
     this.actionContent = actionSlotted.map((el) => {
@@ -65,7 +63,6 @@ export class UiEmpty extends LitElement {
     }
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <div class="text-center py-12">

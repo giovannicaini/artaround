@@ -9,7 +9,6 @@ export class UiStatCard extends LitElement {
   @property({ type: Number }) value = 0;
   @property({ type: String }) icon = 'chart';
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -19,7 +18,6 @@ export class UiStatCard extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <ui-card padding="md">

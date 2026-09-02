@@ -12,7 +12,6 @@ export class UiInput extends LitElement {
   @property({ type: Boolean }) required = false;
   @property({ type: Boolean }) disabled = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -22,7 +21,6 @@ export class UiInput extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
   private handleInput(e: Event) {
     const target = e.target as HTMLInputElement;
     this.value = target.value;
@@ -35,7 +33,6 @@ export class UiInput extends LitElement {
     );
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     const inputClasses = `
       block w-full px-3 py-2.5 text-sm rounded-lg border transition-colors duration-150

@@ -10,7 +10,6 @@ export class UiPanelSection extends LitElement {
   @property({ type: String }) description = '';
   @property({ attribute: false }) renderContent: (() => unknown) | null = null;
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -20,7 +19,6 @@ export class UiPanelSection extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <section>

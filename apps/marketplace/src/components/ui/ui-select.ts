@@ -22,7 +22,6 @@ export class UiSelect extends LitElement {
   @property({ type: Boolean }) emojiFont = false;
   @property({ type: Array }) options: SelectOption[] = [];
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -32,7 +31,6 @@ export class UiSelect extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
   private handleChange(e: Event) {
     const target = e.target as HTMLSelectElement;
     this.value = target.value;
@@ -60,7 +58,6 @@ export class UiSelect extends LitElement {
     );
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     const resolvedPlaceholder = this.placeholder || __('Seleziona...');
 

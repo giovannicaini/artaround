@@ -16,7 +16,6 @@ export class UiImagePlaceholder extends LitElement {
   @property({ type: String }) size: PlaceholderSize = 'md';
   @state() private isDark = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -44,7 +43,6 @@ export class UiImagePlaceholder extends LitElement {
 
   private observer?: MutationObserver;
 
-  // ─── Helpers ──────────────────────────────────────────────
   private getSizeClasses(): string {
     const sizes: Record<PlaceholderSize, string> = {
       xs: 'w-6 h-6',
@@ -118,7 +116,6 @@ export class UiImagePlaceholder extends LitElement {
     }
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     const bgClass = this.isDark
       ? 'bg-gradient-to-br from-surface-800 to-surface-900'

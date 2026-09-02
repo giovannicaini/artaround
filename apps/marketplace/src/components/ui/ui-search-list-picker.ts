@@ -21,7 +21,6 @@ export class UiSearchListPicker extends LitElement {
 
   @state() private query = '';
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -31,7 +30,6 @@ export class UiSearchListPicker extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
   private handleSelect(value: string) {
     this.value = value;
     this.dispatchEvent(
@@ -53,7 +51,6 @@ export class UiSearchListPicker extends LitElement {
     return this.options.find((option) => option.value === this.value)?.label ?? this.value;
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     const filtered = this.filteredOptions;
     const resolvedPlaceholder = this.placeholder || __('Cerca...');

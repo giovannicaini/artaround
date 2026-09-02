@@ -86,12 +86,10 @@ export class UiIcon extends LitElement {
   @property({ type: String }) name = 'home';
   @property({ type: String }) size: 'xs' | 'sm' | 'md' | 'lg' = 'md';
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
-  // ─── Helpers ──────────────────────────────────────────────
   private get sizeClasses() {
     const sizes: Record<string, string> = {
       xs: 'w-4 h-4',
@@ -102,7 +100,6 @@ export class UiIcon extends LitElement {
     return sizes[this.size];
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     const path = icons[this.name] || icons.home;
 

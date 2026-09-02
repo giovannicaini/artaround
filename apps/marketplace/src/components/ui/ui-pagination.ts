@@ -24,7 +24,6 @@ export class UiPagination extends LitElement {
   @property({ type: Number }) totalPages = 1;
   @property({ type: Number }) maxVisible = 5;
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -34,7 +33,6 @@ export class UiPagination extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Helpers ──────────────────────────────────────────────
   private handlePageChange(newPage: number) {
     if (newPage < 1 || newPage > this.totalPages || newPage === this.page) return;
     this.dispatchEvent(
@@ -84,7 +82,6 @@ export class UiPagination extends LitElement {
     return pages;
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     if (this.totalPages <= 1) return nothing;
 

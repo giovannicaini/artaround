@@ -32,7 +32,6 @@ export class UiTagInput extends LitElement {
 
   @state() private inputValue = '';
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -42,7 +41,6 @@ export class UiTagInput extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
   private handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter' && this.inputValue.trim()) {
       e.preventDefault();
@@ -81,7 +79,6 @@ export class UiTagInput extends LitElement {
     );
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     const resolvedPlaceholder = this.placeholder || __('Aggiungi...');
     const resolvedEmptyText = this.emptyText || __('Nessun tag aggiunto');

@@ -7,7 +7,6 @@ export class UiColorInput extends LitElement {
   @property({ type: String }) label = '';
   @property({ type: Boolean }) disabled = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -17,7 +16,6 @@ export class UiColorInput extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
   private handleInput(event: Event) {
     const target = event.target as HTMLInputElement;
     this.value = target.value;
@@ -30,7 +28,6 @@ export class UiColorInput extends LitElement {
     );
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <div class="space-y-1.5">

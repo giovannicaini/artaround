@@ -17,7 +17,6 @@ export class UiLoading extends LitElement {
   @property({ type: String }) text = '';
   @property({ type: String }) size: 'sm' | 'md' | 'lg' = 'md';
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -27,7 +26,6 @@ export class UiLoading extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     const sizeClasses = {
       sm: 'w-5 h-5 border',

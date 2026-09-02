@@ -6,33 +6,12 @@ export interface FilterTab {
   label: string;
 }
 
-/**
- * UI Filter Tabs
- *
- * A segmented button group for filtering content.
- *
- * @fires filter-change - Emits the selected filter value
- *
- * @example
- * ```html
- * <ui-filter-tabs
- *   .tabs=${[
- *     { value: 'all', label: 'Tutti' },
- *     { value: 'active', label: 'Attivi' },
- *     { value: 'inactive', label: 'Inattivi' }
- *   ]}
- *   .value=${'all'}
- *   @filter-change=${(e) => this.filter = e.detail.value}
- * ></ui-filter-tabs>
- * ```
- */
 @customElement('ui-filter-tabs')
 export class UiFilterTabs extends LitElement {
   @property({ type: Array }) tabs: FilterTab[] = [];
   @property({ type: String }) value = '';
   @property({ type: String }) size: 'sm' | 'md' = 'md';
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -40,15 +19,10 @@ export class UiFilterTabs extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.style.display = 'block';
-    // Come figlio di un contenitore flex (praticamente ovunque venga usato),
-    // di default un elemento block non si restringe sotto la larghezza
-    // intrinseca del suo contenuto (min-width:auto) — l'overflow-x-auto
-    // interno restava quindi sempre più largo del viewport invece di
-    // diventare scorribile, e le ultime tab finivano tagliate via.
+    // dentro un flex container un block non si restringe sotto min-width:auto
     this.style.minWidth = '0';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
   private handleClick(tabValue: string) {
     if (tabValue === this.value) return;
     this.dispatchEvent(
@@ -60,7 +34,6 @@ export class UiFilterTabs extends LitElement {
     );
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     const sizeClasses = {
       sm: 'px-2 py-1 text-xs',
@@ -68,10 +41,7 @@ export class UiFilterTabs extends LitElement {
     };
     const paddingClass = sizeClasses[this.size];
 
-    // overflow-x-auto sul contenitore esterno invece che sull'inline-flex
-    // stesso: con molte tab (es. i 5 filtri per ruolo) su schermi stretti il
-    // gruppo non entrava e overflow-hidden tagliava via l'ultima voce invece
-    // di renderla scorribile — restava anche inutilizzabile, non solo tagliata.
+    // overflow-x-auto sul contenitore esterno, non sull'inline-flex, per scorrere con molte tab
     return html`
       <div class="overflow-x-auto">
         <div

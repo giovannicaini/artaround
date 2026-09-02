@@ -15,7 +15,6 @@ export class UiRangeSlider extends LitElement {
 
   private sliderRect: DOMRect | null = null;
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -26,7 +25,6 @@ export class UiRangeSlider extends LitElement {
     super.disconnectedCallback();
   }
 
-  // ─── Helpers ──────────────────────────────────────────────
   private get safeSpan() {
     return Math.max(1, this.max - this.min);
   }
@@ -53,7 +51,6 @@ export class UiRangeSlider extends LitElement {
     return Math.abs(this.toPercent - this.fromPercent) < 18;
   }
 
-  // ─── Actions ──────────────────────────────────────────────
   private emitChange(nextFrom: number, nextTo: number) {
     this.dispatchEvent(
       new CustomEvent('range-change', {
@@ -150,7 +147,6 @@ export class UiRangeSlider extends LitElement {
     this.emitChange(this.safeFrom, Math.max(bounded, this.safeFrom));
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <div class="space-y-2 ${this.disabled ? 'opacity-60' : ''}">

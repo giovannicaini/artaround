@@ -24,7 +24,6 @@ export class UiCheckbox extends LitElement {
   @property({ type: Boolean }) checked = false;
   @property({ type: Boolean }) disabled = false;
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -34,7 +33,6 @@ export class UiCheckbox extends LitElement {
     this.style.display = 'block';
   }
 
-  // ─── Actions ──────────────────────────────────────────────
   private handleChange(e: Event) {
     const target = e.target as HTMLInputElement;
     this.dispatchEvent(
@@ -46,7 +44,6 @@ export class UiCheckbox extends LitElement {
     );
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <label class="flex items-start gap-3 cursor-pointer group">

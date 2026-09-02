@@ -9,12 +9,10 @@ export class UiMuseumRequiredNotice extends LitElement {
   @property({ type: String }) subject = 'risorse';
   @property({ type: String }) buttonLabel = '';
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
-  // ─── Actions ──────────────────────────────────────────────
   private handleSelectMuseum() {
     this.dispatchEvent(
       new CustomEvent('select-museum', {
@@ -24,7 +22,6 @@ export class UiMuseumRequiredNotice extends LitElement {
     );
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     const resolvedButtonLabel = this.buttonLabel || __('Seleziona museo');
 

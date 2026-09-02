@@ -9,12 +9,10 @@ export class UiBrandMark extends LitElement {
   @property({ type: String }) textClass = 'font-semibold text-surface-900 dark:text-white';
   @property({ type: String }) iconSizeClass = 'w-8 h-8';
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <div class=${this.containerClass}>
