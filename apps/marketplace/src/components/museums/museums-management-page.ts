@@ -139,11 +139,11 @@ interface NavigatorImageEditorDefinition {
 }
 
 /**
- * Museum Management Page
+ * Pagina Gestione Musei
  *
- * Admin interface for managing museums and curator assignments.
- * Only admins can create/delete museums.
- * Admins and curators can edit museums they have access to.
+ * Interfaccia admin per gestire musei e assegnazioni curatori.
+ * Solo gli admin possono creare/eliminare musei.
+ * Admin e curatori possono modificare i musei a cui hanno accesso.
  */
 @customElement('museums-management-page')
 export class MuseumsManagementPage extends LitElement {
@@ -1046,7 +1046,7 @@ export class MuseumsManagementPage extends LitElement {
     if (!this.currentUser) return false;
     if (this.currentUser.role === UserRole.ADMIN) return true;
 
-    // Check if user is a curator of this museum
+    // Controlla se l'utente è curatore di questo museo
     return (
       this.currentUser.roleAssignments?.some(
         (assignment) =>
@@ -1480,7 +1480,7 @@ export class MuseumsManagementPage extends LitElement {
     this.loadingUsers = true;
     try {
       const response = await userService.getUsers({ limit: 100, isActive: true });
-      // Filter out users who are already curators
+      // Esclude gli utenti già curatori
       const curatorIds = new Set(this.curators.map((c) => c._id));
       this.availableUsers = response.users.filter((u) => !curatorIds.has(u._id));
     } catch (e) {
@@ -1557,7 +1557,7 @@ export class MuseumsManagementPage extends LitElement {
     e.preventDefault();
     this.error = '';
 
-    // Validation: wikidataId is required for new museums
+    // Validazione: wikidataId è obbligatorio per i nuovi musei
     if (this.viewMode === 'create' && !this.formData.wikidataId) {
       this.error = __('Seleziona un museo da Wikidata prima di continuare');
       return;

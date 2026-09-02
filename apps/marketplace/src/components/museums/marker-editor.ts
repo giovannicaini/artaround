@@ -16,9 +16,9 @@ import '../ui/ui-image-placeholder';
 import { __ } from '../../services/i18n.service';
 
 /**
- * Marker Editor Component
+ * Componente Marker Editor
  *
- * Panel for adding/editing map markers (POI)
+ * Pannello per aggiungere/modificare i marker sulla mappa (POI)
  */
 @customElement('marker-editor')
 export class MarkerEditor extends LitElement {
@@ -65,7 +65,7 @@ export class MarkerEditor extends LitElement {
   }
 
   updated(changedProperties: Map<string, unknown>) {
-    // When a marker is selected, switch to the list tab
+    // Quando si seleziona un marker, passa alla tab lista
     if (changedProperties.has('selectedMarker') && this.selectedMarker) {
       this.activeTab = 'list';
     }
@@ -260,7 +260,7 @@ export class MarkerEditor extends LitElement {
       `;
     }
 
-    // Get selected marker's artwork for focal point editor
+    // Ottiene l'opera del marker selezionato per l'editor del punto focale
     const selectedArtwork = this.selectedMarker?.artworkId
       ? this.artworks.find((a) => a.wikidataId === this.selectedMarker?.artworkId)
       : null;
@@ -270,10 +270,10 @@ export class MarkerEditor extends LitElement {
         ${this.markers.map((marker) => this.renderMarkerItem(marker))}
       </div>
 
-      <!-- Edit Form (when marker is selected) -->
+      <!-- Form di modifica (quando un marker è selezionato) -->
       ${this.selectedMarker ? this.renderEditForm() : nothing}
 
-      <!-- Focal Point Editor (when artwork marker is selected) -->
+      <!-- Editor punto focale (quando è selezionato un marker opera) -->
       ${selectedArtwork?.image ? this.renderFocalPointEditor(selectedArtwork) : nothing}
     `;
   }
@@ -431,7 +431,7 @@ export class MarkerEditor extends LitElement {
     const focalY = this.selectedMarker?.focalPoint?.y ?? 50;
     const focalZoom = this.selectedMarker?.focalZoom ?? 1;
 
-    // Calculate image transform: we move the image so that the focal point is at center
+    // Calcola la trasformazione dell'immagine: la sposta perché il punto focale finisca al centro
     // offsetX/Y: how much to shift the image (negative = image moves left/up)
     const offsetX = (50 - focalX) * focalZoom;
     const offsetY = (50 - focalY) * focalZoom;
@@ -522,8 +522,8 @@ export class MarkerEditor extends LitElement {
     const startFocalY = this.selectedMarker.focalPoint?.y ?? 50;
     const zoom = this.selectedMarker.focalZoom ?? 1;
     // Calculate limits based on zoom
-    // When zoom = 1, image fits exactly, so focal must be 50 (no movement)
-    // When zoom = 2, image is 2x larger, so focal can be 25-75
+    // Con zoom = 1 l'immagine combacia esattamente, quindi il focal deve essere 50 (nessun movimento)
+    // Con zoom = 2 l'immagine è 2x più grande, quindi il focal può andare da 25 a 75
     // Formula: min = 50/zoom, max = 100 - 50/zoom
     const minFocal = 50 / zoom;
     const maxFocal = 100 - 50 / zoom;
@@ -616,7 +616,7 @@ export class MarkerEditor extends LitElement {
     const delta = e.deltaY > 0 ? -0.2 : 0.2;
     const newZoom = Math.max(1, Math.min(10, currentZoom + delta));
 
-    // Recalculate limits for new zoom and clamp focal point
+    // Ricalcola i limiti per il nuovo zoom e vincola il punto focale
     const minFocal = 50 / newZoom;
     const maxFocal = 100 - 50 / newZoom;
     const newFocalX = Math.max(minFocal, Math.min(maxFocal, currentFocalX));

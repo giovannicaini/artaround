@@ -8,9 +8,9 @@ import '../ui/ui-icon-button';
 import { __ } from '../../services/i18n.service';
 
 /**
- * Floor Manager Component
+ * Componente Floor Manager
  *
- * Manages museum floors - add, edit, delete floors and upload SVG maps
+ * Gestisce i piani del museo - aggiunge, modifica, elimina piani e carica piantine SVG
  */
 @customElement('floor-manager')
 export class FloorManager extends LitElement {

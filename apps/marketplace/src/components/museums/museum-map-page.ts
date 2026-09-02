@@ -25,9 +25,9 @@ import '../ui/ui-icon';
 import { __ } from '../../services/i18n.service';
 
 /**
- * Museum Map Page
+ * Pagina Piantina Museo
  *
- * Full page for managing museum floor maps, markers, and artwork positions
+ * Pagina completa per gestire piantine, marker e posizioni delle opere del museo
  */
 @customElement('museum-map-page')
 export class MuseumMapPage extends LitElement {
@@ -122,7 +122,7 @@ export class MuseumMapPage extends LitElement {
       this.loading = true;
       this.error = null;
 
-      // Load museum details, floors and rooms
+      // Carica dettagli museo, piani e sale
       const [museum, floors, artworksResponse, rooms] = await Promise.all([
         museumService.getMuseum(this.museumId),
         museumService.getFloors(this.museumId),
@@ -135,7 +135,7 @@ export class MuseumMapPage extends LitElement {
       this.artworks = artworksResponse || [];
       this.rooms = rooms || [];
 
-      // Select first floor by default
+      // Seleziona il primo piano di default
       if (this.floors.length > 0 && !this.selectedFloorId) {
         this.selectedFloorId = this.floors[0].id;
       }
@@ -487,7 +487,7 @@ export class MuseumMapPage extends LitElement {
     try {
       await museumService.addMarker(this.museumId, this.selectedFloorId, marker);
 
-      // Update local state
+      // Aggiorna lo stato locale
       this.floors = this.floors.map((f) => {
         if (f.id === this.selectedFloorId) {
           return {
@@ -508,7 +508,7 @@ export class MuseumMapPage extends LitElement {
   private handleMarkerDrag(e: CustomEvent) {
     const { markerId, x, y } = e.detail;
 
-    // Update local state immediately for smooth drag
+    // Aggiorna subito lo stato locale per un drag fluido
     this.floors = this.floors.map((f) => {
       if (f.id === this.selectedFloorId) {
         return {
@@ -549,7 +549,7 @@ export class MuseumMapPage extends LitElement {
     try {
       await museumService.deleteMarker(this.museumId, this.selectedFloorId, marker.id);
 
-      // Update local state
+      // Aggiorna lo stato locale
       this.floors = this.floors.map((f) => {
         if (f.id === this.selectedFloorId) {
           return {
@@ -738,7 +738,7 @@ export class MuseumMapPage extends LitElement {
     try {
       this.saving = true;
 
-      // Save all floors with their markers
+      // Salva tutti i piani con i loro marker
       for (const floor of this.floors) {
         if (floor.markers && floor.markers.length > 0) {
           await museumService.updateMarkers(this.museumId, floor.id, floor.markers);

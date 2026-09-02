@@ -25,9 +25,9 @@ export interface MapClickEvent {
 }
 
 /**
- * SVG Map Editor Component
+ * Componente SVG Map Editor
  *
- * Allows viewing and editing museum floor maps with draggable markers
+ * Permette di visualizzare e modificare le piantine del museo con marker trascinabili
  */
 @customElement('svg-map-editor')
 export class SvgMapEditor extends LitElement {
@@ -282,13 +282,13 @@ export class SvgMapEditor extends LitElement {
   private renderMarker(marker: MapMarker) {
     const isSelected = this.selectedMarkerId === marker.id;
 
-    // Find artwork image if this is an artwork marker
+    // Trova l'immagine dell'opera se questo è un marker opera
     const artwork = marker.artworkId
       ? this.artworks.find((a) => a.wikidataId === marker.artworkId)
       : null;
     const hasImage = artwork?.image;
 
-    // Get focal point and zoom settings
+    // Ottiene punto focale e impostazioni zoom
     const focalX = marker.focalPoint?.x ?? 50;
     const focalY = marker.focalPoint?.y ?? 50;
     const focalZoom = marker.focalZoom ?? 1;
@@ -359,7 +359,7 @@ export class SvgMapEditor extends LitElement {
                 </div>
               `}
 
-          <!-- Label: only visible when selected -->
+          <!-- Etichetta: visibile solo se selezionato -->
           ${isSelected && (marker.label || artwork?.title)
             ? html`
                 <div
@@ -562,7 +562,7 @@ export class SvgMapEditor extends LitElement {
   }
 
   private handleMouseDown(e: MouseEvent) {
-    // Pan with middle mouse button (1) or right click (2), or left click when holding space
+    // Pan col tasto centrale (1), destro (2), o sinistro tenendo premuto spazio
     if (e.button === 1 || e.button === 2 || (!this.editMode && e.button === 0)) {
       e.preventDefault();
       this.isDragging = true;
