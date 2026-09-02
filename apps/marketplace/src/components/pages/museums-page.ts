@@ -42,7 +42,6 @@ export class MuseumsPage extends LitElement {
   @state() private museumStats: Map<string, MuseumStats> = new Map();
   @state() private loadingStats = false;
 
-  // ─── Render Helpers ──────────────────────────────────────
   private renderMuseumTag(type: MuseumTagType) {
     const config: Record<MuseumTagType, { label: string; classes: string }> = {
       selected: {
@@ -159,7 +158,6 @@ export class MuseumsPage extends LitElement {
     );
   }
 
-  // ─── Table Configuration ─────────────────────────────────
   private get columns(): TableColumn[] {
     return [
       {
@@ -255,7 +253,6 @@ export class MuseumsPage extends LitElement {
     ];
   }
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -266,7 +263,6 @@ export class MuseumsPage extends LitElement {
     this.currentSelectedMuseumId = preferencesService.getSelectedMuseum()?._id || '';
   }
 
-  // ─── Data Loading ────────────────────────────────────────
   private async loadMuseums() {
     this.loading = true;
     this.error = '';
@@ -317,7 +313,6 @@ export class MuseumsPage extends LitElement {
     }
   }
 
-  // ─── Filtering / Actions ─────────────────────────────────
   private getMuseumRoles(museumId: string): string[] {
     if (!this.user?.roleAssignments) return [];
 
@@ -393,7 +388,6 @@ export class MuseumsPage extends LitElement {
     `;
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       <div class="${this.embedded ? 'space-y-4' : 'space-y-6 animate-fade-in'}">

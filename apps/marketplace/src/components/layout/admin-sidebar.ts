@@ -25,7 +25,6 @@ export class AdminSidebar extends LitElement {
   @state() private mobileOpen = false;
   @state() private selectedMuseum: { _id: string; name: string } | null = null;
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -43,7 +42,6 @@ export class AdminSidebar extends LitElement {
     super.disconnectedCallback();
   }
 
-  // ─── Actions & Computed ──────────────────────────────────
   private handleMuseumChanged = (event: CustomEvent) => {
     this.selectedMuseum = event.detail || null;
   };
@@ -152,7 +150,6 @@ export class AdminSidebar extends LitElement {
     );
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
   private renderMenuItem(item: MenuItem, collapsed = this.collapsed) {
     const isActive = this.currentRoute === item.id;
     const isDisabled = Boolean(item.requiresMuseum && !this.selectedMuseum);
@@ -262,7 +259,6 @@ export class AdminSidebar extends LitElement {
     `;
   }
 
-  // ─── Render Entry ────────────────────────────────────────
   render() {
     const sidebarWidth = this.collapsed ? 'w-16' : 'w-64';
     return html`
@@ -355,7 +351,6 @@ export class AdminSidebar extends LitElement {
     `;
   }
 
-  // ─── Public API ──────────────────────────────────────────
   public toggleMobile() {
     this.mobileOpen = !this.mobileOpen;
   }

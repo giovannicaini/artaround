@@ -28,12 +28,6 @@ import '../ui/ui-tag-input';
 import '../ui/ui-museum-required-notice';
 import { __ } from '../../services/i18n.service';
 
-/**
- * Artwork Creator/Editor Component
- *
- * Used to create new physical artworks or edit existing ones.
- * Supports Wikidata integration for auto-filling artwork info.
- */
 @customElement('artwork-creator')
 export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
   @property({ type: String }) artworkId = ''; // For edit mode
@@ -110,7 +104,6 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     ];
   }
 
-  // ─── Lifecycle ───────────────────────────────────────────
   async connectedCallback() {
     super.connectedCallback();
     await this.loadMuseums();
@@ -130,7 +123,6 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
-  // ─── Data Loading ────────────────────────────────────────
   private async loadMuseums() {
     try {
       this.museums = await museumService.getMuseums();
@@ -178,7 +170,6 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
-  // ─── Wikidata Helpers ────────────────────────────────────
   private clearWikidataAutocomplete() {
     const autocomplete = this.querySelector('wikidata-autocomplete') as {
       clearSelection?: () => void;
@@ -476,7 +467,6 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     this.clearPendingWikidataField('movement');
   }
 
-  // ─── Validation & Submit ─────────────────────────────────
   private getDimensionsDisplayText(): string {
     const parts: string[] = [];
     if (this.dimensionHeight) parts.push(`${this.dimensionHeight}`);
@@ -582,7 +572,6 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
-  // ─── Form State Helpers ──────────────────────────────────
   private resetForm() {
     this.wikidataId = '';
     this.artworkTitle = '';
@@ -618,7 +607,6 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     );
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
   private renderFormSection(
     title: string,
     icon: string,
@@ -639,7 +627,6 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
-  // ─── Render Entry ────────────────────────────────────────
   render() {
     if (this.loadingArtwork) {
       return html`<ui-loading size="lg" .text=${__('Caricamento opera...')}></ui-loading>`;

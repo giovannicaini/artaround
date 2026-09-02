@@ -47,11 +47,6 @@ interface UserFormData {
   isActive: boolean;
 }
 
-/**
- * Users Management Page
- *
- * Admin interface for managing users, roles, and contextual role assignments.
- */
 @customElement('users-page')
 export class UsersPage extends LitElement {
   @property({ type: Object }) currentUser: User | null = null;
@@ -103,7 +98,6 @@ export class UsersPage extends LitElement {
     resourceId: '',
   };
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -139,7 +133,6 @@ export class UsersPage extends LitElement {
     }
   }
 
-  // ─── Data Loading ────────────────────────────────────────
   private async loadUsers() {
     this.loading = true;
     this.error = '';
@@ -168,7 +161,6 @@ export class UsersPage extends LitElement {
     }
   }
 
-  // ─── Actions (Filters / CRUD / Roles) ───────────────────
   private handleFilterRole(role: UserRole | '') {
     this.filterRole = role;
     this.page = 1;
@@ -388,7 +380,6 @@ export class UsersPage extends LitElement {
     }
   }
 
-  // ─── Render Entry ────────────────────────────────────────
   render() {
     return html`
       <div class="users-page">
@@ -400,7 +391,6 @@ export class UsersPage extends LitElement {
     `;
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
   private renderList() {
     return html`
       <!-- Header -->

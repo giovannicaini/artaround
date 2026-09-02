@@ -138,13 +138,6 @@ interface NavigatorImageEditorDefinition {
   defaultFormat: 'png' | 'webp';
 }
 
-/**
- * Museum Management Page
- *
- * Admin interface for managing museums and curator assignments.
- * Only admins can create/delete museums.
- * Admins and curators can edit museums they have access to.
- */
 @customElement('museums-management-page')
 export class MuseumsManagementPage extends LitElement {
   private readonly navigatorImageEditors: NavigatorImageEditorDefinition[] = [
@@ -283,7 +276,6 @@ export class MuseumsManagementPage extends LitElement {
     ];
   }
 
-  // ─── Lifecycle ───────────────────────────────────────────
   createRenderRoot() {
     return this;
   }
@@ -329,7 +321,6 @@ export class MuseumsManagementPage extends LitElement {
     super.disconnectedCallback();
   }
 
-  // ─── Form & Navigator Helpers ────────────────────────────
   private getEmptyFormData(): MuseumFormData {
     return {
       wikidataId: '',
@@ -1057,7 +1048,6 @@ export class MuseumsManagementPage extends LitElement {
     );
   }
 
-  // ─── Data Loading ────────────────────────────────────────
   private async loadMuseums() {
     this.loading = true;
     this.error = '';
@@ -1319,7 +1309,6 @@ export class MuseumsManagementPage extends LitElement {
     `;
   }
 
-  // ─── Actions (Modes / Curators / CRUD) ───────────────────
   private openCreateForm() {
     this.formData = this.getEmptyFormData();
     this.viewMode = 'create';
@@ -1733,7 +1722,6 @@ export class MuseumsManagementPage extends LitElement {
     }
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
   private renderNavigatorColorField(
     config: NavigatorConfigFormData,
     key: NavigatorColorFieldKey,
@@ -1931,7 +1919,6 @@ export class MuseumsManagementPage extends LitElement {
     `;
   }
 
-  // ─── Sale (gestione parallela ai marker) ─────────────────
   private roomLabel(room: MuseumRoom): string {
     return room.subtitle ? `${room.title} — ${room.subtitle}` : room.title;
   }
@@ -2394,7 +2381,6 @@ export class MuseumsManagementPage extends LitElement {
     `;
   }
 
-  // ─── Render Entry ────────────────────────────────────────
   render() {
     const isFocusedConfigMode = this.configMode !== 'full';
 
@@ -2436,7 +2422,6 @@ export class MuseumsManagementPage extends LitElement {
     `;
   }
 
-  // ─── View Renderers ──────────────────────────────────────
   private renderList() {
     const museums = this.sortedMuseums;
 

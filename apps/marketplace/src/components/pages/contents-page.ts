@@ -44,12 +44,6 @@ import '../items/item-creator';
 import { __ } from '../../services/i18n.service';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'view';
-/**
- * Contents Page
- *
- * Displays and manages content Items (text/audio descriptions).
- * Each Item is a single content piece with a specific duration and language level.
- */
 @customElement('contents-page')
 export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
   @property({ type: Object }) user: User | null = null;
@@ -79,7 +73,6 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
   @state() private filterLanguageLevel: LanguageLevel | '' = '';
   @state() private filterIsFree: 'true' | 'false' | '' = '';
 
-  // ─── Computed State ──────────────────────────────────────
   private get permissions(): PermissionSet {
     return getPermissions(this.user);
   }
@@ -108,7 +101,6 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     return LANGUAGE_LEVEL_OPTIONS_IT.map((option) => ({ ...option, label: __(option.label) }));
   }
 
-  // ─── Lifecycle ───────────────────────────────────────────
   connectedCallback() {
     super.connectedCallback();
     this.loadItems();
@@ -125,7 +117,6 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     this.loadItems();
   }
 
-  // ─── Data Loading ────────────────────────────────────────
   /**
    * Applica i filtri attivi (tipo riferimento, durata, livello, gratuito/a
    * pagamento) + ricerca testuale a un array di item in memoria — usato in
@@ -230,7 +221,6 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     this.applyFilters();
   }
 
-  // ─── List / Form Actions ─────────────────────────────────
   private handleViewItem(item: Item) {
     this.selectedItem = item;
     this.viewMode = 'view';
@@ -300,7 +290,6 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     this.selectedItem = null;
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
   private renderSelectedItemImage() {
     const item = this.selectedItem;
     if (!item) return nothing;
@@ -793,7 +782,6 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     return html`
       ${this.viewMode === 'create'

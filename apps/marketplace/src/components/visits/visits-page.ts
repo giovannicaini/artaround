@@ -29,11 +29,6 @@ import { __ } from '../../services/i18n.service';
 
 type ViewMode = 'list' | 'create' | 'edit';
 
-/**
- * Visits Page
- *
- * Displays and manages Visits (percorsi di visita).
- */
 @customElement('visits-page')
 export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
   @property({ type: Object }) user: User | null = null;
@@ -51,12 +46,10 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
   @state() private filterPublished: 'all' | 'published' | 'draft' = 'all';
   @state() private publishing = false;
 
-  // ─── Computed State ──────────────────────────────────────
   private get permissions(): PermissionSet {
     return getPermissions(this.user);
   }
 
-  // ─── Lifecycle ───────────────────────────────────────────
   connectedCallback() {
     super.connectedCallback();
     this.loadVisits();
@@ -72,7 +65,6 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     this.loadVisits();
   }
 
-  // ─── Data Loading / Filters ──────────────────────────────
   private async loadVisits() {
     this.loading = true;
     this.error = '';
@@ -120,7 +112,6 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     return filtered;
   }
 
-  // ─── List / Form Actions ─────────────────────────────────
   private handleCreateVisit() {
     this.selectedVisit = null;
     this.viewMode = 'create';
@@ -208,7 +199,6 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     this.backToListView();
   }
 
-  // ─── Render Helpers ──────────────────────────────────────
   private renderVisitsList() {
     return html`
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -307,7 +297,6 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
-  // ─── Render ──────────────────────────────────────────────
   render() {
     if (this.viewMode === 'create' || this.viewMode === 'edit') {
       return html`
