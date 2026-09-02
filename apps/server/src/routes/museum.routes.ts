@@ -160,7 +160,39 @@ router.post(
   MuseumController.create,
 );
 
-// Update: admin o curatore di questo museo
+/**
+ * @swagger
+ * /api/museums/{id}:
+ *   put:
+ *     tags: [Museums]
+ *     summary: Aggiorna un museo (Admin o curatore del museo)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Museo aggiornato
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/Museum'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         $ref: '#/components/responses/ForbiddenError'
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ */
 router.put(
   '/:id',
   authMiddleware,
@@ -168,6 +200,43 @@ router.put(
   MuseumController.update,
 );
 
+/**
+ * @swagger
+ * /api/museums/{id}/sync-languages:
+ *   post:
+ *     tags: [Museums]
+ *     summary: Sincronizza le lingue attive del museo (Admin o curatore del museo)
+ *     description: Aggiorna activeLanguages e rigenera le traduzioni mancanti degli item del museo per le lingue attive.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [activeLanguages]
+ *             properties:
+ *               activeLanguages:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Lingue sincronizzate, con il riepilogo delle traduzioni item aggiornate
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         $ref: '#/components/responses/ForbiddenError'
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ */
 router.post(
   '/:id/sync-languages',
   authMiddleware,
@@ -176,12 +245,31 @@ router.post(
   MuseumController.syncLanguages,
 );
 
-// Delete: solo admin
+/**
+ * @swagger
+ * /api/museums/{id}:
+ *   delete:
+ *     tags: [Museums]
+ *     summary: Elimina un museo (Admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Museo eliminato
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         $ref: '#/components/responses/ForbiddenError'
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ */
 router.delete('/:id', authMiddleware, roleMiddleware(UserRole.ADMIN), MuseumController.delete);
-
-// ========================================
-// ROTTE GESTIONE CURATORI
-// ========================================
 
 /**
  * @swagger
@@ -230,10 +318,6 @@ router.delete(
   roleMiddleware(UserRole.ADMIN),
   MuseumController.removeCurator,
 );
-
-// ========================================
-// ROTTE PIANI
-// ========================================
 
 /**
  * @swagger
@@ -306,11 +390,6 @@ router.delete(
   resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
   MuseumController.deleteFloor,
 );
-
-// ========================================
-// ROTTE SALE (gestione parallela ai marker: nome in "Modifica Museo",
-// contorno poligonale in "Piantina e mappa")
-// ========================================
 
 /**
  * @swagger
@@ -396,10 +475,6 @@ router.delete(
   MuseumController.deleteRoom,
 );
 
-// ========================================
-// ROTTE MARKER (POI)
-// ========================================
-
 /**
  * @swagger
  * /api/museums/{id}/floors/{floorId}/markers:
@@ -465,10 +540,6 @@ router.delete(
   resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
   MuseumController.deleteMarker,
 );
-
-// ========================================
-// ROTTE COLLEGAMENTI (scale, ascensori)
-// ========================================
 
 /**
  * @swagger

@@ -1,3 +1,9 @@
+/*
+ * Tutte le rotte qui si riferiscono a /api/....
+ * Le altre sono definite in server/srv/index.ts
+ * Tutti i commenti JSdoc (elaborati da LLM) servono per popolare i dati di Swagger
+ */
+
 import { Router } from 'express';
 import authRoutes from './auth.routes.js';
 import museumRoutes from './museum.routes.js';
@@ -11,7 +17,17 @@ import userRoutes from './user.routes.js';
 
 const router = Router();
 
-// Info API - endpoint root
+/**
+ * @swagger
+ * /api:
+ *   get:
+ *     tags: [Utils]
+ *     summary: Info API
+ *     description: Endpoint root, elenca gli endpoint disponibili
+ *     responses:
+ *       200:
+ *         description: Elenco endpoint dell'API
+ */
 router.get('/', (req, res) => {
   res.json({
     success: true,
@@ -84,7 +100,17 @@ router.get('/', (req, res) => {
   });
 });
 
-// Controllo di stato
+/**
+ * @swagger
+ * /api/health:
+ *   get:
+ *     tags: [Utils]
+ *     summary: Controllo di stato
+ *     description: Verifica che il server sia in esecuzione
+ *     responses:
+ *       200:
+ *         description: Server raggiungibile
+ */
 router.get('/health', (req, res) => {
   res.json({
     success: true,
@@ -93,7 +119,6 @@ router.get('/health', (req, res) => {
   });
 });
 
-// Monta le rotte
 router.use('/auth', authRoutes);
 router.use('/museums', museumRoutes);
 router.use('/artworks', artworkRoutes);

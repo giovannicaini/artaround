@@ -5,6 +5,23 @@ import { UserRole } from '@artaround/shared';
 
 const router = Router();
 
+/**
+ * @swagger
+ * /api/utils/navigator-default-configs:
+ *   get:
+ *     tags: [Utils]
+ *     summary: Configurazioni di default del Navigator (Admin only)
+ *     description: Ottiene le configurazioni Navigator di piattaforma, usate quando un museo non ha un proprio navigatorConfig
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista configurazioni di default
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         $ref: '#/components/responses/ForbiddenError'
+ */
 router.get(
   '/navigator-default-configs',
   authMiddleware,
@@ -12,12 +29,49 @@ router.get(
   UtilsController.getNavigatorDefaultConfigs,
 );
 
-// Stessi dati, senza autenticazione: li legge l'app Navigator (usata anche
-// da visitatori anonimi) per applicare il tema/copy di piattaforma quando
-// un museo non ha un proprio navigatorConfig. La route sopra resta per la
-// pagina admin che li edita (stesso controller, non serve duplicarlo).
+/**
+ * @swagger
+ * /api/utils/navigator-default-config:
+ *   get:
+ *     tags: [Utils]
+ *     summary: Configurazioni di default del Navigator (pubblico)
+ *     description: Stessi dati di /navigator-default-configs ma senza autenticazione — usata dall'app Navigator, anche da visitatori anonimi.
+ *     responses:
+ *       200:
+ *         description: Lista configurazioni di default
+ */
 router.get('/navigator-default-config', UtilsController.getNavigatorDefaultConfigs);
 
+/**
+ * @swagger
+ * /api/utils/navigator-default-configs:
+ *   put:
+ *     tags: [Utils]
+ *     summary: Aggiorna le configurazioni di default del Navigator (Admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [navigatorConfigs]
+ *             properties:
+ *               navigatorConfigs:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *     responses:
+ *       200:
+ *         description: Configurazioni aggiornate
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         $ref: '#/components/responses/ForbiddenError'
+ */
 router.put(
   '/navigator-default-configs',
   authMiddleware,
@@ -226,6 +280,45 @@ router.post(
   UtilsController.translate,
 );
 
+/**
+ * @swagger
+ * /api/utils/translate-batch:
+ *   post:
+ *     tags: [Utils]
+ *     summary: Traduci più testi in blocco
+ *     description: Traduce una lista di testi (ognuno con la propria lingua di destinazione) in un'unica chiamata OpenAI
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [sourceLang, items]
+ *             properties:
+ *               sourceLang:
+ *                 type: string
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required: [key, text, targetLang]
+ *                   properties:
+ *                     key:
+ *                       type: string
+ *                     text:
+ *                       type: string
+ *                     targetLang:
+ *                       type: string
+ *     responses:
+ *       200:
+ *         description: Traduzioni per ogni chiave inviata
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 router.post(
   '/translate-batch',
   authMiddleware,
