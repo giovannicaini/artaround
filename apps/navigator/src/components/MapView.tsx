@@ -15,11 +15,7 @@ interface ArtworkInfo {
   image: string;
 }
 
-// Un curatore può segnare un'opera come ARTWORK, SCULPTURE o PAINTING a
-// seconda del tipo — sono comunque tutte "un'opera" ai fini della mappa
-// (percorso, filtro sul giro, miniatura con immagine). getVisitRoutePoints
-// del marketplace le tratta già tutte allo stesso modo cercando solo
-// marker.artworkId, senza guardare il type.
+// ARTWORK, SCULPTURE e PAINTING sono comunque tutte "un'opera" per la mappa
 function isArtworkMarker(type: MarkerType): boolean {
   return (
     type === MarkerType.ARTWORK || type === MarkerType.SCULPTURE || type === MarkerType.PAINTING
@@ -32,17 +28,13 @@ interface MapViewProps {
   artworkInfo?: Record<string, ArtworkInfo>; // titolo+immagine per Wikidata ID, per i marker-opera e la conferma di salto
   currentArtworkId?: string; // The artwork currently being viewed (Wikidata ID)
   visitArtworkIds?: string[]; // All artworks in the visit, in order (Wikidata IDs)
-  // Marker qualsiasi (ingresso, bar, info point...) a cui una tappa LOGISTIC/
-  // NAVIGATION è stata associata dal curatore: apre la mappa già centrata ed
-  // evidenziata lì, non solo sulle opere. Ignorato se currentArtworkId trova
-  // già un marker (l'opera in ascolto resta la priorità).
+  // marker associato a una tappa LOGISTIC/NAVIGATION, ignorato se c'è già currentArtworkId
   focusMarkerId?: string;
   onMarkerClick?: (marker: MapMarker) => void;
   onClose?: () => void;
 }
 
-// Icon mapping for marker types — funzione (non costante di modulo) perché
-// le etichette vanno tradotte con la lingua corrente.
+// funzione, non costante, perché le etichette vanno tradotte con la lingua corrente
 function buildMarkerIcons(
   t: (text: string) => string,
 ): Record<MarkerType, { icon: string; color: string; label: string }> {
@@ -76,8 +68,7 @@ function buildMarkerIcons(
     [MarkerType.ESCALATOR]: { icon: '🎢', color: 'bg-orange-600', label: t('Scala mobile') },
     [MarkerType.RAMP]: { icon: '🛤️', color: 'bg-yellow-600', label: t('Rampa') },
     [MarkerType.GALLERY]: { icon: '🖼️', color: 'bg-surface-600', label: t('Galleria') },
-    // Non è un punto di interesse: serve solo a far piegare il percorso disegnato sulla
-    // mappa, non va mai reso come marker cliccabile per il visitatore.
+    // solo per piegare il percorso disegnato, mai un marker cliccabile
     [MarkerType.WAYPOINT]: { icon: '', color: 'bg-transparent', label: t('Waypoint') },
   };
 }
@@ -100,18 +91,14 @@ export default function MapView({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showLegend, setShowLegend] = useState(false);
-  // Marker-opera cliccato in attesa di conferma prima di saltare a
-  // quell'opera nella guida — mai un salto diretto senza chiedere.
+  // marker-opera cliccato, in attesa di conferma prima di saltarci
   const [pendingMarker, setPendingMarker] = useState<MapMarker | null>(null);
-  // Marker di servizio (bagni, ascensori...) cliccato: niente etichetta
-  // sempre visibile sulla mappa, la descrizione si apre solo al click.
+  // marker di servizio cliccato, la descrizione si apre solo al click
   const [infoMarker, setInfoMarker] = useState<MapMarker | null>(null);
 
   const floors = map.floors || [];
 
-  // Il piano di apertura è quello dell'opera che si stava guardando; se non
-  // c'è (tappa LOGISTIC/NAVIGATION) ma la tappa è associata a un punto della
-  // mappa, quello del punto; altrimenti il primo piano disponibile.
+  // piano dell'opera in ascolto, o del punto associato, o il primo disponibile
   const [selectedFloorId, setSelectedFloorId] = useState<string>(() => {
     if (currentArtworkId) {
       const floorWithArtwork = floors.find((f) =>
@@ -143,15 +130,13 @@ export default function MapView({
     [routePoints, selectedFloorId],
   );
 
-  // Cambiare piano ricentra la vista: dimensioni e contenuto sono diversi.
   function handleSelectFloor(floorId: string) {
     setSelectedFloorId(floorId);
     setScale(1);
     setPosition({ x: 0, y: 0 });
   }
 
-  // Centra sull'opera in ascolto, o sul punto associato alla tappa
-  // LOGISTIC/NAVIGATION corrente quando non c'è un'opera.
+  // centra sull'opera in ascolto, o sul punto associato se non c'è un'opera
   useEffect(() => {
     if (!containerRef.current) return;
     const targetMarker = currentArtworkId
@@ -207,10 +192,7 @@ export default function MapView({
 
   const handleTouchEnd = () => setIsDragging(false);
 
-  // Percorso "a cammino" sul piano corrente: una curva morbida (niente
-  // spigoli sulle svolte) che passa anche per i waypoint — le svolte mute
-  // intorno ai muri — ma solo le opere ricevono un marker cliccabile, un
-  // waypoint non è mai una tappa per il visitatore.
+  // curva morbida che passa anche per i waypoint, ma solo le opere sono cliccabili
   const visitPath = useMemo(
     () => (floorRoutePoints.length >= 2 ? buildSmoothPath(floorRoutePoints) : null),
     [floorRoutePoints],
@@ -220,8 +202,7 @@ export default function MapView({
     [floorRoutePoints],
   );
 
-  // La mappa riguarda solo le opere davvero in questa visita: un museo può
-  // avere molte più opere segnate di quelle incluse in un singolo percorso.
+  // solo le opere di questa visita, il museo può averne molte di più
   const visibleMarkers = floorMarkers.filter((marker) => {
     if (marker.type === MarkerType.WAYPOINT) return false;
     if (isArtworkMarker(marker.type)) {
@@ -232,7 +213,6 @@ export default function MapView({
 
   const currentVisitIndex = currentArtworkId ? visitArtworkIds.indexOf(currentArtworkId) : -1;
 
-  // Get unique marker types for legend
   const legendItems = [
     ...new Set(visibleMarkers.filter((m) => !isArtworkMarker(m.type)).map((m) => m.type)),
   ];
@@ -423,11 +403,7 @@ export default function MapView({
                         r={radius + 9}
                         className="animate-ping"
                         fill="rgb(139 63 252 / 0.35)"
-                        // Senza transform-box:fill-box lo scale() dell'animazione
-                        // parte dall'origine del viewport SVG (0,0) e non dal
-                        // centro del cerchio: sembrava un'animazione che ogni
-                        // volta "scattava" verso il basso a destra invece di
-                        // pulsare simmetricamente sul marker.
+                        // senza transform-box:fill-box lo scale() parte da (0,0), non dal centro
                         style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
                       />
                     )}
