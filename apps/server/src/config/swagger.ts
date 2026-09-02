@@ -1,5 +1,9 @@
 import swaggerJsdoc from 'swagger-jsdoc';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { config } from './config.js';
+
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
 const swaggerDefinition = {
   openapi: '3.0.0',
@@ -18,6 +22,7 @@ const swaggerDefinition = {
       ## Ruoli
       - **VISITOR**: Può acquistare e fruire visite
       - **AUTHOR**: Può creare items e visite
+      - **CURATOR**: Può gestire un museo
       - **ADMIN**: Accesso completo al sistema
     `,
     contact: {
@@ -31,12 +36,16 @@ const swaggerDefinition = {
   },
   servers: [
     {
-      url: `http://localhost:${config.port}`,
+      url: `https://site2519.tw.cs.unibo.it:${config.port}`,
       description: 'Development server',
     },
     {
+      url: `http://localhost:${config.port}`,
+      description: 'Development/Production server',
+    },
+    {
       url: 'https://artaround.giovannicaini.it',
-      description: 'Production server',
+      description: 'Development server',
     },
   ],
   components: {
@@ -287,7 +296,9 @@ const swaggerDefinition = {
 
 const options: swaggerJsdoc.Options = {
   definition: swaggerDefinition,
-  apis: ['./src/routes/*.ts'], // Path ai file con le annotazioni JSDoc
+  // Percorso assoluto derivato da questo file (non dalla cwd, che a runtime
+  // può non essere apps/server/): da dist/config risale a src/routes.
+  apis: [path.join(moduleDir, '../../src/routes/*.ts')],
 };
 
 export const swaggerSpec = swaggerJsdoc(options);
