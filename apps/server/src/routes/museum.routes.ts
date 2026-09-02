@@ -160,7 +160,6 @@ router.post(
   MuseumController.create,
 );
 
-// Update: admin or curator of this museum
 router.put(
   '/:id',
   authMiddleware,
@@ -176,12 +175,9 @@ router.post(
   MuseumController.syncLanguages,
 );
 
-// Delete: admin only
 router.delete('/:id', authMiddleware, roleMiddleware(UserRole.ADMIN), MuseumController.delete);
 
-// ========================================
-// CURATOR MANAGEMENT ROUTES
-// ========================================
+// gestione curatori
 
 /**
  * @swagger
@@ -231,9 +227,7 @@ router.delete(
   MuseumController.removeCurator,
 );
 
-// ========================================
-// FLOOR ROUTES
-// ========================================
+// piani
 
 /**
  * @swagger
@@ -307,10 +301,7 @@ router.delete(
   MuseumController.deleteFloor,
 );
 
-// ========================================
-// ROOM ROUTES (gestione parallela ai marker: nome in "Modifica Museo",
-// contorno poligonale in "Piantina e mappa")
-// ========================================
+// sale (nome in "Modifica Museo", contorno in "Piantina e mappa")
 
 /**
  * @swagger
@@ -396,9 +387,7 @@ router.delete(
   MuseumController.deleteRoom,
 );
 
-// ========================================
-// MARKER ROUTES (POI)
-// ========================================
+// marker (POI)
 
 /**
  * @swagger
@@ -466,9 +455,7 @@ router.delete(
   MuseumController.deleteMarker,
 );
 
-// ========================================
-// CONNECTION ROUTES (Stairs, Elevators)
-// ========================================
+// collegamenti tra piani (scale, ascensori)
 
 /**
  * @swagger

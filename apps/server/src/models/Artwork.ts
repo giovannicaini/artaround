@@ -32,41 +32,31 @@ const mapPositionSchema = new Schema<ArtworkMapPosition>(
 
 const artworkSchema = new Schema<ArtworkDocument>(
   {
-    // Wikidata ID as primary identifier
     wikidataId: {
       type: String,
       required: true,
       index: true,
     },
 
-    // Basic info
     title: { type: String, required: true },
     description: String,
 
-    // Museum (Wikidata ID)
     museumId: {
       type: String,
       required: true,
       index: true,
     },
 
-    // Author/Artist
     author: String,
     authorWikidataId: { type: String, index: true },
 
-    // Dating
     year: String,
     startYear: Number,
     endYear: Number,
 
-    // Classification
     artworkType: {
       type: String,
-      // Derivato dall'enum condiviso invece di duplicarlo qui a mano: un elenco
-      // hardcoded era rimasto disallineato dopo il redesign dell'enum (4 categorie
-      // su 10 - photograph, new_media, manuscript_book, decorative_object - non
-      // erano mai salvabili, fallivano sempre con un errore di validazione Mongoose).
-      enum: Object.values(ArtworkType),
+      enum: Object.values(ArtworkType), // usa l'enum condiviso, non riscrivere i valori a mano qui
       required: true,
     },
     movement: String,
@@ -76,26 +66,21 @@ const artworkSchema = new Schema<ArtworkDocument>(
     period: String,
     periodWikidataId: String,
 
-    // Physical properties
     dimensions: dimensionsSchema,
     materials: [String],
     technique: String,
 
-    // Context
     historicalEvents: [String],
     subjects: [String],
-    artworkCollection: String, // Renamed from 'collection' to avoid Document conflict
+    artworkCollection: String, // rinominato da 'collection', andava in conflitto con Document
 
-    // Media
     image: { type: String, required: true },
     images: [String],
 
-    // Location in museum
     roomId: { type: String, index: true }, // Museum.rooms[].id
     room: String, // testo libero legacy, fallback per opere non ancora migrate
     floor: String,
 
-    // Map position
     mapPosition: mapPositionSchema,
   },
   {
@@ -103,7 +88,6 @@ const artworkSchema = new Schema<ArtworkDocument>(
   },
 );
 
-// Indexes for common queries
 artworkSchema.index({ museumId: 1, room: 1 });
 artworkSchema.index({ museumId: 1, wikidataId: 1 }, { unique: true });
 artworkSchema.index({ movementWikidataId: 1 });

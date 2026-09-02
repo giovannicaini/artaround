@@ -22,25 +22,23 @@ const visitStepSchema = new Schema<VisitStep>(
       enum: Object.values(VisitStepType),
       required: true,
     },
-    // For ARTWORK steps
-    artworkId: String, // Wikidata ID
+    // campi opera
+    artworkId: String,
     itemIds: [{ type: Schema.Types.ObjectId, ref: 'Item' }],
     selectedItemId: { type: Schema.Types.ObjectId, ref: 'Item' },
-    // For LOGISTIC steps
+    // campi logistici
     logisticTitle: String,
     logisticText: String,
     logisticIcon: String,
-    // For NAVIGATION steps
+    // campi indicazioni
     navigationText: String,
     navigationImage: String,
     navigationVisual: { type: String, enum: ['image', 'map'] },
     fromRoom: String,
     toRoom: String,
-    // Punto sulla mappa: per WAYPOINT è sempre un MapMarker di tipo WAYPOINT
-    // (svolta muta); per LOGISTIC/NAVIGATION è un'associazione facoltativa a
-    // un punto di interesse qualsiasi (vedi Museum.ts -> floors[].markers).
+    // per WAYPOINT è sempre un marker di tipo WAYPOINT (svolta muta), per
+    // LOGISTIC/NAVIGATION è un'associazione facoltativa a un punto qualsiasi
     mapMarkerId: String,
-    // Common
     isOptional: { type: Boolean, default: false },
     estimatedDuration: Number,
   },
@@ -106,7 +104,7 @@ const visitMetadataSchema = new Schema<VisitMetadata>(
 const visitSchema = new Schema<VisitDocument>(
   {
     museumId: {
-      type: String, // Wikidata ID
+      type: String,
       required: true,
       index: true,
     },
@@ -156,7 +154,6 @@ const visitSchema = new Schema<VisitDocument>(
   },
 );
 
-// Indexes
 visitSchema.index({ museumId: 1, isPublished: 1 });
 visitSchema.index({ 'metadata.isFree': 1 });
 visitSchema.index({ 'metadata.rating': -1 });

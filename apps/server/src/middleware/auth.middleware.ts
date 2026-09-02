@@ -31,7 +31,7 @@ export const authMiddleware = async (
       return;
     }
 
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    const token = authHeader.substring(7); // toglie "Bearer "
 
     try {
       const decoded = jwt.verify(token, config.jwt.secret) as {
@@ -57,9 +57,6 @@ export const authMiddleware = async (
   }
 };
 
-/**
- * Middleware to require specific roles
- */
 export const requireRole = (allowedRoles: UserRole[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {

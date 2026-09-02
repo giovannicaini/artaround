@@ -12,10 +12,7 @@ router.get(
   UtilsController.getNavigatorDefaultConfigs,
 );
 
-// Stessi dati, senza autenticazione: li legge l'app Navigator (usata anche
-// da visitatori anonimi) per applicare il tema/copy di piattaforma quando
-// un museo non ha un proprio navigatorConfig. La route sopra resta per la
-// pagina admin che li edita (stesso controller, non serve duplicarlo).
+// stessi dati senza auth, li legge il Navigator anche da visitatore anonimo
 router.get('/navigator-default-config', UtilsController.getNavigatorDefaultConfigs);
 
 router.put(
