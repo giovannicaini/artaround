@@ -72,7 +72,7 @@ class SpeechService {
 
 export const speechService = new SpeechService();
 
-// Speech Recognition types (not fully supported in all browsers)
+// Tipi per il riconoscimento vocale (non supportato in tutti i browser)
 interface SpeechRecognitionEvent {
   results: { [index: number]: { [index: number]: { transcript: string } } };
 }

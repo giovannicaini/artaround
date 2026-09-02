@@ -232,7 +232,7 @@ export default function MapView({
 
   const currentVisitIndex = currentArtworkId ? visitArtworkIds.indexOf(currentArtworkId) : -1;
 
-  // Get unique marker types for legend
+  // Ottiene i tipi di marker unici per la legenda
   const legendItems = [
     ...new Set(visibleMarkers.filter((m) => !isArtworkMarker(m.type)).map((m) => m.type)),
   ];
