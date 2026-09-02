@@ -40,6 +40,12 @@ export class UiFilterTabs extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.style.display = 'block';
+    // Come figlio di un contenitore flex (praticamente ovunque venga usato),
+    // di default un elemento block non si restringe sotto la larghezza
+    // intrinseca del suo contenuto (min-width:auto) — l'overflow-x-auto
+    // interno restava quindi sempre più largo del viewport invece di
+    // diventare scorribile, e le ultime tab finivano tagliate via.
+    this.style.minWidth = '0';
   }
 
   // ─── Actions ──────────────────────────────────────────────
@@ -62,25 +68,32 @@ export class UiFilterTabs extends LitElement {
     };
     const paddingClass = sizeClasses[this.size];
 
+    // overflow-x-auto sul contenitore esterno invece che sull'inline-flex
+    // stesso: con molte tab (es. i 5 filtri per ruolo) su schermi stretti il
+    // gruppo non entrava e overflow-hidden tagliava via l'ultima voce invece
+    // di renderla scorribile — restava anche inutilizzabile, non solo tagliata.
     return html`
-      <div
-        class="inline-flex rounded-lg overflow-hidden border border-surface-200 dark:border-surface-700"
-      >
-        ${this.tabs.map(
-          (tab, index) => html`
-            <button
-              type="button"
-              @click=${() => this.handleClick(tab.value)}
-              class="${paddingClass} font-medium transition-colors ${index > 0
-                ? 'border-l border-surface-200 dark:border-surface-700'
-                : ''} ${tab.value === this.value
-                ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300'
-                : 'bg-white dark:bg-surface-800 text-surface-600 hover:bg-surface-50 dark:text-surface-400 dark:hover:bg-surface-700'}"
-            >
-              ${tab.label}
-            </button>
-          `,
-        )}
+      <div class="overflow-x-auto">
+        <div
+          class="inline-flex rounded-lg overflow-hidden border border-surface-200 dark:border-surface-700"
+        >
+          ${this.tabs.map(
+            (tab, index) => html`
+              <button
+                type="button"
+                @click=${() => this.handleClick(tab.value)}
+                class="${paddingClass} font-medium transition-colors flex-shrink-0 whitespace-nowrap ${index >
+                0
+                  ? 'border-l border-surface-200 dark:border-surface-700'
+                  : ''} ${tab.value === this.value
+                  ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300'
+                  : 'bg-white dark:bg-surface-800 text-surface-600 hover:bg-surface-50 dark:text-surface-400 dark:hover:bg-surface-700'}"
+              >
+                ${tab.label}
+              </button>
+            `,
+          )}
+        </div>
       </div>
     `;
   }

@@ -327,8 +327,12 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
           .description=${__('Crea e gestisci i tuoi percorsi di visita guidata')}
           .count=${this.visits.length}
         >
-          <div slot="actions" class="flex items-center gap-3">
+          <div
+            slot="actions"
+            class="flex flex-col sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-3"
+          >
             <ui-search-bar
+              class="w-full sm:w-64"
               .placeholder=${__('Cerca visite...')}
               .value=${this.searchQuery}
               .showButton=${false}
@@ -340,6 +344,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
                   <ui-button
                     variant="primary"
                     icon="plus"
+                    class="w-full sm:w-auto"
                     .label=${__('Nuova Visita')}
                     @click=${this.handleCreateVisit}
                   ></ui-button>

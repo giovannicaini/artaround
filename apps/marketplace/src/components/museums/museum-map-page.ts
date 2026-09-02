@@ -189,7 +189,7 @@ export class MuseumMapPage extends LitElement {
       <div class="min-h-screen bg-surface-950 ${this.isFullscreen ? 'fixed inset-0 z-50' : ''}">
         <!-- Header -->
         <div
-          class="flex items-center justify-between p-4 bg-surface-900 border-b border-surface-800"
+          class="flex flex-wrap items-center justify-between gap-3 p-4 bg-surface-900 border-b border-surface-800"
         >
           <div class="flex items-center gap-4">
             <ui-button
@@ -203,7 +203,7 @@ export class MuseumMapPage extends LitElement {
             </div>
           </div>
 
-          <div class="flex items-center gap-3">
+          <div class="flex flex-wrap items-center gap-3">
             ${this.hasChanges
               ? html`
                   <span class="text-yellow-400 text-sm">● ${__('Modifiche non salvate')}</span>

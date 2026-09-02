@@ -534,6 +534,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
         ${this.permissions.canCreateItem
           ? html`
               <ui-button
+                slot="action"
                 variant="primary"
                 icon="plus"
                 .label=${__('Crea il primo contenuto')}

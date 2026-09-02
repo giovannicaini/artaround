@@ -682,7 +682,7 @@ export class ImageEditor extends LitElement {
           class="w-full h-48"
         ></ui-image-placeholder>
         <div
-          class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-3 flex justify-end gap-2"
+          class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-3 flex flex-wrap justify-end gap-2"
         >
           <ui-button
             variant="primary"
