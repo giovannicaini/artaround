@@ -1,4 +1,5 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
+import { asyncHandler } from '../utils/async-handler.util.js';
 import { body, validationResult } from 'express-validator';
 import axios from 'axios';
 import { WikidataService } from '../utils/wikidata.service.js';
@@ -110,12 +111,8 @@ export class UtilsController {
     }
   }
 
-  static async getNavigatorDefaultConfigs(
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
-    try {
+  static getNavigatorDefaultConfigs = asyncHandler(
+    async (req: AuthRequest, res: Response): Promise<void> => {
       const config = await AppConfigModel.findOne({
         key: UtilsController.NAVIGATOR_DEFAULT_CONFIG_KEY,
       })
@@ -126,17 +123,11 @@ export class UtilsController {
         success: true,
         data: config?.navigatorDefaultConfigs || [],
       });
-    } catch (error) {
-      next(error);
-    }
-  }
+    },
+  );
 
-  static async updateNavigatorDefaultConfigs(
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
-    try {
+  static updateNavigatorDefaultConfigs = asyncHandler(
+    async (req: AuthRequest, res: Response): Promise<void> => {
       const navigatorConfigs = req.body.navigatorConfigs;
       UtilsController.validateNavigatorConfigsPayload(navigatorConfigs);
 
@@ -160,269 +151,255 @@ export class UtilsController {
         data: config?.navigatorDefaultConfigs || [],
         message: 'Navigator default configs updated successfully',
       });
-    } catch (error) {
-      next(error);
-    }
-  }
+    },
+  );
 
   // Ottieni entità Wikidata
-  static async getWikidataEntity(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
+  static getWikidataEntity = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
 
-      if (!id || Array.isArray(id)) {
-        throw new AppError(400, 'INVALID_ID', 'Invalid Wikidata ID');
-      }
-
-      const entity = await WikidataService.getEntity(id);
-      if (!entity) {
-        throw new AppError(404, 'ENTITY_NOT_FOUND', 'Wikidata entity not found');
-      }
-
-      res.json({
-        success: true,
-        data: entity,
-      });
-    } catch (error) {
-      next(error);
+    if (!id || Array.isArray(id)) {
+      throw new AppError(400, 'INVALID_ID', 'Invalid Wikidata ID');
     }
-  }
+
+    const entity = await WikidataService.getEntity(id);
+    if (!entity) {
+      throw new AppError(404, 'ENTITY_NOT_FOUND', 'Wikidata entity not found');
+    }
+
+    res.json({
+      success: true,
+      data: entity,
+    });
+  });
 
   // Cerca su Wikidata
-  static async searchWikidata(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { q, limit = '10', type = 'artwork', museumId } = req.query;
+  static searchWikidata = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { q, limit = '10', type = 'artwork', museumId } = req.query;
 
-      if (!q) {
-        throw new AppError(400, 'MISSING_QUERY', 'Search query is required');
-      }
+    if (!q) {
+      throw new AppError(400, 'MISSING_QUERY', 'Search query is required');
+    }
 
-      const parsedLimit = parseInt(limit as string, 10);
-      let results;
-      let museumWikidataId: string | null = null;
-      const museumIdValue = typeof museumId === 'string' ? museumId : undefined;
+    const parsedLimit = parseInt(limit as string, 10);
+    let results;
+    let museumWikidataId: string | null = null;
+    const museumIdValue = typeof museumId === 'string' ? museumId : undefined;
 
-      if (museumIdValue) {
-        if (/^Q\d+$/i.test(museumIdValue)) {
-          museumWikidataId = museumIdValue;
-        } else if (mongoose.Types.ObjectId.isValid(museumIdValue)) {
-          const museumById = await MuseumModel.findById(museumIdValue).select('wikidataId').lean();
-          if (museumById?.wikidataId) {
-            museumWikidataId = museumById.wikidataId;
-          } else {
-            const museumByWikidata = await MuseumModel.findOne({ wikidataId: museumIdValue })
-              .select('wikidataId')
-              .lean();
-            museumWikidataId = museumByWikidata?.wikidataId || null;
-          }
+    if (museumIdValue) {
+      if (/^Q\d+$/i.test(museumIdValue)) {
+        museumWikidataId = museumIdValue;
+      } else if (mongoose.Types.ObjectId.isValid(museumIdValue)) {
+        const museumById = await MuseumModel.findById(museumIdValue).select('wikidataId').lean();
+        if (museumById?.wikidataId) {
+          museumWikidataId = museumById.wikidataId;
         } else {
           const museumByWikidata = await MuseumModel.findOne({ wikidataId: museumIdValue })
             .select('wikidataId')
             .lean();
           museumWikidataId = museumByWikidata?.wikidataId || null;
         }
-      }
-      if (type === 'museum') {
-        results = await WikidataService.searchMuseums(q as string, parsedLimit);
-      } else if (type === 'author') {
-        results = await WikidataService.searchAuthors(q as string, parsedLimit);
-      } else if (type === 'movement') {
-        results = await WikidataService.searchMovements(q as string, parsedLimit);
-      } else if (museumWikidataId) {
-        results = await WikidataService.searchArtworksInMuseum(
-          q as string,
-          museumWikidataId,
-          parsedLimit,
-        );
-
-        if (!results || results.length === 0) {
-          results = await WikidataService.search(q as string, parsedLimit);
-        }
       } else {
+        const museumByWikidata = await MuseumModel.findOne({ wikidataId: museumIdValue })
+          .select('wikidataId')
+          .lean();
+        museumWikidataId = museumByWikidata?.wikidataId || null;
+      }
+    }
+    if (type === 'museum') {
+      results = await WikidataService.searchMuseums(q as string, parsedLimit);
+    } else if (type === 'author') {
+      results = await WikidataService.searchAuthors(q as string, parsedLimit);
+    } else if (type === 'movement') {
+      results = await WikidataService.searchMovements(q as string, parsedLimit);
+    } else if (museumWikidataId) {
+      results = await WikidataService.searchArtworksInMuseum(
+        q as string,
+        museumWikidataId,
+        parsedLimit,
+      );
+
+      if (!results || results.length === 0) {
         results = await WikidataService.search(q as string, parsedLimit);
       }
-
-      res.json({
-        success: true,
-        data: results,
-      });
-    } catch (error) {
-      next(error);
+    } else {
+      results = await WikidataService.search(q as string, parsedLimit);
     }
-  }
 
-  static async geocodeAddress(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const address = String(req.query.address || '').trim();
-      const city = String(req.query.city || '').trim();
-      const postalCode = String(req.query.postalCode || '').trim();
-      const nation = String(req.query.nation || '').trim() || 'Italia';
+    res.json({
+      success: true,
+      data: results,
+    });
+  });
 
-      const query = [address, postalCode, city, nation].filter(Boolean).join(', ');
+  static geocodeAddress = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const address = String(req.query.address || '').trim();
+    const city = String(req.query.city || '').trim();
+    const postalCode = String(req.query.postalCode || '').trim();
+    const nation = String(req.query.nation || '').trim() || 'Italia';
 
-      if (!query) {
-        throw new AppError(400, 'MISSING_QUERY', 'Address query is required');
-      }
+    const query = [address, postalCode, city, nation].filter(Boolean).join(', ');
 
-      type NominatimAddress = {
-        city?: string;
-        town?: string;
-        village?: string;
-        municipality?: string;
-        hamlet?: string;
-        postcode?: string;
-      };
+    if (!query) {
+      throw new AppError(400, 'MISSING_QUERY', 'Address query is required');
+    }
 
-      type NominatimResult = {
-        lat: string;
-        lon: string;
-        display_name?: string;
-        place_id?: number;
-        importance?: number;
-        address?: NominatimAddress;
-      };
+    type NominatimAddress = {
+      city?: string;
+      town?: string;
+      village?: string;
+      municipality?: string;
+      hamlet?: string;
+      postcode?: string;
+    };
 
-      const normalizeText = (value: string): string =>
-        value
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .toLowerCase()
-          .trim();
+    type NominatimResult = {
+      lat: string;
+      lon: string;
+      display_name?: string;
+      place_id?: number;
+      importance?: number;
+      address?: NominatimAddress;
+    };
 
-      const normalizedCity = normalizeText(city);
-      const normalizedPostalCode = postalCode.replace(/\s+/g, '').toLowerCase();
+    const normalizeText = (value: string): string =>
+      value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
 
-      const countryCodeByNation: Record<string, string> = {
-        italia: 'it',
-        italy: 'it',
-        france: 'fr',
-        francia: 'fr',
-        germany: 'de',
-        germania: 'de',
-        spain: 'es',
-        spagna: 'es',
-      };
+    const normalizedCity = normalizeText(city);
+    const normalizedPostalCode = postalCode.replace(/\s+/g, '').toLowerCase();
 
-      const normalizedNation = normalizeText(nation);
-      const nationCountryCode = countryCodeByNation[normalizedNation] || undefined;
+    const countryCodeByNation: Record<string, string> = {
+      italia: 'it',
+      italy: 'it',
+      france: 'fr',
+      francia: 'fr',
+      germany: 'de',
+      germania: 'de',
+      spain: 'es',
+      spagna: 'es',
+    };
 
-      const nominatimRequest = async (params: Record<string, string>) => {
-        const response = await axios.get<NominatimResult[]>(
-          'https://nominatim.openstreetmap.org/search',
-          {
-            params: {
-              format: 'jsonv2',
-              addressdetails: '1',
-              limit: '8',
-              ...params,
-            },
-            headers: {
-              'User-Agent': 'ArtAround/1.0 (geocoding)',
-              'Accept-Language': 'it',
-            },
-            timeout: 10000,
+    const normalizedNation = normalizeText(nation);
+    const nationCountryCode = countryCodeByNation[normalizedNation] || undefined;
+
+    const nominatimRequest = async (params: Record<string, string>) => {
+      const response = await axios.get<NominatimResult[]>(
+        'https://nominatim.openstreetmap.org/search',
+        {
+          params: {
+            format: 'jsonv2',
+            addressdetails: '1',
+            limit: '8',
+            ...params,
           },
-        );
+          headers: {
+            'User-Agent': 'ArtAround/1.0 (geocoding)',
+            'Accept-Language': 'it',
+          },
+          timeout: 10000,
+        },
+      );
 
-        return Array.isArray(response.data) ? response.data : [];
-      };
+      return Array.isArray(response.data) ? response.data : [];
+    };
 
-      const scoreResult = (result: NominatimResult): number => {
-        let score = Number(result.importance || 0) * 10;
-        const addressData = result.address || {};
+    const scoreResult = (result: NominatimResult): number => {
+      let score = Number(result.importance || 0) * 10;
+      const addressData = result.address || {};
 
-        const localities = [
-          addressData.city,
-          addressData.town,
-          addressData.village,
-          addressData.municipality,
-          addressData.hamlet,
-        ]
-          .filter(Boolean)
-          .map((value) => normalizeText(String(value)));
+      const localities = [
+        addressData.city,
+        addressData.town,
+        addressData.village,
+        addressData.municipality,
+        addressData.hamlet,
+      ]
+        .filter(Boolean)
+        .map((value) => normalizeText(String(value)));
 
-        if (normalizedCity) {
-          if (localities.some((value) => value === normalizedCity)) {
-            score += 200;
-          } else if (
-            localities.some(
-              (value) => value.includes(normalizedCity) || normalizedCity.includes(value),
-            )
-          ) {
-            score += 120;
-          } else if (normalizeText(result.display_name || '').includes(normalizedCity)) {
-            score += 40;
-          }
+      if (normalizedCity) {
+        if (localities.some((value) => value === normalizedCity)) {
+          score += 200;
+        } else if (
+          localities.some(
+            (value) => value.includes(normalizedCity) || normalizedCity.includes(value),
+          )
+        ) {
+          score += 120;
+        } else if (normalizeText(result.display_name || '').includes(normalizedCity)) {
+          score += 40;
         }
-
-        if (normalizedPostalCode) {
-          const resultPostcode = String(addressData.postcode || '')
-            .replace(/\s+/g, '')
-            .toLowerCase();
-
-          if (resultPostcode && resultPostcode === normalizedPostalCode) {
-            score += 80;
-          } else if (resultPostcode && resultPostcode !== normalizedPostalCode) {
-            score -= 100;
-          }
-        }
-
-        return score;
-      };
-
-      let candidates: NominatimResult[] = [];
-
-      const structuredParams: Record<string, string> = {
-        street: address,
-        city,
-        country: nation,
-      };
-
-      if (postalCode) {
-        structuredParams.postalcode = postalCode;
       }
 
+      if (normalizedPostalCode) {
+        const resultPostcode = String(addressData.postcode || '')
+          .replace(/\s+/g, '')
+          .toLowerCase();
+
+        if (resultPostcode && resultPostcode === normalizedPostalCode) {
+          score += 80;
+        } else if (resultPostcode && resultPostcode !== normalizedPostalCode) {
+          score -= 100;
+        }
+      }
+
+      return score;
+    };
+
+    let candidates: NominatimResult[] = [];
+
+    const structuredParams: Record<string, string> = {
+      street: address,
+      city,
+      country: nation,
+    };
+
+    if (postalCode) {
+      structuredParams.postalcode = postalCode;
+    }
+
+    if (nationCountryCode) {
+      structuredParams.countrycodes = nationCountryCode;
+    }
+
+    candidates = await nominatimRequest(structuredParams);
+
+    if (candidates.length === 0) {
+      const freeTextParams: Record<string, string> = { q: query };
       if (nationCountryCode) {
-        structuredParams.countrycodes = nationCountryCode;
+        freeTextParams.countrycodes = nationCountryCode;
       }
+      candidates = await nominatimRequest(freeTextParams);
+    }
 
-      candidates = await nominatimRequest(structuredParams);
+    const bestCandidate = candidates
+      .map((result) => ({ result, score: scoreResult(result) }))
+      .sort((left, right) => right.score - left.score)[0];
 
-      if (candidates.length === 0) {
-        const freeTextParams: Record<string, string> = { q: query };
-        if (nationCountryCode) {
-          freeTextParams.countrycodes = nationCountryCode;
-        }
-        candidates = await nominatimRequest(freeTextParams);
-      }
-
-      const bestCandidate = candidates
-        .map((result) => ({ result, score: scoreResult(result) }))
-        .sort((left, right) => right.score - left.score)[0];
-
-      if (!bestCandidate || (normalizedCity && bestCandidate.score < 100)) {
-        res.json({
-          success: true,
-          data: null,
-          message: 'No geocoding result found',
-        });
-        return;
-      }
-
+    if (!bestCandidate || (normalizedCity && bestCandidate.score < 100)) {
       res.json({
         success: true,
-        data: {
-          lat: Number(bestCandidate.result.lat),
-          lng: Number(bestCandidate.result.lon),
-          displayName: bestCandidate.result.display_name || query,
-          provider: 'nominatim',
-          placeId: bestCandidate.result.place_id,
-        },
+        data: null,
+        message: 'No geocoding result found',
       });
-    } catch (error) {
-      next(error);
+      return;
     }
-  }
+
+    res.json({
+      success: true,
+      data: {
+        lat: Number(bestCandidate.result.lat),
+        lng: Number(bestCandidate.result.lon),
+        displayName: bestCandidate.result.display_name || query,
+        provider: 'nominatim',
+        placeId: bestCandidate.result.place_id,
+      },
+    });
+  });
 
   // Traduci testo
   static translateValidation = [
@@ -439,66 +416,54 @@ export class UtilsController {
     body('items.*.targetLang').notEmpty().withMessage('Each item targetLang is required'),
   ];
 
-  static async translate(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
-      }
-
-      const { text, sourceLang, targetLang } = req.body;
-
-      const translatedText = await TranslationService.translate(text, sourceLang, targetLang);
-
-      res.json({
-        success: true,
-        data: {
-          translatedText,
-          sourceLang,
-          targetLang,
-        },
-      });
-    } catch (error) {
-      next(error);
+  static translate = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
     }
-  }
 
-  static async translateBatch(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
-      }
+    const { text, sourceLang, targetLang } = req.body;
 
-      const { sourceLang, items } = req.body as {
-        sourceLang: string;
-        items: Array<{ key: string; text: string; targetLang: string }>;
-      };
+    const translatedText = await TranslationService.translate(text, sourceLang, targetLang);
 
-      const translations = await TranslationService.batchTranslate(sourceLang, items);
+    res.json({
+      success: true,
+      data: {
+        translatedText,
+        sourceLang,
+        targetLang,
+      },
+    });
+  });
 
-      res.json({
-        success: true,
-        data: {
-          sourceLang,
-          translations,
-        },
-      });
-    } catch (error) {
-      next(error);
+  static translateBatch = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
     }
-  }
 
-  static async aiHealth(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const result = await AIService.checkOpenAIHealth();
+    const { sourceLang, items } = req.body as {
+      sourceLang: string;
+      items: Array<{ key: string; text: string; targetLang: string }>;
+    };
 
-      res.status(result.ok ? 200 : 503).json({
-        success: result.ok,
-        data: result,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+    const translations = await TranslationService.batchTranslate(sourceLang, items);
+
+    res.json({
+      success: true,
+      data: {
+        sourceLang,
+        translations,
+      },
+    });
+  });
+
+  static aiHealth = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const result = await AIService.checkOpenAIHealth();
+
+    res.status(result.ok ? 200 : 503).json({
+      success: result.ok,
+      data: result,
+    });
+  });
 }

@@ -64,7 +64,7 @@ export interface UsersResponse {
     page: number;
     limit: number;
     total: number;
-    pages: number;
+    totalPages: number;
   };
 }
 

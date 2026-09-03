@@ -1,4 +1,5 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
+import { asyncHandler } from '../utils/async-handler.util.js';
 import { body, validationResult } from 'express-validator';
 import { ItemModel, MuseumModel, VisitModel } from '../models/index.js';
 import { AppError } from '../middleware/index.js';
@@ -462,388 +463,340 @@ export class MuseumController {
   }
 
   // Ottieni tutti i musei
-  static async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { city, isActive } = req.query;
+  static getAll = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { city, isActive } = req.query;
 
-      const filter: Record<string, unknown> = {};
-      if (city) filter['location.city'] = city;
-      if (isActive !== undefined) filter.isActive = isActive === 'true';
+    const filter: Record<string, unknown> = {};
+    if (city) filter['location.city'] = city;
+    if (isActive !== undefined) filter.isActive = isActive === 'true';
 
-      const museums = await MuseumModel.find(filter).sort({ name: 1 });
+    const museums = await MuseumModel.find(filter).sort({ name: 1 });
 
-      res.json({
-        success: true,
-        data: museums,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+    res.json({
+      success: true,
+      data: museums,
+    });
+  });
 
   // Ottieni museo per ID
-  static async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const idParam = req.params.id;
-      const id = Array.isArray(idParam) ? idParam[0] : idParam;
+  static getById = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const idParam = req.params.id;
+    const id = Array.isArray(idParam) ? idParam[0] : idParam;
 
-      if (!id) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Museum id is required');
-      }
-
-      // I chiamanti pubblici (Navigator in testa) spesso hanno solo la QID
-      // Wikidata del museo — es. Visit.museumId, quasi sempre salvato così —
-      // non l'_id Mongo: un findById puro qui faceva fallire con un 500
-      // invece di un più corretto 404/200. Vedi findMuseumByAnyId.
-      const museum = await findMuseumByAnyId(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      res.json({
-        success: true,
-        data: museum,
-      });
-    } catch (error) {
-      next(error);
+    if (!id) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Museum id is required');
     }
-  }
+
+    // I chiamanti pubblici (Navigator in testa) spesso hanno solo la QID
+    // Wikidata del museo — es. Visit.museumId, quasi sempre salvato così —
+    // non l'_id Mongo: un findById puro qui faceva fallire con un 500
+    // invece di un più corretto 404/200. Vedi findMuseumByAnyId.
+    const museum = await findMuseumByAnyId(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+    }
+
+    res.json({
+      success: true,
+      data: museum,
+    });
+  });
 
   // Ottieni la config del museo (servizi e info)
-  static async getConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
+  static getConfig = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
 
-      const museum = await findMuseumByAnyId(id);
+    const museum = await findMuseumByAnyId(id);
 
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      // Restituisce servizi e info piani del museo come config
-      const config = {
-        wikidataId: museum.wikidataId,
-        name: museum.name,
-        services: museum.services,
-        navigatorConfigs: museum.navigatorConfigs || [],
-        floors: museum.floors?.map((f) => ({
-          id: f.id,
-          name: f.name,
-          level: f.level,
-          markersCount: f.markers?.length || 0,
-        })),
-      };
-
-      res.json({
-        success: true,
-        data: config,
-      });
-    } catch (error) {
-      next(error);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
     }
-  }
+
+    // Restituisce servizi e info piani del museo come config
+    const config = {
+      wikidataId: museum.wikidataId,
+      name: museum.name,
+      services: museum.services,
+      navigatorConfigs: museum.navigatorConfigs || [],
+      floors: museum.floors?.map((f) => ({
+        id: f.id,
+        name: f.name,
+        level: f.level,
+        markersCount: f.markers?.length || 0,
+      })),
+    };
+
+    res.json({
+      success: true,
+      data: config,
+    });
+  });
 
   // Crea museo (solo admin)
-  static async create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
-      }
-
-      MuseumController.validateNavigatorConfigsPayload(req.body.navigatorConfigs);
-
-      const activeLanguages = MuseumController.normalizeActiveLanguages(req.body.activeLanguages);
-      const location = MuseumController.normalizeLocationPayload(req.body.location);
-
-      const museum = new MuseumModel({
-        ...req.body,
-        location,
-        activeLanguages: activeLanguages ?? [DEFAULT_APP_LANGUAGE],
-      });
-      await museum.save();
-
-      res.status(201).json({
-        success: true,
-        data: museum,
-        message: 'Museum created successfully',
-      });
-    } catch (error) {
-      next(error);
+  static create = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
     }
-  }
+
+    MuseumController.validateNavigatorConfigsPayload(req.body.navigatorConfigs);
+
+    const activeLanguages = MuseumController.normalizeActiveLanguages(req.body.activeLanguages);
+    const location = MuseumController.normalizeLocationPayload(req.body.location);
+
+    const museum = new MuseumModel({
+      ...req.body,
+      location,
+      activeLanguages: activeLanguages ?? [DEFAULT_APP_LANGUAGE],
+    });
+    await museum.save();
+
+    res.status(201).json({
+      success: true,
+      data: museum,
+      message: 'Museum created successfully',
+    });
+  });
 
   // Aggiorna museo
-  static async update(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
+  static update = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id } = req.params;
 
-      MuseumController.validateNavigatorConfigsPayload(req.body.navigatorConfigs);
+    MuseumController.validateNavigatorConfigsPayload(req.body.navigatorConfigs);
 
-      const activeLanguages = MuseumController.normalizeActiveLanguages(req.body.activeLanguages);
-      const location =
-        req.body.location !== undefined
-          ? MuseumController.normalizeLocationPayload(req.body.location)
-          : undefined;
+    const activeLanguages = MuseumController.normalizeActiveLanguages(req.body.activeLanguages);
+    const location =
+      req.body.location !== undefined
+        ? MuseumController.normalizeLocationPayload(req.body.location)
+        : undefined;
 
-      const updatePayload = {
-        ...req.body,
-        ...(location ? { location } : {}),
-        ...(activeLanguages ? { activeLanguages } : {}),
-      };
+    const updatePayload = {
+      ...req.body,
+      ...(location ? { location } : {}),
+      ...(activeLanguages ? { activeLanguages } : {}),
+    };
 
-      const museum = await MuseumModel.findByIdAndUpdate(id, updatePayload, {
-        new: true,
-        runValidators: true,
-      });
+    const museum = await MuseumModel.findByIdAndUpdate(id, updatePayload, {
+      new: true,
+      runValidators: true,
+    });
 
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      res.json({
-        success: true,
-        data: museum,
-        message: 'Museum updated successfully',
-      });
-    } catch (error) {
-      next(error);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
     }
-  }
 
-  static async syncLanguages(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
-      }
+    res.json({
+      success: true,
+      data: museum,
+      message: 'Museum updated successfully',
+    });
+  });
 
-      const idParam = req.params.id;
-      const id = Array.isArray(idParam) ? idParam[0] : idParam;
-
-      if (!id) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Museum id is required');
-      }
-      const normalizedActiveLanguages = MuseumController.normalizeActiveLanguages(
-        req.body.activeLanguages,
-      );
-
-      if (!normalizedActiveLanguages) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'activeLanguages is required');
-      }
-
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      museum.activeLanguages = normalizedActiveLanguages;
-      await museum.save();
-
-      const [itemSync, visitSync] = await Promise.all([
-        MuseumController.syncItemTranslationsForMuseum(id, normalizedActiveLanguages),
-        MuseumController.syncVisitTranslationsForMuseum(id, normalizedActiveLanguages),
-      ]);
-
-      res.json({
-        success: true,
-        data: {
-          museumId: id,
-          activeLanguages: normalizedActiveLanguages,
-          items: itemSync,
-          visits: visitSync,
-        },
-        message: 'Lingue museo sincronizzate su contenuti e visite esistenti',
-      });
-    } catch (error) {
-      next(error);
+  static syncLanguages = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
     }
-  }
+
+    const idParam = req.params.id;
+    const id = Array.isArray(idParam) ? idParam[0] : idParam;
+
+    if (!id) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Museum id is required');
+    }
+    const normalizedActiveLanguages = MuseumController.normalizeActiveLanguages(
+      req.body.activeLanguages,
+    );
+
+    if (!normalizedActiveLanguages) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'activeLanguages is required');
+    }
+
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+    }
+
+    museum.activeLanguages = normalizedActiveLanguages;
+    await museum.save();
+
+    const [itemSync, visitSync] = await Promise.all([
+      MuseumController.syncItemTranslationsForMuseum(id, normalizedActiveLanguages),
+      MuseumController.syncVisitTranslationsForMuseum(id, normalizedActiveLanguages),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        museumId: id,
+        activeLanguages: normalizedActiveLanguages,
+        items: itemSync,
+        visits: visitSync,
+      },
+      message: 'Lingue museo sincronizzate su contenuti e visite esistenti',
+    });
+  });
 
   // Elimina museo
-  static async delete(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
+  static delete = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id } = req.params;
 
-      const museum = await MuseumModel.findByIdAndDelete(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      res.json({
-        success: true,
-        message: 'Museum deleted successfully',
-      });
-    } catch (error) {
-      next(error);
+    const museum = await MuseumModel.findByIdAndDelete(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
     }
-  }
+
+    res.json({
+      success: true,
+      message: 'Museum deleted successfully',
+    });
+  });
 
   // ========================================
   // GESTIONE PIANI
   // ========================================
 
   // Ottieni tutti i piani di un museo
-  static async getFloors(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
+  static getFloors = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
 
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      res.json({
-        success: true,
-        data: museum.floors || [],
-      });
-    } catch (error) {
-      next(error);
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
     }
-  }
+
+    res.json({
+      success: true,
+      data: museum.floors || [],
+    });
+  });
 
   // Ottieni un piano specifico
-  static async getFloor(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id, floorId } = req.params;
+  static getFloor = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id, floorId } = req.params;
 
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      const floor = museum.floors?.find((f) => f.id === floorId);
-      if (!floor) {
-        throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
-      }
-
-      res.json({
-        success: true,
-        data: floor,
-      });
-    } catch (error) {
-      next(error);
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
     }
-  }
+
+    const floor = museum.floors?.find((f) => f.id === floorId);
+    if (!floor) {
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+    }
+
+    res.json({
+      success: true,
+      data: floor,
+    });
+  });
 
   // Aggiungi un nuovo piano
-  static async addFloor(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
-      }
-
-      const { id } = req.params;
-      const floorData: MuseumFloor = {
-        ...req.body,
-        markers: req.body.markers || [],
-        connections: req.body.connections || [],
-      };
-
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      // Controlla se l'ID piano esiste già
-      if (museum.floors?.some((f) => f.id === floorData.id)) {
-        throw new AppError(400, 'FLOOR_EXISTS', 'A floor with this ID already exists');
-      }
-
-      // Inizializza l'array dei piani se serve
-      if (!museum.floors) {
-        museum.floors = [];
-      }
-
-      museum.floors.push(floorData);
-
-      // Ordina i piani per livello
-      museum.floors.sort((a, b) => a.level - b.level);
-
-      await museum.save();
-
-      res.status(201).json({
-        success: true,
-        data: floorData,
-        message: 'Floor added successfully',
-      });
-    } catch (error) {
-      next(error);
+  static addFloor = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
     }
-  }
+
+    const { id } = req.params;
+    const floorData: MuseumFloor = {
+      ...req.body,
+      markers: req.body.markers || [],
+      connections: req.body.connections || [],
+    };
+
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+    }
+
+    // Controlla se l'ID piano esiste già
+    if (museum.floors?.some((f) => f.id === floorData.id)) {
+      throw new AppError(400, 'FLOOR_EXISTS', 'A floor with this ID already exists');
+    }
+
+    // Inizializza l'array dei piani se serve
+    if (!museum.floors) {
+      museum.floors = [];
+    }
+
+    museum.floors.push(floorData);
+
+    // Ordina i piani per livello
+    museum.floors.sort((a, b) => a.level - b.level);
+
+    await museum.save();
+
+    res.status(201).json({
+      success: true,
+      data: floorData,
+      message: 'Floor added successfully',
+    });
+  });
 
   // Aggiorna un piano
-  static async updateFloor(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id, floorId } = req.params;
+  static updateFloor = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id, floorId } = req.params;
 
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
-      if (floorIndex === undefined || floorIndex === -1) {
-        throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
-      }
-
-      // Aggiorna i dati del piano, preservando marker e connessioni se non forniti.
-      // museum.floors[i] è un subdocument Mongoose: i suoi campi non sono proprietà
-      // enumerabili "piatte", quindi {...existingFloor} non li copiava in modo
-      // affidabile (un PUT parziale poteva perdere name/level/dimensions e fallire
-      // la validazione Mongoose). JSON round-trip forza un plain object su cui lo
-      // spread funziona come atteso (il floor non ha campi Date, è sicuro).
-      const existingFloor = JSON.parse(JSON.stringify(museum.floors![floorIndex])) as MuseumFloor;
-      museum.floors![floorIndex] = {
-        ...existingFloor,
-        ...req.body,
-        id: floorId, // Prevent ID change
-        markers: req.body.markers || existingFloor.markers,
-        connections: req.body.connections || existingFloor.connections,
-      };
-
-      // Riordina i piani per livello
-      museum.floors!.sort((a, b) => a.level - b.level);
-
-      await museum.save();
-
-      res.json({
-        success: true,
-        data: museum.floors![floorIndex],
-        message: 'Floor updated successfully',
-      });
-    } catch (error) {
-      next(error);
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
     }
-  }
+
+    const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
+    if (floorIndex === undefined || floorIndex === -1) {
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+    }
+
+    // Aggiorna i dati del piano, preservando marker e connessioni se non forniti.
+    // museum.floors[i] è un subdocument Mongoose: i suoi campi non sono proprietà
+    // enumerabili "piatte", quindi {...existingFloor} non li copiava in modo
+    // affidabile (un PUT parziale poteva perdere name/level/dimensions e fallire
+    // la validazione Mongoose). JSON round-trip forza un plain object su cui lo
+    // spread funziona come atteso (il floor non ha campi Date, è sicuro).
+    const existingFloor = JSON.parse(JSON.stringify(museum.floors![floorIndex])) as MuseumFloor;
+    museum.floors![floorIndex] = {
+      ...existingFloor,
+      ...req.body,
+      id: floorId, // Prevent ID change
+      markers: req.body.markers || existingFloor.markers,
+      connections: req.body.connections || existingFloor.connections,
+    };
+
+    // Riordina i piani per livello
+    museum.floors!.sort((a, b) => a.level - b.level);
+
+    await museum.save();
+
+    res.json({
+      success: true,
+      data: museum.floors![floorIndex],
+      message: 'Floor updated successfully',
+    });
+  });
 
   // Elimina un piano
-  static async deleteFloor(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id, floorId } = req.params;
+  static deleteFloor = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id, floorId } = req.params;
 
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
-      if (floorIndex === undefined || floorIndex === -1) {
-        throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
-      }
-
-      museum.floors!.splice(floorIndex, 1);
-      await museum.save();
-
-      res.json({
-        success: true,
-        message: 'Floor deleted successfully',
-      });
-    } catch (error) {
-      next(error);
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
     }
-  }
+
+    const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
+    if (floorIndex === undefined || floorIndex === -1) {
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+    }
+
+    museum.floors!.splice(floorIndex, 1);
+    await museum.save();
+
+    res.json({
+      success: true,
+      message: 'Floor deleted successfully',
+    });
+  });
 
   // ========================================
   // GESTIONE SALE (parallela ai marker: vedi MuseumRoom)
@@ -868,146 +821,126 @@ export class MuseumController {
   ];
 
   // Ottieni tutte le sale del museo (indipendenti dal piano finché non contornate)
-  static async getRooms(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
+  static getRooms = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
 
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      res.json({
-        success: true,
-        data: museum.rooms || [],
-      });
-    } catch (error) {
-      next(error);
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
     }
-  }
+
+    res.json({
+      success: true,
+      data: museum.rooms || [],
+    });
+  });
 
   // Crea una nuova sala (solo id/title/subtitle: il contorno si aggiunge dopo)
-  static async createRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
-      }
-
-      const { id } = req.params;
-      const roomData: MuseumRoom = {
-        id: req.body.id,
-        title: req.body.title,
-        subtitle: req.body.subtitle || undefined,
-      };
-
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      if (museum.rooms?.some((r) => r.id === roomData.id)) {
-        throw new AppError(400, 'ROOM_EXISTS', 'A room with this ID already exists');
-      }
-
-      if (!museum.rooms) {
-        museum.rooms = [];
-      }
-      museum.rooms.push(roomData);
-      await museum.save();
-
-      res.status(201).json({
-        success: true,
-        data: roomData,
-        message: 'Room created successfully',
-      });
-    } catch (error) {
-      next(error);
+  static createRoom = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
     }
-  }
+
+    const { id } = req.params;
+    const roomData: MuseumRoom = {
+      id: req.body.id,
+      title: req.body.title,
+      subtitle: req.body.subtitle || undefined,
+    };
+
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+    }
+
+    if (museum.rooms?.some((r) => r.id === roomData.id)) {
+      throw new AppError(400, 'ROOM_EXISTS', 'A room with this ID already exists');
+    }
+
+    if (!museum.rooms) {
+      museum.rooms = [];
+    }
+    museum.rooms.push(roomData);
+    await museum.save();
+
+    res.status(201).json({
+      success: true,
+      data: roomData,
+      message: 'Room created successfully',
+    });
+  });
 
   // Rinomina una sala (solo title/subtitle — non tocca floorId/polygon)
-  static async updateRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
-      }
-
-      const { id, roomId } = req.params;
-
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      const room = museum.rooms?.find((r) => r.id === roomId);
-      if (!room) {
-        throw new AppError(404, 'ROOM_NOT_FOUND', 'Room not found');
-      }
-
-      room.title = req.body.title;
-      room.subtitle = req.body.subtitle || undefined;
-      await museum.save();
-
-      res.json({
-        success: true,
-        data: room,
-        message: 'Room updated successfully',
-      });
-    } catch (error) {
-      next(error);
+  static updateRoom = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
     }
-  }
+
+    const { id, roomId } = req.params;
+
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+    }
+
+    const room = museum.rooms?.find((r) => r.id === roomId);
+    if (!room) {
+      throw new AppError(404, 'ROOM_NOT_FOUND', 'Room not found');
+    }
+
+    room.title = req.body.title;
+    room.subtitle = req.body.subtitle || undefined;
+    await museum.save();
+
+    res.json({
+      success: true,
+      data: room,
+      message: 'Room updated successfully',
+    });
+  });
 
   // Contorna una sala sulla piantina: floorId + poligono chiuso (endpoint
   // separato dal rename, così un contorno malformato non può essere salvato
   // aggirando la validazione di roomOutlineValidation).
-  static async outlineRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
-      }
-
-      const { id, roomId } = req.params;
-
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      const room = museum.rooms?.find((r) => r.id === roomId);
-      if (!room) {
-        throw new AppError(404, 'ROOM_NOT_FOUND', 'Room not found');
-      }
-
-      const floor = museum.floors?.find((f) => f.id === req.body.floorId);
-      if (!floor) {
-        throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
-      }
-
-      room.floorId = req.body.floorId;
-      room.polygon = req.body.polygon;
-      await museum.save();
-
-      res.json({
-        success: true,
-        data: room,
-        message: 'Room outline updated successfully',
-      });
-    } catch (error) {
-      next(error);
+  static outlineRoom = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
     }
-  }
+
+    const { id, roomId } = req.params;
+
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+    }
+
+    const room = museum.rooms?.find((r) => r.id === roomId);
+    if (!room) {
+      throw new AppError(404, 'ROOM_NOT_FOUND', 'Room not found');
+    }
+
+    const floor = museum.floors?.find((f) => f.id === req.body.floorId);
+    if (!floor) {
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+    }
+
+    room.floorId = req.body.floorId;
+    room.polygon = req.body.polygon;
+    await museum.save();
+
+    res.json({
+      success: true,
+      data: room,
+      message: 'Room outline updated successfully',
+    });
+  });
 
   // Rimuove solo il contorno di una sala (torna disponibile senza piano/poligono)
-  static async removeRoomOutline(
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
-    try {
+  static removeRoomOutline = asyncHandler(
+    async (req: AuthRequest, res: Response): Promise<void> => {
       const { id, roomId } = req.params;
 
       const museum = await MuseumModel.findById(id);
@@ -1029,455 +962,405 @@ export class MuseumController {
         data: room,
         message: 'Room outline removed successfully',
       });
-    } catch (error) {
-      next(error);
-    }
-  }
+    },
+  );
 
   // Elimina una sala
-  static async deleteRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id, roomId } = req.params;
+  static deleteRoom = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id, roomId } = req.params;
 
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      const roomIndex = museum.rooms?.findIndex((r) => r.id === roomId);
-      if (roomIndex === undefined || roomIndex === -1) {
-        throw new AppError(404, 'ROOM_NOT_FOUND', 'Room not found');
-      }
-
-      museum.rooms!.splice(roomIndex, 1);
-      await museum.save();
-
-      res.json({
-        success: true,
-        message: 'Room deleted successfully',
-      });
-    } catch (error) {
-      next(error);
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
     }
-  }
+
+    const roomIndex = museum.rooms?.findIndex((r) => r.id === roomId);
+    if (roomIndex === undefined || roomIndex === -1) {
+      throw new AppError(404, 'ROOM_NOT_FOUND', 'Room not found');
+    }
+
+    museum.rooms!.splice(roomIndex, 1);
+    await museum.save();
+
+    res.json({
+      success: true,
+      message: 'Room deleted successfully',
+    });
+  });
 
   // ========================================
   // GESTIONE MARKER
   // ========================================
 
   // Ottieni tutti i marker di un piano
-  static async getMarkers(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id, floorId } = req.params;
+  static getMarkers = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id, floorId } = req.params;
 
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      const floor = museum.floors?.find((f) => f.id === floorId);
-      if (!floor) {
-        throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
-      }
-
-      res.json({
-        success: true,
-        data: floor.markers || [],
-      });
-    } catch (error) {
-      next(error);
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
     }
-  }
+
+    const floor = museum.floors?.find((f) => f.id === floorId);
+    if (!floor) {
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+    }
+
+    res.json({
+      success: true,
+      data: floor.markers || [],
+    });
+  });
 
   // Aggiungi un marker a un piano
-  static async addMarker(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
-      }
-
-      const { id, floorId } = req.params;
-      const markerData: MapMarker = {
-        ...req.body,
-        floorId,
-        isVisible: req.body.isVisible !== false,
-      };
-
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
-      if (floorIndex === undefined || floorIndex === -1) {
-        throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
-      }
-
-      // Controlla se l'ID marker esiste già su questo piano
-      if (museum.floors![floorIndex].markers?.some((m) => m.id === markerData.id)) {
-        throw new AppError(400, 'MARKER_EXISTS', 'A marker with this ID already exists');
-      }
-
-      if (!museum.floors![floorIndex].markers) {
-        museum.floors![floorIndex].markers = [];
-      }
-
-      museum.floors![floorIndex].markers!.push(markerData);
-      await museum.save();
-
-      res.status(201).json({
-        success: true,
-        data: markerData,
-        message: 'Marker added successfully',
-      });
-    } catch (error) {
-      next(error);
+  static addMarker = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
     }
-  }
+
+    const { id, floorId } = req.params;
+    const markerData: MapMarker = {
+      ...req.body,
+      floorId,
+      isVisible: req.body.isVisible !== false,
+    };
+
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+    }
+
+    const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
+    if (floorIndex === undefined || floorIndex === -1) {
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+    }
+
+    // Controlla se l'ID marker esiste già su questo piano
+    if (museum.floors![floorIndex].markers?.some((m) => m.id === markerData.id)) {
+      throw new AppError(400, 'MARKER_EXISTS', 'A marker with this ID already exists');
+    }
+
+    if (!museum.floors![floorIndex].markers) {
+      museum.floors![floorIndex].markers = [];
+    }
+
+    museum.floors![floorIndex].markers!.push(markerData);
+    await museum.save();
+
+    res.status(201).json({
+      success: true,
+      data: markerData,
+      message: 'Marker added successfully',
+    });
+  });
 
   // Aggiorna un marker
-  static async updateMarker(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id, floorId, markerId } = req.params;
+  static updateMarker = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id, floorId, markerId } = req.params;
 
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
-      if (floorIndex === undefined || floorIndex === -1) {
-        throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
-      }
-
-      const markerIndex = museum.floors![floorIndex].markers?.findIndex((m) => m.id === markerId);
-      if (markerIndex === undefined || markerIndex === -1) {
-        throw new AppError(404, 'MARKER_NOT_FOUND', 'Marker not found');
-      }
-
-      museum.floors![floorIndex].markers![markerIndex] = {
-        ...museum.floors![floorIndex].markers![markerIndex],
-        ...req.body,
-        id: markerId, // Prevent ID change
-        floorId, // Ensure floor ID stays correct
-      };
-
-      await museum.save();
-
-      res.json({
-        success: true,
-        data: museum.floors![floorIndex].markers![markerIndex],
-        message: 'Marker updated successfully',
-      });
-    } catch (error) {
-      next(error);
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
     }
-  }
+
+    const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
+    if (floorIndex === undefined || floorIndex === -1) {
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+    }
+
+    const markerIndex = museum.floors![floorIndex].markers?.findIndex((m) => m.id === markerId);
+    if (markerIndex === undefined || markerIndex === -1) {
+      throw new AppError(404, 'MARKER_NOT_FOUND', 'Marker not found');
+    }
+
+    museum.floors![floorIndex].markers![markerIndex] = {
+      ...museum.floors![floorIndex].markers![markerIndex],
+      ...req.body,
+      id: markerId, // Prevent ID change
+      floorId, // Ensure floor ID stays correct
+    };
+
+    await museum.save();
+
+    res.json({
+      success: true,
+      data: museum.floors![floorIndex].markers![markerIndex],
+      message: 'Marker updated successfully',
+    });
+  });
 
   // Elimina un marker
-  static async deleteMarker(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id, floorId, markerId } = req.params;
+  static deleteMarker = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id, floorId, markerId } = req.params;
 
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
-      if (floorIndex === undefined || floorIndex === -1) {
-        throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
-      }
-
-      const markerIndex = museum.floors![floorIndex].markers?.findIndex((m) => m.id === markerId);
-      if (markerIndex === undefined || markerIndex === -1) {
-        throw new AppError(404, 'MARKER_NOT_FOUND', 'Marker not found');
-      }
-
-      museum.floors![floorIndex].markers!.splice(markerIndex, 1);
-      await museum.save();
-
-      res.json({
-        success: true,
-        message: 'Marker deleted successfully',
-      });
-    } catch (error) {
-      next(error);
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
     }
-  }
+
+    const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
+    if (floorIndex === undefined || floorIndex === -1) {
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+    }
+
+    const markerIndex = museum.floors![floorIndex].markers?.findIndex((m) => m.id === markerId);
+    if (markerIndex === undefined || markerIndex === -1) {
+      throw new AppError(404, 'MARKER_NOT_FOUND', 'Marker not found');
+    }
+
+    museum.floors![floorIndex].markers!.splice(markerIndex, 1);
+    await museum.save();
+
+    res.json({
+      success: true,
+      message: 'Marker deleted successfully',
+    });
+  });
 
   // Aggiorna i marker in blocco (per il riposizionamento drag & drop)
-  static async updateMarkers(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id, floorId } = req.params;
-      const { markers } = req.body;
+  static updateMarkers = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id, floorId } = req.params;
+    const { markers } = req.body;
 
-      if (!Array.isArray(markers)) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Markers must be an array');
-      }
-
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
-      if (floorIndex === undefined || floorIndex === -1) {
-        throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
-      }
-
-      // Sostituisce tutti i marker col nuovo array
-      museum.floors![floorIndex].markers = markers.map(
-        (m: Partial<MapMarker>) =>
-          ({
-            ...m,
-            floorId,
-          }) as MapMarker,
-      );
-
-      await museum.save();
-
-      res.json({
-        success: true,
-        data: museum.floors![floorIndex].markers,
-        message: 'Markers updated successfully',
-      });
-    } catch (error) {
-      next(error);
+    if (!Array.isArray(markers)) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Markers must be an array');
     }
-  }
+
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+    }
+
+    const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
+    if (floorIndex === undefined || floorIndex === -1) {
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+    }
+
+    // Sostituisce tutti i marker col nuovo array
+    museum.floors![floorIndex].markers = markers.map(
+      (m: Partial<MapMarker>) =>
+        ({
+          ...m,
+          floorId,
+        }) as MapMarker,
+    );
+
+    await museum.save();
+
+    res.json({
+      success: true,
+      data: museum.floors![floorIndex].markers,
+      message: 'Markers updated successfully',
+    });
+  });
 
   // ========================================
   // GESTIONE COLLEGAMENTI
   // ========================================
 
   // Aggiungi un collegamento tra piani
-  static async addConnection(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
-      }
-
-      const { id, floorId } = req.params;
-      const connectionData: FloorConnection = {
-        ...req.body,
-        isAccessible: req.body.isAccessible || false,
-      };
-
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
-      if (floorIndex === undefined || floorIndex === -1) {
-        throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
-      }
-
-      // Controlla che il piano di destinazione esista
-      if (!museum.floors?.some((f) => f.id === connectionData.targetFloorId)) {
-        throw new AppError(400, 'TARGET_FLOOR_NOT_FOUND', 'Target floor not found');
-      }
-
-      if (!museum.floors![floorIndex].connections) {
-        museum.floors![floorIndex].connections = [];
-      }
-
-      museum.floors![floorIndex].connections!.push(connectionData);
-      await museum.save();
-
-      res.status(201).json({
-        success: true,
-        data: connectionData,
-        message: 'Connection added successfully',
-      });
-    } catch (error) {
-      next(error);
+  static addConnection = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
     }
-  }
+
+    const { id, floorId } = req.params;
+    const connectionData: FloorConnection = {
+      ...req.body,
+      isAccessible: req.body.isAccessible || false,
+    };
+
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+    }
+
+    const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
+    if (floorIndex === undefined || floorIndex === -1) {
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+    }
+
+    // Controlla che il piano di destinazione esista
+    if (!museum.floors?.some((f) => f.id === connectionData.targetFloorId)) {
+      throw new AppError(400, 'TARGET_FLOOR_NOT_FOUND', 'Target floor not found');
+    }
+
+    if (!museum.floors![floorIndex].connections) {
+      museum.floors![floorIndex].connections = [];
+    }
+
+    museum.floors![floorIndex].connections!.push(connectionData);
+    await museum.save();
+
+    res.status(201).json({
+      success: true,
+      data: connectionData,
+      message: 'Connection added successfully',
+    });
+  });
 
   // Elimina un collegamento
-  static async deleteConnection(
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
-    try {
-      const { id, floorId, connectionId } = req.params;
+  static deleteConnection = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id, floorId, connectionId } = req.params;
 
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
-      if (floorIndex === undefined || floorIndex === -1) {
-        throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
-      }
-
-      const connectionIndex = museum.floors![floorIndex].connections?.findIndex(
-        (c) => c.id === connectionId,
-      );
-      if (connectionIndex === undefined || connectionIndex === -1) {
-        throw new AppError(404, 'CONNECTION_NOT_FOUND', 'Connection not found');
-      }
-
-      museum.floors![floorIndex].connections!.splice(connectionIndex, 1);
-      await museum.save();
-
-      res.json({
-        success: true,
-        message: 'Connection deleted successfully',
-      });
-    } catch (error) {
-      next(error);
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
     }
-  }
+
+    const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
+    if (floorIndex === undefined || floorIndex === -1) {
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+    }
+
+    const connectionIndex = museum.floors![floorIndex].connections?.findIndex(
+      (c) => c.id === connectionId,
+    );
+    if (connectionIndex === undefined || connectionIndex === -1) {
+      throw new AppError(404, 'CONNECTION_NOT_FOUND', 'Connection not found');
+    }
+
+    museum.floors![floorIndex].connections!.splice(connectionIndex, 1);
+    await museum.save();
+
+    res.json({
+      success: true,
+      message: 'Connection deleted successfully',
+    });
+  });
 
   // ========================================
   // GESTIONE CURATORI
   // ========================================
 
   // Ottieni i curatori di un museo
-  static async getCurators(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
-      const { User } = await import('../models/index.js');
-      const { ResourceType, ContextualRole } = await import('@artaround/shared');
+  static getCurators = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const { User } = await import('../models/index.js');
+    const { ResourceType, ContextualRole } = await import('@artaround/shared');
 
-      // Verifica che il museo esista
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      // Trova gli utenti con ruolo MANAGER su questo museo
-      const curators = await User.find({
-        roleAssignments: {
-          $elemMatch: {
-            resourceType: ResourceType.MUSEUM,
-            resourceId: id,
-            role: ContextualRole.MANAGER,
-          },
-        },
-      }).select('-password');
-
-      res.json({
-        success: true,
-        data: curators,
-      });
-    } catch (error) {
-      next(error);
+    // Verifica che il museo esista
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
     }
-  }
+
+    // Trova gli utenti con ruolo MANAGER su questo museo
+    const curators = await User.find({
+      roleAssignments: {
+        $elemMatch: {
+          resourceType: ResourceType.MUSEUM,
+          resourceId: id,
+          role: ContextualRole.MANAGER,
+        },
+      },
+    }).select('-password');
+
+    res.json({
+      success: true,
+      data: curators,
+    });
+  });
 
   // Aggiungi un curatore a un museo
-  static async addCurator(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
-      const { userId } = req.body;
-      const { User } = await import('../models/index.js');
-      const { ResourceType, ContextualRole } = await import('@artaround/shared');
+  static addCurator = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const { userId } = req.body;
+    const { User } = await import('../models/index.js');
+    const { ResourceType, ContextualRole } = await import('@artaround/shared');
 
-      if (!userId) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'User ID is required');
-      }
-
-      // Verifica che il museo esista
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      // Verifica che l'utente esista
-      const user = await User.findById(userId);
-      if (!user) {
-        throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
-      }
-
-      // Controlla se è già curatore
-      const isAlreadyCurator = user.roleAssignments?.some(
-        (assignment: RoleAssignment) =>
-          assignment.resourceType === ResourceType.MUSEUM &&
-          assignment.resourceId === id &&
-          assignment.role === ContextualRole.MANAGER,
-      );
-
-      if (isAlreadyCurator) {
-        throw new AppError(400, 'ALREADY_CURATOR', 'User is already a curator of this museum');
-      }
-
-      // Aggiungi l'assegnazione di ruolo
-      if (!user.roleAssignments) {
-        user.roleAssignments = [];
-      }
-
-      user.roleAssignments.push({
-        role: ContextualRole.MANAGER,
-        resourceType: ResourceType.MUSEUM,
-        resourceId: id as string,
-        assignedAt: new Date(),
-        assignedBy: req.user!.id,
-      });
-
-      await user.save();
-
-      res.status(201).json({
-        success: true,
-        message: `User ${user.username} added as curator of ${museum.name}`,
-        data: {
-          userId: user._id,
-          username: user.username,
-          email: user.email,
-        },
-      });
-    } catch (error) {
-      next(error);
+    if (!userId) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'User ID is required');
     }
-  }
+
+    // Verifica che il museo esista
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+    }
+
+    // Verifica che l'utente esista
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+    }
+
+    // Controlla se è già curatore
+    const isAlreadyCurator = user.roleAssignments?.some(
+      (assignment: RoleAssignment) =>
+        assignment.resourceType === ResourceType.MUSEUM &&
+        assignment.resourceId === id &&
+        assignment.role === ContextualRole.MANAGER,
+    );
+
+    if (isAlreadyCurator) {
+      throw new AppError(400, 'ALREADY_CURATOR', 'User is already a curator of this museum');
+    }
+
+    // Aggiungi l'assegnazione di ruolo
+    if (!user.roleAssignments) {
+      user.roleAssignments = [];
+    }
+
+    user.roleAssignments.push({
+      role: ContextualRole.MANAGER,
+      resourceType: ResourceType.MUSEUM,
+      resourceId: id as string,
+      assignedAt: new Date(),
+      assignedBy: req.user!.id,
+    });
+
+    await user.save();
+
+    res.status(201).json({
+      success: true,
+      message: `User ${user.username} added as curator of ${museum.name}`,
+      data: {
+        userId: user._id,
+        username: user.username,
+        email: user.email,
+      },
+    });
+  });
 
   // Rimuovi un curatore da un museo
-  static async removeCurator(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id, userId } = req.params;
-      const { User } = await import('../models/index.js');
-      const { ResourceType, ContextualRole } = await import('@artaround/shared');
+  static removeCurator = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id, userId } = req.params;
+    const { User } = await import('../models/index.js');
+    const { ResourceType, ContextualRole } = await import('@artaround/shared');
 
-      // Verifica che il museo esista
-      const museum = await MuseumModel.findById(id);
-      if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
-      }
-
-      // Verifica che l'utente esista
-      const user = await User.findById(userId);
-      if (!user) {
-        throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
-      }
-
-      // Trova e rimuovi l'assegnazione di ruolo
-      const assignmentIndex = user.roleAssignments?.findIndex(
-        (assignment: RoleAssignment) =>
-          assignment.resourceType === ResourceType.MUSEUM &&
-          assignment.resourceId === id &&
-          assignment.role === ContextualRole.MANAGER,
-      );
-
-      if (assignmentIndex === undefined || assignmentIndex === -1) {
-        throw new AppError(400, 'NOT_A_CURATOR', 'User is not a curator of this museum');
-      }
-
-      user.roleAssignments!.splice(assignmentIndex, 1);
-      await user.save();
-
-      res.json({
-        success: true,
-        message: `User ${user.username} removed as curator of ${museum.name}`,
-      });
-    } catch (error) {
-      next(error);
+    // Verifica che il museo esista
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
     }
-  }
+
+    // Verifica che l'utente esista
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+    }
+
+    // Trova e rimuovi l'assegnazione di ruolo
+    const assignmentIndex = user.roleAssignments?.findIndex(
+      (assignment: RoleAssignment) =>
+        assignment.resourceType === ResourceType.MUSEUM &&
+        assignment.resourceId === id &&
+        assignment.role === ContextualRole.MANAGER,
+    );
+
+    if (assignmentIndex === undefined || assignmentIndex === -1) {
+      throw new AppError(400, 'NOT_A_CURATOR', 'User is not a curator of this museum');
+    }
+
+    user.roleAssignments!.splice(assignmentIndex, 1);
+    await user.save();
+
+    res.json({
+      success: true,
+      message: `User ${user.username} removed as curator of ${museum.name}`,
+    });
+  });
 }

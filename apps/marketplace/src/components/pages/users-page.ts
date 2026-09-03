@@ -158,7 +158,7 @@ export class UsersPage extends LitElement {
         params as Parameters<typeof userService.getUsers>[0],
       );
       this.users = response.users;
-      this.totalPages = response.pagination.pages;
+      this.totalPages = response.pagination.totalPages;
       this.total = response.pagination.total;
     } catch (e) {
       console.error('Error loading users:', e);

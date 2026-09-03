@@ -1,4 +1,5 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
+import { asyncHandler } from '../utils/async-handler.util.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
@@ -32,112 +33,104 @@ export class AuthController {
   ];
 
   // Registra un nuovo utente
-  static async register(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
-      }
-
-      const { username, email, password, role }: RegisterRequest = req.body;
-
-      // Controlla se l'utente esiste già
-      const existingUser = await User.findOne({
-        $or: [{ username }, { email }],
-      });
-
-      if (existingUser) {
-        throw new AppError(409, 'USER_EXISTS', 'Username or email already exists');
-      }
-
-      // Hasha la password
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Crea l'utente
-      const user = new User({
-        username,
-        email,
-        password: hashedPassword,
-        role: role || 'visitor',
-      });
-
-      await user.save();
-
-      // Genera il JWT
-      const token = jwt.sign(
-        {
-          id: user._id.toString(),
-          username: user.username,
-          email: user.email,
-          role: user.role,
-        },
-        config.jwt.secret,
-        { expiresIn: '7d' },
-      );
-
-      const safeUser = { ...user.toObject(), _id: user._id.toString() };
-      delete (safeUser as { password?: string }).password;
-
-      const response: AuthResponse = { token, user: safeUser };
-
-      res.status(201).json({
-        success: true,
-        data: response,
-        message: 'User registered successfully',
-      });
-    } catch (error) {
-      next(error);
+  static register = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
     }
-  }
+
+    const { username, email, password, role }: RegisterRequest = req.body;
+
+    // Controlla se l'utente esiste già
+    const existingUser = await User.findOne({
+      $or: [{ username }, { email }],
+    });
+
+    if (existingUser) {
+      throw new AppError(409, 'USER_EXISTS', 'Username or email already exists');
+    }
+
+    // Hasha la password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Crea l'utente
+    const user = new User({
+      username,
+      email,
+      password: hashedPassword,
+      role: role || 'visitor',
+    });
+
+    await user.save();
+
+    // Genera il JWT
+    const token = jwt.sign(
+      {
+        id: user._id.toString(),
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+      config.jwt.secret,
+      { expiresIn: '7d' },
+    );
+
+    const safeUser = { ...user.toObject(), _id: user._id.toString() };
+    delete (safeUser as { password?: string }).password;
+
+    const response: AuthResponse = { token, user: safeUser };
+
+    res.status(201).json({
+      success: true,
+      data: response,
+      message: 'User registered successfully',
+    });
+  });
 
   // Login utente
-  static async login(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
-      }
-
-      const { username, password }: LoginRequest = req.body;
-
-      // Trova l'utente
-      const user = await User.findOne({ username });
-      if (!user) {
-        throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid username or password');
-      }
-
-      // Controlla la password
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
-        throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid username or password');
-      }
-
-      // Genera il JWT
-      const token = jwt.sign(
-        {
-          id: user._id.toString(),
-          username: user.username,
-          email: user.email,
-          role: user.role,
-        },
-        config.jwt.secret,
-        { expiresIn: '7d' },
-      );
-
-      const safeUser = { ...user.toObject(), _id: user._id.toString() };
-      delete (safeUser as { password?: string }).password;
-
-      const response: AuthResponse = { token, user: safeUser };
-
-      res.json({
-        success: true,
-        data: response,
-        message: 'Login successful',
-      });
-    } catch (error) {
-      next(error);
+  static login = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
     }
-  }
+
+    const { username, password }: LoginRequest = req.body;
+
+    // Trova l'utente
+    const user = await User.findOne({ username });
+    if (!user) {
+      throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid username or password');
+    }
+
+    // Controlla la password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid username or password');
+    }
+
+    // Genera il JWT
+    const token = jwt.sign(
+      {
+        id: user._id.toString(),
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+      config.jwt.secret,
+      { expiresIn: '7d' },
+    );
+
+    const safeUser = { ...user.toObject(), _id: user._id.toString() };
+    delete (safeUser as { password?: string }).password;
+
+    const response: AuthResponse = { token, user: safeUser };
+
+    res.json({
+      success: true,
+      data: response,
+      message: 'Login successful',
+    });
+  });
 
   static updateMeValidation = [
     body('email').optional().isEmail().withMessage('Invalid email address'),
@@ -152,68 +145,64 @@ export class AuthController {
   // Volutamente separato da UserController.updateUser (solo admin,
   // PUT /api/users/:id): qui nessuno può toccare ruolo, roleAssignments,
   // username o isActive, indipendentemente da cosa contiene il body.
-  static async updateMe(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      if (!req.user) {
-        throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
-      }
-
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
-      }
-
-      const { email, preferences } = req.body as {
-        email?: string;
-        preferences?: Partial<{
-          competenceLevel: CompetenceLevel;
-          interests: string[];
-          availableTime: TimePreference;
-          age: number;
-          language: string;
-        }>;
-      };
-
-      if (email) {
-        const existing = await User.findOne({ email, _id: { $ne: req.user.id } });
-        if (existing) {
-          throw new AppError(409, 'EMAIL_TAKEN', 'Email already in use');
-        }
-      }
-
-      const user = await User.findById(req.user.id);
-      if (!user) {
-        throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
-      }
-
-      if (email) {
-        user.email = email;
-      }
-
-      if (preferences) {
-        const currentPreferences = user.preferences ?? {
-          competenceLevel: CompetenceLevel.MEDIO,
-          interests: [],
-          availableTime: TimePreference.NORMALE,
-          language: 'it',
-        };
-        user.preferences = { ...currentPreferences, ...preferences };
-      }
-
-      await user.save();
-
-      const safeUser = user.toObject();
-      delete (safeUser as { password?: string }).password;
-
-      res.json({
-        success: true,
-        data: safeUser,
-        message: 'Profile updated successfully',
-      });
-    } catch (error) {
-      next(error);
+  static updateMe = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    if (!req.user) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
     }
-  }
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+    }
+
+    const { email, preferences } = req.body as {
+      email?: string;
+      preferences?: Partial<{
+        competenceLevel: CompetenceLevel;
+        interests: string[];
+        availableTime: TimePreference;
+        age: number;
+        language: string;
+      }>;
+    };
+
+    if (email) {
+      const existing = await User.findOne({ email, _id: { $ne: req.user.id } });
+      if (existing) {
+        throw new AppError(409, 'EMAIL_TAKEN', 'Email already in use');
+      }
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+    }
+
+    if (email) {
+      user.email = email;
+    }
+
+    if (preferences) {
+      const currentPreferences = user.preferences ?? {
+        competenceLevel: CompetenceLevel.MEDIO,
+        interests: [],
+        availableTime: TimePreference.NORMALE,
+        language: 'it',
+      };
+      user.preferences = { ...currentPreferences, ...preferences };
+    }
+
+    await user.save();
+
+    const safeUser = user.toObject();
+    delete (safeUser as { password?: string }).password;
+
+    res.json({
+      success: true,
+      data: safeUser,
+      message: 'Profile updated successfully',
+    });
+  });
 
   static changePasswordValidation = [
     body('currentPassword').notEmpty().withMessage('Current password is required'),
@@ -224,62 +213,54 @@ export class AuthController {
 
   // Cambio password self-service: richiede la password attuale, non tocca
   // mai un altro utente via id (a differenza del CRUD utenti solo admin).
-  static async changePassword(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      if (!req.user) {
-        throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
-      }
-
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
-      }
-
-      const { currentPassword, newPassword } = req.body as {
-        currentPassword: string;
-        newPassword: string;
-      };
-
-      const user = await User.findById(req.user.id);
-      if (!user) {
-        throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
-      }
-
-      const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
-      if (!isCurrentPasswordValid) {
-        throw new AppError(401, 'INVALID_CREDENTIALS', 'Current password is incorrect');
-      }
-
-      user.password = await bcrypt.hash(newPassword, 10);
-      await user.save();
-
-      res.json({
-        success: true,
-        message: 'Password changed successfully',
-      });
-    } catch (error) {
-      next(error);
+  static changePassword = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    if (!req.user) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
     }
-  }
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+    }
+
+    const { currentPassword, newPassword } = req.body as {
+      currentPassword: string;
+      newPassword: string;
+    };
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      throw new AppError(401, 'INVALID_CREDENTIALS', 'Current password is incorrect');
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully',
+    });
+  });
 
   // Ottieni l'utente corrente
-  static async me(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      if (!req.user) {
-        throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
-      }
-
-      const user = await User.findById(req.user.id).select('-password');
-      if (!user) {
-        throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
-      }
-
-      res.json({
-        success: true,
-        data: user,
-      });
-    } catch (error) {
-      next(error);
+  static me = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    if (!req.user) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
     }
-  }
+
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) {
+      throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+    }
+
+    res.json({
+      success: true,
+      data: user,
+    });
+  });
 }

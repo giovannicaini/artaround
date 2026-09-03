@@ -1,4 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
+import { asyncHandler } from '../utils/async-handler.util.js';
+import { parsePagination, buildPaginationMeta } from '../utils/pagination.util.js';
 import { ArtworkModel } from '../models/index.js';
 import type { ArtworkFilters as SharedArtworkFilters } from '@artaround/shared';
 import { resolveMuseumIdCandidates } from '../utils/museum-id.util.js';
@@ -90,228 +92,186 @@ const parseTechnicalYearRange = (yearValue: unknown): YearRange => {
 };
 
 // GET /api/artworks
-export const getArtworks = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    // Estrae e verifica i filtri dalla query
-    const filters: ArtworkQueryFilters = {
-      museumId: req.query.museumId as string | undefined,
-      author: req.query.author as string | undefined,
-      authorWikidataId: req.query.authorWikidataId as string | undefined,
-      artworkType: req.query.artworkType as ArtworkQueryFilters['artworkType'],
-      movement: req.query.movement as string | undefined,
-      movementWikidataId: req.query.movementWikidataId as string | undefined,
-      room: req.query.room as string | undefined,
-      floor: req.query.floor as string | undefined,
-      yearFrom: req.query.yearFrom ? Number(req.query.yearFrom) : undefined,
-      yearTo: req.query.yearTo ? Number(req.query.yearTo) : undefined,
-      search: req.query.search as string | undefined,
-      page: req.query.page ? Number(req.query.page) : 1,
-      limit: req.query.limit ? Number(req.query.limit) : 50,
-    };
+export const getArtworks = asyncHandler(async (req: Request, res: Response) => {
+  // Estrae e verifica i filtri dalla query
+  const filters: ArtworkQueryFilters = {
+    museumId: req.query.museumId as string | undefined,
+    author: req.query.author as string | undefined,
+    authorWikidataId: req.query.authorWikidataId as string | undefined,
+    artworkType: req.query.artworkType as ArtworkQueryFilters['artworkType'],
+    movement: req.query.movement as string | undefined,
+    movementWikidataId: req.query.movementWikidataId as string | undefined,
+    room: req.query.room as string | undefined,
+    floor: req.query.floor as string | undefined,
+    yearFrom: req.query.yearFrom ? Number(req.query.yearFrom) : undefined,
+    yearTo: req.query.yearTo ? Number(req.query.yearTo) : undefined,
+    search: req.query.search as string | undefined,
+  };
 
-    const query: Record<string, unknown> = {};
+  const query: Record<string, unknown> = {};
 
-    if (filters.museumId) {
-      const museumIdCandidates = await resolveMuseumIdCandidates(filters.museumId);
-      query.museumId =
-        museumIdCandidates.length <= 1 ? museumIdCandidates[0] : { $in: museumIdCandidates };
-    }
-    if (filters.author) query.author = filters.author;
-    if (filters.authorWikidataId) query.authorWikidataId = filters.authorWikidataId;
-    if (filters.artworkType) query.artworkType = filters.artworkType;
-    if (filters.movement) query.movement = filters.movement;
-    if (filters.movementWikidataId) query.movementWikidataId = filters.movementWikidataId;
-    if (filters.room) query.room = filters.room;
-    if (filters.floor) query.floor = filters.floor;
-
-    if (filters.yearFrom || filters.yearTo) {
-      if (filters.yearFrom) query.startYear = { $gte: filters.yearFrom };
-      if (filters.yearTo) query.endYear = { $lte: filters.yearTo };
-    }
-
-    if (filters.search) {
-      const trimmedSearch = filters.search.trim();
-      const escapedSearch = trimmedSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const searchRegex = new RegExp(escapedSearch, 'i');
-
-      query.$or = [
-        { title: searchRegex },
-        { author: searchRegex },
-        { movement: searchRegex },
-        { description: searchRegex },
-        { year: searchRegex },
-        { room: searchRegex },
-        { floor: searchRegex },
-        { wikidataId: searchRegex },
-      ];
-    }
-
-    const page = filters.page || 1;
-    const limit = filters.limit || 50;
-    const skip = (page - 1) * limit;
-
-    const [artworks, total] = await Promise.all([
-      ArtworkModel.find(query).sort({ title: 1 }).skip(skip).limit(limit).lean(),
-      ArtworkModel.countDocuments(query),
-    ]);
-
-    res.json({
-      success: true,
-      data: artworks,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error) {
-    next(error);
+  if (filters.museumId) {
+    const museumIdCandidates = await resolveMuseumIdCandidates(filters.museumId);
+    query.museumId =
+      museumIdCandidates.length <= 1 ? museumIdCandidates[0] : { $in: museumIdCandidates };
   }
-};
+  if (filters.author) query.author = filters.author;
+  if (filters.authorWikidataId) query.authorWikidataId = filters.authorWikidataId;
+  if (filters.artworkType) query.artworkType = filters.artworkType;
+  if (filters.movement) query.movement = filters.movement;
+  if (filters.movementWikidataId) query.movementWikidataId = filters.movementWikidataId;
+  if (filters.room) query.room = filters.room;
+  if (filters.floor) query.floor = filters.floor;
+
+  if (filters.yearFrom || filters.yearTo) {
+    if (filters.yearFrom) query.startYear = { $gte: filters.yearFrom };
+    if (filters.yearTo) query.endYear = { $lte: filters.yearTo };
+  }
+
+  if (filters.search) {
+    const trimmedSearch = filters.search.trim();
+    const escapedSearch = trimmedSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const searchRegex = new RegExp(escapedSearch, 'i');
+
+    query.$or = [
+      { title: searchRegex },
+      { author: searchRegex },
+      { movement: searchRegex },
+      { description: searchRegex },
+      { year: searchRegex },
+      { room: searchRegex },
+      { floor: searchRegex },
+      { wikidataId: searchRegex },
+    ];
+  }
+
+  const { page, limit, skip } = parsePagination(req.query, 50);
+
+  const [artworks, total] = await Promise.all([
+    ArtworkModel.find(query).sort({ title: 1 }).skip(skip).limit(limit).lean(),
+    ArtworkModel.countDocuments(query),
+  ]);
+
+  res.json({
+    success: true,
+    data: artworks,
+    pagination: buildPaginationMeta(total, page, limit),
+  });
+});
 
 // GET /api/artworks/:id
-export const getArtwork = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
+export const getArtwork = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
 
-    const artwork = await ArtworkModel.findById(id).lean();
+  const artwork = await ArtworkModel.findById(id).lean();
 
-    if (!artwork) {
-      return res.status(404).json({ success: false, error: 'Artwork not found' });
-    }
-
-    res.json({ success: true, data: artwork });
-  } catch (error) {
-    next(error);
+  if (!artwork) {
+    return res.status(404).json({ success: false, error: 'Artwork not found' });
   }
-};
+
+  res.json({ success: true, data: artwork });
+});
 
 // GET /api/artworks/wikidata/:wikidataId
-export const getArtworkByWikidataId = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { wikidataId } = req.params;
+export const getArtworkByWikidataId = asyncHandler(async (req: Request, res: Response) => {
+  const { wikidataId } = req.params;
 
-    const artwork = await ArtworkModel.findOne({ wikidataId }).lean();
+  const artwork = await ArtworkModel.findOne({ wikidataId }).lean();
 
-    if (!artwork) {
-      return res.status(404).json({ success: false, error: 'Artwork not found' });
-    }
-
-    res.json({ success: true, data: artwork });
-  } catch (error) {
-    next(error);
+  if (!artwork) {
+    return res.status(404).json({ success: false, error: 'Artwork not found' });
   }
-};
+
+  res.json({ success: true, data: artwork });
+});
 
 // POST /api/artworks
-export const createArtwork = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const yearRange = parseTechnicalYearRange(req.body?.year);
-    const artworkData = {
-      ...req.body,
-      startYear: yearRange.startYear,
-      endYear: yearRange.endYear,
-    };
+export const createArtwork = asyncHandler(async (req: Request, res: Response) => {
+  const yearRange = parseTechnicalYearRange(req.body?.year);
+  const artworkData = {
+    ...req.body,
+    startYear: yearRange.startYear,
+    endYear: yearRange.endYear,
+  };
 
-    // Controlla se un'opera con questo wikidataId esiste già nello stesso museo
-    const existing = await ArtworkModel.findOne({
-      wikidataId: artworkData.wikidataId,
-      museumId: artworkData.museumId,
+  // Controlla se un'opera con questo wikidataId esiste già nello stesso museo
+  const existing = await ArtworkModel.findOne({
+    wikidataId: artworkData.wikidataId,
+    museumId: artworkData.museumId,
+  });
+  if (existing) {
+    return res.status(409).json({
+      error: 'Artwork with this Wikidata ID already exists in this museum',
+      existingId: existing._id,
     });
-    if (existing) {
-      return res.status(409).json({
-        error: 'Artwork with this Wikidata ID already exists in this museum',
-        existingId: existing._id,
-      });
-    }
-
-    const artwork = new ArtworkModel(artworkData);
-    await artwork.save();
-
-    res.status(201).json({ success: true, data: artwork });
-  } catch (error) {
-    next(error);
   }
-};
+
+  const artwork = new ArtworkModel(artworkData);
+  await artwork.save();
+
+  res.status(201).json({ success: true, data: artwork });
+});
 
 // PUT /api/artworks/:id
-export const updateArtwork = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
-    const updateData = { ...req.body } as Record<string, unknown>;
-    delete updateData.wikidataId;
+export const updateArtwork = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const updateData = { ...req.body } as Record<string, unknown>;
+  delete updateData.wikidataId;
 
-    if (Object.prototype.hasOwnProperty.call(updateData, 'year')) {
-      const yearRange = parseTechnicalYearRange(updateData.year);
-      updateData.startYear = yearRange.startYear;
-      updateData.endYear = yearRange.endYear;
-    }
-
-    const artwork = await ArtworkModel.findByIdAndUpdate(id, updateData, { new: true });
-
-    if (!artwork) {
-      return res.status(404).json({ success: false, error: 'Artwork not found' });
-    }
-
-    res.json({ success: true, data: artwork });
-  } catch (error) {
-    next(error);
+  if (Object.prototype.hasOwnProperty.call(updateData, 'year')) {
+    const yearRange = parseTechnicalYearRange(updateData.year);
+    updateData.startYear = yearRange.startYear;
+    updateData.endYear = yearRange.endYear;
   }
-};
+
+  const artwork = await ArtworkModel.findByIdAndUpdate(id, updateData, { new: true });
+
+  if (!artwork) {
+    return res.status(404).json({ success: false, error: 'Artwork not found' });
+  }
+
+  res.json({ success: true, data: artwork });
+});
 
 // DELETE /api/artworks/:id
-export const deleteArtwork = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
+export const deleteArtwork = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
 
-    const artwork = await ArtworkModel.findByIdAndDelete(id);
+  const artwork = await ArtworkModel.findByIdAndDelete(id);
 
-    if (!artwork) {
-      return res.status(404).json({ success: false, error: 'Artwork not found' });
-    }
-
-    res.json({ success: true, message: 'Artwork deleted successfully' });
-  } catch (error) {
-    next(error);
+  if (!artwork) {
+    return res.status(404).json({ success: false, error: 'Artwork not found' });
   }
-};
+
+  res.json({ success: true, message: 'Artwork deleted successfully' });
+});
 
 // GET /api/artworks/museum/:museumId
-export const getArtworksByMuseum = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { museumId } = req.params;
-    const museumIdCandidates = await resolveMuseumIdCandidates(museumId);
+export const getArtworksByMuseum = asyncHandler(async (req: Request, res: Response) => {
+  const { museumId } = req.params;
+  const museumIdCandidates = await resolveMuseumIdCandidates(museumId);
 
-    const artworks = await ArtworkModel.find({
-      museumId:
-        museumIdCandidates.length <= 1 ? museumIdCandidates[0] : { $in: museumIdCandidates },
-    })
-      .sort({ room: 1, title: 1 })
-      .lean();
+  const artworks = await ArtworkModel.find({
+    museumId: museumIdCandidates.length <= 1 ? museumIdCandidates[0] : { $in: museumIdCandidates },
+  })
+    .sort({ room: 1, title: 1 })
+    .lean();
 
-    res.json({ success: true, data: artworks });
-  } catch (error) {
-    next(error);
-  }
-};
+  res.json({ success: true, data: artworks });
+});
 
 // PUT /api/artworks/:id/map-position
-export const updateArtworkMapPosition = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
-    const { floorId, x, y, rotation } = req.body;
+export const updateArtworkMapPosition = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { floorId, x, y, rotation } = req.body;
 
-    const mapPosition = { floorId, x, y, rotation };
+  const mapPosition = { floorId, x, y, rotation };
 
-    const artwork = await ArtworkModel.findByIdAndUpdate(id, { mapPosition }, { new: true });
+  const artwork = await ArtworkModel.findByIdAndUpdate(id, { mapPosition }, { new: true });
 
-    if (!artwork) {
-      return res.status(404).json({ success: false, error: 'Artwork not found' });
-    }
-
-    res.json({ success: true, data: artwork });
-  } catch (error) {
-    next(error);
+  if (!artwork) {
+    return res.status(404).json({ success: false, error: 'Artwork not found' });
   }
-};
+
+  res.json({ success: true, data: artwork });
+});

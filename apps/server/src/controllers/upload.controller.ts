@@ -1,4 +1,5 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
+import { asyncHandler } from '../utils/async-handler.util.js';
 import { UploadService } from '../utils/upload.service.js';
 import { AppError } from '../middleware/index.js';
 import type { ImageProcessOptions, UploadCategory } from '@artaround/shared';
@@ -23,117 +24,101 @@ export class UploadController {
    * - cropX, cropY, cropWidth, cropHeight: regione di ritaglio opzionale
    * - oldPath: percorso opzionale della vecchia immagine da eliminare (sostituzione)
    */
-  static async uploadImage(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      if (!req.file) {
-        throw new AppError(400, 'NO_FILE', 'Nessun file caricato');
-      }
-
-      const category = (req.body.category || 'misc') as UploadCategory;
-      if (!VALID_CATEGORIES.includes(category)) {
-        throw new AppError(400, 'INVALID_CATEGORY', `Categoria non valida: ${category}`);
-      }
-
-      const options = UploadController.parseProcessOptions(req.body);
-      const result = await UploadService.processAndSave(
-        req.file.buffer,
-        req.file.originalname,
-        category,
-        options,
-      );
-
-      // Elimina la vecchia immagine se è una sostituzione
-      if (req.body.oldPath) {
-        await UploadService.deleteFile(req.body.oldPath);
-      }
-
-      res.json({
-        success: true,
-        data: result,
-      });
-    } catch (error) {
-      next(error);
+  static uploadImage = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    if (!req.file) {
+      throw new AppError(400, 'NO_FILE', 'Nessun file caricato');
     }
-  }
+
+    const category = (req.body.category || 'misc') as UploadCategory;
+    if (!VALID_CATEGORIES.includes(category)) {
+      throw new AppError(400, 'INVALID_CATEGORY', `Categoria non valida: ${category}`);
+    }
+
+    const options = UploadController.parseProcessOptions(req.body);
+    const result = await UploadService.processAndSave(
+      req.file.buffer,
+      req.file.originalname,
+      category,
+      options,
+    );
+
+    // Elimina la vecchia immagine se è una sostituzione
+    if (req.body.oldPath) {
+      await UploadService.deleteFile(req.body.oldPath);
+    }
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  });
 
   /**
    * POST /api/uploads/from-url
    * Scarica, elabora e salva un'immagine da un URL
    * Body: { url, category, width, height, fit, quality, format, cropX, cropY, cropWidth, cropHeight, oldPath }
    */
-  static async uploadFromUrl(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { url, category = 'misc', oldPath } = req.body;
+  static uploadFromUrl = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { url, category = 'misc', oldPath } = req.body;
 
-      if (!url) {
-        throw new AppError(400, 'NO_URL', 'URL immagine mancante');
-      }
-
-      if (!VALID_CATEGORIES.includes(category as UploadCategory)) {
-        throw new AppError(400, 'INVALID_CATEGORY', `Categoria non valida: ${category}`);
-      }
-
-      const options = UploadController.parseProcessOptions(req.body);
-      const result = await UploadService.processFromUrl(url, category as UploadCategory, options);
-
-      // Elimina la vecchia immagine se è una sostituzione
-      if (oldPath) {
-        await UploadService.deleteFile(oldPath);
-      }
-
-      res.json({
-        success: true,
-        data: result,
-      });
-    } catch (error) {
-      next(error);
+    if (!url) {
+      throw new AppError(400, 'NO_URL', 'URL immagine mancante');
     }
-  }
+
+    if (!VALID_CATEGORIES.includes(category as UploadCategory)) {
+      throw new AppError(400, 'INVALID_CATEGORY', `Categoria non valida: ${category}`);
+    }
+
+    const options = UploadController.parseProcessOptions(req.body);
+    const result = await UploadService.processFromUrl(url, category as UploadCategory, options);
+
+    // Elimina la vecchia immagine se è una sostituzione
+    if (oldPath) {
+      await UploadService.deleteFile(oldPath);
+    }
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  });
 
   /**
    * DELETE /api/uploads
    * Elimina un'immagine caricata
    * Body: { path: "/uploads/museums/abc123.webp" }
    */
-  static async deleteImage(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { path } = req.body;
+  static deleteImage = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { path } = req.body;
 
-      if (!path) {
-        throw new AppError(400, 'NO_PATH', 'Percorso file mancante');
-      }
-
-      const deleted = await UploadService.deleteFile(path);
-
-      res.json({
-        success: true,
-        data: { deleted },
-      });
-    } catch (error) {
-      next(error);
+    if (!path) {
+      throw new AppError(400, 'NO_PATH', 'Percorso file mancante');
     }
-  }
+
+    const deleted = await UploadService.deleteFile(path);
+
+    res.json({
+      success: true,
+      data: { deleted },
+    });
+  });
 
   /**
    * POST /api/uploads/metadata
    * Ottieni i metadati immagine da un file caricato (senza salvare)
    */
-  static async getMetadata(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      if (!req.file) {
-        throw new AppError(400, 'NO_FILE', 'Nessun file caricato');
-      }
-
-      const metadata = await UploadService.getMetadata(req.file.buffer);
-
-      res.json({
-        success: true,
-        data: metadata,
-      });
-    } catch (error) {
-      next(error);
+  static getMetadata = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    if (!req.file) {
+      throw new AppError(400, 'NO_FILE', 'Nessun file caricato');
     }
-  }
+
+    const metadata = await UploadService.getMetadata(req.file.buffer);
+
+    res.json({
+      success: true,
+      data: metadata,
+    });
+  });
 
   /**
    * Estrae le opzioni di elaborazione immagine dal body della richiesta
