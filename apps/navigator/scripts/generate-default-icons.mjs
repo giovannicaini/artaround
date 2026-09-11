@@ -1,6 +1,7 @@
-// Genera le icone PWA di default per NavigatorConfig applicability 'global'
-// (nessuna icona reale esiste ancora nel repo). Motivo bussola sui colori
-// "aurora" attuali del Navigator (main.css/tailwind.config.js). Uso una tantum:
+// Genera le icone PWA di default per NavigatorConfig applicability 'global' —
+// rosa dei venti a 8 punte sul gradiente .gradient-aurora reale (main.css),
+// stesso segno usato per tutte le altre NavigatorConfig (vedi
+// MUSEUM_SERVICE_TYPE_OPTIONS/marketplace, mai una lettera). Uso una tantum:
 //   node apps/navigator/scripts/generate-default-icons.mjs
 import sharp from 'sharp';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -9,47 +10,45 @@ import path from 'node:path';
 
 const OUT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../public/icons');
 
+// Stessi due colori/stop di .gradient-aurora in main.css — non un terzo
+// colore intermedio che lì non esiste.
 const PRIMARY = '#8b3ffc';
 const EMBER = '#f59e0b';
-const FUCHSIA = '#ec4899';
 
-// Bussola stilizzata: cerchio + ago a diamante, stesso linguaggio visivo
-// dell'icona Compass (lucide-react) usata come fallback in HomePage/MuseumPage.
-function compassGlyph(scale) {
-  const r = 150 * scale;
-  const needle = 78 * scale;
+function compassRoseGlyph(scale) {
   return `
-    <circle cx="256" cy="256" r="${r}" fill="none" stroke="white" stroke-width="${14 * scale}" />
-    <path d="M 256 ${256 - needle} L ${256 + needle * 0.55} 256 L 256 ${256 + needle} L ${256 - needle * 0.55} 256 Z"
-          fill="white" />
+    <g transform="translate(256 256) scale(${scale}) translate(-256 -256)">
+      <path d="M256 30 L302 256 L256 482 L210 256 Z" fill="white"/>
+      <path d="M30 256 L256 210 L482 256 L256 302 Z" fill="white"/>
+      <path d="M256 122 L281 256 L256 390 L231 256 Z" fill="white" transform="rotate(45 256 256)"/>
+      <path d="M256 122 L281 256 L256 390 L231 256 Z" fill="white" transform="rotate(135 256 256)"/>
+    </g>
   `;
 }
 
-function iconSvg({ glyphScale, maskable = false }) {
-  const bg = maskable
-    ? `<rect width="512" height="512" fill="${PRIMARY}" />`
-    : `<rect width="512" height="512" rx="112" fill="url(#g)" />`;
-
+function iconSvg({ glyphScale }) {
+  // Canvas quadrato, mai arrotondato qui: ci pensa il sistema operativo
+  // (icona standard) o la maschera (maskable) — un doppio arrotondamento
+  // lascerebbe angoli visibili su chi non applica la propria maschera.
   return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="${PRIMARY}" />
-      <stop offset="55%" stop-color="${FUCHSIA}" />
       <stop offset="100%" stop-color="${EMBER}" />
     </linearGradient>
   </defs>
-  ${bg}
-  ${compassGlyph(glyphScale)}
+  <rect width="512" height="512" fill="url(#g)" />
+  ${compassRoseGlyph(glyphScale)}
 </svg>`;
 }
 
 async function generate() {
   await mkdir(OUT_DIR, { recursive: true });
 
-  const standard = Buffer.from(iconSvg({ glyphScale: 1 }));
+  const standard = Buffer.from(iconSvg({ glyphScale: 0.7 }));
   // Maskable: il contenuto deve stare nel cerchio di sicurezza (~80% del
-  // canvas) — glifo più piccolo, sfondo pieno che arriva fino al bordo.
-  const maskable = Buffer.from(iconSvg({ glyphScale: 0.6, maskable: true }));
+  // canvas) — glifo più piccolo dello standard.
+  const maskable = Buffer.from(iconSvg({ glyphScale: 0.55 }));
 
   await Promise.all([
     sharp(standard).resize(512, 512).png().toFile(path.join(OUT_DIR, 'icon-512.png')),

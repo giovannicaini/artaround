@@ -13,6 +13,7 @@ import MuseumPage from './pages/MuseumPage';
 import VisitPlayerPage from './pages/VisitPlayerPage';
 import AccountPage from './pages/AccountPage';
 import WelcomePage from './pages/WelcomePage';
+import NotFoundPage from './pages/NotFoundPage';
 import { LoadingState, Toast, Sheet, IconTile } from './components/ui';
 
 function welcomeSeenKey(configId: string): string {
@@ -156,6 +157,7 @@ function App() {
         <Route path="/museum/:museumId" element={<MuseumPage />} />
         <Route path="/visit/:visitId" element={<VisitPlayerPage />} />
         <Route path="/account" element={<AccountPage />} />
+        <Route path="*" element={<NotFoundPage config={activeConfig} />} />
       </Routes>
 
       <Toast

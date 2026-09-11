@@ -45,6 +45,20 @@ export function applyManifestAndIcons(config: NavigatorConfig): void {
     link.href = appleTouchIcon;
   }
 
+  // Icona nella scheda del browser — a differenza degli altri tag sopra,
+  // parte da un file statico in index.html: senza questo resterebbe sempre
+  // quella di default anche con una config diversa attiva.
+  const favicon = config.pwa.icon192 || config.pwa.icon512;
+  if (favicon) {
+    let iconLink = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!iconLink) {
+      iconLink = document.createElement('link');
+      iconLink.rel = 'icon';
+      document.head.appendChild(iconLink);
+    }
+    iconLink.href = favicon;
+  }
+
   document.title = config.pwa.shortName || config.name;
 }
 

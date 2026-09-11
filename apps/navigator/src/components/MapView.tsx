@@ -458,7 +458,7 @@ export default function MapView({
             {/* Marker: solo le opere effettivamente incluse nel percorso di
                 questa visita (un museo può averne segnate molte di più) sono
                 mostrate con la loro immagine reale, mai un'icona generica. I
-                marker di servizio (bagni, bar, uscite...) restano com'erano. */}
+                marker di servizio (bagni, bar, uscite...) usano invece l'icona del tipo. */}
             {visibleMarkers.map((marker) => {
               if (isArtworkMarker(marker.type)) {
                 const info = marker.artworkId ? artworkInfo[marker.artworkId] : undefined;
