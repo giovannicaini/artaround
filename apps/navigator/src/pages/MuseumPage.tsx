@@ -8,45 +8,56 @@ import {
   Star,
   Play,
   ShoppingBag,
-  CheckCircle2,
   Ticket,
   Accessibility,
   Sparkles,
   UserCircle,
+  ChevronRight,
+  MapPin,
+  Map as MapIcon,
 } from 'lucide-react';
 import { api } from '../services/apiClient';
 import { useAuthStore } from '../context/authStore';
 import { useI18nStore } from '../context/i18nStore';
 import { useT } from '../services/useT';
-import { useMuseumTheme } from '../services/useMuseumTheme';
+import { useNavigatorConfigStore } from '../context/navigatorConfigStore';
 import { interestAffinity } from '../services/personalization';
 import { localizedField } from '../services/i18n';
-import { LanguageLevel, type Visit } from '@artaround/shared';
+import { useOwnedVisitIds, canStartVisit } from '../services/visitAccess';
+import { LanguageLevel, MARKER_TYPE_META, type Visit, type MuseumService } from '@artaround/shared';
 import {
   IconTile,
   Chip,
-  Badge,
   LoadingState,
   ErrorState,
   EmptyState,
   PressableCard,
-  Card,
   LanguageSwitcher,
+  Sheet,
+  PurchasePrompt,
+  VisitPriceBadge,
 } from '../components/ui';
+import MapView from '../components/MapView';
+import { buildMuseumMap } from '../services/mapRoute';
+import { ServiceDetailSheet } from '../components/ServiceDetailSheet';
 
-/**
- * Museo come sequenza di blocchi con scopi diversi — copertina, info
- * pratiche, una visita in evidenza (se combacia con gli interessi
- * salvati), poi l'elenco completo filtrabile — non un'unica lista.
- */
+/** Pagina museo: copertina, info pratiche, una visita in evidenza, poi l'elenco filtrabile. */
 export default function MuseumPage() {
   const navigate = useNavigate();
   const { museumId } = useParams();
   const user = useAuthStore((state) => state.user);
   const language = useI18nStore((state) => state.language);
   const t = useT();
-  const { config } = useMuseumTheme(museumId);
+  const kioskMuseumId = useNavigatorConfigStore((state) => state.kioskMuseumId);
+  const isKioskLocked = !!kioskMuseumId && kioskMuseumId === museumId;
   const [filterLevel, setFilterLevel] = useState<LanguageLevel | null>(null);
+  // Card info pratiche (Orari/Biglietti/Accessibilità) troncata a due righe
+  // nella griglia — apre qui il testo completo invece di perderlo.
+  const [expandedInfo, setExpandedInfo] = useState<{ label: string; value: string } | null>(null);
+  const [showMap, setShowMap] = useState(false);
+  const [mapFocusMarkerId, setMapFocusMarkerId] = useState<string | undefined>();
+  // Scheda di dettaglio di un servizio del museo (bar, bagni...), aperta dalla griglia servizi.
+  const [selectedService, setSelectedService] = useState<MuseumService | null>(null);
 
   const LEVEL_META: Record<LanguageLevel, { emoji: string; label: string }> = {
     [LanguageLevel.CHILDREN]: { emoji: '👶', label: t('Bambini') },
@@ -73,15 +84,10 @@ export default function MuseumPage() {
     enabled: !!museumId,
   });
 
-  const { data: purchases } = useQuery({
-    queryKey: ['my-purchases'],
-    queryFn: () => api.getMyPurchases(),
-    enabled: !!user,
-  });
-  const ownedVisitIds = useMemo(
-    () => new Set((purchases || []).map((p) => p.visitId)),
-    [purchases],
-  );
+  const ownedVisitIds = useOwnedVisitIds();
+  // Visita a pagamento non posseduta su cui si è cliccato — apre l'invito
+  // all'acquisto invece di navigare al player (vedi handleSelectVisit).
+  const [purchasePromptVisit, setPurchasePromptVisit] = useState<Visit | null>(null);
 
   const interests = user?.preferences?.interests;
   const spotlight = useMemo(() => {
@@ -97,6 +103,10 @@ export default function MuseumPage() {
   }, [visits, interests]);
 
   function handleSelectVisit(visit: Visit) {
+    if (!canStartVisit(visit, ownedVisitIds)) {
+      setPurchasePromptVisit(visit);
+      return;
+    }
     navigate(`/visit/${visit._id}`);
   }
 
@@ -132,6 +142,25 @@ export default function MuseumPage() {
     },
   ].filter((v): v is { icon: typeof Clock; label: string; value: string } => Boolean(v));
 
+  const museumMap = useMemo(() => (museum ? buildMuseumMap(museum) : null), [museum]);
+
+  const activeServices = useMemo(
+    () => (museum?.services?.services || []).filter((service) => service.active),
+    [museum],
+  );
+
+  const mapsUrl = useMemo(() => {
+    const location = museum?.location;
+    if (!location) return null;
+    if (location.coordinates?.lat && location.coordinates?.lng) {
+      return `https://www.google.com/maps/search/?api=1&query=${location.coordinates.lat},${location.coordinates.lng}`;
+    }
+    const query = [location.address, location.city].filter(Boolean).join(', ');
+    return query
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+      : null;
+  }, [museum]);
+
   if (isLoading || museumLoading) {
     return (
       <div className="h-full bg-surface-950">
@@ -152,29 +181,37 @@ export default function MuseumPage() {
   }
 
   const museumName = museum ? localizedField(language, museum.name, museum.nameTranslations) : '';
+  const hasPhoto = !!museum?.images?.[0];
 
   return (
     <div className="h-full overflow-y-auto scroll-smooth bg-surface-950">
       {/* ── Blocco: copertina ──────────────────────────────────── */}
       <header className="relative">
         <div className="h-64 lg:h-80 bg-surface-900 relative overflow-hidden">
-          {museum?.images?.[0] && (
-            <img
-              src={museum.images[0]}
-              alt={museumName}
-              className="w-full h-full object-cover opacity-45"
-            />
+          {hasPhoto && (
+            <>
+              <img
+                src={museum!.images![0]}
+                alt={museumName}
+                className="w-full h-full object-cover opacity-45"
+              />
+              {/* Scrim fisso, non legato al tema: deve scurire una foto reale in ogni configurazione. */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-brand-900/20" />
+            </>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/50 to-brand-900/20" />
 
           <div className="absolute top-0 left-0 right-0 safe-top">
             <div className="flex items-center justify-between px-4 lg:px-8 py-4">
-              <IconTile
-                icon={<ArrowLeft />}
-                variant="glass"
-                label={t('Torna indietro')}
-                onClick={() => navigate('/')}
-              />
+              {isKioskLocked ? (
+                <div />
+              ) : (
+                <IconTile
+                  icon={<ArrowLeft />}
+                  variant="glass"
+                  label={t('Torna indietro')}
+                  onClick={() => navigate('/')}
+                />
+              )}
               <div className="flex items-center gap-2">
                 <LanguageSwitcher languages={museum?.activeLanguages} variant="glass" />
                 <IconTile
@@ -183,27 +220,40 @@ export default function MuseumPage() {
                   label={t('Account')}
                   onClick={() => navigate('/account')}
                 />
-                {config?.branding.logo && (
-                  <img
-                    src={config.branding.logo}
-                    alt=""
-                    className="w-9 h-9 rounded-full object-cover border border-white/20"
-                  />
-                )}
               </div>
             </div>
           </div>
 
           <div className="absolute bottom-0 left-0 right-0 p-5 lg:p-8">
             <div className="lg:max-w-6xl lg:mx-auto">
-              <h1 className="font-display text-3xl lg:text-5xl font-bold text-surface-50 mb-1.5 max-w-2xl">
+              <h1
+                className={`font-display text-3xl lg:text-5xl font-bold mb-1.5 max-w-2xl ${hasPhoto ? 'text-white' : 'text-surface-50'}`}
+              >
                 {museumName}
               </h1>
-              <p className="text-surface-400 text-sm lg:text-base">
+              <p
+                className={`text-sm lg:text-base ${hasPhoto ? 'text-white/70' : 'text-surface-400'}`}
+              >
                 {museum?.location?.address}
                 {museum?.location?.address && museum?.location?.city ? ', ' : ''}
                 {museum?.location?.city}
               </p>
+              {mapsUrl && (
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`inline-flex items-center gap-1.5 mt-2.5 px-3 py-1.5 rounded-full backdrop-blur
+                    border text-xs font-medium transition-colors ${
+                      hasPhoto
+                        ? 'bg-black/40 border-white/20 text-white/90 hover:text-white hover:border-white/40'
+                        : 'bg-surface-800/80 border-surface-700/60 text-surface-200 hover:text-brand-300 hover:border-brand-500/30'
+                    }`}
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  {t('Apri in Google Maps')}
+                </a>
+              )}
             </div>
           </div>
         </div>
@@ -211,22 +261,109 @@ export default function MuseumPage() {
 
       <div className="lg:max-w-6xl lg:mx-auto">
         <main className="px-5 py-6 lg:px-8 lg:py-8">
+          {/* ── Blocco: mappa del museo e servizi ─────────────────── */}
+          {(museumMap || activeServices.length > 0) && (
+            <section className="mb-8">
+              {museumMap && (
+                <PressableCard
+                  onClick={() => setShowMap(true)}
+                  className="p-4 flex items-center gap-3 mb-3"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-brand-500/[.12] flex items-center justify-center flex-shrink-0">
+                    <MapIcon className="w-[18px] h-[18px] text-brand-300" />
+                  </div>
+                  <span className="flex-1 text-sm font-medium text-surface-200">
+                    {t('Mappa del museo')}
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-surface-600 flex-shrink-0" />
+                </PressableCard>
+              )}
+              {activeServices.length > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                  {activeServices.map((service) => (
+                    <button
+                      key={service.type}
+                      onClick={() => setSelectedService(service)}
+                      className="flex flex-col items-center gap-2 p-4 rounded-xl bg-surface-900
+                        border border-surface-800 text-surface-300 hover:border-brand-500/30
+                        hover:text-brand-300 transition-colors"
+                    >
+                      <span className="text-2xl">{MARKER_TYPE_META[service.type].icon}</span>
+                      <span className="text-xs font-medium text-center leading-tight">
+                        {MARKER_TYPE_META[service.type].label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
           {/* ── Blocco: info pratiche ────────────────────────────── */}
           {practicalInfo.length > 0 && (
             <section className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
               {practicalInfo.map(({ icon: Icon, label, value }) => (
-                <Card key={label} className="p-4 flex items-start gap-3">
+                <PressableCard
+                  key={label}
+                  className="p-4 flex items-start gap-3"
+                  onClick={() => setExpandedInfo({ label, value })}
+                >
                   <div className="w-9 h-9 rounded-xl bg-brand-500/[.12] flex items-center justify-center flex-shrink-0">
                     <Icon className="w-[18px] h-[18px] text-brand-300" />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-[0.68rem] font-bold uppercase tracking-wide text-surface-500 mb-0.5">
                       {label}
                     </p>
                     <p className="text-sm text-surface-200 line-clamp-2">{value}</p>
                   </div>
-                </Card>
+                  <ChevronRight className="w-4 h-4 text-surface-600 flex-shrink-0 mt-0.5" />
+                </PressableCard>
               ))}
+            </section>
+          )}
+
+          {expandedInfo && (
+            <Sheet open onClose={() => setExpandedInfo(null)} title={expandedInfo.label}>
+              <p className="text-sm text-surface-200 whitespace-pre-line leading-relaxed">
+                {expandedInfo.value}
+              </p>
+            </Sheet>
+          )}
+
+          {purchasePromptVisit && (
+            <Sheet open onClose={() => setPurchasePromptVisit(null)}>
+              <PurchasePrompt
+                title={localizedField(
+                  language,
+                  purchasePromptVisit.title,
+                  purchasePromptVisit.titleTranslations,
+                )}
+                price={purchasePromptVisit.metadata?.price || 0}
+              />
+            </Sheet>
+          )}
+
+          <ServiceDetailSheet
+            service={selectedService}
+            onClose={() => setSelectedService(null)}
+            onViewOnMap={(markerId) => {
+              setMapFocusMarkerId(markerId);
+              setShowMap(true);
+            }}
+          />
+
+          {/* ── Blocco: descrizione museo ──────────────────────────
+              Non compariva da nessun'altra parte: la homepage rimanda qui
+              solo con un'anteprima troncata (vedi HomePage.tsx). */}
+          {museum?.description && (
+            <section className="mb-9">
+              <h2 className="font-display text-base font-semibold text-surface-50 mb-3">
+                {t('Descrizione')}
+              </h2>
+              <p className="text-sm text-surface-300 leading-relaxed whitespace-pre-line">
+                {localizedField(language, museum.description, museum.descriptionTranslations)}
+              </p>
             </section>
           )}
 
@@ -315,15 +452,7 @@ export default function MuseumPage() {
                       <h3 className="font-display font-semibold text-surface-50 text-lg leading-tight">
                         {localizedField(language, visit.title, visit.titleTranslations)}
                       </h3>
-                      {owned ? (
-                        <Badge variant="good" icon={<CheckCircle2 className="w-3 h-3" />}>
-                          {t('Posseduta')}
-                        </Badge>
-                      ) : visit.metadata?.isFree ? (
-                        <Badge variant="good">{t('Gratis')}</Badge>
-                      ) : (
-                        <Badge variant="neutral">€{visit.metadata?.price?.toFixed(2)}</Badge>
-                      )}
+                      <VisitPriceBadge visit={visit} owned={owned} />
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap mb-3">
@@ -385,6 +514,18 @@ export default function MuseumPage() {
 
         <div className="h-8 safe-bottom" />
       </div>
+
+      {/* Mappa del museo, non legata a nessuna visita. */}
+      {showMap && museumMap && (
+        <MapView
+          map={museumMap}
+          focusMarkerId={mapFocusMarkerId}
+          onClose={() => {
+            setShowMap(false);
+            setMapFocusMarkerId(undefined);
+          }}
+        />
+      )}
     </div>
   );
 }

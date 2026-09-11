@@ -1,10 +1,7 @@
 import { Router } from 'express';
 import { VisitController } from '../controllers/visit.controller.js';
-import {
-  authMiddleware as authenticate,
-  roleMiddleware as authorizeRoles,
-} from '../middleware/index.js';
-import { UserRole } from '@artaround/shared';
+import { authMiddleware as authenticate, optionalAuthMiddleware } from '../middleware/index.js';
+import { authorizeCreate } from '../utils/policy.util.js';
 
 const router = Router();
 
@@ -205,7 +202,7 @@ router.get('/museum/:museumId', VisitController.getByMuseum);
  *       404:
  *         description: Visita non trovata
  */
-router.get('/:id', VisitController.getById);
+router.get('/:id', optionalAuthMiddleware, VisitController.getById);
 
 /**
  * @swagger
@@ -228,7 +225,7 @@ router.get('/:id', VisitController.getById);
 router.post(
   '/',
   authenticate,
-  authorizeRoles(UserRole.ADMIN, UserRole.AUTHOR, UserRole.CURATOR),
+  authorizeCreate('visit'),
   VisitController.createValidation,
   VisitController.create,
 );
@@ -257,150 +254,7 @@ router.post(
  *       200:
  *         description: Visita aggiornata
  */
-router.put(
-  '/:id',
-  authenticate,
-  authorizeRoles(UserRole.ADMIN, UserRole.AUTHOR, UserRole.CURATOR),
-  VisitController.update,
-);
-
-/**
- * @swagger
- * /api/visits/{id}/steps:
- *   post:
- *     tags: [Visits]
- *     summary: Aggiungi tappa alla visita
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/VisitStep'
- *     responses:
- *       200:
- *         description: Tappa aggiunta
- */
-router.post(
-  '/:id/steps',
-  authenticate,
-  authorizeRoles(UserRole.ADMIN, UserRole.AUTHOR, UserRole.CURATOR),
-  VisitController.addStep,
-);
-
-/**
- * @swagger
- * /api/visits/{id}/steps/{stepOrder}:
- *   put:
- *     tags: [Visits]
- *     summary: Aggiorna tappa della visita
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *       - in: path
- *         name: stepOrder
- *         required: true
- *         schema:
- *           type: number
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/VisitStep'
- *     responses:
- *       200:
- *         description: Tappa aggiornata
- */
-router.put(
-  '/:id/steps/:stepOrder',
-  authenticate,
-  authorizeRoles(UserRole.ADMIN, UserRole.AUTHOR, UserRole.CURATOR),
-  VisitController.updateStep,
-);
-
-/**
- * @swagger
- * /api/visits/{id}/steps/{stepOrder}:
- *   delete:
- *     tags: [Visits]
- *     summary: Elimina tappa dalla visita
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *       - in: path
- *         name: stepOrder
- *         required: true
- *         schema:
- *           type: number
- *     responses:
- *       200:
- *         description: Tappa eliminata
- */
-router.delete(
-  '/:id/steps/:stepOrder',
-  authenticate,
-  authorizeRoles(UserRole.ADMIN, UserRole.AUTHOR, UserRole.CURATOR),
-  VisitController.deleteStep,
-);
-
-/**
- * @swagger
- * /api/visits/{id}/reorder:
- *   post:
- *     tags: [Visits]
- *     summary: Riordina le tappe della visita
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               stepOrders:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     oldOrder:
- *                       type: number
- *                     newOrder:
- *                       type: number
- *     responses:
- *       200:
- *         description: Tappe riordinate
- */
-router.post(
-  '/:id/reorder',
-  authenticate,
-  authorizeRoles(UserRole.ADMIN, UserRole.AUTHOR, UserRole.CURATOR),
-  VisitController.reorderSteps,
-);
+router.put('/:id', authenticate, VisitController.updateValidation, VisitController.update);
 
 /**
  * @swagger
@@ -420,12 +274,7 @@ router.post(
  *       200:
  *         description: Visita pubblicata
  */
-router.post(
-  '/:id/publish',
-  authenticate,
-  authorizeRoles(UserRole.ADMIN, UserRole.AUTHOR, UserRole.CURATOR),
-  VisitController.publish,
-);
+router.post('/:id/publish', authenticate, VisitController.publish);
 
 /**
  * @swagger
@@ -445,12 +294,7 @@ router.post(
  *       200:
  *         description: Pubblicazione rimossa
  */
-router.post(
-  '/:id/unpublish',
-  authenticate,
-  authorizeRoles(UserRole.ADMIN, UserRole.AUTHOR, UserRole.CURATOR),
-  VisitController.unpublish,
-);
+router.post('/:id/unpublish', authenticate, VisitController.unpublish);
 
 /**
  * @swagger
@@ -470,11 +314,72 @@ router.post(
  *       200:
  *         description: Visita eliminata
  */
-router.delete(
-  '/:id',
-  authenticate,
-  authorizeRoles(UserRole.ADMIN, UserRole.AUTHOR, UserRole.CURATOR),
-  VisitController.delete,
-);
+router.delete('/:id', authenticate, VisitController.delete);
+
+/**
+ * @swagger
+ * /api/visits/{id}/generate-audio:
+ *   post:
+ *     tags: [Visits]
+ *     summary: Genera l'audio mancante di questa visita (Admin o curatore del museo)
+ *     description: >
+ *       Come /api/museums/{id}/generate-audio ma limitato alle tappe e agli item di
+ *       questa sola visita. Avvia un job in background e risponde subito con il suo id
+ *       (l'avanzamento si segue da GET /api/jobs) — solo un job "generate-audio" alla
+ *       volta, ovunque.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       202:
+ *         description: Generazione avviata, con l'id del job
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         $ref: '#/components/responses/ForbiddenError'
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       409:
+ *         description: C'è già un job "generate-audio" in corso
+ */
+router.post('/:id/generate-audio', authenticate, VisitController.generateAudio);
+
+/**
+ * @swagger
+ * /api/visits/{id}/sync-languages:
+ *   post:
+ *     tags: [Visits]
+ *     summary: Sincronizza le traduzioni di questa visita (Admin o curatore del museo)
+ *     description: >
+ *       Come /api/museums/{id}/sync-languages ma limitato a questa sola visita (lei
+ *       stessa + gli item che referenzia), con le lingue attive già impostate sul museo.
+ *       Avvia un job in background e risponde subito con il suo id (l'avanzamento si
+ *       segue da GET /api/jobs) — solo un job "sync-languages" alla volta, ovunque.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       202:
+ *         description: Sincronizzazione avviata, con l'id del job
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         $ref: '#/components/responses/ForbiddenError'
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       409:
+ *         description: C'è già un job "sync-languages" in corso
+ */
+router.post('/:id/sync-languages', authenticate, VisitController.syncLanguages);
 
 export default router;

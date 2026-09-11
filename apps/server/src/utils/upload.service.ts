@@ -226,20 +226,6 @@ export class UploadService {
   }
 
   /**
-   * Ottieni i metadati immagine senza elaborazione
-   */
-  static async getMetadata(
-    buffer: Buffer,
-  ): Promise<{ width: number; height: number; format: string }> {
-    const metadata = await sharp(buffer).metadata();
-    return {
-      width: metadata.width || 0,
-      height: metadata.height || 0,
-      format: metadata.format || 'unknown',
-    };
-  }
-
-  /**
    * Ottieni il percorso assoluto del filesystem alla cartella upload
    */
   static getUploadsDir(): string {

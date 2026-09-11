@@ -1,15 +1,39 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/async-handler.util.js';
+import { body, validationResult } from 'express-validator';
 import { parsePagination, buildPaginationMeta } from '../utils/pagination.util.js';
 import { ArtworkModel } from '../models/index.js';
-import type { ArtworkFilters as SharedArtworkFilters } from '@artaround/shared';
+import { ArtworkType, type ArtworkFilters as SharedArtworkFilters } from '@artaround/shared';
 import { resolveMuseumIdCandidates } from '../utils/museum-id.util.js';
+import { AppError } from '../middleware/index.js';
+import { AuthRequest } from '../middleware/auth.middleware.js';
+import { assertCan } from '../utils/policy.util.js';
 
 /**
  * Controller Opere
  *
  * Gestisce le operazioni CRUD per le opere (pezzi fisici nei musei)
  */
+
+// Regole di validazione per la creazione (usate da POST /api/artworks)
+export const createArtworkValidation = [
+  body('wikidataId').trim().notEmpty().withMessage("L'ID Wikidata è obbligatorio"),
+  body('museumId').trim().notEmpty().withMessage("L'ID del museo è obbligatorio"),
+  body('title').trim().notEmpty().withMessage('Il titolo è obbligatorio'),
+  body('artworkType').isIn(Object.values(ArtworkType)).withMessage('Tipo di opera non valido'),
+  body('image').trim().notEmpty().withMessage("L'immagine è obbligatoria"),
+];
+
+// Regole di validazione per l'aggiornamento (usate da PUT /api/artworks/:id):
+// stessi campi della creazione, ma tutti opzionali visto che è un update parziale
+export const updateArtworkValidation = [
+  body('title').optional().trim().notEmpty().withMessage('Il titolo non può essere vuoto'),
+  body('artworkType')
+    .optional()
+    .isIn(Object.values(ArtworkType))
+    .withMessage('Tipo di opera non valido'),
+  body('image').optional().trim().notEmpty().withMessage("L'immagine non può essere vuota"),
+];
 
 type YearRange = {
   startYear?: number;
@@ -21,6 +45,7 @@ type ArtworkQueryFilters = SharedArtworkFilters & {
   movement?: string;
 };
 
+// Converte un numero romano in intero, per interpretare i secoli
 const parseRoman = (value: string): number | null => {
   const roman = value.toUpperCase();
   const map: Record<string, number> = { I: 1, V: 5, X: 10, L: 50, C: 100 };
@@ -40,6 +65,7 @@ const parseRoman = (value: string): number | null => {
   return total > 0 ? total : null;
 };
 
+// Ricava startYear/endYear dal campo "year" testuale (range, secolo romano/arabo o anno singolo)
 const parseTechnicalYearRange = (yearValue: unknown): YearRange => {
   if (typeof yearValue !== 'string') return {};
 
@@ -91,7 +117,7 @@ const parseTechnicalYearRange = (yearValue: unknown): YearRange => {
   return {};
 };
 
-// GET /api/artworks
+// GET /api/artworks — lista opere con filtri (autore, movimento, anno, ricerca) e paginazione
 export const getArtworks = asyncHandler(async (req: Request, res: Response) => {
   // Estrae e verifica i filtri dalla query
   const filters: ArtworkQueryFilters = {
@@ -159,34 +185,39 @@ export const getArtworks = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
-// GET /api/artworks/:id
+// GET /api/artworks/:id — dettaglio di una singola opera
 export const getArtwork = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
 
   const artwork = await ArtworkModel.findById(id).lean();
 
   if (!artwork) {
-    return res.status(404).json({ success: false, error: 'Artwork not found' });
+    return res.status(404).json({ success: false, error: 'Opera non trovata' });
   }
 
   res.json({ success: true, data: artwork });
 });
 
-// GET /api/artworks/wikidata/:wikidataId
+// GET /api/artworks/wikidata/:wikidataId — cerca l'opera tramite il suo ID Wikidata
 export const getArtworkByWikidataId = asyncHandler(async (req: Request, res: Response) => {
   const { wikidataId } = req.params;
 
   const artwork = await ArtworkModel.findOne({ wikidataId }).lean();
 
   if (!artwork) {
-    return res.status(404).json({ success: false, error: 'Artwork not found' });
+    return res.status(404).json({ success: false, error: 'Opera non trovata' });
   }
 
   res.json({ success: true, data: artwork });
 });
 
-// POST /api/artworks
+// POST /api/artworks — crea l'opera, evitando duplicati per stesso wikidataId+museo
 export const createArtwork = asyncHandler(async (req: Request, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
+  }
+
   const yearRange = parseTechnicalYearRange(req.body?.year);
   const artworkData = {
     ...req.body,
@@ -201,7 +232,7 @@ export const createArtwork = asyncHandler(async (req: Request, res: Response) =>
   });
   if (existing) {
     return res.status(409).json({
-      error: 'Artwork with this Wikidata ID already exists in this museum',
+      error: "Esiste già un'opera con questo Wikidata ID in questo museo",
       existingId: existing._id,
     });
   }
@@ -212,9 +243,29 @@ export const createArtwork = asyncHandler(async (req: Request, res: Response) =>
   res.status(201).json({ success: true, data: artwork });
 });
 
-// PUT /api/artworks/:id
-export const updateArtwork = asyncHandler(async (req: Request, res: Response) => {
+// PUT /api/artworks/:id — aggiorna l'opera (wikidataId non modificabile)
+export const updateArtwork = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
+  }
+
   const { id } = req.params;
+
+  const artwork = await ArtworkModel.findById(id);
+  if (!artwork) {
+    return res.status(404).json({ success: false, error: 'Opera non trovata' });
+  }
+
+  // Admin, o curatore del museo a cui appartiene l'opera.
+  await assertCan(
+    req.user,
+    'manage',
+    'artwork',
+    { museumId: artwork.museumId },
+    'Puoi modificare solo le opere dei musei che curi',
+  );
+
   const updateData = { ...req.body } as Record<string, unknown>;
   delete updateData.wikidataId;
 
@@ -224,29 +275,35 @@ export const updateArtwork = asyncHandler(async (req: Request, res: Response) =>
     updateData.endYear = yearRange.endYear;
   }
 
-  const artwork = await ArtworkModel.findByIdAndUpdate(id, updateData, { new: true });
-
-  if (!artwork) {
-    return res.status(404).json({ success: false, error: 'Artwork not found' });
-  }
+  Object.assign(artwork, updateData);
+  await artwork.save();
 
   res.json({ success: true, data: artwork });
 });
 
-// DELETE /api/artworks/:id
-export const deleteArtwork = asyncHandler(async (req: Request, res: Response) => {
+// DELETE /api/artworks/:id — elimina l'opera (admin, o curatore del museo a cui appartiene)
+export const deleteArtwork = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
 
-  const artwork = await ArtworkModel.findByIdAndDelete(id);
-
+  const artwork = await ArtworkModel.findById(id);
   if (!artwork) {
-    return res.status(404).json({ success: false, error: 'Artwork not found' });
+    return res.status(404).json({ success: false, error: 'Opera non trovata' });
   }
 
-  res.json({ success: true, message: 'Artwork deleted successfully' });
+  await assertCan(
+    req.user,
+    'manage',
+    'artwork',
+    { museumId: artwork.museumId },
+    'Puoi eliminare solo le opere dei musei che curi',
+  );
+
+  await artwork.deleteOne();
+
+  res.json({ success: true, message: 'Opera eliminata con successo' });
 });
 
-// GET /api/artworks/museum/:museumId
+// GET /api/artworks/museum/:museumId — opere di un museo, ordinate per piano/sala e titolo
 export const getArtworksByMuseum = asyncHandler(async (req: Request, res: Response) => {
   const { museumId } = req.params;
   const museumIdCandidates = await resolveMuseumIdCandidates(museumId);
@@ -260,18 +317,26 @@ export const getArtworksByMuseum = asyncHandler(async (req: Request, res: Respon
   res.json({ success: true, data: artworks });
 });
 
-// PUT /api/artworks/:id/map-position
-export const updateArtworkMapPosition = asyncHandler(async (req: Request, res: Response) => {
+// PUT /api/artworks/:id/map-position — aggiorna la posizione dell'opera sulla mappa del piano
+export const updateArtworkMapPosition = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   const { floorId, x, y, rotation } = req.body;
 
-  const mapPosition = { floorId, x, y, rotation };
-
-  const artwork = await ArtworkModel.findByIdAndUpdate(id, { mapPosition }, { new: true });
-
+  const artwork = await ArtworkModel.findById(id);
   if (!artwork) {
-    return res.status(404).json({ success: false, error: 'Artwork not found' });
+    return res.status(404).json({ success: false, error: 'Opera non trovata' });
   }
+
+  await assertCan(
+    req.user,
+    'manage',
+    'artwork',
+    { museumId: artwork.museumId },
+    'Puoi spostare solo le opere dei musei che curi',
+  );
+
+  artwork.mapPosition = { floorId, x, y, rotation };
+  await artwork.save();
 
   res.json({ success: true, data: artwork });
 });

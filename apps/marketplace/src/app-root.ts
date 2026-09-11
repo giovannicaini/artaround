@@ -4,7 +4,8 @@ import { authService } from './services/auth.service';
 import { preferencesService } from './services/preferences.service';
 import { historyService, type HistoryState } from './services/history.service';
 import { __ } from './services/i18n.service';
-import { ContextualRole, ResourceType, UserRole, type User } from '@artaround/shared';
+import { type User } from '@artaround/shared';
+import { isContentCreator, isMuseumCurator } from './services/permissions.service';
 
 // Import components sempre necessari nella shell iniziale (login, layout)
 import './components/auth/login-page';
@@ -151,13 +152,7 @@ export class AppRoot extends LitElement {
       return;
     }
 
-    if (
-      route === 'author-area' &&
-      (!this.currentUser ||
-        (this.currentUser.role !== UserRole.AUTHOR &&
-          this.currentUser.role !== UserRole.CURATOR &&
-          this.currentUser.role !== UserRole.ADMIN))
-    ) {
+    if (route === 'author-area' && !isContentCreator(this.currentUser)) {
       this.currentRoute = 'dashboard';
       this.pageTitle = this.getRouteTitle('dashboard');
       this.pushToHistory('dashboard', {}, this.getRouteTitle('dashboard'));
@@ -176,7 +171,7 @@ export class AppRoot extends LitElement {
       return;
     }
 
-    if (route === 'navigator-default-config' && this.currentUser?.role !== UserRole.ADMIN) {
+    if (route === 'navigator-default-config' && !this.currentUser?.isAdmin) {
       this.currentRoute = 'dashboard';
       this.pageTitle = this.getRouteTitle('dashboard');
       this.pushToHistory('dashboard', {}, this.getRouteTitle('dashboard'));
@@ -588,18 +583,7 @@ export class AppRoot extends LitElement {
       return false;
     }
 
-    if (this.currentUser.role === UserRole.ADMIN) {
-      return true;
-    }
-
-    return (
-      this.currentUser.roleAssignments?.some(
-        (assignment) =>
-          assignment.resourceType === ResourceType.MUSEUM &&
-          assignment.resourceId === selectedMuseum._id &&
-          assignment.role === ContextualRole.MANAGER,
-      ) ?? false
-    );
+    return isMuseumCurator(this.currentUser, selectedMuseum._id);
   }
 
   // ─── Gestione history ──────────────────────────────────
@@ -661,7 +645,7 @@ export class AppRoot extends LitElement {
       return;
     }
 
-    if (state.route === 'navigator-default-config' && this.currentUser?.role !== UserRole.ADMIN) {
+    if (state.route === 'navigator-default-config' && !this.currentUser?.isAdmin) {
       this.currentRoute = 'dashboard';
       this.pageTitle = this.getRouteTitle('dashboard');
       this.routeParams = {};

@@ -1,14 +1,14 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
-  ContextualRole,
-  ResourceType,
-  UserRole,
+  MuseumRole,
   type User,
   type Museum,
   type Artwork,
   type Visit,
   type Item,
+  type MuseumRoleRequest,
+  type MuseumRoleRequestWithNames,
 } from '@artaround/shared';
 import { preferencesService } from '../../services/preferences.service';
 import { artworkService } from '../../services/artwork.service';
@@ -16,11 +16,14 @@ import { itemService } from '../../services/item.service';
 import { visitService } from '../../services/visit.service';
 import { userService } from '../../services/user.service';
 import { museumService } from '../../services/museum.service';
+import { notificationsService } from '../../services/notifications.service';
+import { authService } from '../../services/auth.service';
 import './museums-page';
 import '../ui/ui-card';
 import '../ui/ui-badge';
 import '../ui/ui-button';
 import '../ui/ui-icon-button';
+import '../ui/ui-icon';
 import '../ui/ui-page-header';
 import '../ui/ui-alert';
 import '../ui/ui-loading';
@@ -28,6 +31,8 @@ import '../ui/ui-stat-card';
 import '../ui/ui-list-row';
 import '../ui/ui-section-header';
 import '../ui/ui-resource-list-card';
+import '../ui/ui-select';
+import '../ui/ui-search-list-picker';
 import { __ } from '../../services/i18n.service';
 
 @customElement('dashboard-page')
@@ -48,9 +53,21 @@ export class DashboardPage extends LitElement {
   @state() private recentArtworks: Artwork[] = [];
   @state() private recentVisits: Visit[] = [];
   @state() private curatorMuseums: Museum[] = [];
-  @state() private authoredArtworks: Artwork[] = [];
+  @state() private curatedArtworks: Artwork[] = [];
   @state() private myItems: Item[] = [];
   @state() private myVisits: Visit[] = [];
+
+  // Richieste di ruolo museo: le mie (in attesa) e quelle che posso revisionare
+  // (admin: tutte; curatore: solo per i musei che cura)
+  @state() private myPendingRequests: MuseumRoleRequest[] = [];
+  @state() private reviewableRequests: MuseumRoleRequestWithNames[] = [];
+  @state() private requestModalOpen = false;
+  @state() private requestMuseumOptions: { value: string; label: string }[] = [];
+  @state() private requestFormMuseumId = '';
+  @state() private requestFormRole: MuseumRole = MuseumRole.AUTHOR;
+  @state() private requestSubmitting = false;
+  @state() private requestError = '';
+  @state() private requestSuccess = '';
 
   // ─── Stato interno ──────────────────────────────────────
   private museumIndexById = new Map<string, Museum>();
@@ -126,9 +143,11 @@ export class DashboardPage extends LitElement {
     this.totalPublishedContents = 0;
     this.totalCreatedVisits = 0;
     this.curatorMuseums = [];
-    this.authoredArtworks = [];
+    this.curatedArtworks = [];
     this.myItems = [];
     this.myVisits = [];
+    this.myPendingRequests = [];
+    this.reviewableRequests = [];
 
     try {
       const museumId = this.selectedMuseum?._id;
@@ -159,7 +178,7 @@ export class DashboardPage extends LitElement {
           .slice(0, 5);
       }
 
-      if (this.user?.role === UserRole.ADMIN) {
+      if (this.user?.isAdmin) {
         const [users, museums, artworks, items, visits] = await Promise.all([
           userService.getUsers({ page: 1, limit: 1, isActive: true }),
           this.getMuseumsCached(),
@@ -213,22 +232,11 @@ export class DashboardPage extends LitElement {
   private async loadUserScopedLists(): Promise<void> {
     if (!this.user?._id) return;
 
-    const roleAssignments = this.user.roleAssignments || [];
-    const curatorMuseumIds = roleAssignments
-      .filter(
-        (assignment) =>
-          assignment.resourceType === ResourceType.MUSEUM &&
-          assignment.role === ContextualRole.MANAGER,
-      )
-      .map((assignment) => assignment.resourceId);
-
-    const authoredArtworkIds = roleAssignments
-      .filter(
-        (assignment) =>
-          assignment.resourceType === ResourceType.ARTWORK &&
-          assignment.role === ContextualRole.AUTHOR,
-      )
-      .map((assignment) => assignment.resourceId);
+    // Non esiste un CURATOR/AUTHOR globale: si è curatore di un museo solo
+    // tramite museumRoles, sempre relativo a un museo specifico.
+    const curatorMuseumIds = (this.user.museumRoles || [])
+      .filter((assignment) => assignment.role === MuseumRole.CURATOR)
+      .map((assignment) => assignment.museumId);
 
     const [allMuseums, myItems, myVisits] = await Promise.all([
       this.getMuseumsCached(),
@@ -241,19 +249,18 @@ export class DashboardPage extends LitElement {
       .filter((museum) => curatorMuseumSet.has(museum._id))
       .slice(0, 5);
 
-    const authoredArtworks = await Promise.all(
-      authoredArtworkIds.slice(0, 8).map(async (artworkId) => {
-        return artworkService.getArtwork(artworkId);
-      }),
+    // Le opere non hanno un autore applicativo: qui mostriamo le opere
+    // recenti dei musei che l'utente cura, non "le opere che ha scritto".
+    const artworksByMuseum = await Promise.all(
+      this.curatorMuseums.map((museum) => artworkService.getArtworksByMuseum(museum._id)),
     );
 
     const uniqueArtworks = new Map<string, Artwork>();
-    for (const artwork of authoredArtworks) {
-      if (!artwork) continue;
+    for (const artwork of artworksByMuseum.flat()) {
       uniqueArtworks.set(artwork._id, artwork);
     }
 
-    this.authoredArtworks = Array.from(uniqueArtworks.values())
+    this.curatedArtworks = Array.from(uniqueArtworks.values())
       .sort(
         (a, b) =>
           new Date(String(b.updatedAt || b.createdAt || 0)).getTime() -
@@ -276,6 +283,17 @@ export class DashboardPage extends LitElement {
           new Date(String(a.updatedAt || a.createdAt || 0)).getTime(),
       )
       .slice(0, 5);
+
+    // Le mie richieste di ruolo in attesa (chiunque può averne), e quelle da
+    // revisionare solo se admin o curatore di almeno un museo (altrimenti la
+    // lista sarebbe comunque vuota lato server: evitiamo la chiamata inutile).
+    const canReview = this.user.isAdmin || curatorMuseumIds.length > 0;
+    const [myPendingRequests, reviewableRequests] = await Promise.all([
+      authService.getMyRoleRequests(),
+      canReview ? museumService.getReviewableRoleRequests() : Promise.resolve([]),
+    ]);
+    this.myPendingRequests = myPendingRequests;
+    this.reviewableRequests = reviewableRequests;
   }
 
   // ─── Azioni di navigazione ──────────────────────────────────
@@ -341,6 +359,74 @@ export class DashboardPage extends LitElement {
     this.goToRoute('visits');
   }
 
+  // ─── Richieste di ruolo museo ────────────────────────────────
+  private async openRequestModal() {
+    this.requestFormMuseumId = '';
+    this.requestFormRole = MuseumRole.AUTHOR;
+    this.requestError = '';
+    this.requestSuccess = '';
+    this.requestModalOpen = true;
+
+    const museums = await this.getMuseumsCached();
+    this.requestMuseumOptions = museums.map((m) => ({ value: m._id, label: m.name }));
+  }
+
+  private closeRequestModal() {
+    this.requestModalOpen = false;
+  }
+
+  private async handleSubmitRoleRequest() {
+    if (!this.requestFormMuseumId) {
+      this.requestError = __('Seleziona un museo');
+      return;
+    }
+
+    this.requestSubmitting = true;
+    this.requestError = '';
+
+    const { data, error } = await museumService.requestRole(
+      this.requestFormMuseumId,
+      this.requestFormRole,
+    );
+
+    this.requestSubmitting = false;
+
+    if (!data) {
+      this.requestError = error || __('Errore durante la richiesta');
+      return;
+    }
+
+    this.myPendingRequests = [data, ...this.myPendingRequests];
+    this.requestSuccess = __('Richiesta inviata! Riceverai il ruolo appena confermata.');
+    setTimeout(() => this.closeRequestModal(), 1200);
+  }
+
+  private async handleCancelMyRequest(request: MuseumRoleRequest) {
+    const { success } = await museumService.cancelRoleRequest(request.museumId, request._id);
+    if (success) {
+      this.myPendingRequests = this.myPendingRequests.filter((r) => r._id !== request._id);
+    }
+  }
+
+  private async handleApproveRequest(request: MuseumRoleRequestWithNames) {
+    const { success } = await museumService.approveRoleRequest(request.museumId, request._id);
+    if (success) {
+      this.reviewableRequests = this.reviewableRequests.filter((r) => r._id !== request._id);
+      // Approvare toglie anche la propria notifica "pending" per questa
+      // richiesta (vedi resolveRoleRequestNotifications lato server) — la
+      // campanella non aspetta i 20s del polling per rifletterlo.
+      void notificationsService.refresh();
+    }
+  }
+
+  private async handleRejectRequest(request: MuseumRoleRequestWithNames) {
+    const { success } = await museumService.cancelRoleRequest(request.museumId, request._id);
+    if (success) {
+      this.reviewableRequests = this.reviewableRequests.filter((r) => r._id !== request._id);
+      void notificationsService.refresh();
+    }
+  }
+
   // ─── Helper di render ──────────────────────────────────────
   private getVisitStatusBadge(visit: Visit) {
     return visit.isPublished
@@ -401,8 +487,8 @@ export class DashboardPage extends LitElement {
     );
   }
 
-  private renderAuthoredArtworksRows() {
-    return this.authoredArtworks.map((artwork) =>
+  private renderCuratedArtworksRows() {
+    return this.curatedArtworks.map((artwork) =>
       this.renderSecondaryResourceListRow(
         artwork.title || artwork._id,
         this.formatMuseumDateSubtitle(artwork.museumId, artwork.updatedAt, artwork.createdAt),
@@ -449,9 +535,225 @@ export class DashboardPage extends LitElement {
       this.renderVisitListRow(
         visit,
         `${visit.steps?.length || 0} step • ${this.formatDate(visit.updatedAt || visit.createdAt)}`,
-        this.handleRecentVisitClick,
+        () => this.handleRecentVisitClick(),
       ),
     );
+  }
+
+  private getMuseumRoleLabel(role: MuseumRole): string {
+    return role === MuseumRole.CURATOR ? __('Curatore') : __('Autore');
+  }
+
+  private renderMyRolesCard() {
+    const roles = this.user?.museumRoles || [];
+
+    return html`
+      <ui-card padding="md">
+        <div class="space-y-4">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="font-semibold text-surface-900 dark:text-white">${__('I tuoi ruoli')}</h3>
+            <ui-button
+              variant="outline"
+              size="sm"
+              icon="plus"
+              .label=${__('Chiedi un ruolo')}
+              @click=${() => this.openRequestModal()}
+            ></ui-button>
+          </div>
+
+          ${roles.length > 0
+            ? html`
+                <div class="flex flex-wrap gap-2">
+                  ${roles.map(
+                    (mr) => html`
+                      <ui-badge
+                        variant=${mr.role === MuseumRole.CURATOR ? 'success' : 'secondary'}
+                        .label=${`${this.getMuseumRoleLabel(mr.role)} — ${this.getMuseumNameById(mr.museumId)}`}
+                      ></ui-badge>
+                    `,
+                  )}
+                </div>
+              `
+            : html`
+                <div
+                  class="rounded-xl p-5 bg-gradient-to-br from-brand-50 to-brand-100 dark:from-brand-900/20 dark:to-brand-950/20 border border-brand-200 dark:border-brand-800/60"
+                >
+                  <div class="flex items-start gap-3">
+                    <ui-icon
+                      name="sparkles"
+                      size="lg"
+                      class="text-brand-600 dark:text-brand-400 flex-shrink-0"
+                    ></ui-icon>
+                    <div>
+                      <p class="font-semibold text-surface-900 dark:text-white">
+                        ${__('Sei un appassionato e vuoi dare di più ad ArtAround?')}
+                      </p>
+                      <p class="text-sm text-surface-600 dark:text-surface-400 mt-1">
+                        ${__(
+                          'Chiedi di essere abilitato come Autore o Curatore di qualche museo. Il tuo contributo è importante!',
+                        )}
+                      </p>
+                      <ui-button
+                        class="mt-3"
+                        variant="primary"
+                        size="sm"
+                        icon="sparkles"
+                        .label=${__('Proponiti ora')}
+                        @click=${() => this.openRequestModal()}
+                      ></ui-button>
+                    </div>
+                  </div>
+                </div>
+              `}
+          ${this.myPendingRequests.length > 0
+            ? html`
+                <div class="space-y-1.5 pt-1">
+                  <p class="text-xs font-semibold text-surface-500 uppercase tracking-wider">
+                    ${__('Richieste in attesa')}
+                  </p>
+                  ${this.myPendingRequests.map(
+                    (r) => html`
+                      <div
+                        class="flex items-center justify-between p-2.5 rounded-lg bg-surface-50 dark:bg-surface-800/50 text-sm"
+                      >
+                        <span
+                          >${this.getMuseumRoleLabel(r.role)} —
+                          ${this.getMuseumNameById(r.museumId)}</span
+                        >
+                        <ui-icon-button
+                          icon="x"
+                          size="sm"
+                          .title=${__('Annulla richiesta')}
+                          @click=${() => this.handleCancelMyRequest(r)}
+                        ></ui-icon-button>
+                      </div>
+                    `,
+                  )}
+                </div>
+              `
+            : nothing}
+        </div>
+      </ui-card>
+    `;
+  }
+
+  private renderReviewRequestsCard() {
+    if (this.reviewableRequests.length === 0) return nothing;
+
+    return html`
+      <ui-card padding="md">
+        <div class="space-y-3">
+          <h3 class="font-semibold text-surface-900 dark:text-white">
+            ${__('Richieste da revisionare')}
+          </h3>
+          ${this.reviewableRequests.map(
+            (r) => html`
+              <div
+                class="flex items-center justify-between gap-3 p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50"
+              >
+                <div class="min-w-0">
+                  <p class="font-medium text-surface-900 dark:text-white truncate">
+                    ${r.username || r.userId}
+                  </p>
+                  <p class="text-sm text-surface-500 truncate">
+                    ${__('Chiede di diventare')} ${this.getMuseumRoleLabel(r.role).toLowerCase()}
+                    ${__('di')} ${r.museumName || this.getMuseumNameById(r.museumId)}
+                  </p>
+                </div>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                  <ui-button
+                    variant="danger"
+                    size="sm"
+                    .label=${__('Rifiuta')}
+                    @click=${() => this.handleRejectRequest(r)}
+                  ></ui-button>
+                  <ui-button
+                    variant="primary"
+                    size="sm"
+                    .label=${__('Approva')}
+                    @click=${() => this.handleApproveRequest(r)}
+                  ></ui-button>
+                </div>
+              </div>
+            `,
+          )}
+        </div>
+      </ui-card>
+    `;
+  }
+
+  private renderRequestModal() {
+    if (!this.requestModalOpen) return nothing;
+
+    return html`
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        @click=${(e: Event) => {
+          if (e.target === e.currentTarget) this.closeRequestModal();
+        }}
+      >
+        <div
+          class="bg-white dark:bg-surface-900 rounded-xl shadow-2xl w-full max-w-md flex flex-col"
+        >
+          <div class="p-6 border-b border-surface-200 dark:border-surface-700">
+            <h3 class="text-lg font-semibold text-surface-900 dark:text-white">
+              ${__('Chiedi di diventare curatore o autore')}
+            </h3>
+            <p class="text-sm text-surface-500 mt-1">
+              ${__(
+                'La richiesta va confermata da un admin o dal curatore del museo scelto — riceverai il ruolo appena approvata.',
+              )}
+            </p>
+          </div>
+
+          <div class="p-6 space-y-4">
+            ${this.requestError
+              ? html`<ui-alert variant="danger" .message=${this.requestError}></ui-alert>`
+              : nothing}
+            ${this.requestSuccess
+              ? html`<ui-alert variant="success" .message=${this.requestSuccess}></ui-alert>`
+              : nothing}
+
+            <ui-select
+              .label=${__('Ruolo')}
+              .value=${this.requestFormRole}
+              .options=${[
+                { value: MuseumRole.AUTHOR, label: __('Autore') },
+                { value: MuseumRole.CURATOR, label: __('Curatore') },
+              ]}
+              @select-change=${(e: CustomEvent) => (this.requestFormRole = e.detail.value)}
+            ></ui-select>
+
+            <ui-search-list-picker
+              .label=${__('Museo')}
+              .placeholder=${__('Cerca per nome...')}
+              .emptyText=${__('Nessun museo disponibile')}
+              .noResultsText=${__('Nessun risultato')}
+              .options=${this.requestMuseumOptions}
+              .value=${this.requestFormMuseumId}
+              @value-change=${(e: CustomEvent<{ value: string }>) =>
+                (this.requestFormMuseumId = e.detail.value)}
+            ></ui-search-list-picker>
+          </div>
+
+          <div
+            class="flex items-center justify-end gap-3 p-6 border-t border-surface-200 dark:border-surface-700"
+          >
+            <ui-button
+              variant="ghost"
+              .label=${__('Annulla')}
+              @click=${() => this.closeRequestModal()}
+            ></ui-button>
+            <ui-button
+              variant="primary"
+              .label=${__('Invia richiesta')}
+              @click=${() => this.handleSubmitRoleRequest()}
+              ?loading=${this.requestSubmitting}
+            ></ui-button>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   private renderOpenRouteAction(route: string, label: string) {
@@ -570,7 +872,8 @@ export class DashboardPage extends LitElement {
         ${this.loading
           ? html`<ui-loading></ui-loading>`
           : html`
-              ${this.user?.role === UserRole.ADMIN
+              ${this.renderMyRolesCard()} ${this.renderReviewRequestsCard()}
+              ${this.user?.isAdmin
                 ? html`
                     <section class="space-y-3">
                       <ui-section-header
@@ -619,10 +922,10 @@ export class DashboardPage extends LitElement {
                       renderItems: () => this.renderCuratorMuseumsRows(),
                     })}
                     ${this.renderResourceListCard({
-                      title: __('Le opere di cui sono autore'),
-                      emptyText: __('Nessuna opera assegnata'),
-                      count: this.authoredArtworks.length,
-                      renderItems: () => this.renderAuthoredArtworksRows(),
+                      title: __('Opere recenti dei musei che curo'),
+                      emptyText: __('Nessuna opera nei musei che curi'),
+                      count: this.curatedArtworks.length,
+                      renderItems: () => this.renderCuratedArtworksRows(),
                     })}
                     ${this.renderResourceListCard({
                       title: __('I miei contenuti'),
@@ -690,6 +993,7 @@ export class DashboardPage extends LitElement {
               )}
             `}
       </div>
+      ${this.renderRequestModal()}
     `;
   }
 }

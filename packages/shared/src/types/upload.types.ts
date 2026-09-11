@@ -1,3 +1,8 @@
+/**
+ * Tipi Upload media (immagini)
+ * Usati nell'image picker, presente in tutta la ui dove si caricano immagini per editarle online
+ */
+
 export type UploadCategory = 'museums' | 'items' | 'artworks' | 'visits' | 'users' | 'misc';
 
 export interface ImageProcessOptions {

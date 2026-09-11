@@ -7,6 +7,7 @@ export interface SelectOption {
   value: string;
   label: string;
   disabled?: boolean;
+  fontFamily?: string; // anteprima: l'opzione nel menu usa questo font invece di quello di default
 }
 
 @customElement('ui-select')
@@ -115,6 +116,7 @@ export class UiSelect extends LitElement {
                   value="${opt.value}"
                   ?disabled=${opt.disabled}
                   ?selected=${this.value === opt.value}
+                  style=${opt.fontFamily ? `font-family: ${opt.fontFamily}` : nothing}
                 >
                   ${opt.label}
                 </option>

@@ -2,6 +2,9 @@
  * Tipi Museo
  *
  * Usa l'ID Wikidata come identificatore primario per i musei.
+ * Per le traduzioni, ogni museo può avere attivo un sottoinsieme
+ * ristretto di lingue attive rispetto a quelle dell'App.
+ * In tutto ciò che riguarda quel museo, verrà chiesto di tradurre solo nelle lingue attive.
  */
 
 import type { AppLanguage } from './i18n.types';
@@ -28,19 +31,14 @@ export interface Museum {
   images: string[];
   coverImage?: string;
 
-  // Piantine
+  // Piantine (piani del museo, ma in realtà anche semplicemente parti diverse del museo)
   floors: MuseumFloor[];
 
-  // Sale del museo: create con solo il nome in "Modifica Museo", poi
-  // contornate (poligono) piano per piano in "Piantina e mappa". Ogni opera
-  // deve appartenere a una di queste sale (Artwork.roomId).
+  // Sale del museo (ogni opera deve essere associata ad una sala)
   rooms?: MuseumRoom[];
 
   // Servizi e info
   services: MuseumServices;
-
-  // Configurazioni dell'app Navigator per questo museo
-  navigatorConfigs?: NavigatorAppConfig[];
 
   // Stato
   isActive: boolean;
@@ -70,15 +68,24 @@ export interface MuseumServices {
   website?: string;
   phone?: string;
   email?: string;
-  services: string[]; // ["Bar", "Guardaroba", "WiFi", "Shop"]
+  services: MuseumService[];
   accessibility?: string;
   wheelchairAccessible?: boolean;
+}
+
+// Servizio del museo attivabile dal curatore (bar, bagni, uscita...) — tipo
+// fisso (vedi MUSEUM_SERVICE_TYPES), collegabile a un marker già sulla mappa.
+export interface MuseumService {
+  type: MarkerType;
+  active: boolean;
+  description?: string;
+  descriptionTranslations?: Partial<Record<AppLanguage, string>>;
+  mapMarkerId?: string;
 }
 
 // ========================================
 // RICHIESTE/RISPOSTE API MUSEO
 // ========================================
-
 export interface CreateMuseumData {
   wikidataId: string;
   name: string;
@@ -90,18 +97,53 @@ export interface CreateMuseumData {
   images?: string[];
   coverImage?: string;
   services?: Partial<MuseumServices>;
-  navigatorConfigs?: NavigatorAppConfig[];
 }
 
-export interface NavigatorAppConfig {
-  id: string;
+/**
+ * Font selezionabili per titoli/corpo del testo del Navigator — set fisso,
+ * non testo libero: ogni id è una famiglia Google Fonts già caricata
+ * dall'app (vedi apps/navigator/index.html). Fonte unica per il menu a
+ * tendina lato marketplace e per l'enum di validazione lato server.
+ */
+export const NAVIGATOR_FONT_OPTIONS = [
+  { id: 'unbounded', label: 'Unbounded', family: '"Unbounded"' },
+  { id: 'plus-jakarta-sans', label: 'Plus Jakarta Sans', family: '"Plus Jakarta Sans"' },
+  { id: 'playfair-display', label: 'Playfair Display', family: '"Playfair Display"' },
+  { id: 'cormorant-garamond', label: 'Cormorant Garamond', family: '"Cormorant Garamond"' },
+  { id: 'montserrat', label: 'Montserrat', family: '"Montserrat"' },
+  { id: 'poppins', label: 'Poppins', family: '"Poppins"' },
+  { id: 'inter', label: 'Inter', family: '"Inter"' },
+  { id: 'space-grotesk', label: 'Space Grotesk', family: '"Space Grotesk"' },
+  { id: 'merriweather', label: 'Merriweather', family: '"Merriweather"' },
+  { id: 'work-sans', label: 'Work Sans', family: '"Work Sans"' },
+] as const;
+
+export type NavigatorFontId = (typeof NAVIGATOR_FONT_OPTIONS)[number]['id'];
+
+export const isNavigatorFontId = (value: unknown): value is NavigatorFontId =>
+  typeof value === 'string' && NAVIGATOR_FONT_OPTIONS.some((f) => f.id === value);
+
+/**
+ * Configurazione di aspetto/branding dell'app Navigator: o vale per tutto
+ * l'ecosistema (applicability 'global', ce n'è al massimo una), o è propria
+ * di UN museo specifico (applicability 'museum' + museumId — un museo può
+ * averne più di una, raggiungibili via link/QR per slug, es.
+ * "borghese-bambini" vs "borghese-default"). Vedi NavigatorConfigController.resolve.
+ */
+export interface NavigatorConfig {
+  _id: string;
   name: string;
-  slug: string;
+  slug: string; // univoco globalmente — è quello che finisce nel link/QR (?ncfg=slug)
+  applicability: 'global' | 'museum';
+  museumId?: string; // richiesto quando applicability === 'museum', immutabile dopo la creazione
   branding: {
     logo?: string;
     splashImage?: string;
     primaryColor: string;
     secondaryColor?: string;
+    backgroundColor?: string;
+    displayFont?: NavigatorFontId;
+    bodyFont?: NavigatorFontId;
   };
   content?: {
     homeTitle?: string;
@@ -110,7 +152,8 @@ export interface NavigatorAppConfig {
     homeSubtitleTranslations?: Partial<Record<AppLanguage, string>>;
     welcomeText?: string;
     welcomeTextTranslations?: Partial<Record<AppLanguage, string>>;
-    openingImage?: string;
+    openingImage?: string; // legacy — l'editor scrive solo branding.splashImage, letto qui come fallback (vedi Navigator WelcomePage)
+    featuredMuseumId?: string; // museo mostrato come "in evidenza" in Home — solo su config globale
   };
   pwa: {
     manifestName: string;
@@ -128,7 +171,60 @@ export interface NavigatorAppConfig {
     iconMaskable?: string;
     appleTouchIcon?: string;
   };
+  createdAt: Date;
+  updatedAt: Date;
 }
+
+export interface CreateNavigatorConfigData {
+  name: string;
+  slug: string;
+  applicability: 'global' | 'museum';
+  museumId?: string;
+  branding: NavigatorConfig['branding'];
+  content?: NavigatorConfig['content'];
+  pwa: NavigatorConfig['pwa'];
+}
+
+export type UpdateNavigatorConfigData = Partial<
+  Omit<CreateNavigatorConfigData, 'applicability' | 'museumId'>
+>;
+
+/**
+ * Estetica attuale del Navigator (main.css/tailwind.config.js), usata dal
+ * server come fallback quando non esiste ancora nessuna NavigatorConfig con
+ * applicability 'global' — così il comportamento resta identico a oggi
+ * finché un admin non salva davvero una configurazione.
+ */
+export const DEFAULT_NAVIGATOR_CONFIG: Omit<
+  NavigatorConfig,
+  '_id' | 'createdAt' | 'updatedAt'
+> = {
+  name: 'ArtAround Navigator',
+  slug: 'default',
+  applicability: 'global',
+  branding: {
+    primaryColor: '#8b3ffc',
+    secondaryColor: '#f59e0b',
+    backgroundColor: '#0b0813',
+  },
+  content: {
+    homeTitle: 'ArtAround',
+  },
+  pwa: {
+    manifestName: 'ArtAround Navigator',
+    shortName: 'ArtAround',
+    themeColor: '#0b0a12',
+    backgroundColor: '#0b0813',
+    display: 'standalone',
+    orientation: 'portrait',
+    startUrl: '/navigator/',
+    scope: '/navigator/',
+    icon192: '/navigator/icons/icon-192.png',
+    icon512: '/navigator/icons/icon-512.png',
+    iconMaskable: '/navigator/icons/icon-512-maskable.png',
+    appleTouchIcon: '/navigator/icons/apple-touch-icon.png',
+  },
+};
 
 export interface MuseumCurator {
   _id: string;
@@ -140,7 +236,6 @@ export interface MuseumConfigResponse {
   wikidataId: string;
   name: string;
   services: MuseumServices;
-  navigatorConfigs?: NavigatorAppConfig[];
   floors?: Array<{
     id: string;
     name: string;
@@ -182,20 +277,12 @@ export interface MuseumFloor {
   connections: FloorConnection[]; // Ascensori, scale che collegano i piani
 }
 
-/**
- * Sala del museo: gestione parallela e distinta dai MapMarker.
- * Creata in "Modifica Museo" con solo id/name (floorId e polygon assenti);
- * "contornata" in un secondo momento in "Piantina e mappa", scegliendo il
- * piano e disegnando il poligono (click sui vertici, chiuso quando l'ultimo
- * punto coincide col primo) — a quel punto floorId e polygon vengono
- * valorizzati. Il poligono permette a Navigator di fare zoom sulla sala,
- * evidenziarla, ecc.
- */
+// Sala del museo: inserita nell'editor del museo, poi contornata sulla mappa
 export interface MuseumRoom {
   id: string;
   title: string; // Es. "Sala I"
   subtitle?: string; // Es. "Sala del Gladiatore"
-  floorId?: string; // valorizzato solo dopo il contorno sulla piantina
+  floorId?: string; // pianta su cui è collocata la stanza
   polygon?: MapPoint[]; // vertici del poligono chiuso (primo punto === ultimo)
 }
 
@@ -265,16 +352,13 @@ export enum MarkerType {
   AUDIO_GUIDE = 'audio_guide',
   WIFI = 'wifi',
 
-  // Percorso (non è un punto di interesse: serve solo a far piegare la linea del
-  // percorso di una visita attorno a muri/corridoi, es. una porta su un corridoio -
-  // un waypoint appena dentro la stanza, uno a metà del corridoio fuori. Non va mai
-  // mostrato al visitatore come tappa cliccabile: vedi MapMarker.isVisible).
+  // Percorso: punto fittizio dove far passare il percorso senza attraversare muri
   WAYPOINT = 'waypoint',
 }
 
 export interface MapMarker {
   id: string;
-  floorId?: string; // A quale piano appartiene questo marker
+  floorId?: string; // Mappa su cui è il marker
   x: number;
   y: number;
   type: MarkerType;
@@ -297,5 +381,3 @@ export interface AccessibilityInfo {
   audioAids: boolean;
   notes?: string;
 }
-
-// Nota: ItemMapPosition è definito in item.types.ts

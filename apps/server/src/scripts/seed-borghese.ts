@@ -26,12 +26,14 @@ import { connectDB } from '../config/database.js';
 import { MuseumModel, ArtworkModel, ItemModel, User } from '../models/index.js';
 import { AIService } from '../utils/ai.service.js';
 import { UploadService } from '../utils/upload.service.js';
+import { deleteGeneratedAudioFile } from '../utils/audio-generation.service.js';
 import {
   ItemReferenceType,
   ContentDuration,
   LanguageLevel,
   LicenseType,
-  UserRole,
+  MuseumRole,
+  type GeneratedAudio,
 } from '@artaround/shared';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -59,6 +61,22 @@ const AI_ITEM_CONCURRENCY = 2;
 const cliArgs = new Set(process.argv.slice(2));
 const ITEMS_ONLY_MODE = cliArgs.has('--items-only') || cliArgs.has('--generate-items-only');
 const REGENERATE_ITEMS_MODE = cliArgs.has('--regen-items') || cliArgs.has('--regenerate-items');
+// Rigenera solo il testo degli item ARTWORK già presenti a DB (non tocca
+// museo/opere/immagini, non passa dalla cache JSON): per correggere un
+// prompt di generazione dopo che il contenuto è già stato inserito, senza
+// il ciclo cancella-e-reinserisci di tutto il resto del seed.
+const SYNC_ITEM_TEXTS_MODE = cliArgs.has('--sync-item-texts');
+const SYNC_LIMIT = (() => {
+  const raw = getArgValue('--limit');
+  const n = raw ? Number(raw) : undefined;
+  return n && n > 0 ? n : undefined;
+})();
+// Riprova solo le opere indicate per titolo esatto (separate da "|") — per
+// ripetere le poche fallite di un run precedente senza rilanciare tutto.
+const SYNC_ONLY_TITLES = (() => {
+  const raw = getArgValue('--only-titles');
+  return raw ? new Set(raw.split('|')) : undefined;
+})();
 
 // ── Download immagini ─────────────────────────────────────────────────────────
 
@@ -930,8 +948,8 @@ async function generateItemsForArtworkWithAI(a: SeedArtwork): Promise<SeedGenera
       const rule = ITEM_LENGTH_RULES[duration];
       const systemInstruction = [
         'Sei un autore professionista di audioguide museali in italiano.',
-        'Scrivi un solo testo continuo, pensato per essere ascoltato da una persona che si trova davanti all’opera.',
-        'Il testo deve comportarsi come una vera audioguida: puoi usare formule come “davanti a te”, “puoi notare”, “osserva”, ma non devi parlare del museo, della sala, del piano o della collocazione.',
+        'Scrivi un solo testo continuo, pensato per essere ascoltato da una persona che si trova davanti all’opera — ma non devi parlare del museo, della sala, del piano o della collocazione.',
+        'Non iniziare mai il testo con una formula fissa tipo “davanti a te”, “ti trovi di fronte”, “osserva quest’opera” o simili: in una visita con decine di opere, sentirle tutte iniziare allo stesso modo è monotono. Entra invece subito nel merito — un dettaglio visivo, un gesto, un colore, un fatto sull’opera o sull’autore — variando l’apertura da un testo all’altro.',
         'Niente elenchi, niente markdown, niente link, niente URL, niente riferimenti a schede o siti esterni.',
         'Usa solo le informazioni fornite. Se un dato manca, omettilo. Non inventare dettagli.',
         'Tutti i numeri devono essere scritti in cifre: anni, misure, quantità, secoli, conteggi.',
@@ -1129,9 +1147,87 @@ function buildItemsForInsert(
   }));
 }
 
+// Rigenera il testo degli item ARTWORK già a DB per le opere di questo seed
+// file, opera per opera — usa la stessa generateItemsForArtworkWithAI del
+// seed normale (stesso prompt, quindi stessa correzione se il prompt è
+// cambiato), ma aggiorna in place invece di cancellare e reinserire: gli
+// _id degli item restano gli stessi (referenziati da VisitStep.itemIds,
+// acquisti, ecc.). Testo cambiato → titolo/tag rigenerati scartati (non è
+// quello il problema), traduzioni e audio esistenti invalidati (il testo
+// che descrivevano non esiste più).
+async function syncItemTextsForExistingArtworks(): Promise<void> {
+  await connectDB();
+
+  let artworks = SYNC_ONLY_TITLES
+    ? seedData.artworks.filter((a) => SYNC_ONLY_TITLES.has(a.title))
+    : seedData.artworks;
+  if (SYNC_LIMIT) artworks = artworks.slice(0, SYNC_LIMIT);
+  console.log(
+    `♻️  Rigenero il testo degli item per ${artworks.length}/${seedData.artworks.length} opere di ${ACTIVE_MUSEUM_NAME}${SYNC_LIMIT ? ' (limitato per test)' : ''}\n`,
+  );
+
+  let updated = 0;
+  let missing = 0;
+  let failed = 0;
+
+  for (let i = 0; i < artworks.length; i++) {
+    const artwork = artworks[i];
+    process.stdout.write(`[${i + 1}/${artworks.length}] ${artwork.title}… `);
+    try {
+      const freshItems = await generateItemsForArtworkWithAI(artwork);
+      let updatedForThisArtwork = 0;
+
+      for (const fresh of freshItems) {
+        const existing = await ItemModel.findOne({
+          museumId: fresh.museumId,
+          referenceType: ItemReferenceType.ARTWORK,
+          referenceId: fresh.referenceId,
+          duration: fresh.duration,
+          languageLevel: fresh.languageLevel,
+        });
+        if (!existing) {
+          missing++;
+          continue;
+        }
+
+        // audio/translatedTexts sono Map Mongoose a runtime (una entry per
+        // lingua) anche se il tipo condiviso le descrive come Record — ogni
+        // file audio va cancellato singolarmente prima di svuotare la mappa.
+        const audioMap = existing.audio as unknown as Map<string, GeneratedAudio> | undefined;
+        if (audioMap) {
+          for (const generated of audioMap.values()) {
+            await deleteGeneratedAudioFile(generated);
+          }
+        }
+        existing.text = fresh.text;
+        existing.translatedTexts = undefined;
+        existing.audio = undefined;
+        await existing.save();
+        updatedForThisArtwork++;
+      }
+
+      updated += updatedForThisArtwork;
+      process.stdout.write(`OK (${updatedForThisArtwork} item)\n`);
+    } catch (err) {
+      failed++;
+      process.stdout.write(`FALLITO: ${err instanceof Error ? err.message : String(err)}\n`);
+    }
+  }
+
+  console.log(
+    `\n✅  Fatto — item aggiornati: ${updated}, non trovati a DB: ${missing}, opere fallite: ${failed}`,
+  );
+  process.exit(failed > 0 ? 1 : 0);
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
+  if (SYNC_ITEM_TEXTS_MODE) {
+    await syncItemTextsForExistingArtworks();
+    return;
+  }
+
   console.log(`🏛️  Seed ${ACTIVE_MUSEUM_NAME}\n`);
   console.log(`📄  Fonte: ${seedPath}`);
   console.log(
@@ -1158,12 +1254,21 @@ async function main() {
   ]);
   console.log('   ✅  Dati esistenti rimossi\n');
 
-  // ── 2. Trova o crea l'utente autore ───────────────────────────────────────
+  // ── 2. Crea il museo ───────────────────────────────────────────────────────
+  console.log('🏛️  Creazione museo…');
+  const museum = await MuseumModel.create(seedData.museum);
+  console.log(`   ✅  Museo creato: ${museum.name} (${museum.wikidataId})`);
+  console.log(`       Piani: ${museum.floors?.length ?? 0}`);
+  console.log(
+    `       Coordinate: ${museum.location.coordinates?.lat}, ${museum.location.coordinates?.lng}\n`,
+  );
+
+  // ── 3. Trova o crea l'utente autore ───────────────────────────────────────
+  // Non esiste più un ruolo AUTHOR globale: un admin esistente può già
+  // gestire tutto, altrimenti si crea un utente dedicato e lo si rende
+  // curatore di QUESTO museo (così ha davvero i permessi per il suo contenuto).
   console.log('👤  Ricerca utente autore…');
-  let author = await User.findOne({ role: UserRole.ADMIN });
-  if (!author) {
-    author = await User.findOne({ role: UserRole.AUTHOR });
-  }
+  let author = await User.findOne({ isAdmin: true });
   if (!author) {
     const hashed = await bcrypt.hash('12345678', 10);
     const seedUserBase =
@@ -1176,23 +1281,20 @@ async function main() {
       username: seedUser,
       email: `${seedUser}@artaround.app`,
       password: hashed,
-      role: UserRole.AUTHOR,
       isActive: true,
+      museumRoles: [
+        {
+          museumId: museum._id.toString(),
+          role: MuseumRole.CURATOR,
+          assignedAt: new Date(),
+        },
+      ],
     });
-    console.log(`   ℹ️  Nessun utente trovato — creato utente ${seedUser}\n`);
+    console.log(`   ℹ️  Nessun admin trovato — creato utente ${seedUser} (curatore del museo)\n`);
   } else {
     console.log(`   ✅  Autore: ${author.username} (${author._id})\n`);
   }
   const authorId = author._id.toString();
-
-  // ── 3. Crea il museo ───────────────────────────────────────────────────────
-  console.log('🏛️  Creazione museo…');
-  const museum = await MuseumModel.create(seedData.museum);
-  console.log(`   ✅  Museo creato: ${museum.name} (${museum.wikidataId})`);
-  console.log(`       Piani: ${museum.floors?.length ?? 0}`);
-  console.log(
-    `       Coordinate: ${museum.location.coordinates?.lat}, ${museum.location.coordinates?.lng}\n`,
-  );
 
   // ── 4. Download immagini ────────────────────────────────────────────────────
   console.log(`🖼️  Download immagini in ${ARTWORKS_DIR}…`);

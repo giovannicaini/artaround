@@ -1,6 +1,11 @@
+/**
+ * Tipi API (e altro)
+ *
+ */
+
 import type { User } from './user.types';
 
-// Tipi risposta API
+// Tipi per API (Response, Request, ecc..)
 export interface APIResponse<T = unknown> {
   success: boolean;
   data?: T;
@@ -25,7 +30,7 @@ export interface PaginatedResponse<T> {
   };
 }
 
-// Tipi autenticazione
+// Auth
 export interface LoginRequest {
   username: string;
   password: string;
@@ -35,20 +40,14 @@ export interface RegisterRequest {
   username: string;
   email: string;
   password: string;
-  role?: string;
 }
 
-// Utente restituito da login/register: l'intero documento tranne la
-// password — prima era un sottoinsieme scelto a mano ({id, username,
-// email, role}) che ometteva preferences (e usava "id" invece di "_id",
-// disallineato dal resto dell'app), costringendo un'altra chiamata a
-// /auth/me subito dopo il login solo per leggere le preferenze salvate.
 export interface AuthResponse {
   token: string;
   user: Omit<User, 'password'>;
 }
 
-// API traduzione
+// Traduzioni
 export interface TranslationRequest {
   text: string;
   sourceLang: string;
@@ -61,7 +60,7 @@ export interface TranslationResponse {
   targetLang: string;
 }
 
-// Comando vocale
+// Comandi Vocali
 export interface VoiceCommand {
   command: string;
   rawInput: string;

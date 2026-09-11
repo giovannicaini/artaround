@@ -3,168 +3,49 @@ import { asyncHandler } from '../utils/async-handler.util.js';
 import { body, validationResult } from 'express-validator';
 import axios from 'axios';
 import { WikidataService } from '../utils/wikidata.service.js';
-import { AppConfigModel, MuseumModel } from '../models/index.js';
+import { MuseumModel } from '../models/index.js';
 import { TranslationService } from '../utils/translation.service.js';
 import { AIService } from '../utils/ai.service.js';
 import { AppError } from '../middleware/index.js';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth.middleware.js';
+import { isVoiceCommandId, type VoiceCommandId } from '@artaround/shared';
+
+// Descrizioni per il prompt di classificazione — un ID per riga, mai
+// esposte al client (che vede solo l'ID scelto).
+const VOICE_COMMAND_DESCRIPTIONS: { id: VoiceCommandId; description: string }[] = [
+  { id: 'next', description: 'vai alla tappa successiva' },
+  { id: 'prev', description: 'torna alla tappa precedente' },
+  { id: 'play', description: 'avvia o riprendi la lettura' },
+  { id: 'stop', description: 'ferma la lettura' },
+  { id: 'whatIsThis', description: 'chiede cosa sta guardando/ascoltando ora' },
+  { id: 'more', description: 'vuole un contenuto più lungo/approfondito' },
+  { id: 'less', description: 'vuole un contenuto più breve' },
+  { id: 'tooHard', description: 'il contenuto è troppo difficile, semplificalo' },
+  { id: 'tooSimple', description: 'il contenuto è troppo semplice, approfondisci' },
+  { id: 'author', description: "chiede chi è l'autore dell'opera" },
+  { id: 'style', description: 'chiede lo stile o movimento artistico' },
+  { id: 'repeat', description: 'ripeti lo stesso contenuto da capo' },
+  { id: 'exit', description: "chiede dov'è l'uscita" },
+  { id: 'toilette', description: "chiede dov'è il bagno" },
+  { id: 'bar', description: "chiede dov'è il bar" },
+  { id: 'shop', description: "chiede dov'è il negozio/shop" },
+  { id: 'obstacles', description: 'chiede se il percorso ha ostacoli o è accessibile' },
+  { id: 'help', description: 'chiede quali comandi vocali sono disponibili' },
+];
 
 export class UtilsController {
-  private static readonly HEX_COLOR_REGEX = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
-  private static readonly SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-  private static readonly NAVIGATOR_DEFAULT_CONFIG_KEY = 'navigator-default-configs';
-
-  private static validateNavigatorConfigsPayload(navigatorConfigs: unknown): void {
-    if (!Array.isArray(navigatorConfigs)) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'navigatorConfigs must be an array');
-    }
-
-    if (navigatorConfigs.length === 0) {
-      return;
-    }
-
-    const slugSet = new Set<string>();
-
-    for (const [index, rawConfig] of navigatorConfigs.entries()) {
-      const config = rawConfig as Record<string, unknown>;
-      const prefix = `navigatorConfigs[${index}]`;
-
-      const id = String(config.id || '').trim();
-      const name = String(config.name || '').trim();
-      const slug = String(config.slug || '').trim();
-
-      const branding = (config.branding || {}) as Record<string, unknown>;
-      const pwa = (config.pwa || {}) as Record<string, unknown>;
-
-      const primaryColor = String(branding.primaryColor || '').trim();
-      const secondaryColor = String(branding.secondaryColor || '').trim();
-      const themeColor = String(pwa.themeColor || '').trim();
-      const backgroundColor = String(pwa.backgroundColor || '').trim();
-
-      const manifestName = String(pwa.manifestName || '').trim();
-      const shortName = String(pwa.shortName || '').trim();
-      const startUrl = String(pwa.startUrl || '').trim();
-      const scope = String(pwa.scope || '').trim();
-      const icon192 = String(pwa.icon192 || '').trim();
-      const icon512 = String(pwa.icon512 || '').trim();
-
-      if (!id) {
-        throw new AppError(400, 'VALIDATION_ERROR', `${prefix}.id is required`);
-      }
-      if (!name) {
-        throw new AppError(400, 'VALIDATION_ERROR', `${prefix}.name is required`);
-      }
-      if (!slug || !UtilsController.SLUG_REGEX.test(slug)) {
-        throw new AppError(
-          400,
-          'VALIDATION_ERROR',
-          `${prefix}.slug is required and must be lowercase-kebab-case`,
-        );
-      }
-      if (slugSet.has(slug)) {
-        throw new AppError(400, 'VALIDATION_ERROR', `Duplicate navigator slug: ${slug}`);
-      }
-      slugSet.add(slug);
-
-      if (!manifestName) {
-        throw new AppError(400, 'VALIDATION_ERROR', `${prefix}.pwa.manifestName is required`);
-      }
-      if (!shortName) {
-        throw new AppError(400, 'VALIDATION_ERROR', `${prefix}.pwa.shortName is required`);
-      }
-      if (!startUrl) {
-        throw new AppError(400, 'VALIDATION_ERROR', `${prefix}.pwa.startUrl is required`);
-      }
-      if (!scope) {
-        throw new AppError(400, 'VALIDATION_ERROR', `${prefix}.pwa.scope is required`);
-      }
-
-      if (!icon192 || !icon512) {
-        throw new AppError(
-          400,
-          'VALIDATION_ERROR',
-          `${prefix}.pwa.icon192 and ${prefix}.pwa.icon512 are required`,
-        );
-      }
-
-      const colors = [
-        { key: 'branding.primaryColor', value: primaryColor },
-        { key: 'branding.secondaryColor', value: secondaryColor, optional: true },
-        { key: 'pwa.themeColor', value: themeColor },
-        { key: 'pwa.backgroundColor', value: backgroundColor },
-      ];
-
-      for (const color of colors) {
-        if (!color.value && color.optional) {
-          continue;
-        }
-
-        if (!UtilsController.HEX_COLOR_REGEX.test(color.value)) {
-          throw new AppError(
-            400,
-            'VALIDATION_ERROR',
-            `${prefix}.${color.key} must be a valid HEX color`,
-          );
-        }
-      }
-    }
-  }
-
-  static getNavigatorDefaultConfigs = asyncHandler(
-    async (req: AuthRequest, res: Response): Promise<void> => {
-      const config = await AppConfigModel.findOne({
-        key: UtilsController.NAVIGATOR_DEFAULT_CONFIG_KEY,
-      })
-        .select('navigatorDefaultConfigs')
-        .lean();
-
-      res.json({
-        success: true,
-        data: config?.navigatorDefaultConfigs || [],
-      });
-    },
-  );
-
-  static updateNavigatorDefaultConfigs = asyncHandler(
-    async (req: AuthRequest, res: Response): Promise<void> => {
-      const navigatorConfigs = req.body.navigatorConfigs;
-      UtilsController.validateNavigatorConfigsPayload(navigatorConfigs);
-
-      const config = await AppConfigModel.findOneAndUpdate(
-        { key: UtilsController.NAVIGATOR_DEFAULT_CONFIG_KEY },
-        {
-          $set: {
-            key: UtilsController.NAVIGATOR_DEFAULT_CONFIG_KEY,
-            navigatorDefaultConfigs: navigatorConfigs,
-          },
-        },
-        {
-          upsert: true,
-          new: true,
-          setDefaultsOnInsert: true,
-        },
-      ).lean();
-
-      res.json({
-        success: true,
-        data: config?.navigatorDefaultConfigs || [],
-        message: 'Navigator default configs updated successfully',
-      });
-    },
-  );
-
-  // Ottieni entità Wikidata
+  // GET /api/utils/wikidata/:id — dettaglio di un'entità Wikidata
   static getWikidataEntity = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
     if (!id || Array.isArray(id)) {
-      throw new AppError(400, 'INVALID_ID', 'Invalid Wikidata ID');
+      throw new AppError(400, 'INVALID_ID', 'ID Wikidata non valido');
     }
 
     const entity = await WikidataService.getEntity(id);
     if (!entity) {
-      throw new AppError(404, 'ENTITY_NOT_FOUND', 'Wikidata entity not found');
+      throw new AppError(404, 'ENTITY_NOT_FOUND', 'Entità Wikidata non trovata');
     }
 
     res.json({
@@ -173,12 +54,12 @@ export class UtilsController {
     });
   });
 
-  // Cerca su Wikidata
+  // GET /api/utils/wikidata-search — cerca musei/autori/movimenti/opere su Wikidata
   static searchWikidata = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { q, limit = '10', type = 'artwork', museumId } = req.query;
 
     if (!q) {
-      throw new AppError(400, 'MISSING_QUERY', 'Search query is required');
+      throw new AppError(400, 'MISSING_QUERY', 'La query di ricerca è obbligatoria');
     }
 
     const parsedLimit = parseInt(limit as string, 10);
@@ -232,6 +113,8 @@ export class UtilsController {
     });
   });
 
+  // GET /api/utils/geocode — geocodifica un indirizzo via Nominatim, scegliendo il
+  // risultato migliore in base a città/CAP quando forniti
   static geocodeAddress = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const address = String(req.query.address || '').trim();
     const city = String(req.query.city || '').trim();
@@ -241,7 +124,7 @@ export class UtilsController {
     const query = [address, postalCode, city, nation].filter(Boolean).join(', ');
 
     if (!query) {
-      throw new AppError(400, 'MISSING_QUERY', 'Address query is required');
+      throw new AppError(400, 'MISSING_QUERY', "L'indirizzo di ricerca è obbligatorio");
     }
 
     type NominatimAddress = {
@@ -384,7 +267,7 @@ export class UtilsController {
       res.json({
         success: true,
         data: null,
-        message: 'No geocoding result found',
+        message: 'Nessun risultato di geocodifica trovato',
       });
       return;
     }
@@ -401,25 +284,27 @@ export class UtilsController {
     });
   });
 
-  // Traduci testo
+  // Validazione per POST /api/utils/translate
   static translateValidation = [
-    body('text').notEmpty().withMessage('Text is required'),
-    body('sourceLang').notEmpty().withMessage('Source language is required'),
-    body('targetLang').notEmpty().withMessage('Target language is required'),
+    body('text').notEmpty().withMessage('Il testo è obbligatorio'),
+    body('sourceLang').notEmpty().withMessage('La lingua di origine è obbligatoria'),
+    body('targetLang').notEmpty().withMessage('La lingua di destinazione è obbligatoria'),
   ];
 
+  // Validazione per POST /api/utils/translate-batch
   static translateBatchValidation = [
-    body('sourceLang').notEmpty().withMessage('Source language is required'),
-    body('items').isArray({ min: 1 }).withMessage('Items array is required'),
-    body('items.*.key').notEmpty().withMessage('Each item key is required'),
-    body('items.*.text').notEmpty().withMessage('Each item text is required'),
-    body('items.*.targetLang').notEmpty().withMessage('Each item targetLang is required'),
+    body('sourceLang').notEmpty().withMessage('La lingua di origine è obbligatoria'),
+    body('items').isArray({ min: 1 }).withMessage("L'array items è obbligatorio"),
+    body('items.*.key').notEmpty().withMessage('La chiave di ogni item è obbligatoria'),
+    body('items.*.text').notEmpty().withMessage('Il testo di ogni item è obbligatorio'),
+    body('items.*.targetLang').notEmpty().withMessage('La targetLang di ogni item è obbligatoria'),
   ];
 
+  // POST /api/utils/translate — traduce un singolo testo tra due lingue
   static translate = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
     }
 
     const { text, sourceLang, targetLang } = req.body;
@@ -436,10 +321,11 @@ export class UtilsController {
     });
   });
 
+  // POST /api/utils/translate-batch — traduce più testi in un'unica chiamata
   static translateBatch = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
     }
 
     const { sourceLang, items } = req.body as {
@@ -458,12 +344,54 @@ export class UtilsController {
     });
   });
 
+  // GET /api/utils/ai-health — verifica che OpenAI sia configurata e raggiungibile
   static aiHealth = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const result = await AIService.checkOpenAIHealth();
 
     res.status(result.ok ? 200 : 503).json({
       success: result.ok,
       data: result,
+    });
+  });
+
+  // Validazione per POST /api/utils/voice-command
+  static voiceCommandValidation = [
+    body('text').notEmpty().withMessage('Il testo è obbligatorio'),
+    body('language').notEmpty().withMessage('La lingua è obbligatoria'),
+  ];
+
+  // POST /api/utils/voice-command — classifica un comando vocale del
+  // Navigator in uno degli ID fissi previsti, o null se nessuno è
+  // pertinente. Usata come fallback quando il match locale a pattern
+  // (Navigator, parseVoiceCommand) non riconosce la frase.
+  static voiceCommand = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
+    }
+
+    const { text, language } = req.body as { text: string; language: string };
+
+    const commandDescriptions = VOICE_COMMAND_DESCRIPTIONS.map(
+      ({ id, description }) => `- ${id}: ${description}`,
+    ).join('\n');
+
+    const systemInstruction =
+      `Interpreti comandi vocali di un visitatore di museo, in lingua "${language}". ` +
+      `Scegli l'ID più adatto tra questi (mai altro):\n${commandDescriptions}\n` +
+      `Se nessuno è pertinente, rispondi con {"command": null}. Rispondi sempre con un oggetto JSON in questa forma, mai col solo valore null.`;
+
+    const result = await AIService.generateJson<{ command: string | null } | null>(
+      systemInstruction,
+      text,
+      { temperature: 0 },
+    ).catch(() => null);
+
+    const command = isVoiceCommandId(result?.command) ? result.command : null;
+
+    res.json({
+      success: true,
+      data: { command },
     });
   });
 }

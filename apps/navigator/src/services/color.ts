@@ -57,10 +57,7 @@ function hslToRgbTriplet(h: number, s: number, l: number): string {
   return `${toByte(r)} ${toByte(g)} ${toByte(b)}`;
 }
 
-// Stessa "forma" di luminosità della rampa bronzo di default, applicata a
-// una tinta qualsiasi: così un colore di un museo produce una scala a 11
-// passi coerente con --alpha-value (bg-brand-500/40 ecc.) invece di un
-// singolo tono piatto.
+// Luminosità per ciascuno degli 11 stop della rampa — dà scala completa a qualsiasi tinta di museo.
 const LIGHTNESS_CURVE: Record<string, number> = {
   '50': 95,
   '100': 90,
@@ -75,12 +72,7 @@ const LIGHTNESS_CURVE: Record<string, number> = {
   '950': 12,
 };
 
-/**
- * Genera una rampa di 11 triplette RGB (per le variabili --color-brand-*)
- * a partire da un colore esadecimale singolo. Ritorna null se l'hex non è
- * valido, così il chiamante può ignorare in sicurezza un valore malformato
- * inserito dal curatore.
- */
+/** Genera una rampa di 11 triplette RGB da un colore esadecimale — null se l'hex non è valido. */
 export function buildBrandRamp(hex: string): Record<string, string> | null {
   const hsl = hexToHsl(hex);
   if (!hsl) return null;
@@ -92,5 +84,44 @@ export function buildBrandRamp(hex: string): Record<string, string> | null {
     const s = Math.max(30, hsl.s * (1 - distanceFromMid * 0.35));
     ramp[stop] = hslToRgbTriplet(hsl.h, s, l);
   }
+  return ramp;
+}
+
+// Da quasi bianco a quasi nero (non solo la fascia di un accento) con un'impronta di tinta.
+const SURFACE_LIGHTNESS_CURVE: Record<string, number> = {
+  '50': 97,
+  '100': 94,
+  '200': 84,
+  '300': 68,
+  '400': 55,
+  '500': 42,
+  '600': 32,
+  '700': 24,
+  '800': 16,
+  '900': 10,
+  '950': 6,
+};
+
+/**
+ * Genera una rampa neutra a 11 passi: saturazione bassa e fissa, resta
+ * "grigio scelto" mai un tono pieno. In tutta l'app 950 è lo sfondo pagina e
+ * 50 il testo principale (bg-surface-950/text-surface-50): se il colore di
+ * sfondo scelto è chiaro, la curva va invertita (950 chiaro, 50 scuro), o un
+ * "sfondo bianco" resterebbe di fatto un tema scuro con testo bianco su
+ * sfondo bianco.
+ */
+export function buildSurfaceRamp(hex: string): Record<string, string> | null {
+  const hsl = hexToHsl(hex);
+  if (!hsl) return null;
+
+  const isLightSeed = hsl.l >= 50;
+  const stops = Object.keys(SURFACE_LIGHTNESS_CURVE);
+  const lightnessValues = Object.values(SURFACE_LIGHTNESS_CURVE);
+  const orderedValues = isLightSeed ? [...lightnessValues].reverse() : lightnessValues;
+
+  const ramp: Record<string, string> = {};
+  stops.forEach((stop, i) => {
+    ramp[stop] = hslToRgbTriplet(hsl.h, 22, orderedValues[i]);
+  });
   return ramp;
 }

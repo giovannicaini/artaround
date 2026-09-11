@@ -1,10 +1,16 @@
-import { UserRole, type User } from '@artaround/shared';
+import { MuseumRole, type User } from '@artaround/shared';
 
 /**
  * Servizio Permessi
  *
  * Centralizza i controlli di permesso per la visibilità e le azioni della UI.
- * Deve rispecchiare le regole di role.middleware.ts sul backend.
+ * Deve rispecchiare le regole di policy.util.ts sul backend.
+ *
+ * Non esiste un CURATOR o un AUTHOR globale: lo si è solo di un museo
+ * specifico (User.museumRoles), per questo quasi tutti i permessi qui sotto
+ * hanno bisogno del museo "corrente" (es. quello selezionato in UI) per
+ * essere calcolati — senza un museo, un utente non admin non può gestire
+ * nulla di museo-specifico.
  */
 
 export interface PermissionSet {
@@ -33,99 +39,97 @@ export interface PermissionSet {
   canViewAnalytics: boolean;
 }
 
-/**
- * Ottieni i permessi per un utente
- */
-export function getPermissions(user: User | null): PermissionSet {
-  if (!user) {
-    return {
-      canCreateArtwork: false,
-      canEditArtwork: false,
-      canDeleteArtwork: false,
-      canCreateItem: false,
-      canEditItem: false,
-      canDeleteItem: false,
-      canCreateMuseum: false,
-      canEditMuseum: false,
-      canDeleteMuseum: false,
-      canCreateVisit: false,
-      canEditVisit: false,
-      canDeleteVisit: false,
-      canManageUsers: false,
-      canViewAnalytics: false,
-    };
-  }
+const EMPTY_PERMISSIONS: PermissionSet = {
+  canCreateArtwork: false,
+  canEditArtwork: false,
+  canDeleteArtwork: false,
+  canCreateItem: false,
+  canEditItem: false,
+  canDeleteItem: false,
+  canCreateMuseum: false,
+  canEditMuseum: false,
+  canDeleteMuseum: false,
+  canCreateVisit: false,
+  canEditVisit: false,
+  canDeleteVisit: false,
+  canManageUsers: false,
+  canViewAnalytics: false,
+};
 
-  const role = user.role;
-  const isAdmin = role === UserRole.ADMIN;
-  const isCurator = role === UserRole.CURATOR;
-  const isAuthor = role === UserRole.AUTHOR;
+/** L'utente è curatore di QUESTO museo specifico (o admin, che può sempre tutto). */
+export function isMuseumCurator(user: User | null, museumId?: string): boolean {
+  if (!user) return false;
+  if (user.isAdmin) return true;
+  if (!museumId) return false;
+  return !!user.museumRoles?.some(
+    (mr) => mr.museumId === museumId && mr.role === MuseumRole.CURATOR,
+  );
+}
+
+/** L'utente è curatore O autore di QUESTO museo specifico (o admin). */
+export function isMuseumMember(user: User | null, museumId?: string): boolean {
+  if (!user) return false;
+  if (user.isAdmin) return true;
+  if (!museumId) return false;
+  return !!user.museumRoles?.some((mr) => mr.museumId === museumId);
+}
+
+/** L'utente è curatore o autore di ALMENO un museo, non importa quale (o admin). */
+export function isContentCreator(user: User | null): boolean {
+  if (!user) return false;
+  if (user.isAdmin) return true;
+  return !!user.museumRoles && user.museumRoles.length > 0;
+}
+
+/**
+ * Ottieni i permessi per un utente, nel contesto di un museo specifico
+ * (tipicamente quello selezionato in UI). Senza `museumId`, tutto ciò che
+ * dipende da un museo preciso resta negato per chi non è admin.
+ */
+export function getPermissions(user: User | null, museumId?: string): PermissionSet {
+  if (!user) return { ...EMPTY_PERMISSIONS };
+
+  const curatorOfMuseum = isMuseumCurator(user, museumId);
+  const memberOfMuseum = isMuseumMember(user, museumId);
+  const contentCreator = isContentCreator(user);
+  const isAdmin = user.isAdmin;
 
   return {
-    // Opere: solo ADMIN e CURATOR
-    canCreateArtwork: isAdmin || isCurator,
-    canEditArtwork: isAdmin || isCurator,
-    canDeleteArtwork: isAdmin, // Solo admin può eliminare
+    // Opere: solo il curatore DI QUESTO museo (le opere non hanno un autore applicativo)
+    canCreateArtwork: curatorOfMuseum,
+    canEditArtwork: curatorOfMuseum,
+    canDeleteArtwork: curatorOfMuseum,
 
-    // Item: ogni utente autenticato può creare, ma solo i propri o admin possono modificare/eliminare
-    canCreateItem: isAdmin || isAuthor || isCurator,
-    canEditItem: isAdmin || isAuthor || isCurator,
-    canDeleteItem: isAdmin || isAuthor || isCurator,
+    // Item: creabili da chiunque sia curatore/autore di un museo qualsiasi
+    // (un item non dipende da un museo specifico); modifica/eliminazione di
+    // un item non proprio riservata al curatore DI QUESTO museo — vedi anche
+    // canEditOwnItem per il fallback "è roba tua".
+    canCreateItem: contentCreator,
+    canEditItem: curatorOfMuseum,
+    canDeleteItem: curatorOfMuseum,
 
-    // Musei: solo ADMIN e CURATOR
-    canCreateMuseum: isAdmin || isCurator,
-    canEditMuseum: isAdmin || isCurator,
+    // Musei: crea/elimina solo admin, modifica anche il curatore del museo stesso
+    canCreateMuseum: isAdmin,
+    canEditMuseum: curatorOfMuseum,
     canDeleteMuseum: isAdmin,
 
-    // Visite: ogni autore autenticato può creare
-    canCreateVisit: isAdmin || isAuthor || isCurator,
-    canEditVisit: isAdmin || isAuthor || isCurator,
-    canDeleteVisit: isAdmin || isAuthor || isCurator,
+    // Visite: legate a un museo preciso, serve essere curatore o autore DI QUESTO museo
+    canCreateVisit: memberOfMuseum,
+    canEditVisit: curatorOfMuseum,
+    canDeleteVisit: curatorOfMuseum,
 
     // Solo admin
     canManageUsers: isAdmin,
-    canViewAnalytics: isAdmin || isCurator,
+    canViewAnalytics: isAdmin || curatorOfMuseum,
   };
 }
 
 /**
- * Controlla se l'utente può modificare un item specifico (verifica di proprietà)
+ * Controlla se l'utente può modificare un item o una visita specifici
+ * (verifica di proprietà: è sempre roba tua, ovunque sia).
  */
 export function canEditOwnItem(user: User | null, itemAuthorId: string): boolean {
   if (!user) return false;
-  if (user.role === UserRole.ADMIN) return true;
+  if (user.isAdmin) return true;
   return user._id === itemAuthorId;
-}
-
-/**
- * Ottieni il nome del ruolo in italiano
- */
-export function getRoleDisplayName(role: UserRole): string {
-  const names: Record<UserRole, string> = {
-    [UserRole.ADMIN]: 'Amministratore',
-    [UserRole.CURATOR]: 'Curatore',
-    [UserRole.AUTHOR]: 'Autore',
-    [UserRole.VISITOR]: 'Visitatore',
-  };
-  return names[role] || role;
-}
-
-/**
- * Ottieni i ruoli richiesti per un'azione (per i messaggi di errore)
- */
-export function getRequiredRolesForAction(
-  action: 'createArtwork' | 'editArtwork' | 'deleteArtwork' | 'createItem' | 'editItem',
-): UserRole[] {
-  switch (action) {
-    case 'createArtwork':
-    case 'editArtwork':
-      return [UserRole.ADMIN, UserRole.CURATOR];
-    case 'deleteArtwork':
-      return [UserRole.ADMIN];
-    case 'createItem':
-    case 'editItem':
-      return [UserRole.ADMIN, UserRole.AUTHOR, UserRole.CURATOR];
-    default:
-      return [];
-  }
 }

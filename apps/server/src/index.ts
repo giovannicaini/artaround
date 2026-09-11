@@ -11,6 +11,7 @@ import { errorHandler } from './middleware/index.js';
 import routes from './routes/index.js';
 import { swaggerSpec } from './config/swagger.js';
 import { UploadService } from './utils/upload.service.js';
+import { reconcileOnStartup } from './utils/jobs.service.js';
 
 // Equivalente ESM di __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -53,10 +54,10 @@ app.get('/api-docs.json', (req, res) => {
   res.send(swaggerSpec);
 });
 
-// Rotte API
+// Rotte API (definite nei file in server/src/routes)
 app.use('/api', routes);
 
-// Pagina di atterraggio root
+// Homepage generale di ArtAround
 const landingPagePath = path.resolve(__dirname, '../../../index.html');
 app.get('/', (req, res) => {
   res.sendFile(landingPagePath);
@@ -99,7 +100,11 @@ const startServer = async () => {
     // Connetti a MongoDB
     await connectDB();
 
-    // Seed di avvio opzionale per ambienti senza accesso shell
+    // Chiude come falliti eventuali Job rimasti "running" da prima di questo
+    // boot (es. un deploy a metà di una generazione audio) — vedi jobs.service.
+    await reconcileOnStartup();
+
+    // Seed di avvio opzionale
     if (config.seed.onStart) {
       const usersCount = await User.countDocuments();
       const shouldSeed = !config.seed.onlyIfEmpty || usersCount === 0;

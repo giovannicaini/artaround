@@ -15,11 +15,7 @@ interface ArtworkInfo {
   image: string;
 }
 
-// Un curatore può segnare un'opera come ARTWORK, SCULPTURE o PAINTING a
-// seconda del tipo — sono comunque tutte "un'opera" ai fini della mappa
-// (percorso, filtro sul giro, miniatura con immagine). getVisitRoutePoints
-// del marketplace le tratta già tutte allo stesso modo cercando solo
-// marker.artworkId, senza guardare il type.
+// ARTWORK, SCULPTURE e PAINTING sono comunque tutte "un'opera" ai fini della mappa.
 function isArtworkMarker(type: MarkerType): boolean {
   return (
     type === MarkerType.ARTWORK || type === MarkerType.SCULPTURE || type === MarkerType.PAINTING
@@ -29,13 +25,11 @@ function isArtworkMarker(type: MarkerType): boolean {
 interface MapViewProps {
   map: MuseumMap;
   routePoints?: RoutePoint[]; // percorso opere+waypoint, già risolto su tutti i piani
-  artworkInfo?: Record<string, ArtworkInfo>; // titolo+immagine per Wikidata ID, per i marker-opera e la conferma di salto
-  currentArtworkId?: string; // The artwork currently being viewed (Wikidata ID)
-  visitArtworkIds?: string[]; // All artworks in the visit, in order (Wikidata IDs)
-  // Marker qualsiasi (ingresso, bar, info point...) a cui una tappa LOGISTIC/
-  // NAVIGATION è stata associata dal curatore: apre la mappa già centrata ed
-  // evidenziata lì, non solo sulle opere. Ignorato se currentArtworkId trova
-  // già un marker (l'opera in ascolto resta la priorità).
+  artworkInfo?: Record<string, ArtworkInfo>; // titolo+immagine per Wikidata ID
+  currentArtworkId?: string; // opera attualmente in ascolto (Wikidata ID)
+  visitArtworkIds?: string[]; // tutte le opere della visita, in ordine
+  // Marker non-opera (ingresso, bar...) associato a una tappa LOGISTIC/NAVIGATION —
+  // ignorato se currentArtworkId trova già un marker.
   focusMarkerId?: string;
   onMarkerClick?: (marker: MapMarker) => void;
   onClose?: () => void;
@@ -62,7 +56,7 @@ function buildMarkerIcons(
     [MarkerType.ELEVATOR]: { icon: '🛗', color: 'bg-purple-500', label: t('Ascensore') },
     [MarkerType.STAIRS]: { icon: '🪜', color: 'bg-orange-500', label: t('Scale') },
     [MarkerType.ACCESSIBILITY]: { icon: '♿', color: 'bg-blue-600', label: t('Accessibilità') },
-    [MarkerType.ROOM]: { icon: '🏛️', color: 'bg-surface-500', label: t('Sala') },
+    [MarkerType.ROOM]: { icon: '🏛️', color: 'bg-neutral-500', label: t('Sala') },
     [MarkerType.INFO_POINT]: { icon: 'ℹ️', color: 'bg-blue-400', label: t('Info') },
     [MarkerType.OBSTACLE]: { icon: '⚠️', color: 'bg-yellow-500', label: t('Ostacolo') },
     [MarkerType.BENCH]: { icon: '🪑', color: 'bg-lime-500', label: t('Panchina') },
@@ -75,7 +69,7 @@ function buildMarkerIcons(
     [MarkerType.PAINTING]: { icon: '🖌️', color: 'bg-brand-300', label: t('Dipinto') },
     [MarkerType.ESCALATOR]: { icon: '🎢', color: 'bg-orange-600', label: t('Scala mobile') },
     [MarkerType.RAMP]: { icon: '🛤️', color: 'bg-yellow-600', label: t('Rampa') },
-    [MarkerType.GALLERY]: { icon: '🖼️', color: 'bg-surface-600', label: t('Galleria') },
+    [MarkerType.GALLERY]: { icon: '🖼️', color: 'bg-neutral-600', label: t('Galleria') },
     // Non è un punto di interesse: serve solo a far piegare il percorso disegnato sulla
     // mappa, non va mai reso come marker cliccabile per il visitatore.
     [MarkerType.WAYPOINT]: { icon: '', color: 'bg-transparent', label: t('Waypoint') },
@@ -109,9 +103,7 @@ export default function MapView({
 
   const floors = map.floors || [];
 
-  // Il piano di apertura è quello dell'opera che si stava guardando; se non
-  // c'è (tappa LOGISTIC/NAVIGATION) ma la tappa è associata a un punto della
-  // mappa, quello del punto; altrimenti il primo piano disponibile.
+  // Piano di apertura: quello dell'opera in ascolto, poi quello del marker associato, poi il primo.
   const [selectedFloorId, setSelectedFloorId] = useState<string>(() => {
     if (currentArtworkId) {
       const floorWithArtwork = floors.find((f) =>
@@ -150,67 +142,141 @@ export default function MapView({
     setPosition({ x: 0, y: 0 });
   }
 
-  // Centra sull'opera in ascolto, o sul punto associato alla tappa
-  // LOGISTIC/NAVIGATION corrente quando non c'è un'opera.
-  useEffect(() => {
+  // Blocca il trascinamento entro i bordi del contenuto, mai sfondo vuoto in vista.
+  function clampPosition(pos: { x: number; y: number }, atScale: number) {
+    const container = containerRef.current;
+    if (!container || !dimensions) return pos;
+    const contentWidth = dimensions.width * atScale;
+    const contentHeight = dimensions.height * atScale;
+    const maxX = Math.max(0, container.clientWidth - contentWidth);
+    const minX = Math.min(0, container.clientWidth - contentWidth);
+    const maxY = Math.max(0, container.clientHeight - contentHeight);
+    const minY = Math.min(0, container.clientHeight - contentHeight);
+    return {
+      x: Math.min(maxX, Math.max(minX, pos.x)),
+      y: Math.min(maxY, Math.max(minY, pos.y)),
+    };
+  }
+
+  // Centra sull'opera in ascolto, o sul marker della tappa corrente se non c'è un'opera.
+  function centerOnCurrentMarker(atScale = scale) {
     if (!containerRef.current) return;
     const targetMarker = currentArtworkId
       ? floorMarkers.find((m) => isArtworkMarker(m.type) && m.artworkId === currentArtworkId)
       : focusMarkerId
         ? floorMarkers.find((m) => m.id === focusMarkerId)
         : undefined;
-    if (targetMarker) {
-      const container = containerRef.current;
-      const centerX = container.clientWidth / 2 - targetMarker.x * scale;
-      const centerY = container.clientHeight / 2 - targetMarker.y * scale;
-      setPosition({ x: centerX, y: centerY });
-    }
+    if (!targetMarker) return;
+    const container = containerRef.current;
+    const centerX = container.clientWidth / 2 - targetMarker.x * atScale;
+    const centerY = container.clientHeight / 2 - targetMarker.y * atScale;
+    setPosition(clampPosition({ x: centerX, y: centerY }, atScale));
+  }
+
+  useEffect(() => {
+    centerOnCurrentMarker();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentArtworkId, focusMarkerId, selectedFloorId]);
 
-  const handleZoomIn = () => setScale((s) => Math.min(s + 0.25, 3));
-  const handleZoomOut = () => setScale((s) => Math.max(s - 0.25, 0.5));
+  const handleZoomIn = () =>
+    setScale((s) => {
+      const next = Math.min(s + 0.25, 3);
+      setPosition((pos) => clampPosition(pos, next));
+      return next;
+    });
+  const handleZoomOut = () =>
+    setScale((s) => {
+      const next = Math.max(s - 0.25, 0.5);
+      setPosition((pos) => clampPosition(pos, next));
+      return next;
+    });
   const handleReset = () => {
     setScale(1);
-    setPosition({ x: 0, y: 0 });
+    setPosition(clampPosition({ x: 0, y: 0 }, 1));
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  // Trascinamento: stessa logica per mouse e touch, cambia solo da dove si
+  // leggono le coordinate.
+  function startDrag(clientX: number, clientY: number) {
     setIsDragging(true);
-    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
+    setDragStart({ x: clientX - position.x, y: clientY - position.y });
+  }
+  function moveDrag(clientX: number, clientY: number) {
     if (!isDragging) return;
-    setPosition({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y,
-    });
-  };
+    setPosition(clampPosition({ x: clientX - dragStart.x, y: clientY - dragStart.y }, scale));
+  }
 
+  const handleMouseDown = (e: React.MouseEvent) => startDrag(e.clientX, e.clientY);
+  const handleMouseMove = (e: React.MouseEvent) => moveDrag(e.clientX, e.clientY);
   const handleMouseUp = () => setIsDragging(false);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    setIsDragging(true);
-    setDragStart({ x: touch.clientX - position.x, y: touch.clientY - position.y });
-  };
+  // Pizzico a due dita: zooma la mappa (non la pagina, vedi touch-none sul
+  // contenitore) restando ancorato al punto medio tra le due dita, così il
+  // punto sotto le dita resta fermo mentre lo zoom cambia.
+  const pinchStateRef = useRef<{
+    distance: number;
+    scale: number;
+    contentX: number;
+    contentY: number;
+  } | null>(null);
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return;
-    const touch = e.touches[0];
-    setPosition({
-      x: touch.clientX - dragStart.x,
-      y: touch.clientY - dragStart.y,
-    });
-  };
+  function touchDistance(t1: React.Touch, t2: React.Touch) {
+    return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+  }
 
-  const handleTouchEnd = () => setIsDragging(false);
+  // Punto medio tra le due dita, relativo al contenitore della mappa (non alla finestra).
+  function touchMidpoint(t1: React.Touch, t2: React.Touch) {
+    const rect = containerRef.current?.getBoundingClientRect();
+    return {
+      x: (t1.clientX + t2.clientX) / 2 - (rect?.left || 0),
+      y: (t1.clientY + t2.clientY) / 2 - (rect?.top || 0),
+    };
+  }
 
-  // Percorso "a cammino" sul piano corrente: una curva morbida (niente
-  // spigoli sulle svolte) che passa anche per i waypoint — le svolte mute
-  // intorno ai muri — ma solo le opere ricevono un marker cliccabile, un
-  // waypoint non è mai una tappa per il visitatore.
+  function handleTouchStart(e: React.TouchEvent) {
+    if (e.touches.length === 2) {
+      setIsDragging(false);
+      const [t1, t2] = [e.touches[0], e.touches[1]];
+      const { x: midX, y: midY } = touchMidpoint(t1, t2);
+      pinchStateRef.current = {
+        distance: touchDistance(t1, t2),
+        scale,
+        contentX: (midX - position.x) / scale,
+        contentY: (midY - position.y) / scale,
+      };
+    } else {
+      pinchStateRef.current = null;
+      startDrag(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }
+  function handleTouchMove(e: React.TouchEvent) {
+    if (e.touches.length === 2 && pinchStateRef.current) {
+      const [t1, t2] = [e.touches[0], e.touches[1]];
+      const { x: midX, y: midY } = touchMidpoint(t1, t2);
+      const { distance, scale: startScale, contentX, contentY } = pinchStateRef.current;
+      const nextScale = Math.min(3, Math.max(0.5, startScale * (touchDistance(t1, t2) / distance)));
+      setScale(nextScale);
+      setPosition(
+        clampPosition(
+          { x: midX - contentX * nextScale, y: midY - contentY * nextScale },
+          nextScale,
+        ),
+      );
+    } else if (e.touches.length === 1) {
+      moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (e.touches.length === 1) {
+      pinchStateRef.current = null;
+      startDrag(e.touches[0].clientX, e.touches[0].clientY);
+    } else if (e.touches.length === 0) {
+      pinchStateRef.current = null;
+      setIsDragging(false);
+    }
+  }
+
+  // Curva morbida sul piano corrente, passa anche per i waypoint (solo le opere hanno un marker).
   const visitPath = useMemo(
     () => (floorRoutePoints.length >= 2 ? buildSmoothPath(floorRoutePoints) : null),
     [floorRoutePoints],
@@ -238,14 +304,14 @@ export default function MapView({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-surface-950/[.97] flex flex-col">
+    <div className="fixed inset-0 z-50 bg-neutral-950/[.97] flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-surface-800">
+      <div className="flex items-center justify-between p-4 border-b border-neutral-800">
         <h2 className="font-display text-base font-semibold text-white">{t('Mappa del Museo')}</h2>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowLegend(!showLegend)}
-            className="p-2 text-surface-300 hover:text-white hover:bg-surface-800 rounded-lg transition-colors"
+            className="p-2 text-neutral-300 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors"
             title={t('Legenda')}
           >
             <Navigation size={20} />
@@ -253,7 +319,7 @@ export default function MapView({
           {onClose && (
             <button
               onClick={onClose}
-              className="p-2 text-surface-300 hover:text-white hover:bg-surface-800 rounded-lg transition-colors"
+              className="p-2 text-neutral-300 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors"
             >
               <X size={20} />
             </button>
@@ -263,7 +329,7 @@ export default function MapView({
 
       {/* Floor tabs */}
       {floors.length > 1 && (
-        <div className="flex gap-1.5 px-4 py-2.5 border-b border-surface-800 overflow-x-auto">
+        <div className="flex gap-1.5 px-4 py-2.5 border-b border-neutral-800 overflow-x-auto">
           {floors.map((floor) => (
             <button
               key={floor.id}
@@ -271,7 +337,7 @@ export default function MapView({
               className={`px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
                 floor.id === selectedFloorId
                   ? 'gradient-aurora text-white'
-                  : 'bg-surface-800 text-surface-300 hover:bg-surface-700'
+                  : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
               }`}
             >
               {floor.name}
@@ -283,7 +349,7 @@ export default function MapView({
       {/* Map Container */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-hidden relative cursor-grab active:cursor-grabbing"
+        className="flex-1 overflow-hidden relative cursor-grab active:cursor-grabbing touch-none"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -293,7 +359,8 @@ export default function MapView({
         onTouchEnd={handleTouchEnd}
       >
         <div
-          className="absolute transition-transform duration-100"
+          // Niente transizione durante il trascinamento, altrimenti insegue in ritardo il dito.
+          className={`absolute ${isDragging ? '' : 'transition-transform duration-100'}`}
           style={{
             transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
             transformOrigin: '0 0',
@@ -341,7 +408,7 @@ export default function MapView({
                     y={center.y}
                     textAnchor="middle"
                     dominantBaseline="central"
-                    className="text-[11px] font-bold fill-surface-950"
+                    className="text-[11px] font-bold fill-neutral-950"
                     style={{
                       paintOrder: 'stroke',
                       stroke: 'rgb(255 255 255 / 0.9)',
@@ -423,11 +490,7 @@ export default function MapView({
                         r={radius + 9}
                         className="animate-ping"
                         fill="rgb(139 63 252 / 0.35)"
-                        // Senza transform-box:fill-box lo scale() dell'animazione
-                        // parte dall'origine del viewport SVG (0,0) e non dal
-                        // centro del cerchio: sembrava un'animazione che ogni
-                        // volta "scattava" verso il basso a destra invece di
-                        // pulsare simmetricamente sul marker.
+                        // Senza fill-box lo scale() parte dall'origine SVG (0,0), non dal centro del cerchio.
                         style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
                       />
                     )}
@@ -443,7 +506,7 @@ export default function MapView({
                           cx={marker.x}
                           cy={marker.y}
                           r={radius}
-                          className={isCurrent ? 'fill-brand-500' : 'fill-surface-700'}
+                          className={isCurrent ? 'fill-brand-500' : 'fill-neutral-700'}
                         />
                         <image
                           href={info.image}
@@ -464,7 +527,7 @@ export default function MapView({
                             isCurrent
                               ? 'stroke-brand-300'
                               : isVisited
-                                ? 'stroke-surface-500'
+                                ? 'stroke-neutral-500'
                                 : 'stroke-white'
                           }
                           strokeWidth={isCurrent ? 3.5 : 2.5}
@@ -475,7 +538,7 @@ export default function MapView({
                         cx={marker.x}
                         cy={marker.y}
                         r={radius}
-                        className={`${isCurrent ? 'fill-brand-500' : 'fill-surface-700'} stroke-white stroke-2`}
+                        className={`${isCurrent ? 'fill-brand-500' : 'fill-neutral-700'} stroke-white stroke-2`}
                       />
                     )}
 
@@ -489,7 +552,7 @@ export default function MapView({
                         isCurrent
                           ? 'fill-brand-300'
                           : isVisited
-                            ? 'fill-surface-500'
+                            ? 'fill-neutral-500'
                             : 'fill-ember-500'
                       }
                       stroke="white"
@@ -534,7 +597,7 @@ export default function MapView({
                     cx={marker.x}
                     cy={marker.y}
                     r={isFocused ? 20 : 16}
-                    className={`${isFocused ? 'fill-brand-500 stroke-brand-300' : 'fill-surface-600 stroke-white'} stroke-2`}
+                    className={`${isFocused ? 'fill-brand-500 stroke-brand-300' : 'fill-neutral-600 stroke-white'} stroke-2`}
                   />
                   <text
                     x={marker.x}
@@ -554,7 +617,7 @@ export default function MapView({
 
         {/* Legend Panel */}
         {showLegend && (
-          <div className="absolute top-4 right-4 bg-surface-900/95 backdrop-blur border border-surface-800 rounded-xl p-4 min-w-48 shadow-2xl">
+          <div className="absolute top-4 right-4 bg-neutral-900/95 backdrop-blur border border-neutral-800 rounded-xl p-4 min-w-48 shadow-2xl">
             <h3 className="text-sm font-semibold text-white mb-3">{t('Legenda')}</h3>
             <div className="space-y-2">
               {legendItems.map((type) => {
@@ -566,16 +629,16 @@ export default function MapView({
                     >
                       {config.icon}
                     </span>
-                    <span className="text-surface-300">{config.label}</span>
+                    <span className="text-neutral-300">{config.label}</span>
                   </div>
                 );
               })}
-              <div className="pt-2 mt-2 border-t border-surface-700">
+              <div className="pt-2 mt-2 border-t border-neutral-700">
                 <div className="flex items-center gap-2 text-sm">
                   <span className="w-6 h-6 rounded-full gradient-aurora flex items-center justify-center text-xs text-white font-bold">
                     !
                   </span>
-                  <span className="text-surface-300">{t('Tappa corrente')}</span>
+                  <span className="text-neutral-300">{t('Tappa corrente')}</span>
                 </div>
               </div>
             </div>
@@ -586,32 +649,36 @@ export default function MapView({
         <div className="absolute bottom-4 right-4 flex flex-col gap-2">
           <button
             onClick={handleZoomIn}
-            className="p-3 bg-surface-900/90 backdrop-blur text-white rounded-lg hover:bg-surface-800 transition-colors shadow-lg border border-surface-800"
+            className="p-3 bg-neutral-900/90 backdrop-blur text-white rounded-lg hover:bg-neutral-800 transition-colors shadow-lg border border-neutral-800"
           >
             <ZoomIn size={20} />
           </button>
           <button
             onClick={handleZoomOut}
-            className="p-3 bg-surface-900/90 backdrop-blur text-white rounded-lg hover:bg-surface-800 transition-colors shadow-lg border border-surface-800"
+            className="p-3 bg-neutral-900/90 backdrop-blur text-white rounded-lg hover:bg-neutral-800 transition-colors shadow-lg border border-neutral-800"
           >
             <ZoomOut size={20} />
           </button>
           <button
             onClick={handleReset}
-            className="p-3 bg-surface-900/90 backdrop-blur text-white rounded-lg hover:bg-surface-800 transition-colors shadow-lg border border-surface-800"
+            className="p-3 bg-neutral-900/90 backdrop-blur text-white rounded-lg hover:bg-neutral-800 transition-colors shadow-lg border border-neutral-800"
           >
             <Maximize2 size={20} />
           </button>
         </div>
 
-        {/* Tappa corrente */}
+        {/* Tappa corrente: ricentra la mappa sul marker in ascolto — utile
+            dopo aver trascinato/zoomato in giro per esplorare il piano. */}
         {((currentArtworkId && floorMarkers.some((m) => m.artworkId === currentArtworkId)) ||
           (!currentArtworkId &&
             focusMarkerId &&
             floorMarkers.some((m) => m.id === focusMarkerId))) && (
-          <div className="absolute bottom-4 left-4 gradient-aurora backdrop-blur text-white px-4 py-2 rounded-full shadow-lg">
+          <button
+            onClick={() => centerOnCurrentMarker()}
+            className="absolute bottom-4 left-4 gradient-aurora backdrop-blur text-white px-4 py-2 rounded-full shadow-lg hover:brightness-110 active:scale-95 transition-all"
+          >
             <span className="text-sm font-medium">📍 {t('Tappa corrente')}</span>
-          </div>
+          </button>
         )}
       </div>
 

@@ -106,9 +106,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
-  // In modalità modifica (itemId valorizzato) precarica il contenuto esistente:
-  // prima di questo fix il form si apriva vuoto e il salvataggio creava sempre
-  // un item nuovo invece di aggiornare quello che si stava "modificando".
+  // In modalità modifica (itemId valorizzato) precarica il contenuto esistente.
   private async loadExistingItem(): Promise<void> {
     this.loadingItem = true;
     this.error = '';
@@ -537,7 +535,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
                       placeholder=${this.getPlaceholderForReferenceType()}
                       .selectedId=${this.referenceId}
                       required
-                      @wikidata-select=${this.handleWikidataSelect}
+                      @wikidata-select=${(e: CustomEvent) => this.handleWikidataSelect(e)}
                     ></wikidata-autocomplete>
                   `
                 : html`
@@ -624,7 +622,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
                     icon=${this.isSpeaking ? 'pause' : 'play'}
                     .label=${this.isSpeaking ? __('Interrompi') : __('Ascolta anteprima')}
                     ?disabled=${!this.text.trim()}
-                    @click=${this.toggleSpeechPreview}
+                    @click=${() => this.toggleSpeechPreview()}
                   ></ui-button>
                 </div>
               </div>
@@ -746,7 +744,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
                 .placeholder=${__('0 per gratuito')}
                 .value=${String(this.price)}
                 .hint=${__('Lascia 0 per contenuto gratuito')}
-                @input-change=${this.handlePriceChange}
+                @input-change=${(e: CustomEvent) => this.handlePriceChange(e)}
               ></ui-input>
             </div>
           `}

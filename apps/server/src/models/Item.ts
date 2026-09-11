@@ -11,6 +11,24 @@ import {
 
 export interface ItemDocument extends Omit<IItem, '_id'>, Document {}
 
+// Audio generato con OpenAI per un testo in una lingua — vedi
+// audio-generation.service.ts. words[].charIndex è già allineato al testo,
+// calcolato una sola volta alla generazione (non ad ogni ascolto).
+const generatedAudioSchema = new Schema(
+  {
+    url: { type: String, required: true },
+    words: [
+      {
+        word: { type: String, required: true },
+        start: { type: Number, required: true },
+        end: { type: Number, required: true },
+        charIndex: { type: Number, required: true },
+      },
+    ],
+  },
+  { _id: false },
+);
+
 const itemSchema = new Schema<ItemDocument>(
   {
     // Contesto museo
@@ -55,6 +73,11 @@ const itemSchema = new Schema<ItemDocument>(
     translatedTexts: {
       type: Map,
       of: String,
+    },
+    audio: {
+      type: Map,
+      of: generatedAudioSchema,
+      default: undefined,
     },
 
     // Caratteristiche del contenuto

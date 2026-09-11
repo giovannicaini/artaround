@@ -1,7 +1,6 @@
 import type {
   Museum,
-  MuseumConfigResponse,
-  NavigatorAppConfig,
+  NavigatorConfig,
   Visit,
   Item,
   Artwork,
@@ -10,6 +9,9 @@ import type {
   RegisterRequest,
   UserPreferences,
   VisitPurchase,
+  VisitPurchaseWithVisit,
+  AppLanguage,
+  VoiceCommandId,
 } from '@artaround/shared';
 
 // API base URL - configurable via environment variable
@@ -27,6 +29,8 @@ export class ApiError extends Error {
     public status: number,
     public code: string,
     message: string,
+    // Dati extra per errori "informativi" (es. PURCHASE_REQUIRED → titolo/prezzo della visita).
+    public data?: unknown,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -71,12 +75,15 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+    // Forma standard di ogni risposta d'errore del server: {success:false,
+    // error:{code,message}, data?} — error annidato, non campi diretti.
+    const body = await response.json().catch(() => ({}));
     if (response.status === 401) clearToken();
     throw new ApiError(
       response.status,
-      errorData.code || 'UNKNOWN_ERROR',
-      errorData.message || `Errore API: ${response.status}`,
+      body.error?.code || 'UNKNOWN_ERROR',
+      body.error?.message || `Errore API: ${response.status}`,
+      body.data,
     );
   }
 
@@ -116,21 +123,26 @@ export const api = {
 
   getMuseum: (id: string): Promise<Museum> => request<Museum>(`/museums/${id}`),
 
-  getMuseumConfig: (id: string): Promise<MuseumConfigResponse> =>
-    request<MuseumConfigResponse>(`/museums/${id}/config`),
+  // Risolve quale NavigatorConfig applicare — globale, di un museo, o quella
+  // richiesta esplicitamente via link/QR (slug). Vedi context/navigatorConfigStore.
+  resolveNavigatorConfig: (params: {
+    museumId?: string;
+    slug?: string;
+  }): Promise<NavigatorConfig> => {
+    const query = new URLSearchParams();
+    if (params.museumId) query.set('museumId', params.museumId);
+    if (params.slug) query.set('slug', params.slug);
+    const qs = query.toString();
+    return request<NavigatorConfig>(`/navigator-configs/resolve${qs ? `?${qs}` : ''}`);
+  },
 
-  // Default di piattaforma per il tema del Navigator, usati quando un museo
-  // non ha un proprio navigatorConfig (vedi hooks/useMuseumTheme).
-  getNavigatorDefaultConfigs: (): Promise<NavigatorAppConfig[]> =>
-    request<NavigatorAppConfig[]>('/utils/navigator-default-config'),
-
-  // Visits
+  // Visits — sempre solo pubblicate: il Navigator è per i visitatori, mai
+  // per vedere le bozze (quelle si gestiscono dal marketplace).
   getVisits: (museumId?: string, options?: { isFree?: boolean }): Promise<Visit[]> => {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({ isPublished: 'true' });
     if (museumId) params.set('museumId', museumId);
     if (options?.isFree !== undefined) params.set('isFree', String(options.isFree));
-    const query = params.toString();
-    return request<Visit[]>(`/visits${query ? `?${query}` : ''}`);
+    return request<Visit[]>(`/visits?${params.toString()}`);
   },
 
   getVisit: (id: string): Promise<Visit> => request<Visit>(`/visits/${id}`),
@@ -148,6 +160,13 @@ export const api = {
   getItemsForArtwork: (artworkWikidataId: string): Promise<Item[]> =>
     request<Item[]>(`/items?referenceType=artwork&referenceId=${artworkWikidataId}`),
 
+  // Item di un museo per tipo di riferimento (autore/movimento/periodo/museo)
+  // — usata dalle tappe CONTENT, che non sono legate a un singolo artworkId.
+  getItemsByReferenceType: (referenceType: string, museumId: string): Promise<Item[]> =>
+    request<Item[]>(
+      `/items?referenceType=${referenceType}&museumId=${encodeURIComponent(museumId)}`,
+    ),
+
   getItems: (filters?: { referenceType?: string; referenceId?: string }): Promise<Item[]> => {
     const params = new URLSearchParams();
     if (filters?.referenceType) params.set('referenceType', filters.referenceType);
@@ -156,10 +175,18 @@ export const api = {
     return request<Item[]>(`/items${query ? `?${query}` : ''}`);
   },
 
-  // Marketplace / acquisti
-  getMyPurchases: (): Promise<VisitPurchase[]> =>
-    request<VisitPurchase[]>('/marketplace/my-purchases'),
+  // Marketplace / acquisti — il server popola sempre visitId con la visita
+  // intera (vedi VisitPurchaseWithVisit), non il suo id.
+  getMyPurchases: (): Promise<VisitPurchaseWithVisit[]> =>
+    request<VisitPurchaseWithVisit[]>('/marketplace/my-purchases'),
 
   purchaseVisit: (visitId: string): Promise<VisitPurchase> =>
     request<VisitPurchase>(`/marketplace/purchase/visit/${visitId}`, { method: 'POST' }),
+
+  // Fallback AI per i comandi vocali non riconosciuti dal match locale (vedi services/speech.ts).
+  classifyVoiceCommand: (text: string, language: AppLanguage): Promise<VoiceCommandId | null> =>
+    request<{ command: VoiceCommandId | null }>('/utils/voice-command', {
+      method: 'POST',
+      body: JSON.stringify({ text, language }),
+    }).then((data) => data.command),
 };

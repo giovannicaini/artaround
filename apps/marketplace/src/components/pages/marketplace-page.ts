@@ -1,8 +1,9 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { UserRole, type Item, type User, type Visit } from '@artaround/shared';
+import { type Item, type User, type Visit } from '@artaround/shared';
 import { marketplaceService, PurchaseError } from '../../services/marketplace.service';
 import { preferencesService } from '../../services/preferences.service';
+import { isContentCreator } from '../../services/permissions.service';
 import '../ui/ui-page-header';
 import '../ui/ui-filter-tabs';
 import '../ui/ui-loading';
@@ -109,7 +110,9 @@ export class MarketplacePage extends LitElement {
 
   private canBuyItem(item: Item): boolean {
     if (!this.user) return false;
-    if (this.user.role !== UserRole.AUTHOR) return false;
+    // Rispecchia authorizeContentCreator() lato server (marketplace.routes.ts):
+    // serve essere curatore/autore di almeno un museo, non un ruolo globale.
+    if (!isContentCreator(this.user)) return false;
     if (item.authorId === this.user._id) return false;
     return !this.purchasedItemIds.has(item._id);
   }
@@ -171,8 +174,8 @@ export class MarketplacePage extends LitElement {
                       ? __('Creato da te')
                       : isPurchased
                         ? __('Già acquistato')
-                        : this.user?.role !== UserRole.AUTHOR
-                          ? __('Acquistabile solo dagli autori')
+                        : !isContentCreator(this.user)
+                          ? __('Acquistabile solo da curatori/autori')
                           : __('Non acquistabile')}
                   </span>
                 `}

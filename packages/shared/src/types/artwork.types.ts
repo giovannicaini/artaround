@@ -1,5 +1,5 @@
 /**
- * Tipi Opera
+ * Tipi OPERA
  *
  * Rappresenta le opere fisiche nei musei.
  * Usa gli ID Wikidata come identificatori primari dove possibile.
@@ -46,7 +46,7 @@ export interface Artwork {
   // Contesto
   historicalEvents?: string[]; // Eventi storici correlati
   subjects?: string[]; // "Mitologia", "Ritratto", "Sacro"
-  artworkCollection?: string; // "Collezione Borghese" (rinominato da 'collection' per evitare conflitto con Document)
+  artworkCollection?: string; // "Collezione Borghese" (non "collection": nome riservato su Document)
 
   // Media
   image: string; // URL immagine principale
@@ -54,7 +54,7 @@ export interface Artwork {
 
   // Posizione nel museo
   roomId?: string; // Riferimento a Museum.rooms[].id — ogni opera dovrebbe averne una
-  room?: string; // Testo libero legacy, mantenuto come fallback per opere non ancora migrate
+  room?: string; // Testo libero legacy, usato come fallback quando manca roomId
   floor?: string; // "Piano Terra", "Primo Piano"
 
   // Posizione sulla mappa (collegata alla piantina del museo)
@@ -94,7 +94,7 @@ export enum ArtworkType {
 }
 
 // ========================================
-// ARTWORK FILTERS & QUERIES
+// FILTRI SULLE OPERE
 // ========================================
 
 export interface ArtworkFilters {
@@ -115,7 +115,7 @@ export interface ArtworkFilters {
 }
 
 // ========================================
-// ARTWORK REQUESTS
+// REQUEST DELLE OPERE
 // ========================================
 
 export interface CreateArtworkData {

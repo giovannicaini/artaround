@@ -1,11 +1,13 @@
-import { LanguageLevel, ContentDuration, type AppLanguage, type Item } from '@artaround/shared';
+import {
+  LanguageLevel,
+  ContentDuration,
+  type AppLanguage,
+  type Item,
+  type GeneratedAudio,
+} from '@artaround/shared';
 import type { PlayerStep } from '../context/visitSessionStore';
 
-/**
- * Sceglie, tra gli Item disponibili per una tappa, quello più vicino alle
- * preferenze correnti. Stessa logica in un solo posto invece che duplicata
- * ovunque serva "qual è il testo da leggere ora".
- */
+/** Sceglie, tra gli Item disponibili per una tappa, quello più vicino alle preferenze correnti. */
 export function pickItemForPreferences(
   items: Item[],
   languageLevel: LanguageLevel,
@@ -28,19 +30,12 @@ export function pickItemForPreferences(
 }
 
 /** Testo di un Item nella lingua corrente, con l'italiano/originale come riserva. */
-function localizedItemText(item: Item, language: AppLanguage): string {
+export function localizedItemText(item: Item, language: AppLanguage): string {
   if (language === item.sourceLanguage) return item.text;
   return item.translatedTexts?.[language] || item.text;
 }
 
-/**
- * Il testo da leggere/mostrare per la tappa corrente, qualunque sia il suo
- * tipo — un solo punto che conosce come estrarlo da ognuno dei tre casi, e
- * nella lingua scelta dall'utente quando l'item ha una traduzione.
- * Le tappe logistiche/di navigazione sono testo scritto direttamente dal
- * curatore per quella visita (non un Item riusabile) e oggi non hanno un
- * campo di traduzione nel modello dati: restano nella lingua originale.
- */
+/** Il testo da leggere/mostrare per la tappa corrente, nella lingua scelta dall'utente. */
 export function getStepText(
   step: PlayerStep,
   languageLevel: LanguageLevel,
@@ -48,13 +43,40 @@ export function getStepText(
   language: AppLanguage,
 ): string {
   switch (step.kind) {
-    case 'artwork': {
+    case 'artwork':
+    case 'content': {
       const item = pickItemForPreferences(step.items, languageLevel, contentDuration);
       return item ? localizedItemText(item, language) : '';
     }
     case 'logistic':
-      return step.text;
     case 'navigation':
-      return step.text;
+      return step.textTranslations?.[language] || step.text;
   }
+}
+
+/** L'audio già generato per la tappa corrente, se esiste — stessa risoluzione di getStepText. */
+export function getStepAudio(
+  step: PlayerStep,
+  languageLevel: LanguageLevel,
+  contentDuration: ContentDuration,
+  language: AppLanguage,
+): GeneratedAudio | undefined {
+  switch (step.kind) {
+    case 'artwork':
+    case 'content': {
+      const item = pickItemForPreferences(step.items, languageLevel, contentDuration);
+      return item?.audio?.[language];
+    }
+    case 'logistic':
+    case 'navigation':
+      return step.textAudio?.[language];
+  }
+}
+
+/** Titolo di una tappa LOGISTIC nella lingua corrente, con l'originale come riserva. */
+export function getStepTitle(
+  step: Extract<PlayerStep, { kind: 'logistic' }>,
+  language: AppLanguage,
+): string {
+  return step.titleTranslations?.[language] || step.title;
 }

@@ -1,8 +1,16 @@
+import type { VoiceCommandId } from '@artaround/shared';
+
+// Caratteri al secondo stimati per l'italiano letto a velocità normale (rate
+// 1) — usato solo per il fallback qui sotto, una stima grezza e basta.
+const ESTIMATED_CHARS_PER_SECOND = 15;
+
 // Speech synthesis service
 class SpeechService {
   private synth: SpeechSynthesis | null = null;
   private utterance: SpeechSynthesisUtterance | null = null;
   private onEndCallback: (() => void) | null = null;
+  private estimatedHighlightStartTimeout: number | null = null;
+  private estimatedHighlightInterval: number | null = null;
 
   constructor() {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -14,7 +22,17 @@ class SpeechService {
     return this.synth !== null;
   }
 
-  speak(text: string, options?: { rate?: number; pitch?: number; lang?: string }): void {
+  speak(
+    text: string,
+    options?: {
+      rate?: number;
+      pitch?: number;
+      lang?: string;
+      // onboundary nativo: su molti Chrome Android non arriva mai (bug noto
+      // della piattaforma) — se non arriva in tempo si stima a tempo, vedi sotto.
+      onBoundary?: (charIndex: number) => void;
+    },
+  ): void {
     if (!this.synth) return;
 
     // Cancel any ongoing speech
@@ -32,14 +50,61 @@ class SpeechService {
       this.utterance.voice = italianVoice;
     }
 
+    let realBoundaryReceived = false;
+
+    // Non aspetta onstart per armare il fallback: su Android non è affidabile neanche quello.
+    if (options?.onBoundary) {
+      this.estimatedHighlightStartTimeout = window.setTimeout(() => {
+        if (!realBoundaryReceived) {
+          this.startEstimatedHighlight(text, this.utterance!.rate, options.onBoundary!);
+        }
+      }, 500);
+    }
+
     this.utterance.onend = () => {
+      this.clearEstimatedHighlight();
       this.onEndCallback?.();
+    };
+
+    this.utterance.onboundary = (event) => {
+      realBoundaryReceived = true;
+      this.clearEstimatedHighlight();
+      options?.onBoundary?.(event.charIndex);
     };
 
     this.synth.speak(this.utterance);
   }
 
+  // Fallback per i motori TTS senza onboundary: avanza l'evidenziazione a
+  // tempo, stimando la durata dal numero di caratteri — approssimativo ma meglio di niente.
+  private startEstimatedHighlight(
+    text: string,
+    rate: number,
+    onBoundary: (charIndex: number) => void,
+  ): void {
+    const estimatedDurationMs = (text.length / ESTIMATED_CHARS_PER_SECOND / rate) * 1000;
+    const startTime = Date.now();
+
+    this.estimatedHighlightInterval = window.setInterval(() => {
+      const progress = Math.min(1, (Date.now() - startTime) / estimatedDurationMs);
+      onBoundary(Math.floor(progress * text.length));
+      if (progress >= 1) this.clearEstimatedHighlight();
+    }, 50);
+  }
+
+  private clearEstimatedHighlight(): void {
+    if (this.estimatedHighlightStartTimeout !== null) {
+      clearTimeout(this.estimatedHighlightStartTimeout);
+      this.estimatedHighlightStartTimeout = null;
+    }
+    if (this.estimatedHighlightInterval !== null) {
+      clearInterval(this.estimatedHighlightInterval);
+      this.estimatedHighlightInterval = null;
+    }
+  }
+
   stop(): void {
+    this.clearEstimatedHighlight();
     if (this.synth) {
       this.synth.cancel();
     }
@@ -117,6 +182,12 @@ class VoiceRecognitionService {
     return this.recognition !== null;
   }
 
+  setLanguage(lang: string): void {
+    if (this.recognition) {
+      this.recognition.lang = lang;
+    }
+  }
+
   start(onResult: (text: string) => void, onEnd?: () => void): void {
     if (!this.recognition || this.isListening) return;
 
@@ -149,12 +220,10 @@ class VoiceRecognitionService {
 
 export const voiceRecognitionService = new VoiceRecognitionService();
 
-// Command parser for voice commands — vocabolario allineato 1:1 alla lista
-// di specifica ("prossimo, precedente, Cos'è questo, dimmi di più, dimmi
-// di meno, Non capisco, troppo semplice, Chi è l'autore, qual è lo stile,
-// Dov'è l'uscita/toilette/bar/shop, ci sono ostacoli").
-export function parseVoiceCommand(text: string): string | null {
-  const commands: Record<string, string[]> = {
+// Match locale a pattern fissi, un tentativo per ogni ID di VOICE_COMMAND_IDS
+// prima di ricorrere al fallback AI (vedi apiClient.classifyVoiceCommand).
+export function parseVoiceCommand(text: string): VoiceCommandId | null {
+  const commands: Record<VoiceCommandId, string[]> = {
     next: ['prossimo', 'avanti', 'successivo', 'vai avanti', 'next'],
     prev: ['precedente', 'indietro', 'torna indietro', 'previous', 'back'],
     play: ['leggi', 'ascolta', 'play', 'parla'],
@@ -175,8 +244,8 @@ export function parseVoiceCommand(text: string): string | null {
     help: ['aiuto', 'help', 'cosa posso dire'],
   };
 
-  for (const [command, patterns] of Object.entries(commands)) {
-    for (const pattern of patterns) {
+  for (const command of Object.keys(commands) as VoiceCommandId[]) {
+    for (const pattern of commands[command]) {
       if (text.includes(pattern)) {
         return command;
       }

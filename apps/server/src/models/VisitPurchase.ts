@@ -33,7 +33,7 @@ const visitPurchaseSchema = new Schema<VisitPurchaseDocument>(
 // Indici
 visitPurchaseSchema.index({ userId: 1 });
 visitPurchaseSchema.index({ visitId: 1 });
-visitPurchaseSchema.index({ userId: 1, visitId: 1 }, { unique: true }); // Prevent duplicate purchases
+visitPurchaseSchema.index({ userId: 1, visitId: 1 }, { unique: true }); //Unicità prenotazione
 
 export const VisitPurchase = mongoose.model<VisitPurchaseDocument>(
   'VisitPurchase',

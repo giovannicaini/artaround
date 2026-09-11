@@ -77,6 +77,34 @@ export class ItemService {
     return [];
   }
 
+  // Come getItemsForArtwork, ma ristretto a ciò che l'utente autenticato può
+  // abbinare a una tappa che sta costruendo: propri contenuti, gratuiti, o
+  // già acquistati (vedi ItemController.getUsableItemsForArtwork) — a
+  // differenza del catalogo pubblico, dove si vede tutto per valutare
+  // l'acquisto.
+  async getUsableItemsForArtwork(
+    artworkWikidataId: string,
+    options?: { duration?: string; languageLevel?: string },
+  ): Promise<Item[]> {
+    const params = new URLSearchParams();
+    if (options?.duration) params.append('duration', options.duration);
+    if (options?.languageLevel) params.append('languageLevel', options.languageLevel);
+
+    const queryString = params.toString();
+    const url = `/items/artwork/${artworkWikidataId}/usable${queryString ? `?${queryString}` : ''}`;
+
+    const response = await apiService.get<Item[]>(url);
+    return response.success && response.data ? response.data : [];
+  }
+
+  // Item di un museo per tipo di riferimento (autore/movimento/periodo/museo),
+  // ristretti come sopra — usata dalle tappe "Contenuto" dell'editor visite.
+  async getUsableItemsByReferenceType(referenceType: string, museumId: string): Promise<Item[]> {
+    const url = `/items/reference-type/${referenceType}/usable?museumId=${encodeURIComponent(museumId)}`;
+    const response = await apiService.get<Item[]>(url);
+    return response.success && response.data ? response.data : [];
+  }
+
   async searchItems(query: string, filters: ItemFilters = {}): Promise<ItemsResponse> {
     const params = new URLSearchParams();
     params.append('q', query);

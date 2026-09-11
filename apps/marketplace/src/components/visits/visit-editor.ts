@@ -3,11 +3,14 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import {
   LANGUAGE_LEVEL_OPTIONS_EMOJI_IT,
+  ITEM_REFERENCE_TYPE_OPTIONS_IT,
   VisitStepType,
+  ItemReferenceType,
   LanguageLevel,
   LicenseType,
   MarkerType,
   getVisitStepTypeLabel,
+  getReferenceTypeLabel,
   type Artwork,
   type Item,
   type CreateVisitData,
@@ -26,6 +29,8 @@ import { museumService } from '../../services/museum.service';
 import { artworkService } from '../../services/artwork.service';
 import { itemService } from '../../services/item.service';
 import { translationService } from '../../services/translation.service';
+import { jobsService, type Job } from '../../services/jobs.service';
+import { modalService } from '../../services/modal.service';
 import { __ } from '../../services/i18n.service';
 import { MuseumAwareMixin, AppBaseElement } from '../../base';
 import '../ui/ui-input';
@@ -50,6 +55,12 @@ import '../museums/svg-map-editor';
 
 type EditorTab = 'info' | 'steps' | 'map' | 'audience' | 'settings';
 
+// Tipi di riferimento selezionabili per una tappa CONTENT — non ARTWORK,
+// che ha la sua tappa dedicata (approfondimento legato a UNA specifica opera).
+const CONTENT_STEP_REFERENCE_TYPE_OPTIONS = ITEM_REFERENCE_TYPE_OPTIONS_IT.filter(
+  (option) => option.value !== ItemReferenceType.ARTWORK,
+);
+
 /**
  * Componente Visit Editor
  *
@@ -63,6 +74,13 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
   @state() private loadingVisit = false;
   @state() private saving = false;
   @state() private translating = false;
+  @state() private generatingAudio = false;
+  @state() private syncingLanguages = false;
+  @state() private isPublished = false;
+  @state() private togglingPublish = false;
+  // Rispecchia jobsService.getJobs() (vedi handleJobsChanged) — solo per far
+  // ridisegnare i blocchi "Strumenti AI" (audio, traduzioni) nelle Impostazioni.
+  @state() private jobs: Job[] = jobsService.getJobs();
   @state() private error = '';
   @state() private success = '';
   @state() private museums: Museum[] = [];
@@ -91,6 +109,14 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
   @state() private waypointFloorId = '';
   // Piano mostrato nella tab "Mappa" (anteprima del percorso).
   @state() private mapTabFloorId = '';
+  // Marker WAYPOINT creati ad hoc cliccando un punto vuoto della mappa
+  // (handleRoutePointAdd) — a differenza di un marker già esistente
+  // referenziato da una tappa (scale, ascensore...), questi esistono solo
+  // per quel percorso: rimuovere la tappa deve ripulire anche il marker,
+  // altrimenti resta orfano sulla piantina del museo per sempre. Non uno
+  // @state: non pilota alcun render, solo bookkeeping per removeStep/
+  // undoLastRouteStep.
+  private autoCreatedMarkerIds = new Set<string>();
   @state() private availableItems: Item[] = [];
   // General Info
   @state() private costs = '';
@@ -146,6 +172,8 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
   async connectedCallback() {
     super.connectedCallback();
     window.addEventListener('ui-language-changed', this.handleLanguageChanged as EventListener);
+    window.addEventListener('jobs-changed', this.handleJobsChanged);
+    void jobsService.refresh();
     await this.loadMuseums();
 
     if (!this.visitId && this.selectedMuseumId) {
@@ -162,12 +190,125 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
 
   disconnectedCallback(): void {
     window.removeEventListener('ui-language-changed', this.handleLanguageChanged as EventListener);
+    window.removeEventListener('jobs-changed', this.handleJobsChanged);
     super.disconnectedCallback();
+  }
+
+  // Un'azione lanciata da dentro una tab (es. "Sincronizza traduzioni" nelle
+  // Impostazioni) mostra il suo esito in cima alla pagina — se il completamento
+  // è quasi istantaneo (nulla da aggiornare) e la pagina è scrollata giù, il
+  // riquadro appare fuori schermo e sembra che non sia successo nulla. Lo
+  // scrolla in vista ogni volta che success/error cambia a un valore non vuoto.
+  updated(changedProps: Map<string, unknown>) {
+    if (
+      (changedProps.has('success') || changedProps.has('error')) &&
+      (this.success || this.error)
+    ) {
+      this.querySelector('#feedback-alert')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }
 
   private handleLanguageChanged = (_event: CustomEvent<{ language: AppLanguage }>) => {
     this.requestUpdate();
   };
+
+  private handleJobsChanged = (e: Event): void => {
+    this.jobs = (e as CustomEvent<Job[]>).detail;
+  };
+
+  private async handleGenerateAudioClick(): Promise<void> {
+    const confirmed = await modalService.confirm({
+      title: __("Generare l'audio di questa visita?"),
+      message: __(
+        "Genera con OpenAI l'audio mancante degli item e delle tappe di questa visita. Operazione a pagamento (chiama OpenAI per ogni testo): non rigenera l'audio già presente. Segui l'avanzamento dalle notifiche.",
+      ),
+      variant: 'info',
+      confirmLabel: __('Avvia'),
+      cancelLabel: __('Annulla'),
+    });
+    if (!confirmed) return;
+
+    await this.generateVisitAudio();
+  }
+
+  private async generateVisitAudio(): Promise<void> {
+    if (!this.visitId) return;
+
+    this.generatingAudio = true;
+    this.error = '';
+    this.success = '';
+
+    try {
+      const result = await visitService.generateVisitAudio(this.visitId);
+      if (!result.jobId) {
+        this.error = result.error || __("Errore durante l'avvio della generazione audio");
+        return;
+      }
+      this.success = __("Generazione audio avviata: segui l'avanzamento dalle notifiche.");
+      await jobsService.refresh();
+    } finally {
+      this.generatingAudio = false;
+    }
+  }
+
+  private async handleSyncLanguagesClick(): Promise<void> {
+    const confirmed = await modalService.confirm({
+      title: __('Sincronizzare le traduzioni di questa visita?'),
+      message: __(
+        "Applica le lingue attive del museo al testo di questa visita e degli item che referenzia: rimuove traduzioni non richieste e genera con AI quelle mancanti. Segui l'avanzamento dalle notifiche.",
+      ),
+      variant: 'info',
+      confirmLabel: __('Avvia'),
+      cancelLabel: __('Annulla'),
+    });
+    if (!confirmed) return;
+
+    await this.syncVisitLanguages();
+  }
+
+  private async syncVisitLanguages(): Promise<void> {
+    if (!this.visitId) return;
+
+    this.syncingLanguages = true;
+    this.error = '';
+    this.success = '';
+
+    try {
+      const result = await visitService.syncVisitLanguages(this.visitId);
+      if (!result.jobId) {
+        this.error = result.error || __("Errore durante l'avvio della sincronizzazione lingue");
+        return;
+      }
+      this.success = __("Sincronizzazione lingue avviata: segui l'avanzamento dalle notifiche.");
+      await jobsService.refresh();
+    } finally {
+      this.syncingLanguages = false;
+    }
+  }
+
+  // Pubblica/rimuove pubblicazione della visita.
+  private async handleTogglePublish(): Promise<void> {
+    if (!this.visitId) return;
+
+    this.togglingPublish = true;
+    this.error = '';
+    this.success = '';
+
+    try {
+      const updated = this.isPublished
+        ? await visitService.unpublish(this.visitId)
+        : await visitService.publish(this.visitId);
+      this.isPublished = updated.isPublished;
+      this.success = this.isPublished
+        ? __('Visita pubblicata: ora è visibile ai visitatori.')
+        : __('Pubblicazione rimossa: la visita è di nuovo in bozza.');
+    } catch (e) {
+      this.error =
+        e instanceof Error ? e.message : __('Impossibile modificare lo stato di pubblicazione');
+    } finally {
+      this.togglingPublish = false;
+    }
+  }
 
   onMuseumChanged(): void {
     if (this.visitId || !this.selectedMuseumId) {
@@ -207,6 +348,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         this.coverImage = visit.coverImage || '';
         this.museumId = visit.museumId;
         this.steps = visit.steps || [];
+        this.isPublished = visit.isPublished || false;
 
         // General info
         if (visit.generalInfo) {
@@ -534,10 +676,25 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     return this.translationModeByLang[lang] === 'ai' ? 'ai' : 'manual';
   }
 
+  // Solo item che l'utente autenticato può abbinare (propri, gratuiti, già
+  // acquistati — vedi ItemController.getUsableItemsForArtwork), non il
+  // catalogo pubblico completo.
   private async loadItemsForArtwork(artworkId: string) {
     try {
-      const result = await itemService.getItems({ referenceId: artworkId, limit: 100 });
-      this.availableItems = result.items;
+      this.availableItems = await itemService.getUsableItemsForArtwork(artworkId);
+    } catch (e) {
+      console.error('Error loading items:', e);
+    }
+  }
+
+  // Equivalente per le tappe CONTENT: item di questo museo per tipo di
+  // riferimento (autore/movimento/periodo/museo), stesso filtro d'uso.
+  private async loadUsableItemsByReferenceType(referenceType: ItemReferenceType) {
+    try {
+      this.availableItems = await itemService.getUsableItemsByReferenceType(
+        referenceType,
+        this.museumId,
+      );
     } catch (e) {
       console.error('Error loading items:', e);
     }
@@ -610,11 +767,59 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     this.steps = newSteps.map((step, i) => ({ ...step, order: i }));
   }
 
-  private removeStep(index: number) {
-    this.steps = this.steps.filter((_, i) => i !== index).map((step, i) => ({ ...step, order: i }));
+  private async removeStep(index: number) {
+    const step = this.steps[index];
+
+    // Il marker è stato creato apposta per questa tappa (non uno già
+    // esistente, tipo scale/ascensore, riusato): rimuoverla senza avvisare
+    // lo farebbe sparire dalla piantina senza che sia ovvio perché — chiede
+    // conferma prima. undoLastRouteStep (sotto) fa la stessa pulizia ma
+    // senza conferma: lì si sta annullando la propria ultima azione, non
+    // ha senso chiedere di nuovo.
+    if (
+      step?.type === VisitStepType.WAYPOINT &&
+      step.mapMarkerId &&
+      this.autoCreatedMarkerIds.has(step.mapMarkerId)
+    ) {
+      const confirmed = await modalService.confirm({
+        title: __('Rimuovere anche il punto dalla piantina?'),
+        message: __(
+          'Questa svolta è stata creata apposta per questa tappa: rimuovendola, viene tolta anche dalla piantina del museo.',
+        ),
+        variant: 'danger',
+        confirmLabel: __('Rimuovi'),
+        cancelLabel: __('Annulla'),
+      });
+      if (!confirmed) return;
+
+      await this.deleteAutoCreatedMarker(step.mapMarkerId);
+    }
+
+    this.steps = this.steps.filter((_, i) => i !== index).map((s, i) => ({ ...s, order: i }));
     if (this.editingStepIndex === index) {
       this.editingStepIndex = null;
     }
+  }
+
+  // Toglie dalla piantina un marker creato ad hoc per una tappa (vedi
+  // handleRoutePointAdd/autoCreatedMarkerIds) — mai chiamata per un marker
+  // preesistente riusato (handleRouteMarkerAdd), che deve restare intatto.
+  private async deleteAutoCreatedMarker(markerId: string): Promise<void> {
+    const floorId = this.findWaypointMarker(markerId)?.floorId;
+    if (floorId) {
+      try {
+        await museumService.deleteMarker(this.museumId, floorId, markerId);
+        this.floors = this.floors.map((f) =>
+          f.id === floorId
+            ? { ...f, markers: (f.markers || []).filter((m) => m.id !== markerId) }
+            : f,
+        );
+      } catch (err) {
+        console.error('Error deleting waypoint marker:', err);
+        this.error = __('Impossibile rimuovere il punto dalla piantina');
+      }
+    }
+    this.autoCreatedMarkerIds.delete(markerId);
   }
 
   private updateStep(index: number, updates: Partial<VisitStep>) {
@@ -736,6 +941,15 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       this.activeTab = 'steps';
       return false;
     }
+    // Stesso motivo del controllo sopra, per le tappe "Approfondimento".
+    const incompleteContentStepIndex = this.steps.findIndex(
+      (step) => step.type === VisitStepType.CONTENT && !step.contentReferenceType,
+    );
+    if (incompleteContentStepIndex !== -1) {
+      this.error = `${__('Seleziona un tipo di approfondimento per il passaggio')} ${incompleteContentStepIndex + 1}`;
+      this.activeTab = 'steps';
+      return false;
+    }
     if (this.languageLevels.length === 0) {
       this.error = __('Seleziona almeno un livello di linguaggio');
       this.activeTab = 'audience';
@@ -778,11 +992,47 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
               </div>
             `
           : nothing}
-        ${this.success
-          ? html`<ui-alert variant="success" .message=${this.success}></ui-alert>`
-          : nothing}
-        ${this.error
-          ? html`<ui-alert variant="danger" .message=${this.error}></ui-alert>`
+        <div id="feedback-alert">
+          ${this.success
+            ? html`<ui-alert variant="success" .message=${this.success}></ui-alert>`
+            : nothing}
+          ${this.error
+            ? html`<ui-alert variant="danger" .message=${this.error}></ui-alert>`
+            : nothing}
+        </div>
+
+        <!-- Stato pubblicazione: qui e non più come azione a distanza sulla
+             card nella lista, così si vede/cambia mentre si sta effettivamente
+             guardando la visita. -->
+        ${this.visitId
+          ? html`
+              <div
+                class="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl border ${this
+                  .isPublished
+                  ? 'border-success-200 dark:border-success-900/40 bg-success-50 dark:bg-success-900/10'
+                  : 'border-surface-200 dark:border-surface-700'}"
+              >
+                <div class="flex items-center gap-3">
+                  <ui-badge
+                    variant=${this.isPublished ? 'success' : 'secondary'}
+                    .label=${this.isPublished ? __('Pubblicata') : __('Bozza')}
+                  ></ui-badge>
+                  <p class="text-sm text-surface-600 dark:text-surface-300">
+                    ${this.isPublished
+                      ? __('Visibile ai visitatori nel Navigator e nel marketplace.')
+                      : __('Non ancora visibile ai visitatori: solo bozza.')}
+                  </p>
+                </div>
+                <ui-button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  .label=${this.isPublished ? __('Rimuovi pubblicazione') : __('Pubblica')}
+                  .loading=${this.togglingPublish}
+                  @click=${this.handleTogglePublish}
+                ></ui-button>
+              </div>
+            `
           : nothing}
 
         <!-- Tabs -->
@@ -860,7 +1110,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
               .options=${this.museums.map((m) => ({ value: m._id, label: m.name }))}
               placeholder=${this.loadingMuseums ? __('Caricamento...') : __('Seleziona il museo')}
               ?disabled=${this.loadingMuseums}
-              @select-change=${this.handleMuseumChange}
+              @select-change=${(e: CustomEvent) => this.handleMuseumChange(e)}
               required
             ></ui-select>
           `}
@@ -964,40 +1214,23 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
                   `
                 : nothing}
 
-              <ui-input
-                .label=${__('Immagine di copertina (URL)')}
-                .placeholder=${__('https://example.com/image.jpg')}
+              <image-editor
+                .label=${__('Immagine di copertina')}
+                category="visits"
                 .value=${this.coverImage}
-                @input=${(e: InputEvent) =>
-                  (this.coverImage = (e.target as HTMLInputElement).value)}
-              ></ui-input>
-
-              ${this.coverImage
-                ? html`
-                    <div
-                      class="mt-2 relative max-w-xs h-32 bg-surface-100 dark:bg-surface-800 rounded-lg overflow-hidden"
-                    >
-                      <img
-                        src="${this.coverImage}"
-                        alt="Cover preview"
-                        class="w-full h-full object-cover"
-                        @error=${(e: Event) => {
-                          const img = e.target as HTMLImageElement;
-                          img.style.display = 'none';
-                          img.parentElement
-                            ?.querySelector('ui-image-placeholder')
-                            ?.removeAttribute('hidden');
-                        }}
-                      />
-                      <ui-image-placeholder
-                        type="museum"
-                        size="md"
-                        hidden
-                        class="absolute inset-0"
-                      ></ui-image-placeholder>
-                    </div>
-                  `
-                : nothing}
+                maxWidth=${1200}
+                maxHeight=${800}
+                .maxOutputSizeMb=${3}
+                defaultFormat="webp"
+                @image-saved=${(e: CustomEvent) => {
+                  this.coverImage = e.detail.path || '';
+                }}
+              ></image-editor>
+              <p class="text-xs text-surface-500 dark:text-surface-400">
+                ${__(
+                  "Se non ne carichi una, nel marketplace e nelle card viene mostrata l'immagine del museo.",
+                )}
+              </p>
             </div>
           `}
         ></ui-panel-section>
@@ -1066,6 +1299,17 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
             .label=${__('Aggiungi Opera')}
             @click=${() => this.addStep(VisitStepType.ARTWORK)}
             ?disabled=${!this.museumId || this.artworks.length === 0}
+          ></ui-button>
+          <ui-button
+            type="button"
+            variant="outline"
+            size="sm"
+            icon="tag"
+            .label=${__('Approfondimento')}
+            .title=${__(
+              'Contenuto su un autore, un movimento, un periodo o il museo stesso — non legato a una singola opera.',
+            )}
+            @click=${() => this.addStep(VisitStepType.CONTENT)}
           ></ui-button>
           <ui-button
             type="button"
@@ -1208,6 +1452,10 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     this.floors = this.floors.map((f) =>
       f.id === floorId ? { ...f, markers: [...(f.markers || []), marker] } : f,
     );
+    // Creato apposta per questa tappa (non un marker preesistente
+    // riusato) — vedi removeStep/undoLastRouteStep, che lo ripuliscono
+    // dalla piantina se la tappa viene tolta dal percorso.
+    this.autoCreatedMarkerIds.add(marker.id);
 
     this.appendStep({
       id: this.generateStepId(),
@@ -1268,9 +1516,20 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
 
   private undoLastRouteStep() {
     if (this.steps.length === 0) return;
+    const lastStep = this.steps[this.steps.length - 1];
     this.steps = this.steps.slice(0, -1);
     if (this.editingStepIndex !== null && this.editingStepIndex >= this.steps.length) {
       this.editingStepIndex = null;
+    }
+    // Stessa pulizia di removeStep ma senza conferma: qui si sta annullando
+    // la propria ultima azione (l'ha appena creato lei), non ha senso
+    // chiedere di nuovo.
+    if (
+      lastStep.type === VisitStepType.WAYPOINT &&
+      lastStep.mapMarkerId &&
+      this.autoCreatedMarkerIds.has(lastStep.mapMarkerId)
+    ) {
+      void this.deleteAutoCreatedMarker(lastStep.mapMarkerId);
     }
   }
 
@@ -1474,6 +1733,13 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
     if (step?.type === VisitStepType.WAYPOINT) {
       this.waypointFloorId =
         this.findWaypointMarker(step.mapMarkerId)?.floorId || this.floors[0]?.id || '';
+    } else if (step?.type === VisitStepType.ARTWORK && step.artworkId) {
+      // Senza questo, la checklist contenuti (sotto, gated da
+      // availableItems.length > 0) resta vuota finché non si riseleziona
+      // l'opera dal menu — anche se la tappa ne ha già una impostata.
+      void this.loadItemsForArtwork(step.artworkId);
+    } else if (step?.type === VisitStepType.CONTENT && step.contentReferenceType) {
+      void this.loadUsableItemsByReferenceType(step.contentReferenceType);
     }
   }
 
@@ -1565,6 +1831,23 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
           </div>
         `;
       }
+      case VisitStepType.CONTENT: {
+        const count = step.itemIds?.length || 0;
+        return html`
+          <div>
+            <p class="font-medium text-surface-900 dark:text-white">
+              ${step.contentReferenceType
+                ? getReferenceTypeLabel(step.contentReferenceType)
+                : __('Seleziona un tipo di approfondimento')}
+            </p>
+            ${count > 0
+              ? html`<p class="text-sm text-surface-500">
+                  ${count} ${count === 1 ? __('contenuto') : __('contenuti')}
+                </p>`
+              : nothing}
+          </div>
+        `;
+      }
     }
   }
 
@@ -1578,7 +1861,52 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         return this.renderNavigationStepEditor(step, index);
       case VisitStepType.WAYPOINT:
         return this.renderWaypointStepEditor(step, index);
+      case VisitStepType.CONTENT:
+        return this.renderContentStepEditor(step, index);
     }
+  }
+
+  private renderContentStepEditor(step: VisitStep, index: number) {
+    return html`
+      <div class="space-y-4 mt-3 pt-3 border-t border-surface-200 dark:border-surface-700">
+        <ui-select
+          .label=${__('Tipo di approfondimento')}
+          .value=${step.contentReferenceType || ''}
+          .options=${CONTENT_STEP_REFERENCE_TYPE_OPTIONS}
+          placeholder=${__('Seleziona un tipo')}
+          @select-change=${async (e: CustomEvent) => {
+            const contentReferenceType = e.detail.value as ItemReferenceType;
+            // Cambiare tipo invalida la selezione precedente: gli item di un
+            // tipo diverso non hanno senso per questa tappa.
+            this.updateStep(index, { contentReferenceType, itemIds: [] });
+            this.availableItems = [];
+            if (contentReferenceType) {
+              await this.loadUsableItemsByReferenceType(contentReferenceType);
+            }
+          }}
+        ></ui-select>
+
+        ${step.contentReferenceType ? this.renderItemChecklist(step, index) : nothing}
+
+        <ui-input
+          type="number"
+          .label=${__('Durata stimata (secondi)')}
+          .placeholder=${__('Es. 180')}
+          .value=${String(step.estimatedDuration || '')}
+          @input=${(e: InputEvent) =>
+            this.updateStep(index, {
+              estimatedDuration: parseInt((e.target as HTMLInputElement).value) || undefined,
+            })}
+        ></ui-input>
+
+        <ui-checkbox
+          .label=${__('Passaggio opzionale')}
+          .checked=${step.isOptional}
+          @checkbox-change=${(e: CustomEvent) =>
+            this.updateStep(index, { isOptional: e.detail.checked })}
+        ></ui-checkbox>
+      </div>
+    `;
   }
 
   private renderArtworkStepEditor(step: VisitStep, index: number) {
@@ -1602,64 +1930,7 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
           }}
         ></ui-select>
 
-        ${step.artworkId && this.availableItems.length > 0
-          ? html`
-              <div class="space-y-2">
-                <div class="flex items-center justify-between">
-                  <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
-                    ${__('Contenuti disponibili')}
-                  </label>
-                  <div class="flex gap-2">
-                    <ui-button
-                      type="button"
-                      variant="ghost"
-                      size="xs"
-                      .label=${__('Seleziona tutti')}
-                      @click=${() => {
-                        const allIds = this.availableItems.map((item) => item._id);
-                        this.updateStep(index, { itemIds: allIds });
-                      }}
-                    ></ui-button>
-                    <span class="text-surface-300">|</span>
-                    <ui-button
-                      type="button"
-                      variant="ghost"
-                      size="xs"
-                      .label=${__('Deseleziona tutti')}
-                      @click=${() => this.updateStep(index, { itemIds: [] })}
-                    ></ui-button>
-                  </div>
-                </div>
-                <div class="space-y-2">
-                  ${this.availableItems.map(
-                    (item) => html`
-                      <label
-                        class="flex items-center gap-2 p-2 rounded border border-surface-200 dark:border-surface-700 cursor-pointer hover:bg-surface-50 dark:hover:bg-surface-800"
-                      >
-                        <ui-checkbox
-                          .checked=${step.itemIds?.includes(item._id)}
-                          @checkbox-change=${(e: CustomEvent) => {
-                            const checked = e.detail.checked;
-                            const currentIds = step.itemIds || [];
-                            const newIds = checked
-                              ? [...currentIds, item._id]
-                              : currentIds.filter((id) => id !== item._id);
-                            this.updateStep(index, { itemIds: newIds });
-                          }}
-                        ></ui-checkbox>
-                        <span class="flex-1 text-sm">
-                          ${item.title}
-                          <span class="text-surface-500">
-                            - ${item.duration}, ${item.languageLevel}</span
-                          >
-                        </span>
-                      </label>
-                    `,
-                  )}
-                </div>
-              </div>
-            `
-          : nothing}
+        ${step.artworkId ? this.renderItemChecklist(step, index) : nothing}
 
         <ui-input
           type="number"
@@ -1678,6 +1949,72 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
           @checkbox-change=${(e: CustomEvent) =>
             this.updateStep(index, { isOptional: e.detail.checked })}
         ></ui-checkbox>
+      </div>
+    `;
+  }
+
+  // Checklist contenuti condivisa tra tappe ARTWORK e CONTENT: entrambe
+  // scelgono da this.availableItems (caricato da loadItemsForArtwork /
+  // loadUsableItemsByReferenceType a seconda del tipo) verso step.itemIds.
+  private renderItemChecklist(step: VisitStep, index: number) {
+    if (this.availableItems.length === 0) return nothing;
+    return html`
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
+            ${__('Contenuti disponibili')}
+          </label>
+          <div class="flex gap-2">
+            <ui-button
+              type="button"
+              variant="ghost"
+              size="xs"
+              .label=${__('Seleziona tutti')}
+              @click=${() => {
+                const allIds = this.availableItems.map((item) => item._id);
+                this.updateStep(index, { itemIds: allIds });
+              }}
+            ></ui-button>
+            <span class="text-surface-300">|</span>
+            <ui-button
+              type="button"
+              variant="ghost"
+              size="xs"
+              .label=${__('Deseleziona tutti')}
+              @click=${() => this.updateStep(index, { itemIds: [] })}
+            ></ui-button>
+          </div>
+        </div>
+        <div class="space-y-2">
+          ${this.availableItems.map(
+            (item) => html`
+              <label
+                class="flex items-center gap-2 p-2 rounded border border-surface-200 dark:border-surface-700 cursor-pointer hover:bg-surface-50 dark:hover:bg-surface-800"
+              >
+                <ui-checkbox
+                  .checked=${step.itemIds?.includes(item._id)}
+                  @checkbox-change=${(e: CustomEvent) => {
+                    const checked = e.detail.checked;
+                    const currentIds = step.itemIds || [];
+                    const newIds = checked
+                      ? [...currentIds, item._id]
+                      : currentIds.filter((id) => id !== item._id);
+                    this.updateStep(index, { itemIds: newIds });
+                  }}
+                ></ui-checkbox>
+                <span class="flex-1 text-sm">
+                  ${item.title}
+                  <span class="text-surface-500">
+                    - ${item.duration},
+                    ${item.languageLevel}${item.authorName
+                      ? html` · ${__('di')} ${item.authorName}`
+                      : nothing}</span
+                  >
+                </span>
+              </label>
+            `,
+          )}
+        </div>
       </div>
     `;
   }
@@ -2069,6 +2406,131 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
             ></ui-tag-input>
           `}
         ></ui-panel-section>
+
+        ${this.visitId
+          ? html`
+              <ui-panel-section
+                .title=${__('Strumenti AI')}
+                icon="sparkles"
+                .renderContent=${() => html`
+                  <div class="divide-y divide-surface-100 dark:divide-surface-800">
+                    <div class="pb-4">${this.renderTranslationSyncBlock()}</div>
+                    <div class="pt-4">${this.renderAudioGenerationBlock()}</div>
+                  </div>
+                `}
+              ></ui-panel-section>
+            `
+          : nothing}
+      </div>
+    `;
+  }
+
+  // Blocco traduzioni: sezione dedicata nelle Impostazioni, separata dal
+  // blocco audio sotto.
+  private renderTranslationSyncBlock() {
+    const activeJob = this.jobs.find(
+      (job) =>
+        job.status === 'running' && job.type === 'sync-languages' && job.visitId === this.visitId,
+    );
+    const blockedElsewhere =
+      !activeJob &&
+      this.jobs.some((job) => job.status === 'running' && job.type === 'sync-languages');
+
+    return html`
+      <div class="space-y-3">
+        <h4 class="text-sm font-semibold text-surface-800 dark:text-surface-100">
+          ${__('Traduzioni')}
+        </h4>
+        <p class="text-sm text-surface-500 dark:text-surface-400">
+          ${__(
+            'Applica le lingue attive del museo al testo di questa visita e degli item che referenzia: rimuove traduzioni non richieste e genera con AI quelle mancanti.',
+          )}
+        </p>
+        ${activeJob
+          ? html`
+              <div
+                class="flex items-center gap-2 text-sm font-medium text-brand-600 dark:text-brand-400"
+              >
+                <span class="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse"></span>
+                ${__("Sincronizzazione in corso — segui l'avanzamento dalle notifiche.")}
+              </div>
+            `
+          : html`
+              <div class="flex items-center gap-3">
+                <ui-button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  icon="translate"
+                  .label=${__('Sincronizza traduzioni')}
+                  .loading=${this.syncingLanguages}
+                  .disabled=${blockedElsewhere}
+                  @click=${() => this.handleSyncLanguagesClick()}
+                ></ui-button>
+                ${blockedElsewhere
+                  ? html`
+                      <p class="text-xs text-amber-600 dark:text-amber-400">
+                        ${__(
+                          "Un'altra sincronizzazione è già in corso altrove: attendi che finisca (vedi notifiche).",
+                        )}
+                      </p>
+                    `
+                  : nothing}
+              </div>
+            `}
+      </div>
+    `;
+  }
+
+  private renderAudioGenerationBlock() {
+    const activeJob = this.jobs.find(
+      (job) =>
+        job.status === 'running' && job.type === 'generate-audio' && job.visitId === this.visitId,
+    );
+    const blockedElsewhere =
+      !activeJob &&
+      this.jobs.some((job) => job.status === 'running' && job.type === 'generate-audio');
+
+    return html`
+      <div class="space-y-3">
+        <h4 class="text-sm font-semibold text-surface-800 dark:text-surface-100">${__('Audio')}</h4>
+        <p class="text-sm text-surface-500 dark:text-surface-400">
+          ${__(
+            "Genera con OpenAI (voce naturale + evidenziazione sincronizzata nel Navigator) l'audio mancante degli item e delle tappe Info/Indicazioni di questa visita — non rigenera l'audio già presente.",
+          )}
+        </p>
+        ${activeJob
+          ? html`
+              <div
+                class="flex items-center gap-2 text-sm font-medium text-brand-600 dark:text-brand-400"
+              >
+                <span class="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse"></span>
+                ${__("Generazione in corso — segui l'avanzamento dalle notifiche.")}
+              </div>
+            `
+          : html`
+              <div class="flex items-center gap-3">
+                <ui-button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  icon="sparkles"
+                  .label=${__('Genera audio mancante')}
+                  .loading=${this.generatingAudio}
+                  .disabled=${blockedElsewhere}
+                  @click=${() => this.handleGenerateAudioClick()}
+                ></ui-button>
+                ${blockedElsewhere
+                  ? html`
+                      <p class="text-xs text-amber-600 dark:text-amber-400">
+                        ${__(
+                          "Un'altra generazione è già in corso altrove: attendi che finisca (vedi notifiche).",
+                        )}
+                      </p>
+                    `
+                  : nothing}
+              </div>
+            `}
       </div>
     `;
   }

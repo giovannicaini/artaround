@@ -3,20 +3,18 @@ import {
   getUsers,
   getUserById,
   createUser,
+  createUserValidation,
   updateUser,
+  updateUserValidation,
   deleteUser,
-  addRoleAssignment,
-  removeRoleAssignment,
-  getUsersByResource,
 } from '../controllers/user.controller.js';
-import { authMiddleware, requireRole } from '../middleware/auth.middleware.js';
-import { UserRole } from '@artaround/shared';
+import { authMiddleware, requireAdmin } from '../middleware/index.js';
 
 const router = Router();
 
 // tutte le rotte sotto richiedono autenticazione e ruolo admin
 router.use(authMiddleware);
-router.use(requireRole([UserRole.ADMIN]));
+router.use(requireAdmin);
 
 /**
  * @swagger
@@ -44,9 +42,9 @@ router.use(requireRole([UserRole.ADMIN]));
  *           type: string
  *         description: Cerca per username o email
  *       - in: query
- *         name: role
+ *         name: isAdmin
  *         schema:
- *           type: string
+ *           type: boolean
  *       - in: query
  *         name: isActive
  *         schema:
@@ -60,37 +58,6 @@ router.use(requireRole([UserRole.ADMIN]));
  *         $ref: '#/components/responses/ForbiddenError'
  */
 router.get('/', getUsers);
-
-/**
- * @swagger
- * /api/users/by-resource/{resourceType}/{resourceId}:
- *   get:
- *     tags: [Users]
- *     summary: Utenti con ruoli su una risorsa (Admin only)
- *     description: Ottiene gli utenti che hanno un'assegnazione di ruolo su una risorsa specifica (museo, visita, item, opera)
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: resourceType
- *         required: true
- *         schema:
- *           type: string
- *           enum: [item, visit, artwork, museum]
- *       - in: path
- *         name: resourceId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Utenti con ruoli filtrati sulla risorsa richiesta
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       403:
- *         $ref: '#/components/responses/ForbiddenError'
- */
-router.get('/by-resource/:resourceType/:resourceId', getUsersByResource);
 
 /**
  * @swagger
@@ -149,8 +116,8 @@ router.get('/:id', getUserById);
  *                 type: string
  *               password:
  *                 type: string
- *               role:
- *                 type: string
+ *               isAdmin:
+ *                 type: boolean
  *               isActive:
  *                 type: boolean
  *     responses:
@@ -163,7 +130,7 @@ router.get('/:id', getUserById);
  *       403:
  *         $ref: '#/components/responses/ForbiddenError'
  */
-router.post('/', createUser);
+router.post('/', createUserValidation, createUser);
 
 /**
  * @swagger
@@ -191,8 +158,8 @@ router.post('/', createUser);
  *                 type: string
  *               password:
  *                 type: string
- *               role:
- *                 type: string
+ *               isAdmin:
+ *                 type: boolean
  *               isActive:
  *                 type: boolean
  *               preferences:
@@ -207,7 +174,7 @@ router.post('/', createUser);
  *       404:
  *         $ref: '#/components/responses/NotFoundError'
  */
-router.put('/:id', updateUser);
+router.put('/:id', updateUserValidation, updateUser);
 
 /**
  * @swagger
@@ -237,90 +204,5 @@ router.put('/:id', updateUser);
  *         $ref: '#/components/responses/NotFoundError'
  */
 router.delete('/:id', deleteUser);
-
-/**
- * @swagger
- * /api/users/{id}/role-assignments:
- *   post:
- *     tags: [Users]
- *     summary: Assegna un ruolo contestuale (Admin only)
- *     description: Assegna a un utente un ruolo su una risorsa specifica (es. curatore di un museo)
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [role, resourceType, resourceId]
- *             properties:
- *               role:
- *                 type: string
- *                 enum: [owner, author, editor, viewer, manager]
- *               resourceType:
- *                 type: string
- *                 enum: [item, visit, artwork, museum]
- *               resourceId:
- *                 type: string
- *     responses:
- *       200:
- *         description: Ruolo assegnato
- *       400:
- *         description: Campi mancanti, ruolo/tipo risorsa non validi, o assegnazione già esistente
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       403:
- *         $ref: '#/components/responses/ForbiddenError'
- *       404:
- *         $ref: '#/components/responses/NotFoundError'
- */
-router.post('/:id/role-assignments', addRoleAssignment);
-
-/**
- * @swagger
- * /api/users/{id}/role-assignments:
- *   delete:
- *     tags: [Users]
- *     summary: Rimuove un ruolo contestuale (Admin only)
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [role, resourceType, resourceId]
- *             properties:
- *               role:
- *                 type: string
- *               resourceType:
- *                 type: string
- *               resourceId:
- *                 type: string
- *     responses:
- *       200:
- *         description: Ruolo rimosso
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       403:
- *         $ref: '#/components/responses/ForbiddenError'
- *       404:
- *         $ref: '#/components/responses/NotFoundError'
- */
-router.delete('/:id/role-assignments', removeRoleAssignment);
 
 export default router;

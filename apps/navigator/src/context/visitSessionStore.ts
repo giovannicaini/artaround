@@ -4,22 +4,42 @@ import {
   ContentDuration,
   type Artwork,
   type Item,
+  type ItemReferenceType,
   type Visit,
+  type AppLanguage,
+  type GeneratedAudio,
 } from '@artaround/shared';
 
-/**
- * Una tappa del player. Non solo opere: una visita ha anche step logistici
- * (info pratiche scritte dal curatore) e di navigazione (indicazioni tra
- * un'opera e l'altra) — prima scartati in fase di caricamento, ora tappe
- * a pieno titolo con una propria card nel player.
- */
+type Translations = Partial<Record<AppLanguage, string>>;
+
+/** Una tappa del player: opera, approfondimento, info logistiche o indicazioni. */
 export type PlayerStep =
-  | { kind: 'artwork'; id: string; artwork: Artwork; items: Item[] }
+  | {
+      kind: 'artwork';
+      id: string;
+      artwork: Artwork;
+      items: Item[];
+      // Contenuto su autore/movimento, se generato — per le risposte vocali "chi è l'autore".
+      authorItems?: Item[];
+      movementItems?: Item[];
+    }
+  | {
+      // Approfondimento su autore/movimento/periodo/museo, non legato a un'opera specifica.
+      kind: 'content';
+      id: string;
+      referenceType: ItemReferenceType;
+      items: Item[];
+      mapMarkerId?: string;
+    }
   | {
       kind: 'logistic';
       id: string;
       title: string;
+      titleTranslations?: Translations;
       text: string;
+      textTranslations?: Translations;
+      // Audio già generato per lingua — assente finché il curatore non lo genera.
+      textAudio?: Partial<Record<AppLanguage, GeneratedAudio>>;
       icon?: string;
       mapMarkerId?: string;
     }
@@ -27,10 +47,10 @@ export type PlayerStep =
       kind: 'navigation';
       id: string;
       text: string;
+      textTranslations?: Translations;
+      textAudio?: Partial<Record<AppLanguage, GeneratedAudio>>;
       image?: string;
-      // 'map' mostra la mappa integrata (centrata su mapMarkerId se presente)
-      // al posto dell'immagine caricata — scelta fatta dal curatore nel
-      // marketplace, vedi VisitStep.navigationVisual.
+      // 'map' mostra la mappa integrata al posto dell'immagine caricata.
       visual?: 'image' | 'map';
       mapMarkerId?: string;
     };

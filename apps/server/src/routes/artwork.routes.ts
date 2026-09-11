@@ -4,16 +4,15 @@ import {
   getArtwork,
   getArtworkByWikidataId,
   createArtwork,
+  createArtworkValidation,
   updateArtwork,
+  updateArtworkValidation,
   deleteArtwork,
   getArtworksByMuseum,
   updateArtworkMapPosition,
 } from '../controllers/artwork.controller.js';
-import {
-  authMiddleware as authenticate,
-  roleMiddleware as authorizeRoles,
-} from '../middleware/index.js';
-import { UserRole } from '@artaround/shared';
+import { authMiddleware as authenticate } from '../middleware/index.js';
+import { authorizeCreate } from '../utils/policy.util.js';
 
 const router = Router();
 
@@ -213,7 +212,7 @@ router.get('/:id', getArtwork);
  *       409:
  *         description: Esiste già un'opera con questo ID Wikidata
  */
-router.post('/', authenticate, authorizeRoles(UserRole.ADMIN, UserRole.CURATOR), createArtwork);
+router.post('/', authenticate, authorizeCreate('artwork'), createArtworkValidation, createArtwork);
 
 /**
  * @swagger
@@ -241,7 +240,7 @@ router.post('/', authenticate, authorizeRoles(UserRole.ADMIN, UserRole.CURATOR),
  *       404:
  *         description: Opera non trovata
  */
-router.put('/:id', authenticate, authorizeRoles(UserRole.ADMIN, UserRole.CURATOR), updateArtwork);
+router.put('/:id', authenticate, updateArtworkValidation, updateArtwork);
 
 /**
  * @swagger
@@ -276,12 +275,7 @@ router.put('/:id', authenticate, authorizeRoles(UserRole.ADMIN, UserRole.CURATOR
  *       200:
  *         description: Posizione sulla mappa aggiornata
  */
-router.put(
-  '/:id/map-position',
-  authenticate,
-  authorizeRoles(UserRole.ADMIN, UserRole.CURATOR),
-  updateArtworkMapPosition,
-);
+router.put('/:id/map-position', authenticate, updateArtworkMapPosition);
 
 /**
  * @swagger
@@ -303,6 +297,6 @@ router.put(
  *       404:
  *         description: Opera non trovata
  */
-router.delete('/:id', authenticate, authorizeRoles(UserRole.ADMIN), deleteArtwork);
+router.delete('/:id', authenticate, deleteArtwork);
 
 export default router;

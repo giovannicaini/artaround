@@ -11,11 +11,7 @@ export interface VisitProgress {
 
 const KEY = 'navigator:lastVisitProgress';
 
-/**
- * Avanzamento dell'ultima visita, solo su questo dispositivo (nessun
- * backend dedicato oggi — vedi "Decisioni aperte" nel piano). Alimenta la
- * card "Riprendi" in Home.
- */
+/** Avanzamento dell'ultima visita, solo su questo dispositivo — alimenta la card "Riprendi" in Home. */
 export function saveVisitProgress(progress: VisitProgress): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(progress));
@@ -30,13 +26,5 @@ export function loadVisitProgress(): VisitProgress | null {
     return raw ? (JSON.parse(raw) as VisitProgress) : null;
   } catch {
     return null;
-  }
-}
-
-export function clearVisitProgress(): void {
-  try {
-    localStorage.removeItem(KEY);
-  } catch {
-    // ignorato
   }
 }

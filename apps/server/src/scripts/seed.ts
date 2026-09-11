@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'url';
 import { connectDB } from '../config/database.js';
 import { User } from '../models/index.js';
-import { UserRole, CompetenceLevel, LanguageLevel, TimePreference } from '@artaround/shared';
+import { CompetenceLevel, LanguageLevel, TimePreference } from '@artaround/shared';
 
 type SeedOptions = {
   connect?: boolean;
@@ -12,7 +12,7 @@ type SeedOptions = {
 type SeedUser = {
   username: string;
   email: string;
-  role: UserRole;
+  isAdmin: boolean;
   isActive: true;
   profile?: {
     displayName: string;
@@ -27,19 +27,25 @@ type SeedUser = {
  * Account richiesti dalle specifiche di progetto: "Nel marketplace sono già creati 4
  * account: autore1, autore2, visitatore1 e visitatore2, tutti con password 12345678."
  * "admin" è aggiuntivo, necessario per le funzionalità riservate all'amministratore.
+ *
+ * Non esiste un ruolo globale CURATOR/AUTHOR: autore1/autore2 vengono creati
+ * come utenti non-admin — diventano curatori/autori di un museo specifico
+ * solo se un admin (o il curatore di quel museo) li promuove via
+ * MuseumController.addAuthor, es. quando si esegue seed-borghese.ts su un
+ * museo reale.
  */
 function getRequiredUsers(): SeedUser[] {
   return [
     {
       username: 'admin',
       email: 'admin@artaround.app',
-      role: UserRole.ADMIN,
+      isAdmin: true,
       isActive: true,
     },
     {
       username: 'autore1',
       email: 'autore1@artaround.app',
-      role: UserRole.AUTHOR,
+      isAdmin: false,
       isActive: true,
       profile: {
         displayName: 'Autore 1',
@@ -52,7 +58,7 @@ function getRequiredUsers(): SeedUser[] {
     {
       username: 'autore2',
       email: 'autore2@artaround.app',
-      role: UserRole.AUTHOR,
+      isAdmin: false,
       isActive: true,
       profile: {
         displayName: 'Autore 2',
@@ -65,7 +71,7 @@ function getRequiredUsers(): SeedUser[] {
     {
       username: 'visitatore1',
       email: 'visitatore1@artaround.app',
-      role: UserRole.VISITOR,
+      isAdmin: false,
       isActive: true,
       profile: {
         displayName: 'Visitatore 1',
@@ -77,7 +83,7 @@ function getRequiredUsers(): SeedUser[] {
     {
       username: 'visitatore2',
       email: 'visitatore2@artaround.app',
-      role: UserRole.VISITOR,
+      isAdmin: false,
       isActive: true,
       profile: {
         displayName: 'Visitatore 2',

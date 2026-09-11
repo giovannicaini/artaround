@@ -204,10 +204,9 @@ export class MarkerEditor extends LitElement {
                 .placeholder=${__('Seleziona opera')}
                 @select-change=${(e: CustomEvent) => {
                   this.selectedArtworkId = e.detail.value;
-                  // marker.artworkId deve essere il Wikidata ID (come in MapMarker),
-                  // non l'_id di Mongo: prima veniva usato artwork._id, per cui i marker
-                  // aggiunti da qui non si ricollegavano mai alla relativa opera
-                  // (focal point editor, indicatore "opera posizionata", ecc.).
+                  // marker.artworkId deve essere il Wikidata ID (come in MapMarker), non
+                  // l'_id di Mongo, altrimenti il marker non si ricollega alla relativa
+                  // opera (focal point editor, indicatore "opera posizionata", ecc.).
                   const artwork = this.artworks.find((a) => a.wikidataId === e.detail.value);
                   if (artwork) {
                     this.markerLabel = artwork.title;

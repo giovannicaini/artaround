@@ -2,6 +2,9 @@ import { Router } from 'express';
 import { UploadController } from '../controllers/upload.controller.js';
 import { upload } from '../utils/upload.service.js';
 import { authMiddleware } from '../middleware/index.js';
+// Caricare/eliminare file non è un'azione da semplice visitatore: richiede di
+// essere admin, o curatore/autore di almeno un museo.
+import { authorizeContentCreator as authorizeUploader } from '../utils/policy.util.js';
 
 const router = Router();
 
@@ -58,7 +61,13 @@ const router = Router();
  *       200:
  *         description: Immagine caricata con successo
  */
-router.post('/', authMiddleware, upload.single('file'), UploadController.uploadImage);
+router.post(
+  '/',
+  authMiddleware,
+  authorizeUploader,
+  upload.single('file'),
+  UploadController.uploadImage,
+);
 
 /**
  * @swagger
@@ -106,7 +115,7 @@ router.post('/', authMiddleware, upload.single('file'), UploadController.uploadI
  *       200:
  *         description: Immagine scaricata e salvata con successo
  */
-router.post('/from-url', authMiddleware, UploadController.uploadFromUrl);
+router.post('/from-url', authMiddleware, authorizeUploader, UploadController.uploadFromUrl);
 
 /**
  * @swagger
@@ -131,32 +140,6 @@ router.post('/from-url', authMiddleware, UploadController.uploadFromUrl);
  *       200:
  *         description: Immagine eliminata
  */
-router.delete('/', authMiddleware, UploadController.deleteImage);
-
-/**
- * @swagger
- * /api/uploads/metadata:
- *   post:
- *     tags: [Uploads]
- *     summary: Ottieni metadati di un'immagine
- *     description: Analizza un'immagine e restituisce dimensioni e formato senza salvarla
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             required:
- *               - file
- *             properties:
- *               file:
- *                 type: string
- *                 format: binary
- *     responses:
- *       200:
- *         description: Metadati immagine
- */
-router.post('/metadata', authMiddleware, upload.single('file'), UploadController.getMetadata);
+router.delete('/', authMiddleware, authorizeUploader, UploadController.deleteImage);
 
 export default router;

@@ -1,4 +1,4 @@
-import { LanguageLevel } from './item.types';
+import { LanguageLevel, ItemReferenceType, type GeneratedAudio } from './item.types';
 import type { AppLanguage } from './i18n.types';
 
 /**
@@ -62,43 +62,45 @@ export interface VisitStep {
   // ===== PER TAPPE OPERA =====
   artworkId?: string; // ID Wikidata dell'opera
 
-  // Item disponibili per questa tappa (livelli/durate diverse)
-  // Usato solo per tappe ARTWORK - gli Item sono contenuto riusabile
+  // Item disponibili per questa tappa (livelli/durate diverse) — per tappe
+  // ARTWORK, item con referenceType ARTWORK legati ad artworkId; per tappe
+  // CONTENT, item con referenceType === contentReferenceType (sotto),
+  // non legati a una singola opera.
   itemIds?: string[]; // ID MongoDB degli item
 
   // Item scelto dall'utente durante la visita (runtime)
   selectedItemId?: string;
 
+  // ===== PER TAPPE CONTENT =====
+  // Approfondimento su autore/movimento/periodo/museo, non legato a una
+  // singola opera — itemIds (sopra) elenca gli item di questo tipo scelti
+  // per il museo della visita.
+  contentReferenceType?: ItemReferenceType; // AUTHOR | MOVEMENT | PERIOD | MUSEUM
+
   // ===== PER TAPPE LOGISTIC =====
-  // Contenuto inline - non riusabile, specifico di questa visita
+  // Contenuto specifico di questa visita
   logisticTitle?: string; // "Informazioni utili", "Biglietteria"
+  logisticTitleTranslations?: Partial<Record<AppLanguage, string>>;
   logisticText?: string; // Il testo informativo vero e proprio
+  logisticTextTranslations?: Partial<Record<AppLanguage, string>>;
+  // Audio generato con OpenAI, per lingua — vedi MuseumController.generateVisitStepAudioForMuseum.
+  // Invalidato quando logisticText/logisticTextTranslations cambiano (VisitController.update).
+  logisticTextAudio?: Partial<Record<AppLanguage, GeneratedAudio>>;
   logisticIcon?: string; // Nome icona: "ticket", "info", "clock", "accessibility"
 
   // ===== PER TAPPE NAVIGATION =====
-  // Contenuto inline - indicazioni specifiche del percorso di questa visita
+  // Contenuto specifico di questa visita
   navigationText?: string; // "Prosegui dritto e gira a sinistra..."
-  navigationImage?: string; // Immagine opzionale che mostra il percorso
-  // Cosa mostrare come immagine della tappa: 'image' (default, retrocompatibile
-  // con le visite esistenti) usa navigationImage; 'map' mostra la mappa
-  // integrata al posto di un'immagine caricata, centrata/evidenziata su
-  // mapMarkerId se impostato.
-  navigationVisual?: 'image' | 'map';
+  navigationTextTranslations?: Partial<Record<AppLanguage, string>>;
+  navigationTextAudio?: Partial<Record<AppLanguage, GeneratedAudio>>;
+  navigationImage?: string; // Immagine opzionale che mostra il percorso (vedi sotto)
+  navigationVisual?: 'image' | 'map'; //mostra mappa o immagine
   fromRoom?: string; // Sala/area di partenza
   toRoom?: string; // Sala/area di destinazione
 
   // ===== PUNTO SULLA MAPPA =====
-  // Per WAYPOINT: punto di svolta muto (nessun audio, nessuna sosta per il
-  // visitatore), serve solo a disegnare correttamente il percorso tra due
-  // tappe quando la linea diretta taglierebbe un muro (es. una porta su un
-  // corridoio -> un waypoint appena dentro la stanza, uno a metà del
-  // corridoio) — punta sempre a un MapMarker di tipo WAYPOINT.
-  // Per LOGISTIC/NAVIGATION: associazione facoltativa a un punto di
-  // interesse REALE già posizionato sulla piantina (un ingresso, un bar, un
-  // info point, un'opera...), non necessariamente di tipo WAYPOINT — il
-  // Navigator la usa per mostrare/evidenziare quel punto sulla mappa a
-  // questa tappa (e, se navigationVisual è 'map', per centrare la mappa
-  // integrata).
+  // WAYPOINT: deve puntare a un MapMarker di tipo WAYPOINT
+  // LOGISTIC/NAVIGATION/CONTENT: può puntare a un MapMarker qualsiasi (facoltativo)
   mapMarkerId?: string;
 
   // ===== COMUNI =====
@@ -111,6 +113,7 @@ export enum VisitStepType {
   LOGISTIC = 'logistic', // Info logistica generale
   NAVIGATION = 'navigation', // Indicazioni tra un'opera e l'altra
   WAYPOINT = 'waypoint', // Punto di svolta muto per il disegno del percorso sulla mappa
+  CONTENT = 'content', // Approfondimento su autore/movimento/periodo/museo, non legato a un'opera
 }
 
 // ========================================
@@ -210,6 +213,12 @@ export interface VisitPurchase {
   userId: string;
   price: number;
   purchasedAt: Date;
+}
+
+// GET /marketplace/my-purchases restituisce visitId popolato (la visita
+// intera, non il suo id) — i chiamanti la mostrano senza un'altra richiesta.
+export interface VisitPurchaseWithVisit extends Omit<VisitPurchase, 'visitId'> {
+  visitId: Visit;
 }
 
 // ========================================

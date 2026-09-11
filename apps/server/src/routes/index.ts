@@ -14,6 +14,9 @@ import marketplaceRoutes from './marketplace.routes.js';
 import utilsRoutes from './utils.routes.js';
 import uploadRoutes from './upload.routes.js';
 import userRoutes from './user.routes.js';
+import navigatorConfigRoutes from './navigator-config.routes.js';
+import jobRoutes from './job.routes.js';
+import notificationRoutes from './notification.routes.js';
 
 const router = Router();
 
@@ -70,10 +73,6 @@ router.get('/', (req, res) => {
         detail: 'GET /api/visits/:id',
         create: 'POST /api/visits (auth)',
         update: 'PUT /api/visits/:id (owner)',
-        addStep: 'POST /api/visits/:id/steps (owner)',
-        updateStep: 'PUT /api/visits/:id/steps/:stepOrder (owner)',
-        deleteStep: 'DELETE /api/visits/:id/steps/:stepOrder (owner)',
-        reorderSteps: 'POST /api/visits/:id/reorder (owner)',
         publish: 'POST /api/visits/:id/publish (owner)',
         unpublish: 'POST /api/visits/:id/unpublish (owner)',
         delete: 'DELETE /api/visits/:id (owner)',
@@ -85,7 +84,6 @@ router.get('/', (req, res) => {
         myVisitPurchases: 'GET /api/marketplace/my-visit-purchases (auth)',
         purchaseItem: 'POST /api/marketplace/purchase/item/:itemId (auth)',
         purchaseVisit: 'POST /api/marketplace/purchase/visit/:visitId (auth)',
-        creditBalance: 'GET /api/marketplace/credit/balance (auth)',
         creditTopup: 'POST /api/marketplace/credit/topup (auth)',
         creditTransactions: 'GET /api/marketplace/credit/transactions (auth)',
       },
@@ -128,5 +126,8 @@ router.use('/marketplace', marketplaceRoutes);
 router.use('/utils', utilsRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/users', userRoutes);
+router.use('/navigator-configs', navigatorConfigRoutes);
+router.use('/jobs', jobRoutes);
+router.use('/notifications', notificationRoutes);
 
 export default router;

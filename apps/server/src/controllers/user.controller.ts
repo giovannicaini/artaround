@@ -1,22 +1,48 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import { body, validationResult } from 'express-validator';
 import { asyncHandler } from '../utils/async-handler.util.js';
 import { parsePagination, buildPaginationMeta } from '../utils/pagination.util.js';
 import { User } from '../models/User.js';
-import { UserRole, ContextualRole, ResourceType, RoleAssignment } from '@artaround/shared';
+import { AppError } from '../middleware/index.js';
 
 /**
  * Controller Utenti
  *
- * Gestisce le operazioni CRUD per utenti e assegnazioni di ruolo.
- * Accessibile solo dagli admin.
+ * Gestisce le operazioni CRUD sugli utenti. Ruolo globale (isAdmin: true/false)
+ * gestito solo qui, da un admin. Non esiste un CURATOR o un AUTHOR generico:
+ * chi cura o scrive contenuti per un museo lo è solo per quel museo
+ * specifico — vedi MuseumController.addCurator/addAuthor.
+ * Accessibile solo dagli admin (vedi user.routes.ts).
  */
+
+// Regole di validazione per la creazione (usate da POST /api/users)
+export const createUserValidation = [
+  body('username').trim().notEmpty().withMessage("L'username è obbligatorio"),
+  body('email').isEmail().withMessage('Indirizzo email non valido'),
+  body('password').isLength({ min: 8 }).withMessage('La password deve avere almeno 8 caratteri'),
+  body('isAdmin').optional().isBoolean().withMessage('isAdmin deve essere un booleano'),
+  body('isActive').optional().isBoolean().withMessage('isActive deve essere un booleano'),
+];
+
+// Regole di validazione per l'aggiornamento (usate da PUT /api/users/:id):
+// stessi campi della creazione, ma tutti opzionali visto che è un update parziale
+export const updateUserValidation = [
+  body('username').optional().trim().notEmpty().withMessage("L'username non può essere vuoto"),
+  body('email').optional().isEmail().withMessage('Indirizzo email non valido'),
+  body('password')
+    .optional()
+    .isLength({ min: 8 })
+    .withMessage('La password deve avere almeno 8 caratteri'),
+  body('isAdmin').optional().isBoolean().withMessage('isAdmin deve essere un booleano'),
+  body('isActive').optional().isBoolean().withMessage('isActive deve essere un booleano'),
+];
 
 // GET /users - Ottieni tutti gli utenti con paginazione e filtri
 export const getUsers = asyncHandler(async (req: Request, res: Response) => {
   const { page, limit, skip } = parsePagination(req.query);
   const search = req.query.search as string;
-  const role = req.query.role as UserRole;
+  const isAdmin = req.query.isAdmin as string;
   const isActive = req.query.isActive as string;
 
   const query: Record<string, unknown> = {};
@@ -29,9 +55,9 @@ export const getUsers = asyncHandler(async (req: Request, res: Response) => {
     ];
   }
 
-  // Filtra per ruolo
-  if (role && Object.values(UserRole).includes(role)) {
-    query.role = role;
+  // Filtra per ruolo globale
+  if (isAdmin !== undefined) {
+    query.isAdmin = isAdmin === 'true';
   }
 
   // Filtra per stato attivo
@@ -71,14 +97,12 @@ export const getUserById = asyncHandler(async (req: Request, res: Response) => {
 
 // POST /users - Crea nuovo utente (solo admin)
 export const createUser = asyncHandler(async (req: Request, res: Response) => {
-  const { username, email, password, role, isActive } = req.body;
-
-  // Valida i campi obbligatori
-  if (!username || !email || !password) {
-    return res
-      .status(400)
-      .json({ success: false, message: 'Username, email e password sono obbligatori' });
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
   }
+
+  const { username, email, password, isAdmin, isActive } = req.body;
 
   // Controlla se l'utente esiste già
   const existingUser = await User.findOne({
@@ -97,9 +121,9 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
     username,
     email: email.toLowerCase(),
     password: hashedPassword,
-    role: role || UserRole.VISITOR,
+    isAdmin: isAdmin === true,
     isActive: isActive !== false,
-    roleAssignments: [],
+    museumRoles: [],
   });
 
   await user.save();
@@ -113,7 +137,12 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
 
 // PUT /users/:id - Aggiorna utente
 export const updateUser = asyncHandler(async (req: Request, res: Response) => {
-  const { username, email, password, role, isActive, preferences } = req.body;
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
+  }
+
+  const { username, email, password, isAdmin, isActive, preferences } = req.body;
 
   const user = await User.findById(req.params.id);
   if (!user) {
@@ -138,7 +167,7 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
   // Aggiorna i campi
   if (username) user.username = username;
   if (email) user.email = email.toLowerCase();
-  if (role && Object.values(UserRole).includes(role)) user.role = role;
+  if (typeof isAdmin === 'boolean') user.isAdmin = isAdmin;
   if (typeof isActive === 'boolean') user.isActive = isActive;
   if (preferences) user.preferences = preferences;
 
@@ -176,114 +205,4 @@ export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
   await user.save();
 
   res.json({ success: true, message: 'Utente disattivato con successo' });
-});
-
-// POST /users/:id/role-assignments - Aggiungi un'assegnazione di ruolo
-export const addRoleAssignment = asyncHandler(async (req: Request, res: Response) => {
-  const { role, resourceType, resourceId } = req.body;
-  const assignedBy = (req as Request & { user?: { id: string } }).user?.id;
-
-  // Valida
-  if (!role || !resourceType || !resourceId) {
-    return res
-      .status(400)
-      .json({ success: false, message: 'Role, resourceType e resourceId sono obbligatori' });
-  }
-
-  if (!Object.values(ContextualRole).includes(role)) {
-    return res.status(400).json({ success: false, message: 'Ruolo contestuale non valido' });
-  }
-
-  if (!Object.values(ResourceType).includes(resourceType)) {
-    return res.status(400).json({ success: false, message: 'Tipo di risorsa non valido' });
-  }
-
-  const user = await User.findById(req.params.id);
-  if (!user) {
-    return res.status(404).json({ success: false, message: 'Utente non trovato' });
-  }
-
-  // Controlla se l'assegnazione esiste già
-  const existingAssignment = user.roleAssignments?.find(
-    (ra: RoleAssignment) =>
-      ra.resourceType === resourceType && ra.resourceId === resourceId && ra.role === role,
-  );
-
-  if (existingAssignment) {
-    return res
-      .status(400)
-      .json({ success: false, message: 'Questo ruolo è già assegnato per questa risorsa' });
-  }
-
-  // Aggiungi l'assegnazione di ruolo
-  if (!user.roleAssignments) {
-    user.roleAssignments = [];
-  }
-
-  user.roleAssignments.push({
-    role,
-    resourceType,
-    resourceId,
-    assignedAt: new Date(),
-    assignedBy,
-  });
-
-  await user.save();
-
-  // Restituisce l'utente senza password
-  const userResponse = user.toObject();
-  delete (userResponse as unknown as Record<string, unknown>).password;
-
-  res.json({ success: true, data: userResponse });
-});
-
-// DELETE /users/:id/role-assignments - Rimuovi un'assegnazione di ruolo
-export const removeRoleAssignment = asyncHandler(async (req: Request, res: Response) => {
-  const { role, resourceType, resourceId } = req.body;
-
-  const user = await User.findById(req.params.id);
-  if (!user) {
-    return res.status(404).json({ success: false, message: 'Utente non trovato' });
-  }
-
-  // Rimuove l'assegnazione
-  user.roleAssignments =
-    user.roleAssignments?.filter(
-      (ra: RoleAssignment) =>
-        !(ra.resourceType === resourceType && ra.resourceId === resourceId && ra.role === role),
-    ) || [];
-
-  await user.save();
-
-  // Restituisce l'utente senza password
-  const userResponse = user.toObject();
-  delete (userResponse as unknown as Record<string, unknown>).password;
-
-  res.json({ success: true, data: userResponse });
-});
-
-// GET /users/by-resource/:resourceType/:resourceId - Ottieni gli utenti con ruoli su una risorsa specifica
-export const getUsersByResource = asyncHandler(async (req: Request, res: Response) => {
-  const { resourceType, resourceId } = req.params;
-
-  if (!Object.values(ResourceType).includes(resourceType as ResourceType)) {
-    return res.status(400).json({ success: false, message: 'Tipo di risorsa non valido' });
-  }
-
-  const users = await User.find({
-    'roleAssignments.resourceType': resourceType,
-    'roleAssignments.resourceId': resourceId,
-  })
-    .select('-password')
-    .lean();
-
-  // Filtra le assegnazioni di ruolo per includere solo la risorsa richiesta
-  const usersWithFilteredRoles = users.map((user) => ({
-    ...user,
-    roleAssignments: user.roleAssignments?.filter(
-      (ra: RoleAssignment) => ra.resourceType === resourceType && ra.resourceId === resourceId,
-    ),
-  }));
-
-  res.json({ success: true, data: usersWithFilteredRoles });
 });

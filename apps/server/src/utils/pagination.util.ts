@@ -13,8 +13,7 @@ export interface PaginationMeta {
 
 /**
  * Legge page/limit dalla query string (req.query.page, req.query.limit),
- * applica un default e calcola skip. Centralizza un calcolo che era
- * duplicato, con default diversi, in più controller.
+ * applica un default e calcola skip.
  */
 export const parsePagination = (
   query: { page?: unknown; limit?: unknown },

@@ -1,11 +1,17 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/async-handler.util.js';
 import { body, validationResult } from 'express-validator';
-import { VisitModel, MuseumModel } from '../models/index.js';
+import { VisitModel, MuseumModel, VisitPurchase } from '../models/index.js';
 import { AppError } from '../middleware/index.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
-import { buildMuseumIdFilterValue } from '../utils/museum-id.util.js';
+import { buildMuseumIdFilterValue, findMuseumByAnyId } from '../utils/museum-id.util.js';
 import { parsePagination, buildPaginationMeta } from '../utils/pagination.util.js';
+import { assertCan } from '../utils/policy.util.js';
+import { mapToRecord } from '../utils/mongoose-map.util.js';
+import { deleteGeneratedAudioFile } from '../utils/audio-generation.service.js';
+import { applyCoverImageFallback } from '../utils/visit-cover-image.util.js';
+import { MuseumController } from './museum.controller.js';
+import * as jobsService from '../utils/jobs.service.js';
 import {
   VisitStepType,
   LanguageLevel,
@@ -13,7 +19,7 @@ import {
   SUPPORTED_APP_LANGUAGES,
   isSupportedAppLanguage,
   type AppLanguage,
-  type VisitStep,
+  type GeneratedAudio,
 } from '@artaround/shared';
 
 /**
@@ -23,10 +29,11 @@ import {
  */
 
 export class VisitController {
+  // Lingue attive del museo, usate per capire quali traduzioni servono a una visita
   private static async getMuseumActiveLanguages(museumId: string): Promise<AppLanguage[]> {
     const museum = await MuseumModel.findById(museumId).select('activeLanguages').lean();
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     const activeLanguagesRaw = Array.isArray(museum.activeLanguages)
@@ -43,6 +50,7 @@ export class VisitController {
     return activeLanguages.length > 0 ? activeLanguages : [DEFAULT_APP_LANGUAGE];
   }
 
+  // Blocca il salvataggio se titolo/descrizione non sono tradotti in tutte le lingue attive
   private static ensureVisitLanguageCoverage(
     activeLanguages: AppLanguage[],
     sourceLanguage: AppLanguage,
@@ -63,48 +71,83 @@ export class VisitController {
         throw new AppError(
           400,
           'VALIDATION_ERROR',
-          `Missing required visit translations for language '${lang}'`,
+          `Traduzioni mancanti per la visita per la lingua '${lang}'`,
         );
       }
     }
   }
 
-  // Regole di validazione per Visit (richiamate dalla route di creazione)
+  // Regole di validazione per la creazione (usate da POST /api/visits)
   static createValidation = [
-    body('museumId').notEmpty().withMessage('Museum ID (Wikidata) is required'),
-    body('title').trim().notEmpty().withMessage('Title is required'),
-    body('description').trim().notEmpty().withMessage('Description is required'),
+    body('museumId').notEmpty().withMessage("L'ID museo (Wikidata) è obbligatorio"),
+    body('title').trim().notEmpty().withMessage('Il titolo è obbligatorio'),
+    body('description').trim().notEmpty().withMessage('La descrizione è obbligatoria'),
     body('titleTranslations')
       .optional()
       .isObject()
-      .withMessage('titleTranslations must be an object'),
+      .withMessage('titleTranslations deve essere un oggetto'),
     body('descriptionTranslations')
       .optional()
       .isObject()
-      .withMessage('descriptionTranslations must be an object'),
+      .withMessage('descriptionTranslations deve essere un oggetto'),
     body('metadata.language')
       .optional()
       .isIn(SUPPORTED_APP_LANGUAGES)
-      .withMessage(`metadata.language must be one of: ${SUPPORTED_APP_LANGUAGES.join(', ')}`),
-    body('steps').isArray({ min: 1 }).withMessage('At least one step required'),
-    body('steps.*.order').isNumeric().withMessage('Step order is required'),
-    body('steps.*.type').isIn(Object.values(VisitStepType)).withMessage('Invalid step type'),
+      .withMessage(`metadata.language deve essere una tra: ${SUPPORTED_APP_LANGUAGES.join(', ')}`),
+    body('steps').isArray({ min: 1 }).withMessage('È richiesta almeno una tappa'),
+    body('steps.*.order').isNumeric().withMessage("L'ordine della tappa è obbligatorio"),
+    body('steps.*.type').isIn(Object.values(VisitStepType)).withMessage('Tipo di tappa non valido'),
     body('steps.*.artworkId')
       .if(body('steps.*.type').equals('artwork'))
       .notEmpty()
-      .withMessage('Artwork ID is required for artwork steps'),
-    body('targetAudience').notEmpty().withMessage('Target audience is required'),
+      .withMessage("L'ID opera è obbligatorio per le tappe di tipo opera"),
+    body('steps.*.contentReferenceType')
+      .if(body('steps.*.type').equals('content'))
+      .isIn(['author', 'movement', 'period', 'museum'])
+      .withMessage('Il tipo di riferimento è obbligatorio per le tappe di approfondimento'),
+    body('targetAudience').notEmpty().withMessage('Il target audience è obbligatorio'),
     body('targetAudience.languageLevels')
       .isArray({ min: 1 })
-      .withMessage('At least one language level is required'),
+      .withMessage('È richiesto almeno un livello linguistico'),
     body('targetAudience.languageLevels.*')
       .isIn(Object.values(LanguageLevel))
       .withMessage(
-        `Invalid language level. Allowed values: ${Object.values(LanguageLevel).join(', ')}`,
+        `Livello linguistico non valido. Valori ammessi: ${Object.values(LanguageLevel).join(', ')}`,
       ),
   ];
 
-  // Ottieni tutte le visite con filtri
+  // Regole di validazione per l'aggiornamento (usate da PUT /api/visits/:id):
+  // stessi campi della creazione, ma tutti opzionali visto che è un update parziale
+  static updateValidation = [
+    body('title').optional().trim().notEmpty().withMessage('Il titolo è obbligatorio'),
+    body('description').optional().trim().notEmpty().withMessage('La descrizione è obbligatoria'),
+    body('titleTranslations')
+      .optional()
+      .isObject()
+      .withMessage('titleTranslations deve essere un oggetto'),
+    body('descriptionTranslations')
+      .optional()
+      .isObject()
+      .withMessage('descriptionTranslations deve essere un oggetto'),
+    body('steps').optional().isArray({ min: 1 }).withMessage('È richiesta almeno una tappa'),
+    body('steps.*.order').optional().isNumeric().withMessage("L'ordine della tappa è obbligatorio"),
+    body('steps.*.type')
+      .optional()
+      .isIn(Object.values(VisitStepType))
+      .withMessage('Tipo di tappa non valido'),
+    body('targetAudience.languageLevels')
+      .optional()
+      .isArray({ min: 1 })
+      .withMessage('È richiesto almeno un livello linguistico'),
+    body('targetAudience.languageLevels.*')
+      .optional()
+      .isIn(Object.values(LanguageLevel))
+      .withMessage(
+        `Livello linguistico non valido. Valori ammessi: ${Object.values(LanguageLevel).join(', ')}`,
+      ),
+  ];
+
+  // GET /api/visits — lista visite con filtri (museo, autore, lingua...) e paginazione
   static getAll = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { museumId, authorId, isPublished, isFree, languageLevel } = req.query;
 
@@ -125,19 +168,56 @@ export class VisitController {
 
     res.json({
       success: true,
-      data: visits,
+      data: await applyCoverImageFallback(visits),
       pagination: buildPaginationMeta(total, page, limit),
     });
   });
 
-  // Ottieni visita per ID
-  static getById = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  // GET /api/visits/:id — dettaglio di una singola visita. Pubblica ma
+  // consapevole di chi chiama (optionalAuthMiddleware): una bozza è visibile
+  // solo a chi potrebbe modificarla, una visita a pagamento non ancora
+  // acquistata non restituisce le tappe.
+  static getById = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id } = req.params;
 
     const visit = await VisitModel.findById(id).lean();
 
     if (!visit) {
-      throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
+      throw new AppError(404, 'VISIT_NOT_FOUND', 'Visita non trovata');
+    }
+
+    if (!visit.isPublished) {
+      try {
+        await assertCan(
+          req.user,
+          'manage',
+          'visit',
+          { museumId: visit.museumId, authorId: visit.authorId },
+          'Visita non trovata',
+        );
+      } catch {
+        // Una bozza altrui non deve risultare distinguibile da "non esiste".
+        throw new AppError(404, 'VISIT_NOT_FOUND', 'Visita non trovata');
+      }
+    }
+
+    const isOwner = req.user?.id === visit.authorId;
+    if (!isOwner && !visit.metadata.isFree) {
+      const owns = req.user
+        ? await VisitPurchase.exists({ userId: req.user.id, visitId: id })
+        : false;
+      if (!owns) {
+        res.status(403).json({
+          success: false,
+          error: { code: 'PURCHASE_REQUIRED', message: 'Visita a pagamento non acquistata' },
+          data: {
+            title: visit.title,
+            coverImage: visit.coverImage,
+            price: visit.metadata.price,
+          },
+        });
+        return;
+      }
     }
 
     res.json({
@@ -146,7 +226,7 @@ export class VisitController {
     });
   });
 
-  // Ottieni le visite per museo (usando l'ID Wikidata)
+  // GET /api/visits/museum/:museumId — visite di un museo (accetta ID Wikidata)
   static getByMuseum = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { museumId } = req.params;
     const { isPublished } = req.query;
@@ -159,33 +239,33 @@ export class VisitController {
 
     res.json({
       success: true,
-      data: visits,
+      data: await applyCoverImageFallback(visits),
     });
   });
 
-  // Ottieni le visite proprie dell'utente
+  // GET /api/visits/my-visits — visite create dall'utente autenticato
   static getMyVisits = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
     const visits = await VisitModel.find({ authorId: req.user.id }).sort({ createdAt: -1 }).lean();
 
     res.json({
       success: true,
-      data: visits,
+      data: await applyCoverImageFallback(visits),
     });
   });
 
-  // Crea visita
+  // POST /api/visits — crea la visita, ordina le tappe e verifica la copertura traduzioni
   static create = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
     }
 
     if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
     // Ordina le tappe per order
@@ -200,7 +280,7 @@ export class VisitController {
       throw new AppError(
         400,
         'VALIDATION_ERROR',
-        `metadata.language must be one of: ${SUPPORTED_APP_LANGUAGES.join(', ')}`,
+        `metadata.language deve essere una tra: ${SUPPORTED_APP_LANGUAGES.join(', ')}`,
       );
     }
 
@@ -244,30 +324,43 @@ export class VisitController {
     res.status(201).json({
       success: true,
       data: visit,
-      message: 'Visit created successfully',
+      message: 'Visita creata con successo',
     });
   });
 
-  // Aggiorna visita
+  // PUT /api/visits/:id — aggiorna la visita (owner, admin o curatore)
   static update = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
+    }
+
     const { id } = req.params;
 
     if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
     const visit = await VisitModel.findById(id);
     if (!visit) {
-      throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
+      throw new AppError(404, 'VISIT_NOT_FOUND', 'Visita non trovata');
     }
 
-    // Stesso criterio già applicato a artwork/item: proprietario, admin o curatore
-    // (gestisce tutto il contenuto del museo assegnato, non solo il proprio).
-    const canManage =
-      visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
-    if (!canManage) {
-      throw new AppError(403, 'FORBIDDEN', 'You can only update your own visits');
-    }
+    // Proprietario (ovunque), o curatore del museo a cui appartiene la visita.
+    await assertCan(
+      req.user,
+      'manage',
+      'visit',
+      { museumId: visit.museumId, authorId: visit.authorId },
+      'Puoi aggiornare solo le tue visite o quelle dei musei che curi',
+    );
+
+    // Per invalidare l'audio generato delle tappe il cui testo sta per
+    // cambiare (o che stanno per sparire): serve lo stato prima che
+    // Object.assign lo sovrascriva.
+    const oldStepsById = new Map(
+      visit.steps.map((step) => [step.id, JSON.parse(JSON.stringify(step))]),
+    );
 
     // Ordina le tappe per order se fornito
     if (req.body.steps) {
@@ -277,199 +370,101 @@ export class VisitController {
     }
 
     Object.assign(visit, req.body);
-    await visit.save();
 
-    res.json({
-      success: true,
-      data: visit,
-      message: 'Visit updated successfully',
-    });
-  });
+    if (req.body.steps) {
+      const newStepIds = new Set(visit.steps.map((step) => step.id));
+      const sourceLang = (visit.metadata?.language || DEFAULT_APP_LANGUAGE) as AppLanguage;
 
-  // Aggiungi tappa alla visita
-  static addStep = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-    const { id } = req.params;
-
-    if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
-    }
-
-    const visit = await VisitModel.findById(id);
-    if (!visit) {
-      throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
-    }
-
-    // Proprietario, admin o curatore (stesso criterio di update/delete).
-    const canManageStep =
-      visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
-    if (!canManageStep) {
-      throw new AppError(403, 'FORBIDDEN', 'You can only modify your own visits');
-    }
-
-    const step = req.body;
-
-    // Assegna automaticamente l'order se non fornito
-    if (step.order === undefined) {
-      const maxOrder = Math.max(...visit.steps.map((s) => s.order), 0);
-      step.order = maxOrder + 1;
-    }
-
-    visit.steps.push(step);
-    visit.steps.sort((a, b) => a.order - b.order);
-    await visit.save();
-
-    res.json({
-      success: true,
-      data: visit,
-      message: 'Step added successfully',
-    });
-  });
-
-  // Aggiorna tappa nella visita
-  static updateStep = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-    const { id, stepOrder } = req.params;
-
-    if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
-    }
-
-    const visit = await VisitModel.findById(id);
-    if (!visit) {
-      throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
-    }
-
-    // Proprietario, admin o curatore (stesso criterio di update/delete).
-    const canManageStep =
-      visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
-    if (!canManageStep) {
-      throw new AppError(403, 'FORBIDDEN', 'You can only modify your own visits');
-    }
-
-    const stepIndex = visit.steps.findIndex((s) => s.order === Number(stepOrder));
-    if (stepIndex === -1) {
-      throw new AppError(404, 'STEP_NOT_FOUND', 'Step not found');
-    }
-
-    // visit.steps[stepIndex] è un subdocument Mongoose: spread diretto non ne copia
-    // in modo affidabile i campi (stesso problema corretto in museum.controller.ts
-    // updateFloor). JSON round-trip forza un plain object prima del merge, per
-    // evitare che un PUT parziale perda id/order/type/isOptional e fallisca la
-    // validazione Mongoose al save.
-    const existingStep = JSON.parse(JSON.stringify(visit.steps[stepIndex])) as VisitStep;
-    visit.steps[stepIndex] = { ...existingStep, ...req.body };
-    visit.steps.sort((a, b) => a.order - b.order);
-    await visit.save();
-
-    res.json({
-      success: true,
-      data: visit,
-      message: 'Step updated successfully',
-    });
-  });
-
-  // Elimina tappa dalla visita
-  static deleteStep = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-    const { id, stepOrder } = req.params;
-
-    if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
-    }
-
-    const visit = await VisitModel.findById(id);
-    if (!visit) {
-      throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
-    }
-
-    // Proprietario, admin o curatore (stesso criterio di update/delete).
-    const canManageStep =
-      visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
-    if (!canManageStep) {
-      throw new AppError(403, 'FORBIDDEN', 'You can only modify your own visits');
-    }
-
-    visit.steps = visit.steps.filter((s) => s.order !== Number(stepOrder));
-
-    // Riordina le tappe rimanenti
-    visit.steps.forEach((step, index) => {
-      step.order = index + 1;
-    });
-
-    await visit.save();
-
-    res.json({
-      success: true,
-      data: visit,
-      message: 'Step deleted successfully',
-    });
-  });
-
-  // Riordina le tappe
-  static reorderSteps = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-    const { id } = req.params;
-    const { stepOrders } = req.body; // Array of { oldOrder, newOrder }
-
-    if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
-    }
-
-    const visit = await VisitModel.findById(id);
-    if (!visit) {
-      throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
-    }
-
-    // Proprietario, admin o curatore (stesso criterio di update/delete).
-    const canManageStep =
-      visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
-    if (!canManageStep) {
-      throw new AppError(403, 'FORBIDDEN', 'You can only modify your own visits');
-    }
-
-    // Applica il nuovo ordine
-    for (const { oldOrder, newOrder } of stepOrders) {
-      const step = visit.steps.find((s) => s.order === oldOrder);
-      if (step) {
-        step.order = newOrder;
+      // Tappe rimosse in questo salvataggio: il loro audio (se generato) resta
+      // orfano sul disco, va eliminato — non solo tolto dal documento.
+      for (const [stepId, oldStep] of oldStepsById) {
+        if (newStepIds.has(stepId)) continue;
+        const orphanedAudio = [
+          ...Object.values(mapToRecord<GeneratedAudio>(oldStep.logisticTextAudio)),
+          ...Object.values(mapToRecord<GeneratedAudio>(oldStep.navigationTextAudio)),
+        ];
+        for (const audio of orphanedAudio) {
+          await deleteGeneratedAudioFile(audio);
+        }
       }
+
+      const fieldPairs = [
+        ['logisticText', 'logisticTextAudio', 'logisticTextTranslations'],
+        ['navigationText', 'navigationTextAudio', 'navigationTextTranslations'],
+      ] as const;
+
+      for (const step of visit.steps) {
+        const oldStep = oldStepsById.get(step.id);
+        if (!oldStep) continue; // tappa nuova, nessun audio da invalidare
+
+        for (const [textField, audioField, translationsField] of fieldPairs) {
+          const audio = mapToRecord<GeneratedAudio>(step[audioField]);
+          if (Object.keys(audio).length === 0) continue;
+          let audioChanged = false;
+
+          if (step[textField] !== oldStep[textField] && audio[sourceLang]) {
+            await deleteGeneratedAudioFile(audio[sourceLang]);
+            delete audio[sourceLang];
+            audioChanged = true;
+          }
+
+          const oldTranslations = mapToRecord(oldStep[translationsField]);
+          const newTranslations = mapToRecord(step[translationsField]);
+          for (const lang of Object.keys(audio)) {
+            if (lang === sourceLang) continue;
+            if (newTranslations[lang] !== oldTranslations[lang]) {
+              await deleteGeneratedAudioFile(audio[lang]);
+              delete audio[lang];
+              audioChanged = true;
+            }
+          }
+
+          if (audioChanged) step[audioField] = audio;
+        }
+      }
+
+      visit.markModified('steps');
     }
 
-    visit.steps.sort((a, b) => a.order - b.order);
     await visit.save();
 
     res.json({
       success: true,
       data: visit,
-      message: 'Steps reordered successfully',
+      message: 'Visita aggiornata con successo',
     });
   });
 
-  // Pubblica visita
+  // POST /api/visits/:id/publish — pubblica la visita (richiede almeno una tappa artwork)
   static publish = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id } = req.params;
 
     if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
     const visit = await VisitModel.findById(id);
     if (!visit) {
-      throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
+      throw new AppError(404, 'VISIT_NOT_FOUND', 'Visita non trovata');
     }
 
-    // Proprietario, admin o curatore (stesso criterio di update/delete).
-    const canManageStep =
-      visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
-    if (!canManageStep) {
-      throw new AppError(403, 'FORBIDDEN', 'You can only publish your own visits');
-    }
+    // Proprietario, o curatore del museo a cui appartiene la visita (stesso criterio di update/delete).
+    await assertCan(
+      req.user,
+      'manage',
+      'visit',
+      { museumId: visit.museumId, authorId: visit.authorId },
+      'Puoi pubblicare solo le tue visite o quelle dei musei che curi',
+    );
 
     // Valida che la visita abbia il contenuto richiesto
     if (!visit.steps || visit.steps.length === 0) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Visit must have at least one step');
+      throw new AppError(400, 'VALIDATION_ERROR', 'La visita deve avere almeno una tappa');
     }
 
     const artworkSteps = visit.steps.filter((s) => s.type === 'artwork');
     if (artworkSteps.length === 0) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Visit must have at least one artwork step');
+      throw new AppError(400, 'VALIDATION_ERROR', 'La visita deve avere almeno una tappa opera');
     }
 
     visit.isPublished = true;
@@ -479,29 +474,31 @@ export class VisitController {
     res.json({
       success: true,
       data: visit,
-      message: 'Visit published successfully',
+      message: 'Visita pubblicata con successo',
     });
   });
 
-  // Rimuovi pubblicazione visita
+  // POST /api/visits/:id/unpublish — riporta la visita in bozza
   static unpublish = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id } = req.params;
 
     if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
     const visit = await VisitModel.findById(id);
     if (!visit) {
-      throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
+      throw new AppError(404, 'VISIT_NOT_FOUND', 'Visita non trovata');
     }
 
-    // Proprietario, admin o curatore (stesso criterio di update/delete).
-    const canManageStep =
-      visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
-    if (!canManageStep) {
-      throw new AppError(403, 'FORBIDDEN', 'You can only unpublish your own visits');
-    }
+    // Proprietario, o curatore del museo a cui appartiene la visita (stesso criterio di update/delete).
+    await assertCan(
+      req.user,
+      'manage',
+      'visit',
+      { museumId: visit.museumId, authorId: visit.authorId },
+      'Puoi rimuovere la pubblicazione solo dalle tue visite o da quelle dei musei che curi',
+    );
 
     visit.isPublished = false;
     await visit.save();
@@ -509,35 +506,144 @@ export class VisitController {
     res.json({
       success: true,
       data: visit,
-      message: 'Visit unpublished successfully',
+      message: 'Pubblicazione visita rimossa con successo',
     });
   });
 
-  // Elimina visita
+  // DELETE /api/visits/:id — elimina la visita (owner, admin o curatore)
   static delete = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id } = req.params;
 
     if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
     const visit = await VisitModel.findById(id);
     if (!visit) {
-      throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
+      throw new AppError(404, 'VISIT_NOT_FOUND', 'Visita non trovata');
     }
 
-    // Stesso criterio dell'update: proprietario, admin o curatore.
-    const canManage =
-      visit.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
-    if (!canManage) {
-      throw new AppError(403, 'FORBIDDEN', 'You can only delete your own visits');
-    }
+    // Stesso criterio dell'update.
+    await assertCan(
+      req.user,
+      'manage',
+      'visit',
+      { museumId: visit.museumId, authorId: visit.authorId },
+      'Puoi eliminare solo le tue visite o quelle dei musei che curi',
+    );
 
     await visit.deleteOne();
 
     res.json({
       success: true,
-      message: 'Visit deleted successfully',
+      message: 'Visita eliminata con successo',
+    });
+  });
+
+  // POST /api/visits/:id/generate-audio — come MuseumController.generateAudio
+  // ma limitato a questa sola visita (i suoi step e i soli item che referenzia)
+  // invece che all'intero catalogo del museo: stesso job "generate-audio",
+  // stessa esclusione reciproca globale (un solo job di questo tipo alla
+  // volta, ovunque — vedi jobsService.startJob), risponde subito con l'id
+  // del job da seguire (GET /api/jobs).
+  static generateAudio = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id } = req.params;
+
+    if (!req.user) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
+    }
+
+    const visit = await VisitModel.findById(id);
+    if (!visit) {
+      throw new AppError(404, 'VISIT_NOT_FOUND', 'Visita non trovata');
+    }
+
+    // Stesso livello di permesso del bottone a livello di museo: gestire
+    // l'audio generato (costa, tocca lo stesso account OpenAI di tutti i
+    // musei) resta riservato al curatore del museo, non a un autore qualsiasi
+    // della visita.
+    const museum = await findMuseumByAnyId(visit.museumId);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo della visita non trovato');
+    }
+    await assertCan(
+      req.user,
+      'manage',
+      'museum',
+      { museumId: String(museum._id) },
+      "Solo il curatore del museo può generare l'audio di questa visita",
+    );
+
+    const job = await jobsService.startJob({
+      type: 'generate-audio',
+      museumId: String(museum._id),
+      visitId: String(visit._id),
+      startedBy: req.user.id,
+    });
+
+    void MuseumController.runAudioGenerationJob(
+      String(job._id),
+      String(museum._id),
+      museum.activeLanguages,
+      String(visit._id),
+    );
+
+    res.status(202).json({
+      success: true,
+      data: { jobId: job._id, museumId: String(museum._id), visitId: String(visit._id) },
+      message: "Generazione audio avviata: segui l'avanzamento dalle notifiche",
+    });
+  });
+
+  // POST /api/visits/:id/sync-languages — come MuseumController.syncLanguages
+  // ma limitato a questa sola visita (lei stessa + i soli item che
+  // referenzia) invece che all'intero catalogo del museo: usa le lingue
+  // attive già impostate sul museo (non le cambia, a differenza della
+  // versione a livello museo — qui non ha senso chiedere di nuovo le lingue
+  // attive per una singola visita). Stesso job "sync-languages", stessa
+  // esclusione reciproca globale, risponde subito con l'id del job.
+  static syncLanguages = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id } = req.params;
+
+    if (!req.user) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
+    }
+
+    const visit = await VisitModel.findById(id);
+    if (!visit) {
+      throw new AppError(404, 'VISIT_NOT_FOUND', 'Visita non trovata');
+    }
+
+    const museum = await findMuseumByAnyId(visit.museumId);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo della visita non trovato');
+    }
+    await assertCan(
+      req.user,
+      'manage',
+      'museum',
+      { museumId: String(museum._id) },
+      'Solo il curatore del museo può sincronizzare le traduzioni di questa visita',
+    );
+
+    const job = await jobsService.startJob({
+      type: 'sync-languages',
+      museumId: String(museum._id),
+      visitId: String(visit._id),
+      startedBy: req.user.id,
+    });
+
+    void MuseumController.runTranslationSyncJob(
+      String(job._id),
+      String(museum._id),
+      museum.activeLanguages,
+      String(visit._id),
+    );
+
+    res.status(202).json({
+      success: true,
+      data: { jobId: job._id, museumId: String(museum._id), visitId: String(visit._id) },
+      message: "Sincronizzazione lingue avviata: segui l'avanzamento dalle notifiche",
     });
   });
 }

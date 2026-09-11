@@ -8,16 +8,26 @@ import { userService } from '../../services/user.service';
 import { uploadService } from '../../services/upload.service';
 import { translationService } from '../../services/translation.service';
 import { modalService } from '../../services/modal.service';
+import { navigatorConfigService } from '../../services/navigator-config.service';
+import { jobsService, type Job } from '../../services/jobs.service';
 import type {
   Museum,
   User,
   CreateMuseumData,
   MuseumCurator,
   MuseumRoom,
+  MuseumService,
+  MapMarker,
+  MarkerType,
   AppLanguage,
+  NavigatorConfig,
+  CreateNavigatorConfigData,
 } from '@artaround/shared';
-import { UserRole, ContextualRole, ResourceType } from '@artaround/shared';
+import { MUSEUM_SERVICE_TYPE_OPTIONS, MARKER_TYPE_META } from '@artaround/shared';
+
+import { isMuseumCurator } from '../../services/permissions.service';
 import '../ui/ui-button';
+import '../ui/ai-job-action';
 import '../ui/ui-card';
 import '../ui/ui-icon';
 import '../ui/ui-input';
@@ -47,26 +57,23 @@ import {
   HEX_COLOR_REGEX,
   SLUG_REGEX,
   sanitizeSlug,
-  normalizeHexColor,
-  isNavigatorConfigLanguageFullyTranslated,
   updateNavigatorConfigTranslationField,
+  getNavigatorImageEditorDefinitions,
+  renderNavigatorImageEditors,
+  renderNavigatorColorField,
+  renderNavigatorTranslationsSection,
+  computeNavigatorMissingTranslations,
+  NAVIGATOR_FONT_SELECT_OPTIONS,
   type NavigatorConfigFormData,
   type NavigatorColorFieldKey,
   type NavigatorTranslationFieldKey,
+  type NavigatorImageFieldKey,
 } from '../../utils/navigator-config';
 import 'leaflet/dist/leaflet.css';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'view' | 'curators';
 type MuseumListLayout = 'grid' | 'table';
 type MuseumSortField = 'name' | 'city' | 'country' | 'status';
-type NavigatorImageFieldKey =
-  | 'logo'
-  | 'splashImage'
-  | 'openingImage'
-  | 'icon192'
-  | 'icon512'
-  | 'iconMaskable'
-  | 'appleTouchIcon';
 
 interface MuseumFormData {
   wikidataId: string;
@@ -90,52 +97,7 @@ interface MuseumFormData {
   ticketInfo: string;
   ticketInfoTranslations: Partial<Record<AppLanguage, string>>;
   coverImage: string;
-  navigatorConfigs: NavigatorConfigFormData[];
-}
-
-interface NavigatorConfigRaw {
-  id: string;
-  name: string;
-  slug: string;
-  branding: {
-    logo?: string;
-    splashImage?: string;
-    primaryColor: string;
-    secondaryColor?: string;
-  };
-  content?: {
-    homeTitle?: string;
-    homeTitleTranslations?: Partial<Record<AppLanguage, string>>;
-    homeSubtitle?: string;
-    homeSubtitleTranslations?: Partial<Record<AppLanguage, string>>;
-    welcomeText?: string;
-    welcomeTextTranslations?: Partial<Record<AppLanguage, string>>;
-    openingImage?: string;
-  };
-  pwa: {
-    manifestName: string;
-    shortName: string;
-    description?: string;
-    descriptionTranslations?: Partial<Record<AppLanguage, string>>;
-    themeColor: string;
-    backgroundColor: string;
-    display: NavigatorConfigFormData['display'];
-    orientation: NavigatorConfigFormData['orientation'];
-    startUrl: string;
-    scope: string;
-    icon192?: string;
-    icon512?: string;
-    iconMaskable?: string;
-    appleTouchIcon?: string;
-  };
-}
-
-interface NavigatorImageEditorDefinition {
-  key: NavigatorImageFieldKey;
-  label: string;
-  maxWidth: number;
-  maxHeight: number;
-  defaultFormat: 'png' | 'webp';
+  services: MuseumService[];
 }
 
 /**
@@ -147,51 +109,7 @@ interface NavigatorImageEditorDefinition {
  */
 @customElement('museums-management-page')
 export class MuseumsManagementPage extends LitElement {
-  private readonly navigatorImageEditors: NavigatorImageEditorDefinition[] = [
-    { key: 'logo', label: __('Logo'), maxWidth: 512, maxHeight: 512, defaultFormat: 'png' },
-    {
-      key: 'splashImage',
-      label: __('Immagine apertura'),
-      maxWidth: 1440,
-      maxHeight: 2560,
-      defaultFormat: 'webp',
-    },
-    {
-      key: 'openingImage',
-      label: __('Opening image'),
-      maxWidth: 1440,
-      maxHeight: 2560,
-      defaultFormat: 'webp',
-    },
-    {
-      key: 'icon192',
-      label: __('Icon 192x192'),
-      maxWidth: 192,
-      maxHeight: 192,
-      defaultFormat: 'png',
-    },
-    {
-      key: 'icon512',
-      label: __('Icon 512x512'),
-      maxWidth: 512,
-      maxHeight: 512,
-      defaultFormat: 'png',
-    },
-    {
-      key: 'iconMaskable',
-      label: __('Icon maskable'),
-      maxWidth: 512,
-      maxHeight: 512,
-      defaultFormat: 'png',
-    },
-    {
-      key: 'appleTouchIcon',
-      label: __('Apple touch icon'),
-      maxWidth: 180,
-      maxHeight: 180,
-      defaultFormat: 'png',
-    },
-  ];
+  private readonly navigatorImageEditors = getNavigatorImageEditorDefinitions();
 
   @property({ type: Object }) currentUser: User | null = null;
   @property({ type: String }) selectedMuseumId = '';
@@ -203,8 +121,12 @@ export class MuseumsManagementPage extends LitElement {
   @state() private loading = true;
   @state() private saving = false;
   @state() private syncingLanguages = false;
+  @state() private generatingAudio = false;
+  // Rispecchia jobsService.getJobs() (vedi handleJobsChanged) — reattivo qui
+  // solo per far ridisegnare bottone/banner "Genera audio mancante" quando
+  // un job parte/avanza/finisce, non è la fonte di verità (quella resta jobsService).
+  @state() private jobs: Job[] = jobsService.getJobs();
   @state() private translatingMuseumFields = false;
-  @state() private translatingNavigatorConfigId: string | null = null;
   @state() private error = '';
   @state() private success = '';
 
@@ -245,7 +167,16 @@ export class MuseumsManagementPage extends LitElement {
   @state() private geocodingLocation = false;
   @state() private geocodingStatus = '';
   @state() private museumTranslationLanguage: AppLanguage | null = null;
-  @state() private navigatorTranslationLanguageByConfig: Partial<Record<string, AppLanguage>> = {};
+
+  // Configurazioni Navigator del museo: documenti separati, CRUD via
+  // /api/navigator-configs — vedi loadNavigatorConfigs/saveNavigatorConfig.
+  @state() private navigatorConfigs: NavigatorConfigFormData[] = [];
+  @state() private loadingNavigatorConfigs = false;
+  @state() private editingNavigatorConfig: NavigatorConfigFormData | null = null;
+  @state() private savingNavigatorConfig = false;
+  @state() private deletingNavigatorConfigId: string | null = null;
+  @state() private translatingNavigatorConfig = false;
+  @state() private navigatorConfigTranslationLanguage: AppLanguage | null = null;
 
   private leafletModule: typeof import('leaflet') | null = null;
   private locationMap: LeafletMap | null = null;
@@ -295,7 +226,17 @@ export class MuseumsManagementPage extends LitElement {
     } else {
       this.loadSelectedMuseumForConfigMode();
     }
+
+    window.addEventListener('jobs-changed', this.handleJobsChanged);
+    void jobsService.refresh();
   }
+
+  // this.jobs (non jobsService.getJobs() direttamente) è anche il motivo per
+  // cui Lit ridisegna quando jobsService avanza — i due ai-job-action nel
+  // template leggono `.jobs` e calcolano da sé banner/disabled per tipo.
+  private handleJobsChanged = (e: Event): void => {
+    this.jobs = (e as CustomEvent<Job[]>).detail;
+  };
 
   updated(changedProps: Map<string, unknown>) {
     if (changedProps.has('viewMode')) {
@@ -314,6 +255,8 @@ export class MuseumsManagementPage extends LitElement {
   }
 
   disconnectedCallback() {
+    window.removeEventListener('jobs-changed', this.handleJobsChanged);
+
     if (this.geocodeDebounceId) {
       window.clearTimeout(this.geocodeDebounceId);
       this.geocodeDebounceId = null;
@@ -353,19 +296,26 @@ export class MuseumsManagementPage extends LitElement {
       ticketInfo: '',
       ticketInfoTranslations: {},
       coverImage: '',
-      navigatorConfigs: [this.getEmptyNavigatorConfig(1)],
+      services: [],
     };
   }
 
-  private getEmptyNavigatorConfig(index: number): NavigatorConfigFormData {
+  // Form vuoto per una nuova NavigatorConfig di questo museo (applicability
+  // 'museum'), salvata via navigatorConfigService.create.
+  private getEmptyNavigatorConfigFormData(): NavigatorConfigFormData {
     return {
-      id: `cfg-${Date.now()}-${index}`,
-      name: `Navigator ${index}`,
-      slug: `navigator-${index}`,
+      id: '',
+      name: '',
+      slug: '',
+      applicability: 'museum',
+      museumId: this.selectedMuseumId,
       logo: '',
       splashImage: '',
       primaryColor: '#0ea5e9',
       secondaryColor: '#1f2937',
+      appBackgroundColor: '',
+      displayFont: '',
+      bodyFont: '',
       homeTitle: '',
       homeTitleTranslations: {},
       homeSubtitle: '',
@@ -373,8 +323,9 @@ export class MuseumsManagementPage extends LitElement {
       welcomeText: '',
       welcomeTextTranslations: {},
       openingImage: '',
-      manifestName: `ArtAround Navigator ${index}`,
-      shortName: `AANav ${index}`,
+      featuredMuseumId: '',
+      manifestName: '',
+      shortName: '',
       manifestDescription: '',
       manifestDescriptionTranslations: {},
       themeColor: '#0ea5e9',
@@ -390,33 +341,50 @@ export class MuseumsManagementPage extends LitElement {
     };
   }
 
-  private mapNavigatorConfigsFromMuseum(museum: Museum): NavigatorConfigFormData[] {
-    const navigatorConfigs = (museum as Museum & { navigatorConfigs?: NavigatorConfigRaw[] })
-      .navigatorConfigs;
-
-    if (!navigatorConfigs || navigatorConfigs.length === 0) {
-      return [];
+  private normalizeIncomingNavigatorTranslations(
+    value: Partial<Record<AppLanguage, string>> | Map<string, string> | undefined,
+  ): Partial<Record<AppLanguage, string>> {
+    if (!value) return {};
+    if (value instanceof Map) {
+      return Object.fromEntries(value.entries()) as Partial<Record<AppLanguage, string>>;
     }
+    return value;
+  }
 
-    return navigatorConfigs.map((config) => ({
-      id: config.id,
+  private mapNavigatorConfigToFormData(config: NavigatorConfig): NavigatorConfigFormData {
+    return {
+      id: config._id,
       name: config.name,
       slug: config.slug,
+      applicability: config.applicability,
+      museumId: config.museumId || '',
       logo: config.branding.logo || '',
       splashImage: config.branding.splashImage || '',
       primaryColor: config.branding.primaryColor,
       secondaryColor: config.branding.secondaryColor || '',
+      appBackgroundColor: config.branding.backgroundColor || '',
+      displayFont: config.branding.displayFont || '',
+      bodyFont: config.branding.bodyFont || '',
       homeTitle: config.content?.homeTitle || '',
-      homeTitleTranslations: config.content?.homeTitleTranslations || {},
+      homeTitleTranslations: this.normalizeIncomingNavigatorTranslations(
+        config.content?.homeTitleTranslations,
+      ),
       homeSubtitle: config.content?.homeSubtitle || '',
-      homeSubtitleTranslations: config.content?.homeSubtitleTranslations || {},
+      homeSubtitleTranslations: this.normalizeIncomingNavigatorTranslations(
+        config.content?.homeSubtitleTranslations,
+      ),
       welcomeText: config.content?.welcomeText || '',
-      welcomeTextTranslations: config.content?.welcomeTextTranslations || {},
+      welcomeTextTranslations: this.normalizeIncomingNavigatorTranslations(
+        config.content?.welcomeTextTranslations,
+      ),
       openingImage: config.content?.openingImage || '',
+      featuredMuseumId: config.content?.featuredMuseumId || '',
       manifestName: config.pwa.manifestName,
       shortName: config.pwa.shortName,
       manifestDescription: config.pwa.description || '',
-      manifestDescriptionTranslations: config.pwa.descriptionTranslations || {},
+      manifestDescriptionTranslations: this.normalizeIncomingNavigatorTranslations(
+        config.pwa.descriptionTranslations,
+      ),
       themeColor: config.pwa.themeColor,
       backgroundColor: config.pwa.backgroundColor,
       display: config.pwa.display,
@@ -427,7 +395,27 @@ export class MuseumsManagementPage extends LitElement {
       icon512: config.pwa.icon512 || '',
       iconMaskable: config.pwa.iconMaskable || '',
       appleTouchIcon: config.pwa.appleTouchIcon || '',
-    })) as NavigatorConfigFormData[];
+    };
+  }
+
+  private async loadNavigatorConfigs() {
+    if (!this.selectedMuseumId) return;
+
+    this.loadingNavigatorConfigs = true;
+    try {
+      const all = await navigatorConfigService.list();
+      // list() è già filtrata dal server per i curatori; per un admin include
+      // le config di TUTTI i musei, quindi il filtro per museumId qui serve
+      // comunque a mostrare solo quelle di questo museo.
+      this.navigatorConfigs = all
+        .filter((c) => c.applicability === 'museum' && c.museumId === this.selectedMuseumId)
+        .map((c) => this.mapNavigatorConfigToFormData(c));
+    } catch (e) {
+      console.error('Error loading navigator configs:', e);
+      this.error = __('Errore nel caricamento delle configurazioni navigator');
+    } finally {
+      this.loadingNavigatorConfigs = false;
+    }
   }
 
   private hasRequiredLocationForGeocoding(): boolean {
@@ -545,9 +533,14 @@ export class MuseumsManagementPage extends LitElement {
         zoomControl: true,
       }).setView([41.9028, 12.4964], 5);
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-      }).addTo(this.locationMap);
+      L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+        {
+          attribution:
+            'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
+          maxZoom: 19,
+        },
+      ).addTo(this.locationMap);
     }
 
     const coordinates = this.getCurrentCoordinates();
@@ -603,6 +596,12 @@ export class MuseumsManagementPage extends LitElement {
         source: this.formData.ticketInfo,
         translations: this.formData.ticketInfoTranslations,
       },
+      ...this.formData.services
+        .filter((service) => service.active && service.description?.trim())
+        .map((service) => ({
+          source: service.description || '',
+          translations: service.descriptionTranslations || {},
+        })),
     ];
 
     return isLanguageFullyTranslated(fields, language);
@@ -659,6 +658,9 @@ export class MuseumsManagementPage extends LitElement {
     }
 
     const batchItems: Array<{ key: string; text: string; targetLang: AppLanguage }> = [];
+    const translatableServices = this.formData.services.filter(
+      (service) => service.active && service.description?.trim(),
+    );
 
     for (const lang of targets) {
       if (this.formData.name.trim() && !this.formData.nameTranslations[lang]?.trim()) {
@@ -691,6 +693,15 @@ export class MuseumsManagementPage extends LitElement {
           targetLang: lang,
         });
       }
+      for (const service of translatableServices) {
+        if (!service.descriptionTranslations?.[lang]?.trim()) {
+          batchItems.push({
+            key: `${lang}:service:${service.type}`,
+            text: service.description as string,
+            targetLang: lang,
+          });
+        }
+      }
     }
 
     if (batchItems.length === 0) {
@@ -708,6 +719,7 @@ export class MuseumsManagementPage extends LitElement {
       const nextDescriptionTranslations = { ...this.formData.descriptionTranslations };
       const nextOpeningHoursTranslations = { ...this.formData.openingHoursTranslations };
       const nextTicketInfoTranslations = { ...this.formData.ticketInfoTranslations };
+      const nextServices = this.formData.services.map((service) => ({ ...service }));
 
       for (const lang of targets) {
         const nameKey = `${lang}:name`;
@@ -727,6 +739,15 @@ export class MuseumsManagementPage extends LitElement {
         if (translations[ticketInfoKey]) {
           nextTicketInfoTranslations[lang] = translations[ticketInfoKey];
         }
+        for (const service of nextServices) {
+          const serviceKey = `${lang}:service:${service.type}`;
+          if (translations[serviceKey]) {
+            service.descriptionTranslations = {
+              ...service.descriptionTranslations,
+              [lang]: translations[serviceKey],
+            };
+          }
+        }
       }
 
       this.formData = {
@@ -735,6 +756,7 @@ export class MuseumsManagementPage extends LitElement {
         descriptionTranslations: nextDescriptionTranslations,
         openingHoursTranslations: nextOpeningHoursTranslations,
         ticketInfoTranslations: nextTicketInfoTranslations,
+        services: nextServices,
       };
 
       this.success = __('Traduzioni del museo generate con successo');
@@ -745,7 +767,50 @@ export class MuseumsManagementPage extends LitElement {
     }
   }
 
-  private async translateMissingNavigatorFields(configId: string) {
+  // ─── Configurazioni Navigator (CRUD via /api/navigator-configs) ────
+  private openNewNavigatorConfig() {
+    this.editingNavigatorConfig = this.getEmptyNavigatorConfigFormData();
+    this.navigatorConfigTranslationLanguage = null;
+    this.error = '';
+    this.success = '';
+  }
+
+  private openEditNavigatorConfig(config: NavigatorConfigFormData) {
+    this.editingNavigatorConfig = { ...config };
+    this.navigatorConfigTranslationLanguage = null;
+    this.error = '';
+    this.success = '';
+  }
+
+  private cancelEditNavigatorConfig() {
+    this.editingNavigatorConfig = null;
+  }
+
+  private updateEditingNavigatorConfig(patch: Partial<NavigatorConfigFormData>) {
+    if (!this.editingNavigatorConfig) return;
+    this.editingNavigatorConfig = { ...this.editingNavigatorConfig, ...patch };
+  }
+
+  private updateEditingNavigatorTranslationField(
+    field: NavigatorTranslationFieldKey,
+    language: AppLanguage,
+    value: string,
+  ) {
+    if (!this.editingNavigatorConfig) return;
+    const [updated] = updateNavigatorConfigTranslationField(
+      [this.editingNavigatorConfig],
+      this.editingNavigatorConfig.id,
+      field,
+      language,
+      value,
+    );
+    this.editingNavigatorConfig = updated;
+  }
+
+  private async translateMissingNavigatorFields() {
+    const config = this.editingNavigatorConfig;
+    if (!config) return;
+
     const sourceLanguage = this.getActiveSourceLanguage();
     const targets = this.getMuseumTargetLanguages();
 
@@ -754,307 +819,192 @@ export class MuseumsManagementPage extends LitElement {
       return;
     }
 
-    const config = this.formData.navigatorConfigs.find((item) => item.id === configId);
-    if (!config) {
-      return;
-    }
-
-    const batchItems: Array<{ key: string; text: string; targetLang: AppLanguage }> = [];
-
-    for (const lang of targets) {
-      if (config.homeTitle.trim() && !config.homeTitleTranslations[lang]?.trim()) {
-        batchItems.push({ key: `${lang}:homeTitle`, text: config.homeTitle, targetLang: lang });
-      }
-      if (config.homeSubtitle.trim() && !config.homeSubtitleTranslations[lang]?.trim()) {
-        batchItems.push({
-          key: `${lang}:homeSubtitle`,
-          text: config.homeSubtitle,
-          targetLang: lang,
-        });
-      }
-      if (config.welcomeText.trim() && !config.welcomeTextTranslations[lang]?.trim()) {
-        batchItems.push({
-          key: `${lang}:welcomeText`,
-          text: config.welcomeText,
-          targetLang: lang,
-        });
-      }
-      if (
-        config.manifestDescription.trim() &&
-        !config.manifestDescriptionTranslations[lang]?.trim()
-      ) {
-        batchItems.push({
-          key: `${lang}:manifestDescription`,
-          text: config.manifestDescription,
-          targetLang: lang,
-        });
-      }
-    }
-
-    if (batchItems.length === 0) {
-      this.success = __('Le traduzioni navigator sono già complete');
-      return;
-    }
-
-    this.translatingNavigatorConfigId = configId;
+    this.translatingNavigatorConfig = true;
     this.error = '';
 
     try {
-      const translations = await translationService.translateBatch(sourceLanguage, batchItems);
+      const patch = await computeNavigatorMissingTranslations(config, sourceLanguage, targets);
+      if (!patch) {
+        this.success = __('Le traduzioni navigator sono già complete');
+        return;
+      }
 
-      const updatedConfigs = this.formData.navigatorConfigs.map((item) => {
-        if (item.id !== configId) {
-          return item;
-        }
-
-        const nextHomeTitleTranslations = { ...item.homeTitleTranslations };
-        const nextHomeSubtitleTranslations = { ...item.homeSubtitleTranslations };
-        const nextWelcomeTextTranslations = { ...item.welcomeTextTranslations };
-        const nextManifestDescriptionTranslations = { ...item.manifestDescriptionTranslations };
-
-        for (const lang of targets) {
-          const homeTitleKey = `${lang}:homeTitle`;
-          const homeSubtitleKey = `${lang}:homeSubtitle`;
-          const welcomeTextKey = `${lang}:welcomeText`;
-          const manifestDescriptionKey = `${lang}:manifestDescription`;
-
-          if (translations[homeTitleKey]) {
-            nextHomeTitleTranslations[lang] = translations[homeTitleKey];
-          }
-          if (translations[homeSubtitleKey]) {
-            nextHomeSubtitleTranslations[lang] = translations[homeSubtitleKey];
-          }
-          if (translations[welcomeTextKey]) {
-            nextWelcomeTextTranslations[lang] = translations[welcomeTextKey];
-          }
-          if (translations[manifestDescriptionKey]) {
-            nextManifestDescriptionTranslations[lang] = translations[manifestDescriptionKey];
-          }
-        }
-
-        return {
-          ...item,
-          homeTitleTranslations: nextHomeTitleTranslations,
-          homeSubtitleTranslations: nextHomeSubtitleTranslations,
-          welcomeTextTranslations: nextWelcomeTextTranslations,
-          manifestDescriptionTranslations: nextManifestDescriptionTranslations,
-        };
-      });
-
-      this.formData = {
-        ...this.formData,
-        navigatorConfigs: updatedConfigs,
-      };
-
+      this.editingNavigatorConfig = { ...config, ...patch };
       this.success = __('Traduzioni navigator generate con successo');
     } catch {
       this.error = __('Traduzione automatica non riuscita');
     } finally {
-      this.translatingNavigatorConfigId = null;
+      this.translatingNavigatorConfig = false;
     }
   }
 
-  private addNavigatorConfig() {
-    const nextIndex = this.formData.navigatorConfigs.length + 1;
-    this.formData = {
-      ...this.formData,
-      navigatorConfigs: [
-        ...this.formData.navigatorConfigs,
-        this.getEmptyNavigatorConfig(nextIndex),
-      ],
-    };
-  }
+  private validateNavigatorConfigBeforeSave(): string | null {
+    const config = this.editingNavigatorConfig;
+    if (!config) return __('Nessuna configurazione da salvare');
 
-  private removeNavigatorConfig(id: string) {
-    const remaining = this.formData.navigatorConfigs.filter((config) => config.id !== id);
-    this.formData = { ...this.formData, navigatorConfigs: remaining };
-    const nextLanguageMap = { ...this.navigatorTranslationLanguageByConfig };
-    delete nextLanguageMap[id];
-    this.navigatorTranslationLanguageByConfig = nextLanguageMap;
-  }
+    if (!config.name.trim()) return __('Il nome è obbligatorio');
 
-  private updateNavigatorConfig(id: string, patch: Partial<NavigatorConfigFormData>) {
-    const updated = this.formData.navigatorConfigs.map((config) => {
-      if (config.id !== id) {
-        return config;
-      }
+    const slug = sanitizeSlug(config.slug);
+    if (!slug || !SLUG_REGEX.test(slug)) return __('Slug non valido');
 
-      return {
-        ...config,
-        ...patch,
-      };
-    });
-
-    this.formData = { ...this.formData, navigatorConfigs: updated };
-  }
-
-  private updateNavigatorTranslationField(
-    configId: string,
-    field: NavigatorTranslationFieldKey,
-    language: AppLanguage,
-    value: string,
-  ) {
-    const updated = updateNavigatorConfigTranslationField(
-      this.formData.navigatorConfigs,
-      configId,
-      field,
-      language,
-      value,
-    );
-
-    this.formData = { ...this.formData, navigatorConfigs: updated };
-  }
-
-  private updateNavigatorColor(
-    id: string,
-    key: 'primaryColor' | 'secondaryColor' | 'themeColor' | 'backgroundColor',
-    value: string,
-  ) {
-    this.updateNavigatorConfig(id, {
-      [key]: value,
-    } as Partial<NavigatorConfigFormData>);
-  }
-
-  private validateNavigatorConfigsBeforeSubmit(): string | null {
-    const configs = this.formData.navigatorConfigs;
-    if (!configs.length) {
-      return null;
+    if (!config.manifestName.trim() || !config.shortName.trim()) {
+      return __('Nome manifest e nome breve manifest sono obbligatori');
     }
 
-    const slugSet = new Set<string>();
+    const colors = [
+      config.primaryColor,
+      config.themeColor,
+      config.backgroundColor,
+      config.secondaryColor,
+      config.appBackgroundColor,
+    ].filter(Boolean);
 
-    for (const config of configs) {
-      if (!config.id.trim() || !config.name.trim()) {
-        return __('Ogni configurazione deve avere ID e nome');
-      }
-
-      const slug = sanitizeSlug(config.slug);
-      if (!slug || !SLUG_REGEX.test(slug)) {
-        return `${__('Slug non valido per')} "${config.name}" (${__('usa solo lettere minuscole, numeri e trattini')})`;
-      }
-
-      if (slugSet.has(slug)) {
-        return `${__('Slug duplicato')}: ${slug}`;
-      }
-      slugSet.add(slug);
-
-      if (!config.manifestName.trim() || !config.shortName.trim()) {
-        return `${__('Manifest name e short name sono obbligatori per')} "${config.name}"`;
-      }
-
-      if (!config.startUrl.trim() || !config.scope.trim()) {
-        return `${__('Start URL e scope sono obbligatori per')} "${config.name}"`;
-      }
-
-      if (!config.icon192.trim() || !config.icon512.trim()) {
-        return `${__('Le icone 192x192 e 512x512 sono obbligatorie per')} "${config.name}"`;
-      }
-
-      const colors = [
-        { label: __('Colore primario'), value: config.primaryColor },
-        { label: __('Colore tema'), value: config.themeColor },
-        { label: __('Colore sfondo'), value: config.backgroundColor },
-      ];
-
-      if (config.secondaryColor.trim()) {
-        colors.push({ label: __('Colore secondario'), value: config.secondaryColor });
-      }
-
-      for (const color of colors) {
-        if (!HEX_COLOR_REGEX.test(color.value.trim())) {
-          return `${color.label} ${__('non valido in')} "${config.name}". ${__('Usa formato HEX (es. #0ea5e9)')}`;
-        }
+    for (const color of colors) {
+      if (!HEX_COLOR_REGEX.test(color.trim())) {
+        return `${__('Colore non valido')}. ${__('Usa formato HEX (es. #0ea5e9)')}`;
       }
     }
 
     return null;
   }
 
-  private buildNavigatorManifest(config: NavigatorConfigFormData) {
-    const icons = [
-      config.icon192
-        ? {
-            src: config.icon192,
-            sizes: '192x192',
-            type: 'image/png',
-          }
-        : null,
-      config.icon512
-        ? {
-            src: config.icon512,
-            sizes: '512x512',
-            type: 'image/png',
-          }
-        : null,
-      config.iconMaskable
-        ? {
-            src: config.iconMaskable,
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable',
-          }
-        : null,
-      config.appleTouchIcon
-        ? {
-            src: config.appleTouchIcon,
-            sizes: '180x180',
-            type: 'image/png',
-          }
-        : null,
-    ].filter(Boolean);
-
+  private toNavigatorConfigPayload(): CreateNavigatorConfigData {
+    const config = this.editingNavigatorConfig!;
     return {
-      name: config.manifestName,
-      short_name: config.shortName,
-      description: config.manifestDescription || undefined,
-      start_url: config.startUrl,
-      scope: config.scope,
-      display: config.display,
-      orientation: config.orientation,
-      theme_color: config.themeColor,
-      background_color: config.backgroundColor,
-      icons,
+      name: config.name,
+      slug: sanitizeSlug(config.slug),
+      applicability: 'museum',
+      museumId: this.selectedMuseumId,
+      branding: {
+        logo: config.logo || undefined,
+        splashImage: config.splashImage || undefined,
+        primaryColor: config.primaryColor,
+        secondaryColor: config.secondaryColor || undefined,
+        backgroundColor: config.appBackgroundColor || undefined,
+        displayFont: (config.displayFont ||
+          undefined) as CreateNavigatorConfigData['branding']['displayFont'],
+        bodyFont: (config.bodyFont ||
+          undefined) as CreateNavigatorConfigData['branding']['bodyFont'],
+      },
+      content: {
+        homeTitle: config.homeTitle || undefined,
+        homeTitleTranslations: this.normalizeTranslationMap(config.homeTitleTranslations),
+        homeSubtitle: config.homeSubtitle || undefined,
+        homeSubtitleTranslations: this.normalizeTranslationMap(config.homeSubtitleTranslations),
+        welcomeText: config.welcomeText || undefined,
+        welcomeTextTranslations: this.normalizeTranslationMap(config.welcomeTextTranslations),
+        openingImage: config.openingImage || undefined,
+      },
+      pwa: {
+        manifestName: config.manifestName,
+        shortName: config.shortName,
+        description: config.manifestDescription || undefined,
+        descriptionTranslations: this.normalizeTranslationMap(
+          config.manifestDescriptionTranslations,
+        ),
+        themeColor: config.themeColor,
+        backgroundColor: config.backgroundColor,
+        display: config.display,
+        orientation: config.orientation,
+        startUrl: config.startUrl || '/',
+        scope: config.scope || '/',
+        icon192: config.icon192 || undefined,
+        icon512: config.icon512 || undefined,
+        iconMaskable: config.iconMaskable || undefined,
+        appleTouchIcon: config.appleTouchIcon || undefined,
+      },
     };
   }
 
-  private exportNavigatorManifest(config: NavigatorConfigFormData) {
-    const validationError = this.validateNavigatorConfigsBeforeSubmit();
+  private async saveNavigatorConfig() {
+    this.error = '';
+    this.success = '';
+
+    const validationError = this.validateNavigatorConfigBeforeSave();
     if (validationError) {
       this.error = validationError;
       return;
     }
 
-    const manifest = this.buildNavigatorManifest(config);
-    const blob = new Blob([JSON.stringify(manifest, null, 2)], {
-      type: 'application/manifest+json',
+    this.savingNavigatorConfig = true;
+    try {
+      const payload = this.toNavigatorConfigPayload();
+      const isNew = !this.editingNavigatorConfig!.id;
+      // applicability/museumId sono immutabili dopo la creazione: in update
+      // non vanno inviati (UpdateNavigatorConfigData non li accetta nemmeno).
+      const result = isNew
+        ? await navigatorConfigService.create(payload)
+        : await navigatorConfigService.update(this.editingNavigatorConfig!.id, {
+            name: payload.name,
+            slug: payload.slug,
+            branding: payload.branding,
+            content: payload.content,
+            pwa: payload.pwa,
+          });
+
+      if (result.error || !result.data) {
+        this.error = result.error || __('Errore durante il salvataggio della configurazione');
+      } else {
+        this.success = __('Configurazione salvata con successo');
+        this.editingNavigatorConfig = null;
+        await this.loadNavigatorConfigs();
+      }
+    } finally {
+      this.savingNavigatorConfig = false;
+    }
+  }
+
+  private async deleteNavigatorConfig(config: NavigatorConfigFormData) {
+    const confirmed = await modalService.confirm({
+      title: __('Elimina configurazione'),
+      message: `${__('Sei sicuro di voler eliminare la configurazione')} "${config.name}"? ${__('Questa azione è irreversibile.')}`,
+      confirmLabel: __('Elimina'),
+      variant: 'danger',
     });
-    const downloadUrl = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = downloadUrl;
-    anchor.download = `${config.slug || 'navigator'}-manifest.webmanifest`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(downloadUrl);
+    if (!confirmed) return;
+
+    this.deletingNavigatorConfigId = config.id;
+    this.error = '';
+    try {
+      const result = await navigatorConfigService.delete(config.id);
+      if (result.success) {
+        this.success = __('Configurazione eliminata con successo');
+        if (this.editingNavigatorConfig?.id === config.id) {
+          this.editingNavigatorConfig = null;
+        }
+        await this.loadNavigatorConfigs();
+      } else {
+        this.error = result.error || __("Errore durante l'eliminazione della configurazione");
+      }
+    } catch {
+      this.error = __("Errore durante l'eliminazione della configurazione");
+    } finally {
+      this.deletingNavigatorConfigId = null;
+    }
+  }
+
+  private openNavigatorManifestPreview(config: NavigatorConfigFormData) {
+    if (!config.slug) return;
+    window.open(
+      `/api/navigator-configs/manifest?slug=${encodeURIComponent(config.slug)}`,
+      '_blank',
+    );
+  }
+
+  // Apre l'app Navigator vera e propria con questa config attiva (?ncfg=slug,
+  // stesso parametro letto da navigatorConfigStore.ts lato Navigator) — a
+  // differenza dell'anteprima manifest, qui si vede davvero l'app.
+  private openNavigatorPreview(config: NavigatorConfigFormData) {
+    if (!config.slug) return;
+    window.open(`/navigator/?ncfg=${encodeURIComponent(config.slug)}`, '_blank');
   }
 
   private get isAdmin(): boolean {
-    return this.currentUser?.role === UserRole.ADMIN;
+    return !!this.currentUser?.isAdmin;
   }
 
   private canEditMuseum(museum: Museum): boolean {
-    if (!this.currentUser) return false;
-    if (this.currentUser.role === UserRole.ADMIN) return true;
-
-    // Controlla se l'utente è curatore di questo museo
-    return (
-      this.currentUser.roleAssignments?.some(
-        (assignment) =>
-          assignment.resourceType === ResourceType.MUSEUM &&
-          assignment.resourceId === museum._id &&
-          assignment.role === ContextualRole.MANAGER,
-      ) ?? false
-    );
+    return isMuseumCurator(this.currentUser, museum._id);
   }
 
   // ─── Caricamento dati ────────────────────────────────────────
@@ -1228,7 +1178,7 @@ export class MuseumsManagementPage extends LitElement {
           variant="secondary"
           size="sm"
           .label=${__('Reset')}
-          @click=${this.resetListControls}
+          @click=${() => this.resetListControls()}
         ></ui-button>
       </div>
     `;
@@ -1395,11 +1345,16 @@ export class MuseumsManagementPage extends LitElement {
       ticketInfo: museum.services?.ticketInfo || '',
       ticketInfoTranslations: museum.services?.ticketInfoTranslations || {},
       coverImage: museum.coverImage || '',
-      navigatorConfigs: this.mapNavigatorConfigsFromMuseum(museum),
+      services: museum.services?.services || [],
     };
     this.viewMode = 'edit';
     this.error = '';
     this.success = '';
+
+    if (this.configMode === 'navigator') {
+      this.editingNavigatorConfig = null;
+      void this.loadNavigatorConfigs();
+    }
   }
 
   private toggleActiveLanguage(lang: AppLanguage, checked: boolean) {
@@ -1422,6 +1377,35 @@ export class MuseumsManagementPage extends LitElement {
     };
   }
 
+  // Marker di tutti i piani del museo in modifica — per collegare un
+  // servizio a un punto già piazzato in Piantina e mappa.
+  private get museumMarkers(): MapMarker[] {
+    return (this.selectedMuseum?.floors || []).flatMap((floor) => floor.markers || []);
+  }
+
+  private markerOptionsForType(type: MarkerType): Array<{ value: string; label: string }> {
+    const matches = this.museumMarkers.filter((marker) => marker.type === type);
+    return [
+      { value: '', label: __('Nessuno') },
+      ...matches.map((marker) => ({
+        value: marker.id,
+        label: marker.label || MARKER_TYPE_META[type].label,
+      })),
+    ];
+  }
+
+  private getService(type: MarkerType): MuseumService {
+    return (
+      this.formData.services.find((service) => service.type === type) || { type, active: false }
+    );
+  }
+
+  private updateService(type: MarkerType, patch: Partial<MuseumService>) {
+    const updated = { ...this.getService(type), ...patch };
+    const others = this.formData.services.filter((service) => service.type !== type);
+    this.formData = { ...this.formData, services: [...others, updated] };
+  }
+
   private async syncMuseumLanguages() {
     if (!this.selectedMuseum) {
       this.error = __('Seleziona prima un museo da modificare');
@@ -1439,11 +1423,12 @@ export class MuseumsManagementPage extends LitElement {
       );
 
       if (!result.data) {
-        this.error = result.error || 'Errore durante sincronizzazione lingue';
+        this.error = result.error || __('Errore durante sincronizzazione lingue');
         return;
       }
 
-      this.success = `Sincronizzazione completata. Contenuti: aggiornati ${result.data.items.updated}, traduzioni AI ${result.data.items.generated}, rimosse ${result.data.items.removed}. Visite: aggiornate ${result.data.visits.updated}, traduzioni AI ${result.data.visits.generated}, rimosse ${result.data.visits.removed}.`;
+      this.success = __("Sincronizzazione lingue avviata: segui l'avanzamento dalle notifiche.");
+      await jobsService.refresh();
 
       await this.loadMuseums();
       const refreshed = await museumService.getMuseum(this.selectedMuseum._id);
@@ -1452,6 +1437,31 @@ export class MuseumsManagementPage extends LitElement {
       }
     } finally {
       this.syncingLanguages = false;
+    }
+  }
+
+  private async generateMuseumAudio() {
+    if (!this.selectedMuseum) {
+      this.error = __('Seleziona prima un museo da modificare');
+      return;
+    }
+
+    this.generatingAudio = true;
+    this.error = '';
+    this.success = '';
+
+    try {
+      const result = await museumService.generateMuseumAudio(this.selectedMuseum._id);
+
+      if (!result.data) {
+        this.error = result.error || __("Errore durante la generazione dell'audio");
+        return;
+      }
+
+      this.success = __("Generazione audio avviata: segui l'avanzamento dalle notifiche.");
+      await jobsService.refresh();
+    } finally {
+      this.generatingAudio = false;
     }
   }
 
@@ -1563,12 +1573,6 @@ export class MuseumsManagementPage extends LitElement {
       return;
     }
 
-    const navigatorValidationError = this.validateNavigatorConfigsBeforeSubmit();
-    if (navigatorValidationError) {
-      this.error = navigatorValidationError;
-      return;
-    }
-
     this.saving = true;
 
     try {
@@ -1584,7 +1588,7 @@ export class MuseumsManagementPage extends LitElement {
             )
           : (['it'] as AppLanguage[]);
 
-      const data: CreateMuseumData & { navigatorConfigs?: unknown[] } = {
+      const data: CreateMuseumData = {
         wikidataId: this.formData.wikidataId,
         name: this.formData.name,
         description: this.formData.description,
@@ -1613,52 +1617,8 @@ export class MuseumsManagementPage extends LitElement {
           ticketInfoTranslations: this.normalizeTranslationMap(
             this.formData.ticketInfoTranslations,
           ),
+          services: this.formData.services,
         },
-        navigatorConfigs:
-          this.formData.navigatorConfigs.length > 0
-            ? this.formData.navigatorConfigs.map((config) => ({
-                id: config.id,
-                name: config.name,
-                slug: sanitizeSlug(config.slug),
-                branding: {
-                  logo: config.logo || undefined,
-                  splashImage: config.splashImage || undefined,
-                  primaryColor: config.primaryColor,
-                  secondaryColor: config.secondaryColor || undefined,
-                },
-                content: {
-                  homeTitle: config.homeTitle || undefined,
-                  homeTitleTranslations: this.normalizeTranslationMap(config.homeTitleTranslations),
-                  homeSubtitle: config.homeSubtitle || undefined,
-                  homeSubtitleTranslations: this.normalizeTranslationMap(
-                    config.homeSubtitleTranslations,
-                  ),
-                  welcomeText: config.welcomeText || undefined,
-                  welcomeTextTranslations: this.normalizeTranslationMap(
-                    config.welcomeTextTranslations,
-                  ),
-                  openingImage: config.openingImage || undefined,
-                },
-                pwa: {
-                  manifestName: config.manifestName,
-                  shortName: config.shortName,
-                  description: config.manifestDescription || undefined,
-                  descriptionTranslations: this.normalizeTranslationMap(
-                    config.manifestDescriptionTranslations,
-                  ),
-                  themeColor: config.themeColor,
-                  backgroundColor: config.backgroundColor,
-                  display: config.display,
-                  orientation: config.orientation,
-                  startUrl: config.startUrl,
-                  scope: config.scope,
-                  icon192: config.icon192 || undefined,
-                  icon512: config.icon512 || undefined,
-                  iconMaskable: config.iconMaskable || undefined,
-                  appleTouchIcon: config.appleTouchIcon || undefined,
-                },
-              }))
-            : undefined,
       };
 
       if (this.viewMode === 'create') {
@@ -1740,53 +1700,20 @@ export class MuseumsManagementPage extends LitElement {
     label: string,
     fallback: string,
   ) {
-    return html`
-      <div class="space-y-1.5">
-        <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
-          ${label}
-        </label>
-        <div class="flex items-center gap-2">
-          <ui-color-input
-            .value=${normalizeHexColor(config[key], fallback)}
-            @input-change=${(e: CustomEvent) =>
-              this.updateNavigatorColor(config.id, key, e.detail.value)}
-          ></ui-color-input>
-          <div class="flex-1">
-            <ui-input
-              .value=${config[key]}
-              @input-change=${(e: CustomEvent) =>
-                this.updateNavigatorColor(config.id, key, e.detail.value)}
-            ></ui-input>
-          </div>
-        </div>
-      </div>
-    `;
+    return renderNavigatorColorField(config, key, label, fallback, (patch) =>
+      this.updateEditingNavigatorConfig(patch),
+    );
   }
 
-  private updateNavigatorImageField(
-    configId: string,
-    key: NavigatorImageFieldKey,
-    path: string | undefined,
-  ) {
-    this.updateNavigatorConfig(configId, {
+  private updateNavigatorImageField(key: NavigatorImageFieldKey, path: string | undefined) {
+    this.updateEditingNavigatorConfig({
       [key]: path || '',
     } as Partial<NavigatorConfigFormData>);
   }
 
   private renderNavigatorImageEditors(config: NavigatorConfigFormData) {
-    return this.navigatorImageEditors.map(
-      (definition) => html`
-        <image-editor
-          label=${definition.label}
-          category="misc"
-          .value=${config[definition.key]}
-          maxWidth=${definition.maxWidth}
-          maxHeight=${definition.maxHeight}
-          defaultFormat=${definition.defaultFormat}
-          @image-saved=${(e: CustomEvent) =>
-            this.updateNavigatorImageField(config.id, definition.key, e.detail.path)}
-        ></image-editor>
-      `,
+    return renderNavigatorImageEditors(config, this.navigatorImageEditors, (key, path) =>
+      this.updateNavigatorImageField(key, path),
     );
   }
 
@@ -1795,140 +1722,31 @@ export class MuseumsManagementPage extends LitElement {
     sourceLanguageLabel: string,
   ) {
     const targetLanguages = this.getMuseumTargetLanguages();
-    const selectedLanguage =
-      this.navigatorTranslationLanguageByConfig[config.id] || targetLanguages[0] || null;
-
-    const selectedLanguageLabel = selectedLanguage
-      ? this.languageOptions.find((option) => option.value === selectedLanguage)?.label
-      : null;
-
-    const translationLanguageOptions = buildTranslationLanguageOptions(
+    return renderNavigatorTranslationsSection({
+      config,
+      sourceLanguageLabel,
       targetLanguages,
-      (lang) =>
+      selectedLanguage: this.navigatorConfigTranslationLanguage || targetLanguages[0] || null,
+      getLanguageLabel: (lang) =>
         this.languageOptions.find((option) => option.value === lang)?.label || lang.toUpperCase(),
-      (lang) => isNavigatorConfigLanguageFullyTranslated(config, lang),
-      {
-        translated: __('Tradotta'),
-        toTranslate: __('Da tradurre'),
+      onSelectLanguage: (lang) => {
+        this.navigatorConfigTranslationLanguage = lang;
       },
-    );
-
-    return html`
-      <div class="pt-4 border-t border-surface-200 dark:border-surface-700">
-        <div
-          class="space-y-4 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-100/80 dark:bg-violet-900/25 p-4"
-        >
-          <div class="flex items-center justify-between flex-wrap gap-2">
-            <h5 class="font-medium text-surface-900 dark:text-white">
-              ${__('Traduzioni navigator')}
-            </h5>
-            <div class="flex items-center gap-2 flex-wrap">
-              <ui-badge
-                variant="secondary"
-                .label=${`${__('Lingua sorgente')}: ${sourceLanguageLabel}`}
-              ></ui-badge>
-              <ui-button
-                type="button"
-                variant="secondary"
-                size="xs"
-                icon="sparkles"
-                .label=${__('Traduci campi navigator mancanti con AI')}
-                .loading=${this.translatingNavigatorConfigId === config.id}
-                .disabled=${targetLanguages.length === 0}
-                @click=${() => this.translateMissingNavigatorFields(config.id)}
-              ></ui-button>
-            </div>
-          </div>
-
-          ${targetLanguages.length === 0
-            ? html`<p class="text-xs text-surface-500 dark:text-surface-400">
-                ${__(
-                  'Aggiungi almeno una lingua aggiuntiva nelle Lingue attive del museo per gestire le traduzioni navigator.',
-                )}
-              </p>`
-            : html`
-                <div class="space-y-3">
-                  <ui-select
-                    .label=${__('Lingua traduzione')}
-                    .value=${selectedLanguage || ''}
-                    .options=${translationLanguageOptions}
-                    @select-change=${(e: CustomEvent<{ value: AppLanguage }>) => {
-                      this.navigatorTranslationLanguageByConfig = {
-                        ...this.navigatorTranslationLanguageByConfig,
-                        [config.id]: e.detail.value,
-                      };
-                    }}
-                  ></ui-select>
-
-                  ${selectedLanguage
-                    ? html`
-                        <div
-                          class="p-4 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/30 space-y-3"
-                        >
-                          <h6 class="text-sm font-semibold text-surface-800 dark:text-surface-100">
-                            ${__('Traduzioni in')}
-                            ${selectedLanguageLabel || selectedLanguage.toUpperCase()}
-                          </h6>
-
-                          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <ui-input
-                              .label=${__('Titolo Home')}
-                              .value=${config.homeTitleTranslations[selectedLanguage] || ''}
-                              @input-change=${(e: CustomEvent) =>
-                                this.updateNavigatorTranslationField(
-                                  config.id,
-                                  'homeTitleTranslations',
-                                  selectedLanguage,
-                                  e.detail.value,
-                                )}
-                            ></ui-input>
-
-                            <ui-input
-                              .label=${__('Sottotitolo Home')}
-                              .value=${config.homeSubtitleTranslations[selectedLanguage] || ''}
-                              @input-change=${(e: CustomEvent) =>
-                                this.updateNavigatorTranslationField(
-                                  config.id,
-                                  'homeSubtitleTranslations',
-                                  selectedLanguage,
-                                  e.detail.value,
-                                )}
-                            ></ui-input>
-                          </div>
-
-                          <ui-textarea
-                            .label=${__('Testo di benvenuto')}
-                            .value=${config.welcomeTextTranslations[selectedLanguage] || ''}
-                            @textarea-change=${(e: CustomEvent) =>
-                              this.updateNavigatorTranslationField(
-                                config.id,
-                                'welcomeTextTranslations',
-                                selectedLanguage,
-                                e.detail.value,
-                              )}
-                            rows="3"
-                          ></ui-textarea>
-
-                          <ui-textarea
-                            .label=${__('Descrizione manifest')}
-                            .value=${config.manifestDescriptionTranslations[selectedLanguage] || ''}
-                            @textarea-change=${(e: CustomEvent) =>
-                              this.updateNavigatorTranslationField(
-                                config.id,
-                                'manifestDescriptionTranslations',
-                                selectedLanguage,
-                                e.detail.value,
-                              )}
-                            rows="2"
-                          ></ui-textarea>
-                        </div>
-                      `
-                    : nothing}
-                </div>
-              `}
-        </div>
-      </div>
-    `;
+      onUpdateField: (field, lang, value) =>
+        this.updateEditingNavigatorTranslationField(field, lang, value),
+      emptyTargetsMessage: __(
+        'Aggiungi almeno una lingua aggiuntiva nelle Lingue attive del museo per gestire le traduzioni navigator.',
+      ),
+      // Il Sottotitolo Home non ha effetto per una config di museo (vedi
+      // NavigatorConfigFormData/renderNavigatorTranslationsSection).
+      showHomeSubtitle: false,
+      translateMissing: {
+        label: __('Traduci campi navigator mancanti con AI'),
+        loading: this.translatingNavigatorConfig,
+        disabled: targetLanguages.length === 0,
+        onClick: () => this.translateMissingNavigatorFields(),
+      },
+    });
   }
 
   // ─── Sale (gestione parallela ai marker) ─────────────────
@@ -2219,19 +2037,45 @@ export class MuseumsManagementPage extends LitElement {
             ${this.viewMode === 'edit' && this.selectedMuseum
               ? html`
                   <div class="pt-2 border-t border-surface-200 dark:border-surface-700">
-                    <ui-button
-                      type="button"
-                      variant="secondary"
-                      icon="sparkles"
-                      .label=${__('Sincronizza traduzioni esistenti')}
-                      .loading=${this.syncingLanguages}
-                      @click=${this.syncMuseumLanguages}
-                    ></ui-button>
-                    <p class="mt-2 text-xs text-surface-500 dark:text-surface-400">
-                      ${__(
-                        'Applica le lingue attive ai contenuti e visite già presenti: rimuove traduzioni non richieste e genera con AI quelle mancanti.',
-                      )}
-                    </p>
+                    <h4
+                      class="text-xs font-semibold uppercase tracking-wide text-surface-400 dark:text-surface-500"
+                    >
+                      ${__('Strumenti AI')}
+                    </h4>
+                    <div class="divide-y divide-surface-100 dark:divide-surface-800">
+                      <ai-job-action
+                        icon="translate"
+                        jobType="sync-languages"
+                        .museumId=${this.selectedMuseum._id}
+                        .jobs=${this.jobs}
+                        .loading=${this.syncingLanguages}
+                        .label=${__('Sincronizza traduzioni esistenti')}
+                        .description=${__(
+                          'Applica le lingue attive ai contenuti e visite già presenti: rimuove traduzioni non richieste e genera con AI quelle mancanti.',
+                        )}
+                        .confirmTitle=${__('Sincronizzare le traduzioni?')}
+                        .confirmMessage=${__(
+                          "Applica le lingue attive ai contenuti e visite già presenti: rimuove traduzioni non richieste e genera con AI quelle mancanti. Può richiedere qualche minuto su un catalogo grande — segui l'avanzamento dalle notifiche.",
+                        )}
+                        @start=${this.syncMuseumLanguages}
+                      ></ai-job-action>
+                      <ai-job-action
+                        icon="sparkles"
+                        jobType="generate-audio"
+                        .museumId=${this.selectedMuseum._id}
+                        .jobs=${this.jobs}
+                        .loading=${this.generatingAudio}
+                        .label=${__('Genera audio mancante')}
+                        .description=${__(
+                          "Genera con OpenAI (voce naturale + evidenziazione sincronizzata nel Navigator) l'audio mancante degli item davvero usati nelle visite del museo e delle tappe Info/Indicazioni — non tutto il catalogo, solo ciò che i visitatori ascoltano davvero.",
+                        )}
+                        .confirmTitle=${__("Generare l'audio mancante?")}
+                        .confirmMessage=${__(
+                          "Genera con OpenAI l'audio mancante degli item davvero usati nelle visite del museo. Operazione lunga e a pagamento (chiama OpenAI per ogni testo): non rigenera l'audio già presente. Segui l'avanzamento dalle notifiche.",
+                        )}
+                        @start=${this.generateMuseumAudio}
+                      ></ai-job-action>
+                    </div>
                   </div>
                 `
               : nothing}
@@ -2382,6 +2226,43 @@ export class MuseumsManagementPage extends LitElement {
                                 rows="3"
                               ></ui-textarea>
                             </div>
+
+                            ${(() => {
+                              const translatableServices = this.formData.services.filter(
+                                (service) => service.active && service.description?.trim(),
+                              );
+                              return translatableServices.length > 0
+                                ? html`
+                                    <div
+                                      class="space-y-3 pt-3 border-t border-violet-300 dark:border-violet-700"
+                                    >
+                                      <h5
+                                        class="text-sm font-medium text-surface-900 dark:text-white"
+                                      >
+                                        ${__('Servizi del museo')}
+                                      </h5>
+                                      ${translatableServices.map(
+                                        (service) => html`
+                                          <ui-textarea
+                                            .label=${MARKER_TYPE_META[service.type].label}
+                                            .value=${service.descriptionTranslations?.[
+                                              selectedLanguage
+                                            ] || ''}
+                                            @textarea-change=${(e: CustomEvent) =>
+                                              this.updateService(service.type, {
+                                                descriptionTranslations: {
+                                                  ...service.descriptionTranslations,
+                                                  [selectedLanguage]: e.detail.value,
+                                                },
+                                              })}
+                                            rows="2"
+                                          ></ui-textarea>
+                                        `,
+                                      )}
+                                    </div>
+                                  `
+                                : nothing;
+                            })()}
                           </div>
                         `
                       : nothing}
@@ -2574,7 +2455,6 @@ export class MuseumsManagementPage extends LitElement {
     const isNavigatorOnlyMode = this.configMode === 'navigator';
     const showBaseSections = !isNavigatorOnlyMode;
     const showNavigatorSection = isNavigatorOnlyMode;
-    const canManageNavigatorConfigs = true;
     const sourceLanguage = this.getActiveSourceLanguage();
     const sourceLanguageLabel =
       this.languageOptions.find((option) => option.value === sourceLanguage)?.label ||
@@ -2660,6 +2540,14 @@ export class MuseumsManagementPage extends LitElement {
                       >
                       <div class="flex items-center gap-2">
                         <ui-badge variant="secondary" .label=${this.formData.wikidataId}></ui-badge>
+                        <a
+                          href="https://www.wikidata.org/wiki/${this.formData.wikidataId}"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="text-sm text-brand-600 dark:text-brand-400 hover:underline"
+                        >
+                          ${__('Vedi su Wikidata')} →
+                        </a>
                         <span class="text-xs text-surface-500">(${__('non modificabile')})</span>
                       </div>
                     </div>
@@ -2673,6 +2561,14 @@ export class MuseumsManagementPage extends LitElement {
                       <span class="text-sm text-blue-700 dark:text-blue-300"
                         >${this.formData.name}</span
                       >
+                      <a
+                        href="https://www.wikidata.org/wiki/${this.formData.wikidataId}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-sm text-blue-600 dark:text-blue-400 hover:underline ml-auto"
+                      >
+                        ${__('Vedi su Wikidata')} →
+                      </a>
                     </div>
                   `
                 : nothing}
@@ -2848,6 +2744,59 @@ export class MuseumsManagementPage extends LitElement {
           </ui-card>
         </section>
 
+        <section ?hidden=${!showBaseSections}>
+          <h3
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+          >
+            <ui-icon name="map-pin" size="sm" class="text-emerald-500"></ui-icon>
+            ${__('Servizi del museo')}
+          </h3>
+          <ui-card padding="none">
+            <div class="p-6 space-y-3">
+              <p class="text-xs text-surface-500 dark:text-surface-400">
+                ${__(
+                  'Solo i servizi attivati qui compaiono nel Navigator. Collegali a un punto già inserito in Piantina e mappa per mostrare "Vedi sulla mappa".',
+                )}
+              </p>
+              ${MUSEUM_SERVICE_TYPE_OPTIONS.map((option) => {
+                const service = this.getService(option.type);
+                return html`
+                  <div
+                    class="border border-surface-200 dark:border-surface-700 rounded-lg p-4 space-y-3"
+                  >
+                    <ui-checkbox
+                      .label=${`${option.icon} ${option.label}`}
+                      .checked=${service.active}
+                      @checkbox-change=${(e: CustomEvent) =>
+                        this.updateService(option.type, { active: Boolean(e.detail.checked) })}
+                    ></ui-checkbox>
+                    ${service.active
+                      ? html`
+                          <ui-textarea
+                            .label=${__('Descrizione (opzionale)')}
+                            .value=${service.description || ''}
+                            rows="2"
+                            @textarea-change=${(e: CustomEvent) =>
+                              this.updateService(option.type, { description: e.detail.value })}
+                          ></ui-textarea>
+                          <ui-select
+                            .label=${__('Punto sulla mappa (opzionale)')}
+                            .value=${service.mapMarkerId || ''}
+                            .options=${this.markerOptionsForType(option.type)}
+                            @select-change=${(e: CustomEvent<{ value: string }>) =>
+                              this.updateService(option.type, {
+                                mapMarkerId: e.detail.value || undefined,
+                              })}
+                          ></ui-select>
+                        `
+                      : nothing}
+                  </div>
+                `;
+              })}
+            </div>
+          </ui-card>
+        </section>
+
         <section ?hidden=${!showNavigatorSection}>
           <div class="flex items-center justify-between mb-4">
             <h3
@@ -2856,213 +2805,311 @@ export class MuseumsManagementPage extends LitElement {
               <ui-icon name="cog" size="sm" class="text-purple-500"></ui-icon>
               ${__('Configurazioni Navigator')}
             </h3>
-            ${canManageNavigatorConfigs
+            ${!this.editingNavigatorConfig
               ? html`<ui-button
                   type="button"
                   variant="secondary"
                   size="sm"
                   icon="plus"
-                  .label=${__('Aggiungi Config')}
-                  @click=${this.addNavigatorConfig}
+                  .label=${__('Nuova configurazione')}
+                  @click=${this.openNewNavigatorConfig}
                 ></ui-button>`
               : nothing}
           </div>
 
-          ${isNavigatorOnlyMode && this.formData.navigatorConfigs.length === 0
-            ? html`<ui-empty
-                .title=${__('Nessuna personalizzazione navigator')}
-                .description=${__(
-                  'Questo museo non ha configurazioni navigator personalizzate. Usa Aggiungi Config per crearne una.',
-                )}
-                icon="cog"
-              ></ui-empty>`
+          ${this.loadingNavigatorConfigs ? html`<ui-loading></ui-loading>` : nothing}
+          ${!this.loadingNavigatorConfigs && !this.editingNavigatorConfig
+            ? this.renderNavigatorConfigsList()
             : nothing}
-
-          <div class="space-y-4" ?hidden=${this.formData.navigatorConfigs.length === 0}>
-            ${this.formData.navigatorConfigs.map(
-              (config, index) => html`
-                <ui-card padding="none">
-                  <div class="p-6 space-y-5">
-                    <div class="flex items-center justify-between">
-                      <h4 class="font-semibold text-surface-900 dark:text-white">
-                        Configurazione ${index + 1}
-                      </h4>
-                      <div class="flex items-center gap-2">
-                        <ui-button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          icon="download"
-                          .label=${__('Esporta manifest')}
-                          @click=${() => this.exportNavigatorManifest(config)}
-                        ></ui-button>
-                        ${canManageNavigatorConfigs
-                          ? html`<ui-icon-button
-                              icon="trash"
-                              variant="danger"
-                              .title=${__('Rimuovi configurazione')}
-                              @click=${() => this.removeNavigatorConfig(config.id)}
-                            ></ui-icon-button>`
-                          : nothing}
-                      </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <ui-input
-                        .label=${__('Nome Config *')}
-                        .value=${config.name}
-                        @input-change=${(e: CustomEvent) =>
-                          this.updateNavigatorConfig(config.id, { name: e.detail.value })}
-                        required
-                      ></ui-input>
-                      <ui-input
-                        .label=${__('Slug *')}
-                        .value=${config.slug}
-                        @input-change=${(e: CustomEvent) =>
-                          this.updateNavigatorConfig(config.id, {
-                            slug: sanitizeSlug(e.detail.value),
-                          })}
-                        required
-                      ></ui-input>
-                      <ui-input
-                        .label=${__('Titolo Home')}
-                        .value=${config.homeTitle}
-                        @input-change=${(e: CustomEvent) =>
-                          this.updateNavigatorConfig(config.id, { homeTitle: e.detail.value })}
-                      ></ui-input>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <ui-input
-                        .label=${__('Sottotitolo Home')}
-                        .value=${config.homeSubtitle}
-                        @input-change=${(e: CustomEvent) =>
-                          this.updateNavigatorConfig(config.id, { homeSubtitle: e.detail.value })}
-                      ></ui-input>
-                      <ui-input
-                        .label=${__('Nome manifest *')}
-                        .value=${config.manifestName}
-                        @input-change=${(e: CustomEvent) =>
-                          this.updateNavigatorConfig(config.id, { manifestName: e.detail.value })}
-                        required
-                      ></ui-input>
-                      <ui-input
-                        .label=${__('Nome breve manifest *')}
-                        .value=${config.shortName}
-                        @input-change=${(e: CustomEvent) =>
-                          this.updateNavigatorConfig(config.id, { shortName: e.detail.value })}
-                        required
-                      ></ui-input>
-                      ${this.renderNavigatorColorField(
-                        config,
-                        'primaryColor',
-                        __('Colore primario'),
-                        '#0ea5e9',
-                      )}
-                      ${this.renderNavigatorColorField(
-                        config,
-                        'secondaryColor',
-                        __('Colore secondario'),
-                        '#1f2937',
-                      )}
-                      ${this.renderNavigatorColorField(
-                        config,
-                        'themeColor',
-                        __('Colore tema'),
-                        '#0ea5e9',
-                      )}
-                      ${this.renderNavigatorColorField(
-                        config,
-                        'backgroundColor',
-                        __('Colore sfondo'),
-                        '#ffffff',
-                      )}
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <ui-select
-                        .label=${__('Visualizzazione')}
-                        .value=${config.display}
-                        .options=${navigatorDisplayOptions}
-                        @select-change=${(e: CustomEvent) =>
-                          this.updateNavigatorConfig(config.id, {
-                            display: e.detail.value as NavigatorConfigFormData['display'],
-                          })}
-                      ></ui-select>
-                      <ui-select
-                        .label=${__('Orientamento')}
-                        .value=${config.orientation}
-                        .options=${navigatorOrientationOptions}
-                        @select-change=${(e: CustomEvent) =>
-                          this.updateNavigatorConfig(config.id, {
-                            orientation: e.detail.value as NavigatorConfigFormData['orientation'],
-                          })}
-                      ></ui-select>
-                      <ui-input
-                        .label=${__('URL iniziale')}
-                        .value=${config.startUrl}
-                        @input-change=${(e: CustomEvent) =>
-                          this.updateNavigatorConfig(config.id, {
-                            startUrl: e.detail.value || '/',
-                          })}
-                      ></ui-input>
-                      <ui-input
-                        .label=${__('Ambito')}
-                        .value=${config.scope}
-                        @input-change=${(e: CustomEvent) =>
-                          this.updateNavigatorConfig(config.id, { scope: e.detail.value || '/' })}
-                      ></ui-input>
-                    </div>
-
-                    <ui-textarea
-                      .label=${__('Testo di benvenuto')}
-                      .value=${config.welcomeText}
-                      @textarea-change=${(e: CustomEvent) =>
-                        this.updateNavigatorConfig(config.id, { welcomeText: e.detail.value })}
-                      rows="3"
-                    ></ui-textarea>
-
-                    <ui-textarea
-                      .label=${__('Descrizione manifest')}
-                      .value=${config.manifestDescription}
-                      @textarea-change=${(e: CustomEvent) =>
-                        this.updateNavigatorConfig(config.id, {
-                          manifestDescription: e.detail.value,
-                        })}
-                      rows="2"
-                    ></ui-textarea>
-
-                    ${this.renderNavigatorTranslationsForConfig(config, sourceLanguageLabel)}
-
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      ${this.renderNavigatorImageEditors(config)}
-                    </div>
-                  </div>
-                </ui-card>
-              `,
-            )}
-          </div>
+          ${this.editingNavigatorConfig
+            ? this.renderNavigatorConfigEditor(
+                this.editingNavigatorConfig,
+                sourceLanguageLabel,
+                navigatorDisplayOptions,
+                navigatorOrientationOptions,
+              )
+            : nothing}
         </section>
 
         ${showBaseSections ? this.renderActiveLanguagesSection() : nothing}
-        ${showBaseSections ? this.renderMuseumTranslationsSection(sourceLanguageLabel) : nothing}
         ${showBaseSections && !isCreate ? this.renderRoomsSection() : nothing}
-
-        <div class="flex justify-end gap-3">
-          <ui-button
-            variant="secondary"
-            .label=${__('Annulla')}
-            @click=${this.backToList}
-          ></ui-button>
-          <ui-button
-            type="submit"
-            variant="primary"
-            .label=${isCreate ? __('Crea Museo') : __('Salva Modifiche')}
-            icon="check"
-            .loading=${this.saving}
-          ></ui-button>
-        </div>
+        ${showBaseSections ? this.renderMuseumTranslationsSection(sourceLanguageLabel) : nothing}
+        ${!isNavigatorOnlyMode
+          ? html`
+              <div class="flex justify-end gap-3">
+                <ui-button
+                  variant="secondary"
+                  .label=${__('Annulla')}
+                  @click=${this.backToList}
+                ></ui-button>
+                <ui-button
+                  type="submit"
+                  variant="primary"
+                  .label=${isCreate ? __('Crea Museo') : __('Salva Modifiche')}
+                  icon="check"
+                  .loading=${this.saving}
+                ></ui-button>
+              </div>
+            `
+          : nothing}
       </form>
+    `;
+  }
+
+  // ─── Configurazioni Navigator (lista + editor) ─────────────
+  private renderNavigatorConfigsList() {
+    if (this.navigatorConfigs.length === 0) {
+      return html`<ui-empty
+        .title=${__('Nessuna personalizzazione navigator')}
+        .description=${__(
+          'Questo museo non ha configurazioni navigator personalizzate. Usa "Nuova configurazione" per crearne una.',
+        )}
+        icon="cog"
+      ></ui-empty>`;
+    }
+
+    return html`
+      <div class="space-y-3">
+        ${this.navigatorConfigs.map(
+          (config) => html`
+            <ui-card padding="none">
+              <div class="p-4 flex items-center justify-between gap-3 flex-wrap">
+                <div class="flex items-center gap-3 flex-wrap">
+                  <span class="font-medium text-surface-900 dark:text-white">${config.name}</span>
+                  <ui-badge variant="secondary" .label=${config.slug}></ui-badge>
+                </div>
+                <div class="flex items-center gap-2">
+                  <ui-button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    icon="download"
+                    .label=${__('Anteprima manifest')}
+                    @click=${() => this.openNavigatorManifestPreview(config)}
+                  ></ui-button>
+                  <ui-button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    icon="link"
+                    .label=${__('Apri Navigator')}
+                    @click=${() => this.openNavigatorPreview(config)}
+                  ></ui-button>
+                  <ui-icon-button
+                    icon="edit"
+                    .title=${__('Modifica')}
+                    @click=${() => this.openEditNavigatorConfig(config)}
+                  ></ui-icon-button>
+                  <ui-icon-button
+                    icon="trash"
+                    variant="danger"
+                    .title=${__('Elimina')}
+                    .loading=${this.deletingNavigatorConfigId === config.id}
+                    @click=${() => this.deleteNavigatorConfig(config)}
+                  ></ui-icon-button>
+                </div>
+              </div>
+            </ui-card>
+          `,
+        )}
+      </div>
+    `;
+  }
+
+  private renderNavigatorConfigEditor(
+    config: NavigatorConfigFormData,
+    sourceLanguageLabel: string,
+    displayOptions: Array<{ value: string; label: string }>,
+    orientationOptions: Array<{ value: string; label: string }>,
+  ) {
+    return html`
+      <ui-card padding="none">
+        <div class="p-6 space-y-5">
+          <div class="flex items-center justify-between">
+            <h4 class="font-semibold text-surface-900 dark:text-white">
+              ${config.id ? __('Modifica configurazione') : __('Nuova configurazione')}
+            </h4>
+            <div class="flex items-center gap-2">
+              <ui-button
+                type="button"
+                variant="secondary"
+                size="sm"
+                icon="download"
+                .label=${__('Anteprima manifest')}
+                ?disabled=${!config.id}
+                @click=${() => this.openNavigatorManifestPreview(config)}
+              ></ui-button>
+              <ui-button
+                type="button"
+                variant="secondary"
+                size="sm"
+                icon="link"
+                .label=${__('Apri Navigator')}
+                ?disabled=${!config.id}
+                @click=${() => this.openNavigatorPreview(config)}
+              ></ui-button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <ui-input
+              .label=${__('Nome Config *')}
+              .value=${config.name}
+              @input-change=${(e: CustomEvent) =>
+                this.updateEditingNavigatorConfig({ name: e.detail.value })}
+              required
+            ></ui-input>
+            <ui-input
+              .label=${__('Slug *')}
+              .value=${config.slug}
+              @input-change=${(e: CustomEvent) =>
+                this.updateEditingNavigatorConfig({ slug: sanitizeSlug(e.detail.value) })}
+              required
+            ></ui-input>
+            <ui-input
+              .label=${__('Titolo di benvenuto')}
+              .value=${config.homeTitle}
+              @input-change=${(e: CustomEvent) =>
+                this.updateEditingNavigatorConfig({ homeTitle: e.detail.value })}
+            ></ui-input>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ui-input
+              .label=${__('Nome manifest *')}
+              .value=${config.manifestName}
+              @input-change=${(e: CustomEvent) =>
+                this.updateEditingNavigatorConfig({ manifestName: e.detail.value })}
+              required
+            ></ui-input>
+            <ui-input
+              .label=${__('Nome breve manifest *')}
+              .value=${config.shortName}
+              @input-change=${(e: CustomEvent) =>
+                this.updateEditingNavigatorConfig({ shortName: e.detail.value })}
+              required
+            ></ui-input>
+            ${this.renderNavigatorColorField(
+              config,
+              'primaryColor',
+              __('Colore primario'),
+              '#0ea5e9',
+            )}
+            ${this.renderNavigatorColorField(
+              config,
+              'secondaryColor',
+              __('Colore secondario'),
+              '#1f2937',
+            )}
+            ${this.renderNavigatorColorField(
+              config,
+              'appBackgroundColor',
+              __('Colore sfondo app'),
+              '#0b0813',
+            )}
+            ${this.renderNavigatorColorField(config, 'themeColor', __('Colore tema'), '#0ea5e9')}
+            ${this.renderNavigatorColorField(
+              config,
+              'backgroundColor',
+              __('Colore sfondo manifest/splash'),
+              '#ffffff',
+            )}
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ui-select
+              .label=${__('Font titoli')}
+              .value=${config.displayFont}
+              .options=${NAVIGATOR_FONT_SELECT_OPTIONS}
+              placeholder=${__('Predefinito')}
+              @select-change=${(e: CustomEvent) =>
+                this.updateEditingNavigatorConfig({ displayFont: e.detail.value })}
+            ></ui-select>
+            <ui-select
+              .label=${__('Font testo')}
+              .value=${config.bodyFont}
+              .options=${NAVIGATOR_FONT_SELECT_OPTIONS}
+              placeholder=${__('Predefinito')}
+              @select-change=${(e: CustomEvent) =>
+                this.updateEditingNavigatorConfig({ bodyFont: e.detail.value })}
+            ></ui-select>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ui-select
+              .label=${__('Visualizzazione')}
+              .value=${config.display}
+              .options=${displayOptions}
+              @select-change=${(e: CustomEvent) =>
+                this.updateEditingNavigatorConfig({
+                  display: e.detail.value as NavigatorConfigFormData['display'],
+                })}
+            ></ui-select>
+            <ui-select
+              .label=${__('Orientamento')}
+              .value=${config.orientation}
+              .options=${orientationOptions}
+              @select-change=${(e: CustomEvent) =>
+                this.updateEditingNavigatorConfig({
+                  orientation: e.detail.value as NavigatorConfigFormData['orientation'],
+                })}
+            ></ui-select>
+            <ui-input
+              .label=${__('URL iniziale')}
+              .value=${config.startUrl}
+              @input-change=${(e: CustomEvent) =>
+                this.updateEditingNavigatorConfig({ startUrl: e.detail.value || '/' })}
+            ></ui-input>
+            <ui-input
+              .label=${__('Ambito')}
+              .value=${config.scope}
+              @input-change=${(e: CustomEvent) =>
+                this.updateEditingNavigatorConfig({ scope: e.detail.value || '/' })}
+            ></ui-input>
+          </div>
+
+          <ui-textarea
+            .label=${__('Testo di benvenuto')}
+            .value=${config.welcomeText}
+            @textarea-change=${(e: CustomEvent) =>
+              this.updateEditingNavigatorConfig({ welcomeText: e.detail.value })}
+            rows="3"
+          ></ui-textarea>
+
+          <ui-textarea
+            .label=${__('Descrizione manifest')}
+            .value=${config.manifestDescription}
+            @textarea-change=${(e: CustomEvent) =>
+              this.updateEditingNavigatorConfig({ manifestDescription: e.detail.value })}
+            rows="2"
+          ></ui-textarea>
+
+          ${this.renderNavigatorTranslationsForConfig(config, sourceLanguageLabel)}
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            ${this.renderNavigatorImageEditors(config)}
+          </div>
+
+          <div
+            class="flex justify-end gap-3 pt-4 border-t border-surface-200 dark:border-surface-700"
+          >
+            <ui-button
+              type="button"
+              variant="secondary"
+              .label=${__('Annulla')}
+              @click=${this.cancelEditNavigatorConfig}
+            ></ui-button>
+            <ui-button
+              type="button"
+              variant="primary"
+              icon="check"
+              .label=${__('Salva configurazione')}
+              .loading=${this.savingNavigatorConfig}
+              @click=${this.saveNavigatorConfig}
+            ></ui-button>
+          </div>
+        </div>
+      </ui-card>
     `;
   }
 
@@ -3102,7 +3149,7 @@ export class MuseumsManagementPage extends LitElement {
                   icon="plus"
                   .loading=${this.addingCurator}
                   ?disabled=${!this.selectedUserId}
-                  @click=${this.handleAddCurator}
+                  @click=${() => this.handleAddCurator()}
                 ></ui-button>
               </div>
             `}

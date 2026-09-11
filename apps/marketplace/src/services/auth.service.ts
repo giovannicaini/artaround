@@ -1,7 +1,13 @@
 import { apiService, getErrorMessage } from './api.service';
 import { historyService } from './history.service';
 import { preferencesService } from './preferences.service';
-import type { User, LoginRequest, RegisterRequest, UserPreferences } from '@artaround/shared';
+import type {
+  User,
+  LoginRequest,
+  RegisterRequest,
+  UserPreferences,
+  MuseumRoleRequest,
+} from '@artaround/shared';
 
 export type UpdateProfileData = {
   email?: string;
@@ -94,6 +100,12 @@ export class AuthService {
     }
 
     return { success: false, error: getErrorMessage(response, 'Cambio password non riuscito') };
+  }
+
+  // Le mie richieste di ruolo museo in attesa (vedi AuthController.myRoleRequests)
+  async getMyRoleRequests(): Promise<MuseumRoleRequest[]> {
+    const response = await apiService.get<MuseumRoleRequest[]>('/auth/me/role-requests');
+    return response.success && response.data ? response.data : [];
   }
 
   logout(): void {

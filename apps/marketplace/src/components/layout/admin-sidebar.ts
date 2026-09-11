@@ -1,8 +1,9 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { ContextualRole, ResourceType, UserRole, type User } from '@artaround/shared';
+import { type User } from '@artaround/shared';
 import { preferencesService } from '../../services/preferences.service';
 import { __ } from '../../services/i18n.service';
+import { isContentCreator, isMuseumCurator } from '../../services/permissions.service';
 import '../ui/ui-icon';
 import '../ui/ui-avatar';
 import '../ui/ui-icon-button';
@@ -13,7 +14,8 @@ interface MenuItem {
   label: string;
   icon: string;
   badge?: string;
-  roles?: UserRole[]; // If set, only these roles can see this item
+  adminOnly?: boolean; // Se true, visibile solo a User.isAdmin
+  visible?: (user: User) => boolean; // Check più fine (es. curatore/autore di un museo)
   requiresMuseum?: boolean;
 }
 
@@ -62,10 +64,9 @@ export class AdminSidebar extends LitElement {
         id: 'author-area',
         label: __('Area Autore'),
         icon: 'edit',
-        // Anche il curatore può creare/modificare item e visite (vedi permissions.service.ts:
-        // canCreateItem/canCreateVisit includono isCurator), ma prima non aveva alcun link per
-        // arrivarci: qui era filtrato solo ad AUTHOR/ADMIN.
-        roles: [UserRole.AUTHOR, UserRole.CURATOR, UserRole.ADMIN],
+        // Non esiste più un ruolo AUTHOR/CURATOR globale: si è curatore o
+        // autore solo di uno o più musei specifici (User.museumRoles).
+        visible: (user) => isContentCreator(user),
         requiresMuseum: true,
       },
       { id: 'marketplace', label: __('Marketplace'), icon: 'euro', requiresMuseum: true },
@@ -94,15 +95,15 @@ export class AdminSidebar extends LitElement {
         id: 'museums-management',
         label: __('Gestione Musei'),
         icon: 'cog',
-        roles: ['admin' as UserRole],
+        adminOnly: true,
       },
       {
         id: 'navigator-default-config',
         label: __('Configurazione default app navigator'),
         icon: 'cog',
-        roles: ['admin' as UserRole],
+        adminOnly: true,
       },
-      { id: 'users', label: __('Gestione Utenti'), icon: 'users', roles: ['admin' as UserRole] },
+      { id: 'users', label: __('Gestione Utenti'), icon: 'users', adminOnly: true },
     ];
   }
 
@@ -111,9 +112,8 @@ export class AdminSidebar extends LitElement {
   }
 
   private handleNavigate(route: string) {
-    // museum-map-page ha bisogno del museumId del museo attivo come routeParam esplicito
-    // (a differenza delle altre pagine, che lo leggono da preferencesService da sole):
-    // prima questa voce non esisteva proprio nel menu, quindi il caso non si poneva.
+    // museum-map-page ha bisogno del museumId del museo attivo come routeParam esplicito,
+    // a differenza delle altre pagine che lo leggono da preferencesService da sole.
     const params =
       route === 'museum-maps' && this.selectedMuseum
         ? { museumId: this.selectedMuseum._id }
@@ -134,22 +134,11 @@ export class AdminSidebar extends LitElement {
   }
 
   private get canConfigureSelectedMuseum(): boolean {
-    if (!this.user || !this.selectedMuseum) {
+    if (!this.selectedMuseum) {
       return false;
     }
 
-    if (this.user.role === UserRole.ADMIN) {
-      return true;
-    }
-
-    return (
-      this.user.roleAssignments?.some(
-        (assignment) =>
-          assignment.resourceType === ResourceType.MUSEUM &&
-          assignment.resourceId === this.selectedMuseum?._id &&
-          assignment.role === ContextualRole.MANAGER,
-      ) ?? false
-    );
+    return isMuseumCurator(this.user, this.selectedMuseum._id);
   }
 
   // ─── Helper di render ──────────────────────────────────────
@@ -209,11 +198,10 @@ export class AdminSidebar extends LitElement {
     sublabel?: string,
     collapsed = this.collapsed,
   ) {
-    const userRole = this.user?.role;
     const visibleItems = items.filter((item) => {
-      if (!item.roles) return true;
-      if (!userRole) return false;
-      return item.roles.includes(userRole);
+      if (item.visible) return this.user ? item.visible(this.user) : false;
+      if (item.adminOnly) return !!this.user?.isAdmin;
+      return true;
     });
 
     if (visibleItems.length === 0) return null;

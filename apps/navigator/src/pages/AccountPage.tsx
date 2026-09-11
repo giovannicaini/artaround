@@ -10,19 +10,31 @@ import {
   ShoppingBag,
   Sparkles,
   ExternalLink,
+  Download,
+  Home as HomeIcon,
 } from 'lucide-react';
 import { api } from '../services/apiClient';
 import { useAuthStore } from '../context/authStore';
 import { useI18nStore } from '../context/i18nStore';
+import { useNavigatorConfigStore } from '../context/navigatorConfigStore';
+import { useInstallPrompt } from '../services/useInstallPrompt';
 import { useT } from '../services/useT';
 import { localizedField } from '../services/i18n';
 import {
   CompetenceLevel,
   TimePreference,
   type UserPreferences,
-  type VisitPurchase,
+  type VisitPurchaseWithVisit,
 } from '@artaround/shared';
-import { Button, Card, Chip, LanguageSwitcher, LoadingState, EmptyState } from '../components/ui';
+import {
+  Button,
+  Card,
+  Chip,
+  Select,
+  LanguageSwitcher,
+  LoadingState,
+  EmptyState,
+} from '../components/ui';
 
 const INTEREST_OPTIONS = [
   'Storia degli artisti',
@@ -38,6 +50,11 @@ export default function AccountPage() {
   const t = useT();
   const language = useI18nStore((state) => state.language);
   const { user, status, error, login, register, updatePreferences, logout } = useAuthStore();
+  const kioskMuseumId = useNavigatorConfigStore((state) => state.kioskMuseumId);
+  const exitKiosk = useNavigatorConfigStore((state) => state.exitKiosk);
+  const { canInstall, promptInstall } = useInstallPrompt();
+  // Il tema è applicato una sola volta in App.tsx per tutta la sessione
+  // (vedi useNavigatorTheme.ts) — Account non deve risolverne uno proprio.
 
   if (status === 'loading' && !user) {
     return (
@@ -64,6 +81,28 @@ export default function AccountPage() {
       </header>
 
       <div className="lg:max-w-2xl lg:mx-auto px-5 py-6 lg:px-0 lg:py-10">
+        {(kioskMuseumId || canInstall) && (
+          <div className="mb-6 space-y-2">
+            {canInstall && (
+              <Button variant="secondary" block icon={<Download />} onClick={promptInstall}>
+                {t("Installa l'app")}
+              </Button>
+            )}
+            {kioskMuseumId && (
+              <Button
+                variant="secondary"
+                block
+                icon={<HomeIcon />}
+                onClick={() => {
+                  exitKiosk();
+                  navigate('/');
+                }}
+              >
+                {t('Esci dalla modalità museo')}
+              </Button>
+            )}
+          </div>
+        )}
         {user ? (
           <LoggedInView
             user={user}
@@ -319,34 +358,28 @@ function LoggedInView({
           <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide mb-2">
             {t("Quanto conosci già l'arte?")}
           </p>
-          <div className="grid grid-cols-2 gap-2">
-            {Object.values(CompetenceLevel).map((level) => (
-              <Chip
-                key={level}
-                selected={competenceLevel === level}
-                onClick={() => setCompetenceLevel(level)}
-              >
-                {COMPETENCE_META[level].emoji} {COMPETENCE_META[level].label}
-              </Chip>
-            ))}
-          </div>
+          <Select
+            value={competenceLevel}
+            onChange={(value) => setCompetenceLevel(value as CompetenceLevel)}
+            options={Object.values(CompetenceLevel).map((level) => ({
+              value: level,
+              label: `${COMPETENCE_META[level].emoji} ${COMPETENCE_META[level].label}`,
+            }))}
+          />
         </div>
 
         <div className="mb-5">
           <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide mb-2">
             {t('Quanto tempo hai di solito?')}
           </p>
-          <div className="flex flex-col gap-2">
-            {Object.values(TimePreference).map((time) => (
-              <Chip
-                key={time}
-                selected={availableTime === time}
-                onClick={() => setAvailableTime(time)}
-              >
-                {TIME_META[time].emoji} {TIME_META[time].label}
-              </Chip>
-            ))}
-          </div>
+          <Select
+            value={availableTime}
+            onChange={(value) => setAvailableTime(value as TimePreference)}
+            options={Object.values(TimePreference).map((time) => ({
+              value: time,
+              label: `${TIME_META[time].emoji} ${TIME_META[time].label}`,
+            }))}
+          />
         </div>
 
         <div className="mb-5">
@@ -407,23 +440,16 @@ function PurchasesList({
   loading,
   language,
 }: {
-  purchases: VisitPurchase[] | undefined;
+  purchases: VisitPurchaseWithVisit[] | undefined;
   loading: boolean;
   language: ReturnType<typeof useI18nStore.getState>['language'];
 }) {
   const t = useT();
   const navigate = useNavigate();
 
-  const { data: visits } = useQuery({
-    queryKey: ['purchased-visits', purchases?.map((p) => p.visitId)],
-    queryFn: () => Promise.all(purchases!.map((p) => api.getVisit(p.visitId).catch(() => null))),
-    enabled: !!purchases && purchases.length > 0,
-  });
-
-  const resolved = useMemo(
-    () => (visits || []).filter((v): v is NonNullable<typeof v> => v !== null),
-    [visits],
-  );
+  // getMyPurchases popola già visitId con la visita intera — nessun'altra
+  // richiesta necessaria per mostrare titolo/durata/opere.
+  const resolved = useMemo(() => (purchases || []).map((p) => p.visitId), [purchases]);
 
   if (loading) return <LoadingState fullHeight={false} message={t('Cerco i tuoi acquisti...')} />;
 

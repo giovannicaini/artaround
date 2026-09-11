@@ -1,57 +1,62 @@
-// Tipi utente
+/**
+ * Tipi Utente
+ */
 export interface User {
   _id: string;
   username: string;
   email: string;
   password: string; // hashata
-  role: UserRole; // Ruolo principale/globale
-  roleAssignments?: RoleAssignment[]; // Ruoli contestuali su risorse specifiche
-  preferences?: UserPreferences;
-  // Credito in euro spendibile nel marketplace: parte da 0, si ricarica (per ora
-  // senza un pagamento reale, vedi credit.types.ts) e si consuma acquistando
-  // item/visite a pagamento.
-  creditBalance: number;
+  isAdmin: boolean; // Unico ruolo globale: amministratore o no
+  museumRoles?: MuseumRoleAssignment[]; // Musei di cui è curatore o autore
+  preferences?: UserPreferences; // Preferenze settate sul navigator
+  creditBalance: number; //non dovrebbe mai andare in negativo
   isActive: boolean;
   lastLogin?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
 
-export enum UserRole {
-  ADMIN = 'admin', // Accesso completo al sistema
-  CURATOR = 'curator', // Curatori museo che gestiscono opere e visite
-  AUTHOR = 'author', // Creatori di contenuti
-  VISITOR = 'visitor', // Utenti normali
-}
-
 /**
- * Assegnazione di ruolo contestuale - collega un utente a una risorsa specifica con un ruolo
- * Esempi:
- * - Utente è AUTHOR dell'Item X
- * - Utente è EDITOR della Visita Y
- * - Utente è MANAGER del Museo Z
+ * Assegna un utente come curatore o autore di UN museo specifico. Non esiste
+ * un CURATOR o un AUTHOR "generici": lo si è sempre e solo di un museo preciso.
+ * - CURATOR: assegnabile solo da un admin (vedi MuseumController.addCurator).
+ * - AUTHOR: assegnabile da un admin, oppure dal CURATOR di quello stesso museo
+ *   per promuovere un utente già a sistema (vedi MuseumController.addAuthor).
  */
-export interface RoleAssignment {
-  role: ContextualRole;
-  resourceType: ResourceType;
-  resourceId: string;
+export interface MuseumRoleAssignment {
+  museumId: string;
+  role: MuseumRole;
   assignedAt: Date;
   assignedBy?: string; // ID dell'utente che ha assegnato questo ruolo
 }
 
-export enum ContextualRole {
-  OWNER = 'owner', // Controllo completo sulla risorsa
-  AUTHOR = 'author', // Ha creato il contenuto
-  EDITOR = 'editor', // Può modificare ma non eliminare
-  VIEWER = 'viewer', // Accesso in sola lettura a contenuti privati
-  MANAGER = 'manager', // Può gestire (per i musei)
+export enum MuseumRole {
+  CURATOR = 'curator',
+  AUTHOR = 'author',
 }
 
-export enum ResourceType {
-  ITEM = 'item',
-  VISIT = 'visit',
-  ARTWORK = 'artwork',
-  MUSEUM = 'museum',
+/**
+ * Richiesta di un utente di diventare curatore o autore di un museo — in
+ * attesa che un admin (sempre) o il curatore del museo (solo per AUTHOR)
+ * la confermi. Vedi MuseumController.requestRole/approveRoleRequest.
+ */
+export interface MuseumRoleRequest {
+  _id: string;
+  userId: string;
+  museumId: string;
+  role: MuseumRole;
+  requestedAt: Date;
+}
+
+/**
+ * MuseumRoleRequest con username e nome museo già risolti — così chi
+ * revisiona (un curatore non ha accesso a GET /api/users) non deve fare
+ * chiamate aggiuntive per capire chi/cosa. Vedi
+ * MuseumController.listReviewableRoleRequests.
+ */
+export interface MuseumRoleRequestWithNames extends MuseumRoleRequest {
+  username?: string;
+  museumName?: string;
 }
 
 // ========================================
@@ -72,7 +77,7 @@ export interface GetUsersParams {
   page?: number;
   limit?: number;
   search?: string;
-  role?: UserRole;
+  isAdmin?: boolean;
   isActive?: boolean;
 }
 
@@ -80,7 +85,7 @@ export interface CreateUserData {
   username: string;
   email: string;
   password: string;
-  role?: UserRole;
+  isAdmin?: boolean;
   isActive?: boolean;
 }
 
@@ -88,11 +93,9 @@ export interface UpdateUserData {
   username?: string;
   email?: string;
   password?: string;
-  role?: UserRole;
+  isAdmin?: boolean;
   isActive?: boolean;
 }
-
-export type RoleAssignmentData = Omit<RoleAssignment, 'assignedAt' | 'assignedBy'>;
 
 export interface UserPreferences {
   competenceLevel: CompetenceLevel;

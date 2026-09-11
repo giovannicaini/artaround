@@ -1,83 +1,8 @@
 import { Router } from 'express';
 import { UtilsController } from '../controllers/utils.controller.js';
-import { authMiddleware, roleMiddleware } from '../middleware/index.js';
-import { UserRole } from '@artaround/shared';
+import { authMiddleware } from '../middleware/index.js';
 
 const router = Router();
-
-/**
- * @swagger
- * /api/utils/navigator-default-configs:
- *   get:
- *     tags: [Utils]
- *     summary: Configurazioni di default del Navigator (Admin only)
- *     description: Ottiene le configurazioni Navigator di piattaforma, usate quando un museo non ha un proprio navigatorConfig
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Lista configurazioni di default
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       403:
- *         $ref: '#/components/responses/ForbiddenError'
- */
-router.get(
-  '/navigator-default-configs',
-  authMiddleware,
-  roleMiddleware(UserRole.ADMIN),
-  UtilsController.getNavigatorDefaultConfigs,
-);
-
-/**
- * @swagger
- * /api/utils/navigator-default-config:
- *   get:
- *     tags: [Utils]
- *     summary: Configurazioni di default del Navigator (pubblico)
- *     description: Stessi dati di /navigator-default-configs ma senza autenticazione — usata dall'app Navigator, anche da visitatori anonimi.
- *     responses:
- *       200:
- *         description: Lista configurazioni di default
- */
-router.get('/navigator-default-config', UtilsController.getNavigatorDefaultConfigs);
-
-/**
- * @swagger
- * /api/utils/navigator-default-configs:
- *   put:
- *     tags: [Utils]
- *     summary: Aggiorna le configurazioni di default del Navigator (Admin only)
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [navigatorConfigs]
- *             properties:
- *               navigatorConfigs:
- *                 type: array
- *                 items:
- *                   type: object
- *     responses:
- *       200:
- *         description: Configurazioni aggiornate
- *       400:
- *         $ref: '#/components/responses/ValidationError'
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       403:
- *         $ref: '#/components/responses/ForbiddenError'
- */
-router.put(
-  '/navigator-default-configs',
-  authMiddleware,
-  roleMiddleware(UserRole.ADMIN),
-  UtilsController.updateNavigatorDefaultConfigs,
-);
 
 /**
  * @swagger
@@ -324,6 +249,58 @@ router.post(
   authMiddleware,
   UtilsController.translateBatchValidation,
   UtilsController.translateBatch,
+);
+
+/**
+ * @swagger
+ * /api/utils/voice-command:
+ *   post:
+ *     tags: [Utils]
+ *     summary: Classifica un comando vocale del Navigator
+ *     description: Interpreta un testo trascritto e lo associa a uno dei comandi vocali fissi previsti, o null se nessuno è pertinente
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [text, language]
+ *             properties:
+ *               text:
+ *                 type: string
+ *                 example: puoi andare al prossimo punto?
+ *               language:
+ *                 type: string
+ *                 example: it
+ *     responses:
+ *       200:
+ *         description: Comando riconosciuto (o null)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     command:
+ *                       type: string
+ *                       nullable: true
+ *                       example: next
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
+router.post(
+  '/voice-command',
+  authMiddleware,
+  UtilsController.voiceCommandValidation,
+  UtilsController.voiceCommand,
 );
 
 export default router;

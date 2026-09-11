@@ -1,22 +1,30 @@
-import type { AppLanguage } from '@artaround/shared';
-import { isLanguageFullyTranslated } from './translation-fields';
+import { html, nothing } from 'lit';
+import { NAVIGATOR_FONT_OPTIONS, type AppLanguage } from '@artaround/shared';
+import { isLanguageFullyTranslated, buildTranslationLanguageOptions } from './translation-fields';
+import { __ } from '../services/i18n.service';
+import { translationService } from '../services/translation.service';
 
 /**
- * Forma "piatta" di una NavigatorAppConfig usata dai form di editing lato marketplace
+ * Forma "piatta" di una NavigatorConfig usata dai form di editing lato marketplace
  * (traduzioni espanse come proprietà dirette invece che annidate come nello schema server).
  *
- * Duplicata identica fino a poco fa in museums-management-page.ts e
- * navigator-default-config-page.ts: centralizzata qui perché entrambe le pagine editano
- * lo stesso tipo di configurazione (una per museo, una di default).
+ * Condivisa tra navigator-default-config-page.ts (l'unica config globale) e la
+ * sezione "Configurazioni Navigator" di museums-management-page.ts (le config
+ * di un singolo museo, gestibili anche dal suo curatore).
  */
 export interface NavigatorConfigFormData {
-  id: string;
+  id: string; // vuoto per una config non ancora salvata
   name: string;
   slug: string;
+  applicability: 'global' | 'museum';
+  museumId: string; // vuoto quando applicability === 'global'
   logo: string;
   splashImage: string;
   primaryColor: string;
   secondaryColor: string;
+  appBackgroundColor: string; // sfondo reale dell'app (branding.backgroundColor) — diverso da backgroundColor sotto (pwa.backgroundColor, manifest/splash)
+  displayFont: string; // id da NAVIGATOR_FONT_OPTIONS, vuoto = default dell'app
+  bodyFont: string;
   homeTitle: string;
   homeTitleTranslations: Partial<Record<AppLanguage, string>>;
   homeSubtitle: string;
@@ -24,6 +32,7 @@ export interface NavigatorConfigFormData {
   welcomeText: string;
   welcomeTextTranslations: Partial<Record<AppLanguage, string>>;
   openingImage: string;
+  featuredMuseumId: string; // solo sulla config globale — museo mostrato in evidenza in Home
   manifestName: string;
   shortName: string;
   manifestDescription: string;
@@ -43,6 +52,7 @@ export interface NavigatorConfigFormData {
 export type NavigatorColorFieldKey =
   | 'primaryColor'
   | 'secondaryColor'
+  | 'appBackgroundColor'
   | 'themeColor'
   | 'backgroundColor';
 
@@ -51,6 +61,15 @@ export type NavigatorTranslationFieldKey =
   | 'homeSubtitleTranslations'
   | 'welcomeTextTranslations'
   | 'manifestDescriptionTranslations';
+
+// Opzioni per i due <ui-select> font (titoli/testo) — riusate identiche da
+// navigator-default-config-page.ts e museums-management-page.ts, un solo
+// posto invece di duplicare la lista.
+export const NAVIGATOR_FONT_SELECT_OPTIONS = NAVIGATOR_FONT_OPTIONS.map((f) => ({
+  value: f.id,
+  label: f.label,
+  fontFamily: f.family,
+}));
 
 export const HEX_COLOR_REGEX = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
 export const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -104,4 +123,361 @@ export function updateNavigatorConfigTranslationField(
       },
     };
   });
+}
+
+// ─── Editor di immagini (branding + PWA icons) ─────────────────────
+//
+// Condiviso tra museums-management-page.ts (editor per museo) e
+// navigator-default-config-page.ts (l'unica config globale): entrambi
+// mostrano lo stesso set di upload/crop widget (<image-editor>), quindi le
+// definizioni (dimensioni, formato) vivono qui una sola volta.
+export type NavigatorImageFieldKey =
+  | 'logo'
+  | 'splashImage'
+  | 'openingImage'
+  | 'icon192'
+  | 'icon512'
+  | 'iconMaskable'
+  | 'appleTouchIcon';
+
+export interface NavigatorImageEditorDefinition {
+  key: NavigatorImageFieldKey;
+  label: string;
+  maxWidth: number;
+  maxHeight: number;
+  defaultFormat: 'png' | 'webp';
+}
+
+// Funzione (non costante di modulo) così le label passano da __() nel
+// momento in cui vengono richieste, non al primo import del modulo.
+export function getNavigatorImageEditorDefinitions(): NavigatorImageEditorDefinition[] {
+  return [
+    { key: 'logo', label: __('Logo'), maxWidth: 512, maxHeight: 512, defaultFormat: 'png' },
+    {
+      key: 'splashImage',
+      label: __('Immagine di apertura'),
+      maxWidth: 1440,
+      maxHeight: 2560,
+      defaultFormat: 'webp',
+    },
+    {
+      key: 'icon192',
+      label: __('Icon 192x192'),
+      maxWidth: 192,
+      maxHeight: 192,
+      defaultFormat: 'png',
+    },
+    {
+      key: 'icon512',
+      label: __('Icon 512x512'),
+      maxWidth: 512,
+      maxHeight: 512,
+      defaultFormat: 'png',
+    },
+    {
+      key: 'iconMaskable',
+      label: __('Icon maskable'),
+      maxWidth: 512,
+      maxHeight: 512,
+      defaultFormat: 'png',
+    },
+    {
+      key: 'appleTouchIcon',
+      label: __('Apple touch icon'),
+      maxWidth: 180,
+      maxHeight: 180,
+      defaultFormat: 'png',
+    },
+  ];
+}
+
+/**
+ * Renderizza un `<image-editor>` per ciascun campo immagine della config
+ * (logo, splash, opening image, icone PWA). Il chiamante fornisce le
+ * definizioni (vedi getNavigatorImageEditorDefinitions) e un setter che
+ * applica il patch al proprio stato (editingNavigatorConfig / config).
+ * Richiede che il chiamante importi '../ui/image-editor' (side-effect).
+ */
+export function renderNavigatorImageEditors(
+  config: NavigatorConfigFormData,
+  definitions: NavigatorImageEditorDefinition[],
+  onUpdate: (key: NavigatorImageFieldKey, path: string | undefined) => void,
+) {
+  return definitions.map(
+    (definition) => html`
+      <image-editor
+        label=${definition.label}
+        category="misc"
+        .value=${config[definition.key]}
+        maxWidth=${definition.maxWidth}
+        maxHeight=${definition.maxHeight}
+        defaultFormat=${definition.defaultFormat}
+        @image-saved=${(e: CustomEvent) => onUpdate(definition.key, e.detail.path)}
+      ></image-editor>
+    `,
+  );
+}
+
+/**
+ * Renderizza un campo colore (swatch <ui-color-input> + <ui-input> testuale
+ * per l'hex) condiviso tra i due editor di NavigatorConfig. Richiede che il
+ * chiamante importi '../ui/ui-color-input' (side-effect).
+ */
+export function renderNavigatorColorField(
+  config: NavigatorConfigFormData,
+  key: NavigatorColorFieldKey,
+  label: string,
+  fallback: string,
+  onUpdate: (patch: Partial<NavigatorConfigFormData>) => void,
+) {
+  return html`
+    <div class="space-y-1.5">
+      <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
+        ${label}
+      </label>
+      <div class="flex items-center gap-2">
+        <ui-color-input
+          .value=${normalizeHexColor(config[key], fallback)}
+          @input-change=${(e: CustomEvent) =>
+            onUpdate({ [key]: e.detail.value } as Partial<NavigatorConfigFormData>)}
+        ></ui-color-input>
+        <div class="flex-1">
+          <ui-input
+            .value=${config[key]}
+            @input-change=${(e: CustomEvent) =>
+              onUpdate({ [key]: e.detail.value } as Partial<NavigatorConfigFormData>)}
+          ></ui-input>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ─── Sezione "Traduzioni navigator" ────────────────────────────────
+export interface NavigatorTranslateMissingOptions {
+  label: string;
+  loading: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}
+
+export interface NavigatorTranslationsSectionOptions {
+  config: NavigatorConfigFormData;
+  sourceLanguageLabel: string;
+  targetLanguages: AppLanguage[];
+  selectedLanguage: AppLanguage | null;
+  getLanguageLabel: (language: AppLanguage) => string;
+  onSelectLanguage: (language: AppLanguage) => void;
+  onUpdateField: (
+    field: NavigatorTranslationFieldKey,
+    language: AppLanguage,
+    value: string,
+  ) => void;
+  /** Messaggio mostrato quando non ci sono lingue di destinazione disponibili. */
+  emptyTargetsMessage?: string;
+  /** Se presente, mostra il bottone "Traduci campi mancanti con AI". */
+  translateMissing?: NavigatorTranslateMissingOptions;
+  /**
+   * Sottotitolo Home: ha effetto solo nella Home multi-museo, mai raggiunta
+   * da una config di museo (agganciamento kiosk salta dritto al museo) —
+   * l'editor di museo lo nasconde passando false, quello globale lo mostra.
+   */
+  showHomeSubtitle?: boolean;
+}
+
+/**
+ * Renderizza il riquadro "Traduzioni navigator" (selettore lingua + campi
+ * tradotti) condiviso tra museums-management-page.ts e
+ * navigator-default-config-page.ts. Richiede che il chiamante importi
+ * '../ui/ui-select', '../ui/ui-input', '../ui/ui-textarea', '../ui/ui-badge'
+ * e, se usa translateMissing, '../ui/ui-button' (tutti già importati da
+ * entrambi i file).
+ */
+export function renderNavigatorTranslationsSection(options: NavigatorTranslationsSectionOptions) {
+  const {
+    config,
+    sourceLanguageLabel,
+    targetLanguages,
+    selectedLanguage,
+    getLanguageLabel,
+    onSelectLanguage,
+    onUpdateField,
+    emptyTargetsMessage,
+    translateMissing,
+    showHomeSubtitle = true,
+  } = options;
+
+  const selectedLanguageLabel = selectedLanguage ? getLanguageLabel(selectedLanguage) : null;
+
+  const translationLanguageOptions = buildTranslationLanguageOptions(
+    targetLanguages,
+    getLanguageLabel,
+    (lang) => isNavigatorConfigLanguageFullyTranslated(config, lang),
+    { translated: __('Tradotta'), toTranslate: __('Da tradurre') },
+  );
+
+  return html`
+    <div class="pt-4 border-t border-surface-200 dark:border-surface-700">
+      <div
+        class="space-y-4 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-100/80 dark:bg-violet-900/25 p-4"
+      >
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <h5 class="font-medium text-surface-900 dark:text-white">
+            ${__('Traduzioni navigator')}
+          </h5>
+          <div class="flex items-center gap-2 flex-wrap">
+            <ui-badge
+              variant="secondary"
+              .label=${`${__('Lingua sorgente')}: ${sourceLanguageLabel}`}
+            ></ui-badge>
+            ${translateMissing
+              ? html`
+                  <ui-button
+                    type="button"
+                    variant="secondary"
+                    size="xs"
+                    icon="sparkles"
+                    .label=${translateMissing.label}
+                    .loading=${translateMissing.loading}
+                    .disabled=${translateMissing.disabled}
+                    @click=${translateMissing.onClick}
+                  ></ui-button>
+                `
+              : nothing}
+          </div>
+        </div>
+
+        ${targetLanguages.length === 0
+          ? html`<p class="text-xs text-surface-500 dark:text-surface-400">
+              ${emptyTargetsMessage || ''}
+            </p>`
+          : html`
+              <div class="space-y-3">
+                <ui-select
+                  .label=${__('Lingua traduzione')}
+                  .value=${selectedLanguage || ''}
+                  .options=${translationLanguageOptions}
+                  @select-change=${(e: CustomEvent<{ value: AppLanguage }>) =>
+                    onSelectLanguage(e.detail.value)}
+                ></ui-select>
+
+                ${selectedLanguage
+                  ? html`
+                      <div
+                        class="p-4 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/30 space-y-3"
+                      >
+                        <h6 class="text-sm font-semibold text-surface-800 dark:text-surface-100">
+                          ${__('Traduzioni in')}
+                          ${selectedLanguageLabel || selectedLanguage.toUpperCase()}
+                        </h6>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <ui-input
+                            .label=${__('Titolo Home')}
+                            .value=${config.homeTitleTranslations[selectedLanguage] || ''}
+                            @input-change=${(e: CustomEvent) =>
+                              onUpdateField(
+                                'homeTitleTranslations',
+                                selectedLanguage,
+                                e.detail.value,
+                              )}
+                          ></ui-input>
+
+                          ${showHomeSubtitle
+                            ? html`
+                                <ui-input
+                                  .label=${__('Sottotitolo Home')}
+                                  .value=${config.homeSubtitleTranslations[selectedLanguage] || ''}
+                                  @input-change=${(e: CustomEvent) =>
+                                    onUpdateField(
+                                      'homeSubtitleTranslations',
+                                      selectedLanguage,
+                                      e.detail.value,
+                                    )}
+                                ></ui-input>
+                              `
+                            : nothing}
+                        </div>
+
+                        <ui-textarea
+                          .label=${__('Testo di benvenuto')}
+                          .value=${config.welcomeTextTranslations[selectedLanguage] || ''}
+                          @textarea-change=${(e: CustomEvent) =>
+                            onUpdateField(
+                              'welcomeTextTranslations',
+                              selectedLanguage,
+                              e.detail.value,
+                            )}
+                          rows="3"
+                        ></ui-textarea>
+
+                        <ui-textarea
+                          .label=${__('Descrizione manifest')}
+                          .value=${config.manifestDescriptionTranslations[selectedLanguage] || ''}
+                          @textarea-change=${(e: CustomEvent) =>
+                            onUpdateField(
+                              'manifestDescriptionTranslations',
+                              selectedLanguage,
+                              e.detail.value,
+                            )}
+                          rows="2"
+                        ></ui-textarea>
+                      </div>
+                    `
+                  : nothing}
+              </div>
+            `}
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Calcola le traduzioni mancanti per i campi navigator (homeTitle,
+ * homeSubtitle, welcomeText, manifestDescription) verso le lingue target, e
+ * ne richiede la traduzione automatica via /api/utils/translate-batch.
+ * Ritorna `null` se non c'è nulla da tradurre (tutto già completo), oppure
+ * il patch da applicare alla NavigatorConfigFormData. Condivisa tra i due
+ * editor: ciascuno gestisce il proprio stato di loading/error/success
+ * attorno alla chiamata.
+ */
+export async function computeNavigatorMissingTranslations(
+  config: NavigatorConfigFormData,
+  sourceLanguage: AppLanguage,
+  targetLanguages: AppLanguage[],
+): Promise<Partial<NavigatorConfigFormData> | null> {
+  const fieldSources: Array<{ field: NavigatorTranslationFieldKey; source: string }> = [
+    { field: 'homeTitleTranslations', source: config.homeTitle },
+    { field: 'homeSubtitleTranslations', source: config.homeSubtitle },
+    { field: 'welcomeTextTranslations', source: config.welcomeText },
+    { field: 'manifestDescriptionTranslations', source: config.manifestDescription },
+  ];
+
+  const batchItems: Array<{ key: string; text: string; targetLang: AppLanguage }> = [];
+  for (const lang of targetLanguages) {
+    for (const { field, source } of fieldSources) {
+      if (source.trim() && !config[field][lang]?.trim()) {
+        batchItems.push({ key: `${lang}:${field}`, text: source, targetLang: lang });
+      }
+    }
+  }
+
+  if (batchItems.length === 0) return null;
+
+  const translations = await translationService.translateBatch(sourceLanguage, batchItems);
+
+  const patch: Partial<NavigatorConfigFormData> = {};
+  for (const { field } of fieldSources) {
+    const nextMap: Partial<Record<AppLanguage, string>> = { ...config[field] };
+    for (const lang of targetLanguages) {
+      const translated = translations[`${lang}:${field}`];
+      if (translated) {
+        nextMap[lang] = translated;
+      }
+    }
+    (patch as Record<NavigatorTranslationFieldKey, Partial<Record<AppLanguage, string>>>)[field] =
+      nextMap;
+  }
+
+  return patch;
 }

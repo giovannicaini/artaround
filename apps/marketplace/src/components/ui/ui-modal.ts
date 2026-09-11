@@ -10,10 +10,15 @@ export class UiModal extends LitElement {
   @property({ type: String }) title = '';
   @property({ type: String }) message = '';
   @property({ type: String }) variant: 'default' | 'danger' | 'success' | 'info' = 'default';
-  @property({ type: String }) confirmLabel = '';
-  @property({ type: String }) cancelLabel = '';
+  // Nome attributo esplicito: il default di Lit per una proprietà camelCase
+  // è tutto minuscolo senza trattino (es. "confirmlabel"), ma modalService.ts
+  // scrive gli attributi in kebab-case ("confirm-label") — senza specificarlo
+  // qui il binding non avviene mai e il modale mostra sempre l'etichetta di
+  // default, qualunque valore passi il chiamante.
+  @property({ type: String, attribute: 'confirm-label' }) confirmLabel = '';
+  @property({ type: String, attribute: 'cancel-label' }) cancelLabel = '';
   @property({ type: Boolean }) loading = false;
-  @property({ type: Boolean }) hideCancel = false;
+  @property({ type: Boolean, attribute: 'hide-cancel' }) hideCancel = false;
 
   // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {

@@ -1,11 +1,9 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import {
   User as IUser,
-  UserRole,
   UserPreferences,
-  RoleAssignment,
-  ContextualRole,
-  ResourceType,
+  MuseumRoleAssignment,
+  MuseumRole,
 } from '@artaround/shared';
 
 export interface UserDocument extends Omit<IUser, '_id'>, Document {}
@@ -21,20 +19,15 @@ const userPreferencesSchema = new Schema<UserPreferences>(
   { _id: false },
 );
 
-const roleAssignmentSchema = new Schema<RoleAssignment>(
+const museumRoleAssignmentSchema = new Schema<MuseumRoleAssignment>(
   {
+    museumId: {
+      type: String,
+      required: true,
+    },
     role: {
       type: String,
-      enum: Object.values(ContextualRole),
-      required: true,
-    },
-    resourceType: {
-      type: String,
-      enum: Object.values(ResourceType),
-      required: true,
-    },
-    resourceId: {
-      type: String,
+      enum: Object.values(MuseumRole),
       required: true,
     },
     assignedAt: {
@@ -69,13 +62,12 @@ const userSchema = new Schema<UserDocument>(
       required: true,
       minlength: 6,
     },
-    role: {
-      type: String,
-      enum: Object.values(UserRole),
-      default: UserRole.VISITOR,
+    isAdmin: {
+      type: Boolean,
+      default: false,
     },
-    roleAssignments: {
-      type: [roleAssignmentSchema],
+    museumRoles: {
+      type: [museumRoleAssignmentSchema],
       default: [],
     },
     preferences: {
@@ -101,7 +93,7 @@ const userSchema = new Schema<UserDocument>(
   },
 );
 
-// Indice per le query efficienti sulle assegnazioni di ruolo
-userSchema.index({ 'roleAssignments.resourceType': 1, 'roleAssignments.resourceId': 1 });
+// Indice per le query efficienti sulle assegnazioni di ruolo per museo
+userSchema.index({ 'museumRoles.museumId': 1, 'museumRoles.role': 1 });
 
 export const User = mongoose.model<UserDocument>('User', userSchema);

@@ -62,10 +62,6 @@ const artworkSchema = new Schema<ArtworkDocument>(
     // Classificazione
     artworkType: {
       type: String,
-      // Derivato dall'enum condiviso invece di duplicarlo qui a mano: un elenco
-      // hardcoded era rimasto disallineato dopo il redesign dell'enum (4 categorie
-      // su 10 - photograph, new_media, manuscript_book, decorative_object - non
-      // erano mai salvabili, fallivano sempre con un errore di validazione Mongoose).
       enum: Object.values(ArtworkType),
       required: true,
     },
@@ -84,7 +80,7 @@ const artworkSchema = new Schema<ArtworkDocument>(
     // Contesto
     historicalEvents: [String],
     subjects: [String],
-    artworkCollection: String, // Renamed from 'collection' to avoid Document conflict
+    artworkCollection: String,
 
     // Media
     image: { type: String, required: true },
@@ -92,7 +88,7 @@ const artworkSchema = new Schema<ArtworkDocument>(
 
     // Posizione nel museo
     roomId: { type: String, index: true }, // Museum.rooms[].id
-    room: String, // testo libero legacy, fallback per opere non ancora migrate
+    room: String, // Testo libero, non visibilte all'utente per poi impostare l'id corretto della stanza
     floor: String,
 
     // Posizione sulla mappa

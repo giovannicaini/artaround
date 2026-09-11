@@ -19,12 +19,7 @@ const TIME_TO_DURATION: Record<TimePreference, ContentDuration> = {
   [TimePreference.APPROFONDITO]: ContentDuration.LONG,
 };
 
-/**
- * Traduce le preferenze salvate dell'utente (le quattro dimensioni di
- * specifica) in un punto di partenza per livello e durata del contenuto.
- * Restano sempre proposte, mai vincoli: l'utente può cambiarle in ogni
- * momento dai selettori del player.
- */
+/** Preferenze salvate → livello/durata di partenza, sempre modificabili dai selettori del player. */
 export function defaultLanguageLevel(preferences?: UserPreferences | null): LanguageLevel {
   if (preferences?.competenceLevel) return COMPETENCE_TO_LEVEL[preferences.competenceLevel];
   return LanguageLevel.MEDIUM;
@@ -35,11 +30,7 @@ export function defaultContentDuration(preferences?: UserPreferences | null): Co
   return ContentDuration.MEDIUM;
 }
 
-/**
- * Punteggio di affinità 0-1 tra gli interessi salvati e quelli di una
- * visita — alimenta l'ordinamento "Per te". Nessuna corrispondenza tra due
- * liste vuote non è affinità: resta 0, non un imbroglio a metà punteggio.
- */
+/** Punteggio di affinità 0-1 tra interessi salvati e quelli di una visita — alimenta "Per te". */
 export function interestAffinity(
   userInterests: string[] | undefined,
   targetInterests: string[] | undefined,

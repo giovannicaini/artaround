@@ -5,10 +5,7 @@ import type {
   GetUsersParams,
   CreateUserData,
   UpdateUserData,
-  RoleAssignmentData,
-  ResourceType,
-  UserRole,
-  ContextualRole,
+  MuseumRole,
 } from '@artaround/shared';
 import { __ } from './i18n.service';
 
@@ -19,7 +16,7 @@ class UserService {
     if (params.page) searchParams.set('page', String(params.page));
     if (params.limit) searchParams.set('limit', String(params.limit));
     if (params.search) searchParams.set('search', params.search);
-    if (params.role) searchParams.set('role', params.role);
+    if (params.isAdmin !== undefined) searchParams.set('isAdmin', String(params.isAdmin));
     if (params.isActive !== undefined) searchParams.set('isActive', String(params.isActive));
 
     const query = searchParams.toString();
@@ -72,70 +69,21 @@ class UserService {
     return { message: response.message || 'Utente disattivato' };
   }
 
-  async addRoleAssignment(userId: string, data: RoleAssignmentData): Promise<User> {
-    const response = await apiService.post<User>(`/users/${userId}/role-assignments`, data);
-
-    if (!response.success || !response.data) {
-      throw new Error(getErrorMessage(response, "Errore nell'assegnazione del ruolo"));
-    }
-
-    return response.data;
+  // Ruolo globale: è solo un booleano (User.isAdmin). Curatore/autore non
+  // sono ruoli globali: si è curatore o autore solo di uno o più musei
+  // specifici — vedi museumService.getCurators/addCurator/addAuthor.
+  getRoleLabel(isAdmin: boolean): string {
+    return isAdmin ? __('Amministratore') : __('Utente');
   }
 
-  async removeRoleAssignment(userId: string, data: RoleAssignmentData): Promise<User> {
-    const response = await apiService.deleteWithBody<User>(
-      `/users/${userId}/role-assignments`,
-      data,
-    );
-
-    if (!response.success || !response.data) {
-      throw new Error(getErrorMessage(response, 'Errore nella rimozione del ruolo'));
-    }
-
-    return response.data;
-  }
-
-  async getUsersByResource(resourceType: ResourceType, resourceId: string): Promise<User[]> {
-    const response = await apiService.get<User[]>(
-      `/users/by-resource/${resourceType}/${resourceId}`,
-    );
-
-    if (!response.success || !response.data) {
-      throw new Error(getErrorMessage(response, 'Errore nel recupero degli utenti'));
-    }
-
-    return response.data;
-  }
-
-  getRoleLabel(role: UserRole): string {
-    const labels: Record<UserRole, string> = {
-      admin: __('Amministratore'),
+  // Curatore/autore non sono ruoli globali: questa label è per un
+  // MuseumRoleAssignment (sempre relativo a un museo specifico).
+  getMuseumRoleLabel(role: MuseumRole): string {
+    const labels: Record<MuseumRole, string> = {
       curator: __('Curatore'),
       author: __('Autore'),
-      visitor: __('Visitatore'),
     };
     return labels[role] || role;
-  }
-
-  getContextualRoleLabel(role: ContextualRole): string {
-    const labels: Record<ContextualRole, string> = {
-      owner: __('Proprietario'),
-      author: __('Autore'),
-      editor: __('Editor'),
-      viewer: __('Visualizzatore'),
-      manager: 'Gestore',
-    };
-    return labels[role] || role;
-  }
-
-  getResourceTypeLabel(type: ResourceType): string {
-    const labels: Record<ResourceType, string> = {
-      item: __('Contenuto'),
-      visit: __('Visita'),
-      artwork: __('Opera'),
-      museum: __('Museo'),
-    };
-    return labels[type] || type;
   }
 }
 

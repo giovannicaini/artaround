@@ -15,6 +15,12 @@
   --safe-area-inset-top: env(safe-area-inset-top, 0px);
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
 
+  /* Sovrascrivibili a runtime da una NavigatorConfig (branding.displayFont/
+     .bodyFont — vedi useApplyNavigatorTheme), stessa tecnica dei colori
+     sotto: qui i default attuali dell'app. */
+  --font-display: 'Unbounded';
+  --font-body: 'Plus Jakarta Sans';
+
   --color-brand-50: 245 241 255;
   --color-brand-100: 235 225 255;
   --color-brand-200: 215 196 255;
@@ -26,6 +32,29 @@
   --color-brand-800: 74 20 148;
   --color-brand-900: 56 15 112;
   --color-brand-950: 34 8 63;
+
+  /* Secondo colore (branding.secondaryColor) di una NavigatorConfig —
+     sovrascrivibile a runtime da useMuseumTheme, stessa tecnica del brand
+     ramp qui sopra. */
+  --color-ember-500: #f59e0b;
+  --color-ember-600: #d97706;
+
+  /* Scala "surface" (sfondo app, card, bordi, testo) — stessa tecnica: di
+     default questi valori, ma buildSurfaceRamp(branding.backgroundColor)
+     li sovrascrive tutti a runtime quando una config ha un colore di sfondo
+     proprio, così bg-surface-950/bg-surface-900/ecc. cambiano ovunque
+     nell'app (non solo un singolo elemento). */
+  --color-surface-50: 247 246 251;
+  --color-surface-100: 236 233 244;
+  --color-surface-200: 211 204 228;
+  --color-surface-300: 169 156 196;
+  --color-surface-400: 132 120 163;
+  --color-surface-500: 101 90 130;
+  --color-surface-600: 73 63 102;
+  --color-surface-700: 51 42 77;
+  --color-surface-800: 33 26 53;
+  --color-surface-900: 22 16 39;
+  --color-surface-950: 11 8 19;
 }
 
 * {
@@ -39,19 +68,29 @@ html,
 body,
 #root {
   height: 100%;
+  /* 100% (~100vh) include l'area che finisce sotto la barra indirizzi dei
+     browser mobili quando è visibile: il fondo reale del layout resta
+     nascosto sotto la UI del browser. dvh segue l'area davvero visibile,
+     ma non tutti i browser (alcuni Chrome Android) la aggiornano quando
+     quella barra resta ferma su una pagina senza scroll — --app-height
+     (main.tsx, da window.visualViewport) è la misura più affidabile,
+     dvh resta il fallback finché non è ancora nota. */
+  height: 100dvh;
+  height: var(--app-height, 100dvh);
   overflow: hidden;
 }
 
 body {
   font-family:
+    var(--font-body),
     'Plus Jakarta Sans',
     system-ui,
     -apple-system,
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #0b0813;
-  color: #f7f6fb;
+  background: rgb(var(--color-surface-950));
+  color: rgb(var(--color-surface-50));
   overscroll-behavior: none;
 }
 
@@ -80,7 +119,7 @@ h3 {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #493f66;
+  background: rgb(var(--color-surface-600));
   border-radius: 2px;
 }
 
@@ -94,27 +133,24 @@ h3 {
  * Gradiente "aurora": la firma visiva dell'app. Usato su pochi elementi
  * ad alto significato (bottone play, sfondo copertine, barra di
  * avanzamento) — mai come sfondo generico, altrimenti perde forza.
+ * Solo primario → secondario: nessun colore fisso in mezzo, altrimenti un
+ * museo che sceglie due colori lontani dal violetto/fucsia di partenza si
+ * ritrova comunque quella tinta "incollata" al centro del gradiente.
  */
 .gradient-aurora {
-  background-image: linear-gradient(135deg, #8b3ffc 0%, #ec4899 55%, #f59e0b 100%);
+  background-image: linear-gradient(135deg, rgb(var(--color-brand-500)) 0%, var(--color-ember-500) 100%);
+  /* Senza clip esplicito, filter (hover:brightness-110) e box-shadow su un
+     elemento rounded-full/rounded-xl possono lasciare un filo del colore
+     del gradiente fuori dal bordo arrotondato in Chrome — clip esplicito
+     alla propria forma, il box-shadow (fuori dalla border-box) non ne risente. */
+  overflow: hidden;
 }
 
 .gradient-aurora-text {
-  background-image: linear-gradient(100deg, #b894ff, #ec4899 60%, #f5a524);
+  background-image: linear-gradient(100deg, rgb(var(--color-brand-300)), var(--color-ember-500));
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
-}
-
-/* Bagliore ambientale dietro le copertine/hero — un accenno di colore
-   che respira lentamente, non un'animazione invadente. */
-.aurora-glow {
-  position: absolute;
-  inset: -20%;
-  background: radial-gradient(circle at 30% 20%, rgb(139 63 252 / 0.35), transparent 55%),
-    radial-gradient(circle at 75% 60%, rgb(236 72 153 / 0.25), transparent 50%);
-  filter: blur(40px);
-  pointer-events: none;
 }
 
 /* Voice button animation */

@@ -1,5 +1,5 @@
 /**
- * Tipi Item
+ * Tipi Item (Contenuti)
  *
  * Gli Item sono contenuti RIUSABILI (testo/audio) che possono riferirsi a:
  * - Opere (descrizioni di opere fisiche)
@@ -13,6 +13,26 @@
  */
 
 import type { AppLanguage } from './i18n.types';
+
+/**
+ * Una parola trascritta dell'audio generato, con la sua posizione nel testo
+ * originale già calcolata (charIndex) — l'allineamento parola→testo si fa
+ * una sola volta, al momento della generazione (vedi audio-generation.service.ts
+ * lato server), non ad ogni ascolto: il client si limita a confrontare
+ * audio.currentTime con start/end per sapere quale charIndex evidenziare.
+ */
+export interface AudioWordTiming {
+  word: string;
+  start: number; // secondi dall'inizio dell'audio
+  end: number;
+  charIndex: number; // posizione di questa parola nel testo originale
+}
+
+/** Audio generato con OpenAI per un testo in una lingua specifica. */
+export interface GeneratedAudio {
+  url: string;
+  words: AudioWordTiming[];
+}
 
 // ========================================
 // ITEM (contenuto testuale/audio)
@@ -33,8 +53,13 @@ export interface Item {
   sourceLanguage: AppLanguage;
   title: string;
   text: string;
-  translatedTitles?: Partial<Record<AppLanguage, string>>;
-  translatedTexts?: Record<string, string>; // codice lingua -> testo tradotto
+  translatedTitles?: Partial<Record<AppLanguage, string>>; //Traduzioni del titolo
+  translatedTexts?: Partial<Record<AppLanguage, string>>; //Traduzioni del testo
+  // Audio generato con OpenAI per il testo (sorgente e/o tradotto), per
+  // lingua — vedi MuseumController.generateItemAudioForMuseum. Invalidato
+  // (rimosso, mai lasciato a leggere un testo che non c'è più) quando
+  // text/translatedTexts cambiano, vedi ItemController.update.
+  audio?: Partial<Record<AppLanguage, GeneratedAudio>>;
 
   // Caratteristiche del contenuto
   duration: ContentDuration; // 3s, 15s, 1min, 4min
@@ -63,7 +88,7 @@ export interface Item {
 }
 
 // ========================================
-// TIPI DI RIFERIMENTO
+// TIPI DI CONTENUTO
 // ========================================
 
 export enum ItemReferenceType {
@@ -110,6 +135,7 @@ export enum LicenseType {
 // INTEGRAZIONE WIKIDATA
 // ========================================
 
+// le proprietà non sempre appaiono con i codici giusti su Wikidata: problema di difficile risoluzione
 export interface WikidataEntity {
   id: string; // Q number (es. Q42207)
   label: string;
@@ -139,9 +165,7 @@ export interface WikidataEntity {
   dimensionWidth?: number;
   dimensionDepth?: number;
   dimensionUnit?: 'cm' | 'm';
-
-  // Proprietà raw per estensibilità
-  properties?: Record<string, unknown>;
+  properties?: Record<string, unknown>; // Proprietà raw per eventuali ricerche aggiuntive
 }
 
 // ========================================
@@ -162,7 +186,7 @@ export interface ItemFilters {
 }
 
 // ========================================
-// RICHIESTE ITEM
+// REQUESTS ITEM
 // ========================================
 
 export interface CreateItemData {

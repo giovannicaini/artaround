@@ -291,6 +291,14 @@ const swaggerDefinition = {
       name: 'Utils',
       description: 'Utilità (traduzioni, Wikidata)',
     },
+    {
+      name: 'Jobs',
+      description: 'Processi lunghi in background (generazione audio, traduzioni)',
+    },
+    {
+      name: 'Notifications',
+      description: 'Notifiche in-app (richieste di ruolo museo)',
+    },
   ],
 };
 

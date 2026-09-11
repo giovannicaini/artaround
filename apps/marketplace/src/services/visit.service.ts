@@ -108,8 +108,10 @@ export class VisitService {
     }
   }
 
+  // POST, non PUT: le route sono POST /:id/publish e /:id/unpublish (vedi
+  // visit.routes.ts) — un PUT qui non trova nessuna route e fallisce sempre.
   async publish(id: string): Promise<Visit> {
-    const response = await apiService.put<Visit>(`/visits/${id}/publish`, {});
+    const response = await apiService.post<Visit>(`/visits/${id}/publish`, {});
 
     if (!response.success || !response.data) {
       throw new Error(getErrorMessage(response, 'Impossibile pubblicare la visita'));
@@ -119,13 +121,44 @@ export class VisitService {
   }
 
   async unpublish(id: string): Promise<Visit> {
-    const response = await apiService.put<Visit>(`/visits/${id}/unpublish`, {});
+    const response = await apiService.post<Visit>(`/visits/${id}/unpublish`, {});
 
     if (!response.success || !response.data) {
       throw new Error(getErrorMessage(response, 'Impossibile annullare la pubblicazione'));
     }
 
     return response.data;
+  }
+
+  // Avvia in background la generazione audio OpenAI limitata a questa
+  // visita — equivalente di museumService.generateMuseumAudio ma scoped
+  // (vedi VisitController.generateAudio). Risponde subito col jobId,
+  // l'avanzamento si segue da jobsService (GET /api/jobs).
+  async generateVisitAudio(id: string): Promise<{ jobId: string | null; error?: string }> {
+    const response = await apiService.post<{ jobId: string }>(`/visits/${id}/generate-audio`, {});
+    if (response.success && response.data) {
+      return { jobId: response.data.jobId };
+    }
+    return {
+      jobId: null,
+      error: getErrorMessage(response, "Errore durante l'avvio della generazione audio"),
+    };
+  }
+
+  // Avvia in background la sincronizzazione delle traduzioni limitata a
+  // questa visita (lei stessa + gli item che referenzia), con le lingue
+  // attive già impostate sul museo — equivalente di
+  // museumService.syncMuseumLanguages ma scoped (vedi VisitController.syncLanguages).
+  // Risponde subito col jobId, l'avanzamento si segue da jobsService (GET /api/jobs).
+  async syncVisitLanguages(id: string): Promise<{ jobId: string | null; error?: string }> {
+    const response = await apiService.post<{ jobId: string }>(`/visits/${id}/sync-languages`, {});
+    if (response.success && response.data) {
+      return { jobId: response.data.jobId };
+    }
+    return {
+      jobId: null,
+      error: getErrorMessage(response, "Errore durante l'avvio della sincronizzazione lingue"),
+    };
   }
 }
 

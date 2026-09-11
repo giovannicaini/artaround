@@ -35,21 +35,23 @@ export default {
           500: '#f59e0b',
           600: '#d97706',
         },
-        // Scala neutra con la stessa impronta violetta del brand — non
-        // grigio puro: è la differenza tra "grigio scelto" e "grigio di
-        // default".
+        // Scala neutra con un'impronta di tinta (non grigio puro) — è la
+        // differenza tra "grigio scelto" e "grigio di default". Come brand:
+        // triplette RGB da CSS var, sovrascrivibili a runtime da una
+        // NavigatorConfig (buildSurfaceRamp in useMuseumTheme) così sfondo,
+        // card, bordi e testo dell'app cambiano insieme, non solo l'accento.
         surface: {
-          50: '#f7f6fb',
-          100: '#ece9f4',
-          200: '#d3cce4',
-          300: '#a99cc4',
-          400: '#8478a3',
-          500: '#655a82',
-          600: '#493f66',
-          700: '#332a4d',
-          800: '#211a35',
-          900: '#161027',
-          950: '#0b0813',
+          50: 'rgb(var(--color-surface-50) / <alpha-value>)',
+          100: 'rgb(var(--color-surface-100) / <alpha-value>)',
+          200: 'rgb(var(--color-surface-200) / <alpha-value>)',
+          300: 'rgb(var(--color-surface-300) / <alpha-value>)',
+          400: 'rgb(var(--color-surface-400) / <alpha-value>)',
+          500: 'rgb(var(--color-surface-500) / <alpha-value>)',
+          600: 'rgb(var(--color-surface-600) / <alpha-value>)',
+          700: 'rgb(var(--color-surface-700) / <alpha-value>)',
+          800: 'rgb(var(--color-surface-800) / <alpha-value>)',
+          900: 'rgb(var(--color-surface-900) / <alpha-value>)',
+          950: 'rgb(var(--color-surface-950) / <alpha-value>)',
         },
         success: {
           50: '#062820',
@@ -76,9 +78,12 @@ export default {
       fontFamily: {
         // Titoli con carattere, corpo del testo altamente leggibile per
         // l'ascolto-con-lettura-simultanea: due famiglie deliberatamente
-        // diverse, non la stessa riusata a pesi diversi.
-        display: ['"Unbounded"', 'system-ui', 'sans-serif'],
-        sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+        // diverse, non la stessa riusata a pesi diversi. Da CSS var, non
+        // letterali: una NavigatorConfig può sovrascriverle a runtime
+        // (branding.displayFont/.bodyFont, vedi useNavigatorTheme.ts) —
+        // gli attuali Unbounded/Plus Jakarta Sans restano il fallback.
+        display: ['var(--font-display)', '"Unbounded"', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-body)', '"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'Consolas', 'monospace'],
       },
       boxShadow: {

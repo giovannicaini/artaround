@@ -1,10 +1,7 @@
 import { Router } from 'express';
 import { ItemController } from '../controllers/item.controller.js';
-import {
-  authMiddleware as authenticate,
-  roleMiddleware as authorizeRoles,
-} from '../middleware/index.js';
-import { UserRole } from '@artaround/shared';
+import { authMiddleware as authenticate } from '../middleware/index.js';
+import { authorizeCreate } from '../utils/policy.util.js';
 
 const router = Router();
 
@@ -195,23 +192,38 @@ router.get('/artwork/:artworkId', ItemController.getByArtwork);
 
 /**
  * @swagger
- * /api/items/author/{authorWikidataId}:
+ * /api/items/artwork/{artworkId}/usable:
  *   get:
  *     tags: [Items]
- *     summary: Ottieni gli item di un autore
- *     description: Ottiene tutti gli item di contenuto su un artista specifico
+ *     summary: Item di un'opera abbinabili a una tappa (autenticato)
+ *     description: >
+ *       Come /api/items/artwork/{artworkId} ma ristretto a ciò che l'utente
+ *       autenticato può abbinare a una tappa che sta costruendo: propri
+ *       contenuti, gratuiti, o già acquistati — a differenza del catalogo
+ *       pubblico, dove chiunque vede tutto per poterlo valutare/acquistare.
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: authorWikidataId
+ *         name: artworkId
  *         required: true
  *         schema:
  *           type: string
- *         description: ID Wikidata dell'autore
+ *       - in: query
+ *         name: duration
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: languageLevel
+ *         schema:
+ *           type: string
  *     responses:
  *       200:
- *         description: Item sull'autore
+ *         description: Item dell'opera che l'utente può usare
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
  */
-router.get('/author/:authorWikidataId', ItemController.getByAuthor);
+router.get('/artwork/:artworkId/usable', authenticate, ItemController.getUsableItemsForArtwork);
 
 /**
  * @swagger
@@ -238,6 +250,42 @@ router.get('/author/:authorWikidataId', ItemController.getByAuthor);
  *         description: Item per il riferimento richiesto
  */
 router.get('/reference/:referenceType/:referenceId', ItemController.getByReference);
+
+/**
+ * @swagger
+ * /api/items/reference-type/{referenceType}/usable:
+ *   get:
+ *     tags: [Items]
+ *     summary: Item di un museo per tipo di riferimento, abbinabili a una tappa (autenticato)
+ *     description: >
+ *       Item di tipo autore/movimento/periodo/museo per il museo indicato,
+ *       ristretti come /api/items/artwork/{artworkId}/usable — usata dalle
+ *       tappe "Contenuto" dell'editor visite.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: referenceType
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [author, movement, period, museum]
+ *       - in: query
+ *         name: museumId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Item del tipo richiesto che l'utente può usare
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
+router.get(
+  '/reference-type/:referenceType/usable',
+  authenticate,
+  ItemController.getUsableItemsByReferenceType,
+);
 
 /**
  * @swagger
@@ -280,7 +328,7 @@ router.get('/:id', ItemController.getById);
 router.post(
   '/',
   authenticate,
-  authorizeRoles(UserRole.ADMIN, UserRole.AUTHOR, UserRole.CURATOR),
+  authorizeCreate('item'),
   ItemController.createValidation,
   ItemController.create,
 );
@@ -309,12 +357,7 @@ router.post(
  *       200:
  *         description: Item aggiornato
  */
-router.put(
-  '/:id',
-  authenticate,
-  authorizeRoles(UserRole.ADMIN, UserRole.AUTHOR, UserRole.CURATOR),
-  ItemController.update,
-);
+router.put('/:id', authenticate, ItemController.updateValidation, ItemController.update);
 
 /**
  * @swagger
@@ -334,11 +377,6 @@ router.put(
  *       200:
  *         description: Item eliminato
  */
-router.delete(
-  '/:id',
-  authenticate,
-  authorizeRoles(UserRole.ADMIN, UserRole.AUTHOR, UserRole.CURATOR),
-  ItemController.delete,
-);
+router.delete('/:id', authenticate, ItemController.delete);
 
 export default router;

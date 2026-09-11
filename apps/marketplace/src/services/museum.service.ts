@@ -8,25 +8,15 @@ import type {
   CreateMuseumData,
   MuseumCurator,
   MuseumConfigResponse,
+  MuseumRole,
+  MuseumRoleRequest,
+  MuseumRoleRequestWithNames,
 } from '@artaround/shared';
 
-type MuseumLanguageSyncResult = {
+type MuseumJobStarted = {
+  jobId: string;
   museumId: string;
   activeLanguages: string[];
-  items: {
-    scanned: number;
-    updated: number;
-    generated: number;
-    removed: number;
-    failed: number;
-  };
-  visits: {
-    scanned: number;
-    updated: number;
-    generated: number;
-    removed: number;
-    failed: number;
-  };
 };
 
 type GeocodeResult = {
@@ -93,16 +83,17 @@ export class MuseumService {
     };
   }
 
+  // Aggiorna subito le lingue attive, poi avvia in background la
+  // rigenerazione delle traduzioni mancanti (vedi MuseumController.syncLanguages).
+  // Risponde subito col jobId, l'avanzamento si segue da jobsService (GET
+  // /api/jobs) — non aspetta la fine.
   async syncMuseumLanguages(
     id: string,
     activeLanguages: string[],
-  ): Promise<{ data: MuseumLanguageSyncResult | null; error?: string }> {
-    const response = await apiService.post<MuseumLanguageSyncResult>(
-      `/museums/${id}/sync-languages`,
-      {
-        activeLanguages,
-      },
-    );
+  ): Promise<{ data: MuseumJobStarted | null; error?: string }> {
+    const response = await apiService.post<MuseumJobStarted>(`/museums/${id}/sync-languages`, {
+      activeLanguages,
+    });
 
     if (response.success && response.data) {
       return { data: response.data };
@@ -111,6 +102,26 @@ export class MuseumService {
     return {
       data: null,
       error: getErrorMessage(response, 'Errore durante sincronizzazione lingue museo'),
+    };
+  }
+
+  // Avvia in background la generazione con OpenAI dell'audio mancante di
+  // contenuti e tappe delle visite del museo — azione esplicita, separata da
+  // syncMuseumLanguages per il costo/tempo che comporta (vedi
+  // MuseumController.generateAudio). Risponde subito col jobId, l'avanzamento
+  // si segue da jobsService (GET /api/jobs) — non aspetta la fine.
+  async generateMuseumAudio(
+    id: string,
+  ): Promise<{ data: MuseumJobStarted | null; error?: string }> {
+    const response = await apiService.post<MuseumJobStarted>(`/museums/${id}/generate-audio`, {});
+
+    if (response.success && response.data) {
+      return { data: response.data };
+    }
+
+    return {
+      data: null,
+      error: getErrorMessage(response, "Errore durante la generazione dell'audio"),
     };
   }
 
@@ -186,6 +197,85 @@ export class MuseumService {
       success: false,
       error: getErrorMessage(response, 'Errore durante rimozione curatore'),
     };
+  }
+
+  // ─── Autori del museo (assegnabili anche dal curatore del museo, non solo dall'admin) ───
+  async addAuthor(museumId: string, userId: string): Promise<{ success: boolean; error?: string }> {
+    const response = await apiService.post(`/museums/${museumId}/authors`, { userId });
+    if (response.success) {
+      return { success: true };
+    }
+    return {
+      success: false,
+      error: getErrorMessage(response, 'Errore durante assegnazione autore'),
+    };
+  }
+
+  async removeAuthor(
+    museumId: string,
+    userId: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    const response = await apiService.delete(`/museums/${museumId}/authors/${userId}`);
+    if (response.success) {
+      return { success: true };
+    }
+    return {
+      success: false,
+      error: getErrorMessage(response, 'Errore durante rimozione autore'),
+    };
+  }
+
+  // ─── Richieste di ruolo (un utente chiede di diventare curatore/autore di un museo) ───
+  async requestRole(
+    museumId: string,
+    role: MuseumRole,
+  ): Promise<{ data: MuseumRoleRequest | null; error?: string }> {
+    const response = await apiService.post<MuseumRoleRequest>(
+      `/museums/${museumId}/role-requests`,
+      { role },
+    );
+    if (response.success && response.data) {
+      return { data: response.data };
+    }
+    return { data: null, error: getErrorMessage(response, 'Errore durante la richiesta') };
+  }
+
+  async cancelRoleRequest(
+    museumId: string,
+    requestId: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    const response = await apiService.delete(`/museums/${museumId}/role-requests/${requestId}`);
+    if (response.success) {
+      return { success: true };
+    }
+    return {
+      success: false,
+      error: getErrorMessage(response, 'Errore durante la rimozione della richiesta'),
+    };
+  }
+
+  async approveRoleRequest(
+    museumId: string,
+    requestId: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    const response = await apiService.post(
+      `/museums/${museumId}/role-requests/${requestId}/approve`,
+      {},
+    );
+    if (response.success) {
+      return { success: true };
+    }
+    return {
+      success: false,
+      error: getErrorMessage(response, "Errore durante l'approvazione della richiesta"),
+    };
+  }
+
+  // Richieste che l'utente corrente può revisionare: tutte se admin, solo
+  // quelle dei musei che cura altrimenti (vedi MuseumController.listReviewableRoleRequests)
+  async getReviewableRoleRequests(): Promise<MuseumRoleRequestWithNames[]> {
+    const response = await apiService.get<MuseumRoleRequestWithNames[]>('/museums/role-requests');
+    return response.success && response.data ? response.data : [];
   }
 
   async getFloors(museumId: string): Promise<MuseumFloor[]> {

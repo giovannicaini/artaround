@@ -28,12 +28,7 @@ function normalizedIndex(language: AppLanguage): Map<string, string> {
   return index;
 }
 
-/**
- * Stessa convenzione del marketplace (services/i18n.service.ts): la chiave
- * di traduzione È il testo sorgente in italiano, non un identificatore
- * astratto — i dizionari (packages/shared/src/locales/*.json) sono
- * condivisi tra le due app.
- */
+/** La chiave di traduzione è il testo sorgente in italiano, non un identificatore astratto. */
 export function translate(language: AppLanguage, textOrKey: string): string {
   const current = localesByLanguage[language][textOrKey];
   if (typeof current === 'string' && current.trim() !== '') return current;
@@ -84,11 +79,7 @@ export function storeLanguage(language: AppLanguage): void {
   }
 }
 
-/**
- * Traduzione di un campo di contenuto (nome museo, titolo visita, testo di
- * un item...) che porta con sé una mappa `*Translations` opzionale — mai
- * per l'italiano stesso, che è già il valore base.
- */
+/** Traduzione di un campo (nome museo, titolo visita...) con mappa `*Translations` opzionale. */
 export function localizedField(
   language: AppLanguage,
   base: string,

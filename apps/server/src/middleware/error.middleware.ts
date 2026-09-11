@@ -47,7 +47,7 @@ export const errorHandler = (
       success: false,
       error: {
         code: 'VALIDATION_ERROR',
-        message: 'Validation failed',
+        message: 'Validazione fallita',
         details: err.message,
       },
     });
@@ -62,7 +62,7 @@ export const errorHandler = (
         success: false,
         error: {
           code: 'DUPLICATE_ERROR',
-          message: 'Resource already exists',
+          message: 'La risorsa esiste già',
           details: mongoErr.keyPattern,
         },
       });
@@ -87,7 +87,7 @@ export const errorHandler = (
     success: false,
     error: {
       code: 'INTERNAL_ERROR',
-      message: 'An unexpected error occurred',
+      message: 'Errore inaspettato del server',
       details: process.env.NODE_ENV === 'development' ? err.message : undefined,
     },
   });

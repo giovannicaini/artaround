@@ -1,3 +1,11 @@
+/**
+ * Tipi i18n (traduzione)
+ *
+ * Lingue supportate da Marketplace/Navigator a livello globale (ovvero,
+ * usate per tradurre tutte le stringhe "fisse" presenti nell'app).
+ * In @shared/src/locales ci sono i json con la traduzione di tali stringhe.
+ */
+
 export const SUPPORTED_APP_LANGUAGES = ['it', 'en', 'fr', 'de', 'es'] as const;
 
 export type AppLanguage = (typeof SUPPORTED_APP_LANGUAGES)[number];

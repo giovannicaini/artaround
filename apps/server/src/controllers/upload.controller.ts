@@ -104,23 +104,6 @@ export class UploadController {
   });
 
   /**
-   * POST /api/uploads/metadata
-   * Ottieni i metadati immagine da un file caricato (senza salvare)
-   */
-  static getMetadata = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    if (!req.file) {
-      throw new AppError(400, 'NO_FILE', 'Nessun file caricato');
-    }
-
-    const metadata = await UploadService.getMetadata(req.file.buffer);
-
-    res.json({
-      success: true,
-      data: metadata,
-    });
-  });
-
-  /**
    * Estrae le opzioni di elaborazione immagine dal body della richiesta
    */
   private static parseProcessOptions(body: Record<string, string>): ImageProcessOptions {

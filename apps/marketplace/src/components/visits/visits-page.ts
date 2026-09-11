@@ -2,10 +2,11 @@ import { html, nothing } from 'lit';
 import { customElement, state, property } from 'lit/decorators.js';
 import { MuseumAwareMixin, AppBaseElement } from '../../base';
 import { visitService } from '../../services/visit.service';
-import { UserRole, type User, type Visit } from '@artaround/shared';
+import { type User, type Visit } from '@artaround/shared';
 import {
   getPermissions,
   canEditOwnItem,
+  isMuseumCurator,
   type PermissionSet,
 } from '../../services/permissions.service';
 import '../ui/ui-button';
@@ -49,11 +50,10 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
   @state() private visitToDelete: Visit | null = null;
   @state() private deleting = false;
   @state() private filterPublished: 'all' | 'published' | 'draft' = 'all';
-  @state() private publishing = false;
 
   // ─── Stato calcolato ──────────────────────────────────────
   private get permissions(): PermissionSet {
-    return getPermissions(this.user);
+    return getPermissions(this.user, this.selectedMuseumId ?? undefined);
   }
 
   // ─── Ciclo di vita ───────────────────────────────────────────
@@ -132,14 +132,14 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
   }
 
   /**
-   * Permesso reale di modificare/eliminare QUESTA visita: rispecchia il controllo
-   * server-side (visit.controller.ts) — proprio contenuto, oppure curatore/admin
-   * che gestiscono tutto il contenuto del museo. this.permissions.canEditVisit dice
-   * solo "il ruolo può modificare visite in generale", non basta per decidere se
-   * mostrare il bottone su una visita altrui (stesso bug già corretto per gli item).
+   * Permesso reale di modificare/eliminare QUESTA visita: proprio contenuto
+   * (sempre, ovunque), oppure curatore del museo selezionato. Usa
+   * this.selectedMuseumId (sempre l'_id Mongo) e non visit.museumId (salvato
+   * come QID Wikidata — vedi il commento analogo in contents-page.ts): i due
+   * formati non sono direttamente confrontabili senza risolverli lato server.
    */
   private canManageVisit(visit: Visit): boolean {
-    if (this.user?.role === UserRole.CURATOR) {
+    if (isMuseumCurator(this.user, this.selectedMuseumId ?? undefined)) {
       return true;
     }
     return canEditOwnItem(this.user, visit.authorId);
@@ -177,25 +177,6 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
       this.error = e instanceof Error ? e.message : __('Impossibile eliminare la visita');
     } finally {
       this.deleting = false;
-    }
-  }
-
-  private async handleTogglePublish(visit: Visit) {
-    this.publishing = true;
-    try {
-      let updated: Visit;
-      if (visit.isPublished) {
-        updated = await visitService.unpublish(visit._id);
-      } else {
-        updated = await visitService.publish(visit._id);
-      }
-      this.visits = this.visits.map((v) => (v._id === updated._id ? updated : v));
-    } catch (e) {
-      console.error('Error toggling publish:', e);
-      this.error =
-        e instanceof Error ? e.message : __('Impossibile modificare lo stato di pubblicazione');
-    } finally {
-      this.publishing = false;
     }
   }
 
@@ -282,12 +263,6 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
           >
             ${this.canManageVisit(visit)
               ? html`
-                  <ui-icon-button
-                    icon=${visit.isPublished ? 'eye-off' : 'eye'}
-                    .title=${visit.isPublished ? __('Rimuovi pubblicazione') : __('Pubblica')}
-                    ?disabled=${this.publishing}
-                    @click=${() => this.handleTogglePublish(visit)}
-                  ></ui-icon-button>
                   <ui-icon-button
                     icon="edit"
                     .title=${__('Modifica')}

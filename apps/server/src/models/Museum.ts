@@ -3,6 +3,7 @@ import {
   Museum as IMuseum,
   MuseumLocation,
   MuseumServices,
+  MuseumService,
   MuseumFloor,
   MapMarker,
   MarkerType,
@@ -10,6 +11,7 @@ import {
   AccessibilityInfo,
   SUPPORTED_APP_LANGUAGES,
   DEFAULT_APP_LANGUAGE,
+  MUSEUM_SERVICE_TYPES,
 } from '@artaround/shared';
 
 import type { FloorConnection, MuseumRoom, MapPoint } from '@artaround/shared';
@@ -27,6 +29,28 @@ const locationSchema = new Schema<MuseumLocation>(
       lat: Number,
       lng: Number,
     },
+  },
+  { _id: false },
+);
+
+// Servizio attivabile dal curatore per il museo (bar, bagni, uscita...) —
+// stesso vincolo di tipo dei marker (MUSEUM_SERVICE_TYPES), collegabile a
+// uno di essi via mapMarkerId.
+const serviceSchema = new Schema<MuseumService>(
+  {
+    type: {
+      type: String,
+      enum: MUSEUM_SERVICE_TYPES,
+      required: true,
+    },
+    active: { type: Boolean, default: true },
+    description: String,
+    descriptionTranslations: {
+      type: Map,
+      of: String,
+      default: undefined,
+    },
+    mapMarkerId: String,
   },
   { _id: false },
 );
@@ -49,7 +73,7 @@ const servicesSchema = new Schema<MuseumServices>(
     website: String,
     phone: String,
     email: String,
-    services: [String],
+    services: [serviceSchema],
     accessibility: String,
     wheelchairAccessible: Boolean,
   },
@@ -122,9 +146,6 @@ const mapPointSchema = new Schema<MapPoint>(
   { _id: false },
 );
 
-// Sala del museo: gestione parallela ai marker (vedi MuseumRoom). Creata con
-// solo id/title(/subtitle) da "Modifica Museo"; floorId/polygon valorizzati
-// in un secondo momento da "Piantina e mappa" quando viene contornata.
 const roomSchema = new Schema<MuseumRoom>(
   {
     id: { type: String, required: true },
@@ -149,70 +170,6 @@ const floorSchema = new Schema<MuseumFloor>(
     },
     markers: [mapMarkerSchema],
     connections: [floorConnectionSchema],
-  },
-  { _id: false },
-);
-
-const navigatorConfigSchema = new Schema(
-  {
-    id: { type: String, required: true },
-    name: { type: String, required: true },
-    slug: { type: String, required: true },
-    branding: {
-      logo: String,
-      splashImage: String,
-      primaryColor: { type: String, required: true },
-      secondaryColor: String,
-    },
-    content: {
-      homeTitle: String,
-      homeTitleTranslations: {
-        type: Map,
-        of: String,
-        default: undefined,
-      },
-      homeSubtitle: String,
-      homeSubtitleTranslations: {
-        type: Map,
-        of: String,
-        default: undefined,
-      },
-      welcomeText: String,
-      welcomeTextTranslations: {
-        type: Map,
-        of: String,
-        default: undefined,
-      },
-      openingImage: String,
-    },
-    pwa: {
-      manifestName: { type: String, required: true },
-      shortName: { type: String, required: true },
-      description: String,
-      descriptionTranslations: {
-        type: Map,
-        of: String,
-        default: undefined,
-      },
-      themeColor: { type: String, required: true },
-      backgroundColor: { type: String, required: true },
-      display: {
-        type: String,
-        enum: ['standalone', 'fullscreen', 'minimal-ui', 'browser'],
-        default: 'standalone',
-      },
-      orientation: {
-        type: String,
-        enum: ['any', 'natural', 'landscape', 'portrait'],
-        default: 'portrait',
-      },
-      startUrl: { type: String, default: '/' },
-      scope: { type: String, default: '/' },
-      icon192: String,
-      icon512: String,
-      iconMaskable: String,
-      appleTouchIcon: String,
-    },
   },
   { _id: false },
 );
@@ -267,15 +224,11 @@ const museumSchema = new Schema<MuseumDocument>(
     // Piantine
     floors: [floorSchema],
 
-    // Sale del museo (nome scelto in "Modifica Museo", contorno disegnato in
-    // "Piantina e mappa"). Ogni Artwork.roomId referenzia una di queste.
+    // Sale del museo
     rooms: [roomSchema],
 
     // Servizi
     services: servicesSchema,
-
-    // Configurazioni dell'app Navigator
-    navigatorConfigs: [navigatorConfigSchema],
 
     // Stato
     isActive: {

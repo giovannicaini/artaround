@@ -12,7 +12,8 @@ import { AppError } from '../middleware/index.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import { buildMuseumIdFilterValue } from '../utils/museum-id.util.js';
 import { parsePagination, buildPaginationMeta } from '../utils/pagination.util.js';
-import { UserRole, CreditTransactionType } from '@artaround/shared';
+import { applyCoverImageFallback } from '../utils/visit-cover-image.util.js';
+import { CreditTransactionType } from '@artaround/shared';
 
 // Arrotonda ai centesimi: i saldi/importi sono euro come float (stessa
 // convenzione di Item.price/Visit.metadata.price), non centesimi interi —
@@ -23,7 +24,7 @@ function round2(amount: number): number {
 }
 
 export class MarketplaceController {
-  // Ottieni il catalogo item
+  // GET /api/marketplace/items — catalogo item con filtri e ordinamento
   static getItems = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { museumId, isFree, minRating, sortBy = 'createdAt' } = req.query;
 
@@ -52,7 +53,7 @@ export class MarketplaceController {
     });
   });
 
-  // Ottieni le visite pubblicate (catalogo marketplace)
+  // GET /api/marketplace/visits — catalogo delle visite pubblicate, con filtri e ordinamento
   static getVisits = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { museumId, isFree, minRating, sortBy = 'createdAt' } = req.query;
 
@@ -77,17 +78,17 @@ export class MarketplaceController {
 
     res.json({
       success: true,
-      data: visits,
+      data: await applyCoverImageFallback(visits),
       pagination: buildPaginationMeta(total, page, limit),
     });
   });
 
-  // Acquista visita (simulato)
+  // POST /api/marketplace/purchase/visit/:visitId — acquista visita (simulato)
   static purchaseVisit = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { visitId } = req.params;
 
     if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
     // Le visite sono il prodotto finito destinato al visitatore finale: per specifica
@@ -97,15 +98,19 @@ export class MarketplaceController {
     // visite — vedi purchaseItem).
     const visit = await VisitModel.findById(visitId);
     if (!visit) {
-      throw new AppError(404, 'VISIT_NOT_FOUND', 'Visit not found');
+      throw new AppError(404, 'VISIT_NOT_FOUND', 'Visita non trovata');
     }
 
     if (visit.authorId === req.user.id) {
-      throw new AppError(400, 'OWN_VISIT_PURCHASE', 'You cannot purchase your own visit');
+      throw new AppError(400, 'OWN_VISIT_PURCHASE', 'Non puoi acquistare la tua stessa visita');
     }
 
     if (!visit.isPublished) {
-      throw new AppError(400, 'VISIT_NOT_PUBLISHED', 'This visit is not available for purchase');
+      throw new AppError(
+        400,
+        'VISIT_NOT_PUBLISHED',
+        "Questa visita non è disponibile per l'acquisto",
+      );
     }
 
     // Controlla se già acquistato
@@ -115,7 +120,7 @@ export class MarketplaceController {
     });
 
     if (existing) {
-      throw new AppError(409, 'ALREADY_PURCHASED', 'You have already purchased this visit');
+      throw new AppError(409, 'ALREADY_PURCHASED', 'Hai già acquistato questa visita');
     }
 
     if (visit.metadata.price > 0) {
@@ -146,38 +151,30 @@ export class MarketplaceController {
     res.status(201).json({
       success: true,
       data: purchase,
-      message: 'Visit purchased successfully',
+      message: 'Visita acquistata con successo',
     });
   });
 
-  // Acquista item
+  // POST /api/marketplace/purchase/item/:itemId — acquista item (solo autori)
   static purchaseItem = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { itemId } = req.params;
 
     if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
-    // Gli item sono mattoncini di contenuto pensati per essere riusati dagli autori nel
-    // costruire nuove visite (vedi specifica: "editor + marketplace... selezionarne una
-    // sequenza per una specifica visita"), non un prodotto per il visitatore finale —
-    // a differenza delle visite (vedi purchaseVisit). Vincolo applicato finora solo
-    // lato frontend (canBuyItem) e quindi aggirabile chiamando l'API direttamente.
-    if (req.user.role !== UserRole.AUTHOR) {
-      throw new AppError(
-        403,
-        'FORBIDDEN',
-        'Solo gli autori possono acquistare contenuti dal marketplace',
-      );
-    }
-
+    // "Essere curatore/autore di almeno un museo" è già richiesto dalla route
+    // (authorizeContentCreator, vedi marketplace.routes.ts): gli item sono
+    // mattoncini di contenuto pensati per essere riusati da chi crea contenuti
+    // nel costruire nuove visite, non un prodotto per il visitatore finale —
+    // a differenza delle visite (vedi purchaseVisit).
     const item = await ItemModel.findById(itemId);
     if (!item) {
-      throw new AppError(404, 'ITEM_NOT_FOUND', 'Item not found');
+      throw new AppError(404, 'ITEM_NOT_FOUND', 'Item non trovato');
     }
 
     if (item.authorId === req.user.id) {
-      throw new AppError(400, 'OWN_ITEM_PURCHASE', 'You cannot purchase your own item');
+      throw new AppError(400, 'OWN_ITEM_PURCHASE', 'Non puoi acquistare il tuo stesso item');
     }
 
     const existing = await ItemPurchase.findOne({
@@ -186,7 +183,7 @@ export class MarketplaceController {
     });
 
     if (existing) {
-      throw new AppError(409, 'ALREADY_PURCHASED', 'You have already purchased this item');
+      throw new AppError(409, 'ALREADY_PURCHASED', 'Hai già acquistato questo item');
     }
 
     if (item.price > 0) {
@@ -213,19 +210,28 @@ export class MarketplaceController {
     res.status(201).json({
       success: true,
       data: purchase,
-      message: 'Item purchased successfully',
+      message: 'Item acquistato con successo',
     });
   });
 
-  // Ottieni le visite acquistate dall'utente
+  // GET /api/marketplace/my-visit-purchases — visite acquistate dall'utente autenticato
   static getMyPurchases = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
     const purchases = await VisitPurchase.find({ userId: req.user.id })
       .sort({ purchasedAt: -1 })
       .populate('visitId');
+
+    // I sotto-documenti popolati sono referenziati dagli stessi oggetti in
+    // `purchases`: applyCoverImageFallback li muta in place, quindi basta
+    // passarli, senza dover ricostruire la risposta.
+    const populatedVisits = purchases.map((p) => p.visitId).filter(Boolean) as unknown as Array<{
+      museumId: string;
+      coverImage?: string;
+    }>;
+    await applyCoverImageFallback(populatedVisits);
 
     res.json({
       success: true,
@@ -233,11 +239,11 @@ export class MarketplaceController {
     });
   });
 
-  // Ottieni gli item acquistati dall'utente
+  // GET /api/marketplace/my-item-purchases — item acquistati dall'utente autenticato
   static getMyItemPurchases = asyncHandler(
     async (req: AuthRequest, res: Response): Promise<void> => {
       if (!req.user) {
-        throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+        throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
       }
 
       const purchases = await ItemPurchase.find({ userId: req.user.id })
@@ -267,7 +273,7 @@ export class MarketplaceController {
   ): Promise<void> {
     const user = await User.findById(userId);
     if (!user) {
-      throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+      throw new AppError(404, 'USER_NOT_FOUND', 'Utente non trovato');
     }
 
     if (user.creditBalance < price) {
@@ -294,31 +300,14 @@ export class MarketplaceController {
     }).save();
   }
 
-  // Saldo credito dell'utente autenticato
-  static getCreditBalance = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-    if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
-    }
-
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
-    }
-
-    res.json({
-      success: true,
-      data: { balance: user.creditBalance },
-    });
-  });
-
   /**
-   * Ricarica credito (simulata): l'utente sceglie una cifra e il saldo viene
-   * accreditato direttamente, senza nessun pagamento reale — non c'è
-   * ancora un gateway di pagamento collegato.
+   * POST /api/marketplace/credit/topup — ricarica credito (simulata): l'utente sceglie
+   * una cifra e il saldo viene accreditato direttamente, senza nessun pagamento reale —
+   * non c'è ancora un gateway di pagamento collegato.
    */
   static topUpCredit = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
     const amount = Number(req.body?.amount);
@@ -331,7 +320,7 @@ export class MarketplaceController {
 
     const user = await User.findById(req.user.id);
     if (!user) {
-      throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+      throw new AppError(404, 'USER_NOT_FOUND', 'Utente non trovato');
     }
 
     user.creditBalance = round2(user.creditBalance + round2(amount));
@@ -351,11 +340,11 @@ export class MarketplaceController {
     });
   });
 
-  // Storico movimenti di credito dell'utente autenticato (più recenti prima)
+  // GET /api/marketplace/credit/transactions — storico movimenti di credito (più recenti prima)
   static getCreditTransactions = asyncHandler(
     async (req: AuthRequest, res: Response): Promise<void> => {
       if (!req.user) {
-        throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+        throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
       }
 
       const transactions = await CreditTransaction.find({ userId: req.user.id })

@@ -14,8 +14,12 @@ type ChatCompletionOptions = {
 
 type GenerateJsonOptions = ChatCompletionOptions;
 
+export type TranscribedWord = { word: string; start: number; end: number };
+
 export class AIService {
   private static readonly DEFAULT_MODEL = 'gpt-4o-mini';
+  private static readonly TTS_MODEL = 'tts-1';
+  private static readonly TRANSCRIPTION_MODEL = 'whisper-1';
 
   static hasValidOpenAIKey(): boolean {
     return this.isUsableApiKey(config.ai.openaiApiKey);
@@ -89,6 +93,73 @@ export class AIService {
       return JSON.parse(jsonCandidate) as T;
     } catch {
       throw new Error('OpenAI ha restituito un JSON non valido');
+    }
+  }
+
+  // Modello TTS steerable (supporta "instructions", a differenza di tts-1) —
+  // usato per accento/prosodia italiani e lettura corretta di numeri/orari,
+  // vedi createSpeech.
+  private static readonly TTS_STEERABLE_MODEL = 'gpt-4o-mini-tts';
+
+  // Sintesi vocale: genera l'audio (mp3) di un testo. Nessun timing delle
+  // parole qui — arriva solo dalla trascrizione qui sotto.
+  // `instructions` è supportato solo da TTS_STEERABLE_MODEL: con tts-1/tts-1-hd
+  // l'API lo ignora silenziosamente, quindi va passato solo insieme al modello giusto.
+  static async createSpeech(
+    text: string,
+    options: { voice?: string; model?: string; instructions?: string } = {},
+  ): Promise<Buffer> {
+    this.assertConfigured();
+
+    try {
+      const response = await axios.post(
+        'https://api.openai.com/v1/audio/speech',
+        {
+          model: options.model || this.TTS_MODEL,
+          input: text,
+          voice: options.voice || 'alloy',
+          response_format: 'mp3',
+          ...(options.instructions ? { instructions: options.instructions } : {}),
+        },
+        {
+          headers: { Authorization: `Bearer ${config.ai.openaiApiKey}` },
+          responseType: 'arraybuffer',
+        },
+      );
+
+      return Buffer.from(response.data as ArrayBuffer);
+    } catch (error) {
+      throw new Error(this.formatOpenAIError(error));
+    }
+  }
+
+  // Trascrive un audio con i tempi di ciascuna parola (per sincronizzare
+  // l'evidenziazione del testo con la riproduzione — vedi audio-generation.service.ts,
+  // che allinea queste parole al testo originale una sola volta, alla generazione).
+  // `language` (codice ISO 639-1, es. 'it') è un suggerimento per Whisper:
+  // sappiamo già in che lingua è il testo, non serve fargliela indovinare.
+  static async transcribeWordTimestamps(
+    audioBuffer: Buffer,
+    language?: string,
+  ): Promise<TranscribedWord[]> {
+    this.assertConfigured();
+
+    try {
+      const form = new FormData();
+      form.append('file', new Blob([audioBuffer], { type: 'audio/mpeg' }), 'speech.mp3');
+      form.append('model', this.TRANSCRIPTION_MODEL);
+      form.append('response_format', 'verbose_json');
+      form.append('timestamp_granularities[]', 'word');
+      if (language) form.append('language', language);
+
+      const response = await axios.post('https://api.openai.com/v1/audio/transcriptions', form, {
+        headers: { Authorization: `Bearer ${config.ai.openaiApiKey}` },
+      });
+
+      const words = (response.data as { words?: TranscribedWord[] })?.words;
+      return Array.isArray(words) ? words : [];
+    } catch (error) {
+      throw new Error(this.formatOpenAIError(error));
     }
   }
 

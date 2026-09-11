@@ -22,11 +22,7 @@ interface LanguageSwitcherProps {
   variant?: 'glass' | 'panel';
 }
 
-/**
- * Stesso pattern visivo del selettore lingua del marketplace (bandiera +
- * menu a comparsa da flagcdn.com) — un solo posto in tutta l'app, non
- * un'altra versione ridisegnata per ogni schermata.
- */
+/** Selettore lingua (bandiera + menu a comparsa) — un solo posto in tutta l'app. */
 export function LanguageSwitcher({ languages, variant = 'panel' }: LanguageSwitcherProps) {
   const language = useI18nStore((state) => state.language);
   const setLanguage = useI18nStore((state) => state.setLanguage);
@@ -39,23 +35,34 @@ export function LanguageSwitcher({ languages, variant = 'panel' }: LanguageSwitc
     : ALL_OPTIONS;
   const selected = options.find((option) => option.value === language) || options[0];
 
+  // Se la lingua salvata non è tra quelle attive di questo museo, passa alla prima disponibile.
+  useEffect(() => {
+    if (selected && selected.value !== language) {
+      setLanguage(selected.value);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.value]);
+
   useEffect(() => {
     function handleOutsideClick(event: MouseEvent) {
       if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
         setOpen(false);
       }
     }
-    document.addEventListener('click', handleOutsideClick);
-    return () => document.removeEventListener('click', handleOutsideClick);
+    // Cattura, non bubble: uno Sheet antenato può fermare la propagazione prima che arrivi qui.
+    document.addEventListener('click', handleOutsideClick, true);
+    return () => document.removeEventListener('click', handleOutsideClick, true);
   }, []);
 
+  // glass: sopra una foto reale — vetro scuro fisso, non legato al tema.
   const buttonClass =
     variant === 'glass'
-      ? 'bg-surface-950/45 backdrop-blur-md hover:bg-surface-950/65'
+      ? 'bg-black/45 backdrop-blur-md hover:bg-black/65'
       : 'bg-surface-800 border border-surface-700 hover:bg-surface-700';
 
+  // inline-block: evita che il div si allarghi e stacchi il menu (right-0) dal bottone.
   return (
-    <div className="relative" ref={rootRef}>
+    <div className="relative inline-block" ref={rootRef}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -73,14 +80,15 @@ export function LanguageSwitcher({ languages, variant = 'panel' }: LanguageSwitc
           loading="lazy"
         />
         <ChevronDown
-          className={`w-3.5 h-3.5 text-surface-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`w-3.5 h-3.5 transition-transform ${variant === 'glass' ? 'text-white/70' : 'text-surface-400'} ${open ? 'rotate-180' : ''}`}
         />
       </button>
 
       {open && (
         <div
           role="listbox"
-          className="absolute right-0 top-full mt-2 min-w-[9.5rem] rounded-xl bg-surface-900 border border-surface-800 shadow-2xl z-50 overflow-hidden py-1"
+          // glass apre a sinistra (right-0), panel a destra (left-0) — per non uscire schermo.
+          className={`absolute ${variant === 'glass' ? 'right-0' : 'left-0'} top-full mt-2 min-w-[9.5rem] rounded-xl bg-surface-900 border border-surface-800 shadow-2xl z-50 overflow-hidden py-1`}
         >
           {options.map((option) => (
             <button

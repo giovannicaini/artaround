@@ -15,12 +15,27 @@ interface AuthState {
   logout: () => void;
 }
 
-/**
- * Sessione utente, unico store per tutta l'app — sostituisce il "vuoto" di
- * autenticazione di oggi. Il token vive in localStorage sotto la stessa
- * chiave del marketplace, quindi chi ha già fatto login lì entra già
- * autenticato qui.
- */
+// login e register hanno la stessa forma (chiama l'API, salva token+utente, gestisce l'errore) —
+// condivisa qui invece di duplicata.
+async function authenticate(
+  set: (partial: Partial<AuthState>) => void,
+  action: () => Promise<{ user: User; token: string }>,
+  fallbackError: string,
+): Promise<{ ok: boolean; error?: string }> {
+  set({ status: 'loading', error: null });
+  try {
+    const { user, token } = await action();
+    setToken(token);
+    set({ user, status: 'ready' });
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : fallbackError;
+    set({ status: 'ready', error: message });
+    return { ok: false, error: message };
+  }
+}
+
+/** Sessione utente, unico store per tutta l'app — token condiviso con il marketplace via localStorage. */
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   status: 'idle',
@@ -42,33 +57,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  login: async (credentials) => {
-    set({ status: 'loading', error: null });
-    try {
-      const { user, token } = await api.login(credentials);
-      setToken(token);
-      set({ user, status: 'ready' });
-      return { ok: true };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Accesso non riuscito';
-      set({ status: 'ready', error: message });
-      return { ok: false, error: message };
-    }
-  },
+  login: (credentials) => authenticate(set, () => api.login(credentials), 'Accesso non riuscito'),
 
-  register: async (data) => {
-    set({ status: 'loading', error: null });
-    try {
-      const { user, token } = await api.register(data);
-      setToken(token);
-      set({ user, status: 'ready' });
-      return { ok: true };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Registrazione non riuscita';
-      set({ status: 'ready', error: message });
-      return { ok: false, error: message };
-    }
-  },
+  register: (data) => authenticate(set, () => api.register(data), 'Registrazione non riuscita'),
 
   updatePreferences: async (preferences) => {
     try {

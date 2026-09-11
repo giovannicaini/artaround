@@ -1044,7 +1044,7 @@ async function main(): Promise<void> {
       dimensions = extractDimensions(html);
     }
 
-    // Materials: da HTML della scheda (non più in SPARQL per alleggerire la query)
+    // Materials: da HTML della scheda, non dalla query SPARQL.
     const materials = extractMaterials(html);
 
     // Subjects: da HTML della scheda

@@ -21,25 +21,24 @@ export class AuthController {
     body('username')
       .trim()
       .isLength({ min: 3 })
-      .withMessage('Username must be at least 3 characters'),
-    body('email').isEmail().withMessage('Invalid email address'),
-    body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
-    body('role').optional().isIn(['author', 'visitor']).withMessage('Invalid role'),
+      .withMessage("L'username deve avere almeno 3 caratteri"),
+    body('email').isEmail().withMessage('Indirizzo email non valido'),
+    body('password').isLength({ min: 8 }).withMessage('La password deve avere almeno 8 caratteri'),
   ];
 
   static loginValidation = [
-    body('username').notEmpty().withMessage('Username is required'),
-    body('password').notEmpty().withMessage('Password is required'),
+    body('username').notEmpty().withMessage("L'username è obbligatorio"),
+    body('password').notEmpty().withMessage('La password è obbligatoria'),
   ];
 
-  // Registra un nuovo utente
+  // POST /api/auth/register — crea l'utente (visitor di default) e restituisce il JWT
   static register = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
     }
 
-    const { username, email, password, role }: RegisterRequest = req.body;
+    const { username, email, password }: RegisterRequest = req.body;
 
     // Controlla se l'utente esiste già
     const existingUser = await User.findOne({
@@ -47,18 +46,20 @@ export class AuthController {
     });
 
     if (existingUser) {
-      throw new AppError(409, 'USER_EXISTS', 'Username or email already exists');
+      throw new AppError(409, 'USER_EXISTS', 'Username o email già esistenti');
     }
 
     // Hasha la password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Crea l'utente
+    // Chi si autoregistra non è mai admin, e non esiste un CURATOR/AUTHOR
+    // generico da poter scegliere in fase di registrazione (vedi
+    // policy.util.ts) — diventa autore/curatore di un museo solo se
+    // promosso da un admin o dal curatore di quel museo.
     const user = new User({
       username,
       email,
       password: hashedPassword,
-      role: role || 'visitor',
     });
 
     await user.save();
@@ -69,7 +70,7 @@ export class AuthController {
         id: user._id.toString(),
         username: user.username,
         email: user.email,
-        role: user.role,
+        isAdmin: user.isAdmin,
       },
       config.jwt.secret,
       { expiresIn: '7d' },
@@ -83,15 +84,15 @@ export class AuthController {
     res.status(201).json({
       success: true,
       data: response,
-      message: 'User registered successfully',
+      message: 'Utente registrato con successo',
     });
   });
 
-  // Login utente
+  // POST /api/auth/login — verifica le credenziali e rilascia il JWT
   static login = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
     }
 
     const { username, password }: LoginRequest = req.body;
@@ -99,13 +100,13 @@ export class AuthController {
     // Trova l'utente
     const user = await User.findOne({ username });
     if (!user) {
-      throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid username or password');
+      throw new AppError(401, 'INVALID_CREDENTIALS', 'Username o password non validi');
     }
 
     // Controlla la password
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid username or password');
+      throw new AppError(401, 'INVALID_CREDENTIALS', 'Username o password non validi');
     }
 
     // Genera il JWT
@@ -114,7 +115,7 @@ export class AuthController {
         id: user._id.toString(),
         username: user.username,
         email: user.email,
-        role: user.role,
+        isAdmin: user.isAdmin,
       },
       config.jwt.secret,
       { expiresIn: '7d' },
@@ -128,12 +129,12 @@ export class AuthController {
     res.json({
       success: true,
       data: response,
-      message: 'Login successful',
+      message: 'Login effettuato con successo',
     });
   });
 
   static updateMeValidation = [
-    body('email').optional().isEmail().withMessage('Invalid email address'),
+    body('email').optional().isEmail().withMessage('Indirizzo email non valido'),
     body('preferences.competenceLevel').optional().isString(),
     body('preferences.availableTime').optional().isString(),
     body('preferences.language').optional().isString(),
@@ -141,18 +142,15 @@ export class AuthController {
     body('preferences.interests').optional().isArray(),
   ];
 
-  // Aggiornamento self-service di email/preferenze proprie dell'utente.
-  // Volutamente separato da UserController.updateUser (solo admin,
-  // PUT /api/users/:id): qui nessuno può toccare ruolo, roleAssignments,
-  // username o isActive, indipendentemente da cosa contiene il body.
+  // PUT /api/auth/me — aggiornamento self-service di email/preferenze proprie.
   static updateMe = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
     }
 
     const { email, preferences } = req.body as {
@@ -169,13 +167,13 @@ export class AuthController {
     if (email) {
       const existing = await User.findOne({ email, _id: { $ne: req.user.id } });
       if (existing) {
-        throw new AppError(409, 'EMAIL_TAKEN', 'Email already in use');
+        throw new AppError(409, 'EMAIL_TAKEN', 'Email già in uso');
       }
     }
 
     const user = await User.findById(req.user.id);
     if (!user) {
-      throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+      throw new AppError(404, 'USER_NOT_FOUND', 'Utente non trovato');
     }
 
     if (email) {
@@ -200,27 +198,26 @@ export class AuthController {
     res.json({
       success: true,
       data: safeUser,
-      message: 'Profile updated successfully',
+      message: 'Profilo aggiornato con successo',
     });
   });
 
   static changePasswordValidation = [
-    body('currentPassword').notEmpty().withMessage('Current password is required'),
+    body('currentPassword').notEmpty().withMessage('La password attuale è obbligatoria'),
     body('newPassword')
       .isLength({ min: 8 })
-      .withMessage('New password must be at least 8 characters'),
+      .withMessage('La nuova password deve avere almeno 8 caratteri'),
   ];
 
-  // Cambio password self-service: richiede la password attuale, non tocca
-  // mai un altro utente via id (a differenza del CRUD utenti solo admin).
+  // PUT /api/auth/me/password — cambio password self-service
   static changePassword = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
     }
 
     const { currentPassword, newPassword } = req.body as {
@@ -230,12 +227,12 @@ export class AuthController {
 
     const user = await User.findById(req.user.id);
     if (!user) {
-      throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+      throw new AppError(404, 'USER_NOT_FOUND', 'Utente non trovato');
     }
 
     const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
     if (!isCurrentPasswordValid) {
-      throw new AppError(401, 'INVALID_CREDENTIALS', 'Current password is incorrect');
+      throw new AppError(401, 'INVALID_CREDENTIALS', 'La password attuale non è corretta');
     }
 
     user.password = await bcrypt.hash(newPassword, 10);
@@ -243,24 +240,41 @@ export class AuthController {
 
     res.json({
       success: true,
-      message: 'Password changed successfully',
+      message: 'Password modificata con successo',
     });
   });
 
-  // Ottieni l'utente corrente
+  // GET /api/auth/me — profilo dell'utente autenticato
   static me = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
     const user = await User.findById(req.user.id).select('-password');
     if (!user) {
-      throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+      throw new AppError(404, 'USER_NOT_FOUND', 'Utente non trovato');
     }
 
     res.json({
       success: true,
       data: user,
+    });
+  });
+
+  // GET /api/auth/me/role-requests — le mie richieste di ruolo museo in attesa
+  static myRoleRequests = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    if (!req.user) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
+    }
+
+    const { MuseumRoleRequestModel } = await import('../models/index.js');
+    const requests = await MuseumRoleRequestModel.find({ userId: req.user.id })
+      .sort({ requestedAt: -1 })
+      .lean();
+
+    res.json({
+      success: true,
+      data: requests,
     });
   });
 }

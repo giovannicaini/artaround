@@ -6,6 +6,10 @@ import { AppError } from '../middleware/index.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import { buildMuseumIdFilterValue } from '../utils/museum-id.util.js';
 import { parsePagination, buildPaginationMeta } from '../utils/pagination.util.js';
+import { assertCan } from '../utils/policy.util.js';
+import { mapToRecord } from '../utils/mongoose-map.util.js';
+import { deleteGeneratedAudioFile } from '../utils/audio-generation.service.js';
+import { buildUsableItemsFilter } from '../utils/item-access.util.js';
 import {
   ItemReferenceType,
   ContentDuration,
@@ -14,6 +18,7 @@ import {
   SUPPORTED_APP_LANGUAGES,
   isSupportedAppLanguage,
   type AppLanguage,
+  type GeneratedAudio,
 } from '@artaround/shared';
 
 /**
@@ -23,10 +28,11 @@ import {
  */
 
 export class ItemController {
+  // Lingue attive del museo, usate per capire quali traduzioni servono a un item
   private static async getMuseumActiveLanguages(museumId: string): Promise<AppLanguage[]> {
     const museum = await MuseumModel.findById(museumId).select('activeLanguages').lean();
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     const activeLanguagesRaw = Array.isArray(museum.activeLanguages)
@@ -43,6 +49,7 @@ export class ItemController {
     return activeLanguages.length > 0 ? activeLanguages : [DEFAULT_APP_LANGUAGE];
   }
 
+  // Blocca il salvataggio se titolo/testo non sono tradotti in tutte le lingue attive
   private static ensureItemLanguageCoverage(
     activeLanguages: AppLanguage[],
     sourceLanguage: AppLanguage,
@@ -58,43 +65,66 @@ export class ItemController {
         lang === sourceLanguage ? Boolean(text.trim()) : Boolean(translatedTexts[lang]?.trim());
 
       if (!hasTitle || !hasText) {
-        throw new AppError(
-          400,
-          'VALIDATION_ERROR',
-          `Missing required translations for language '${lang}'`,
-        );
+        throw new AppError(400, 'VALIDATION_ERROR', `Traduzioni mancanti per la lingua '${lang}'`);
       }
     }
   }
 
-  // Regole di validazione per la nuova struttura Item
+  // Regole di validazione per la creazione (usate da POST /api/items)
   static createValidation = [
-    body('museumId').isString().notEmpty().withMessage('Museum ID is required'),
+    body('museumId').isString().notEmpty().withMessage("L'ID del museo è obbligatorio"),
     body('referenceType')
       .isIn(Object.values(ItemReferenceType))
-      .withMessage('Invalid reference type'),
-    body('referenceId').optional().isString().withMessage('Reference ID must be a string'),
-    body('title').trim().notEmpty().withMessage('Title is required'),
-    body('text').trim().notEmpty().withMessage('Text is required'),
+      .withMessage('Tipo di riferimento non valido'),
+    body('referenceId')
+      .optional()
+      .isString()
+      .withMessage("L'ID di riferimento deve essere una stringa"),
+    body('title').trim().notEmpty().withMessage('Il titolo è obbligatorio'),
+    body('text').trim().notEmpty().withMessage('Il testo è obbligatorio'),
     body('sourceLanguage')
       .optional()
       .isIn(SUPPORTED_APP_LANGUAGES)
-      .withMessage(`sourceLanguage must be one of: ${SUPPORTED_APP_LANGUAGES.join(', ')}`),
+      .withMessage(`sourceLanguage deve essere una tra: ${SUPPORTED_APP_LANGUAGES.join(', ')}`),
     body('translatedTitles')
       .optional()
       .isObject()
-      .withMessage('translatedTitles must be an object'),
-    body('translatedTexts').optional().isObject().withMessage('translatedTexts must be an object'),
-    // duration/languageLevel sono campi diretti dell'Item (un item = una combinazione
-    // durata×livello). "contentMatrix" era il nome di un vecchio modello ad array
-    // annidato, mai più esistito nello schema: questa validazione lo richiedeva
-    // comunque, quindi ogni creazione di item falliva sempre con 400.
-    body('duration').isIn(Object.values(ContentDuration)).withMessage('Invalid duration'),
-    body('languageLevel').isIn(Object.values(LanguageLevel)).withMessage('Invalid language level'),
-    body('license').notEmpty().withMessage('License is required'),
+      .withMessage('translatedTitles deve essere un oggetto'),
+    body('translatedTexts')
+      .optional()
+      .isObject()
+      .withMessage('translatedTexts deve essere un oggetto'),
+    body('duration').isIn(Object.values(ContentDuration)).withMessage('Durata non valida'),
+    body('languageLevel')
+      .isIn(Object.values(LanguageLevel))
+      .withMessage('Livello linguistico non valido'),
+    body('license').notEmpty().withMessage('La licenza è obbligatoria'),
   ];
 
-  // Ottieni tutti gli item con filtri e paginazione
+  // Regole di validazione per l'aggiornamento (usate da PUT /api/items/:id):
+  static updateValidation = [
+    body('title').optional().trim().notEmpty().withMessage('Il titolo è obbligatorio'),
+    body('text').optional().trim().notEmpty().withMessage('Il testo è obbligatorio'),
+    body('translatedTitles')
+      .optional()
+      .isObject()
+      .withMessage('translatedTitles deve essere un oggetto'),
+    body('translatedTexts')
+      .optional()
+      .isObject()
+      .withMessage('translatedTexts deve essere un oggetto'),
+    body('duration')
+      .optional()
+      .isIn(Object.values(ContentDuration))
+      .withMessage('Durata non valida'),
+    body('languageLevel')
+      .optional()
+      .isIn(Object.values(LanguageLevel))
+      .withMessage('Livello linguistico non valido'),
+    body('license').optional().notEmpty().withMessage('La licenza è obbligatoria'),
+  ];
+
+  // GET /api/items — lista item con filtri (museo, riferimento, durata, livello...) e paginazione
   static getAll = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const {
       museumId,
@@ -111,9 +141,6 @@ export class ItemController {
     if (referenceType) filter.referenceType = referenceType;
     if (referenceId) filter.referenceId = referenceId;
     if (authorId) filter.authorId = authorId;
-    // NB: duration/languageLevel sono campi diretti dell'Item, non annidati sotto
-    // "contentMatrix" (quel path non esiste più nello schema: prima di questo fix
-    // questi due filtri non trovavano mai nulla).
     if (duration) filter.duration = duration;
     if (languageLevel) filter.languageLevel = languageLevel;
     if (isFree !== undefined) filter.isFree = isFree === 'true';
@@ -146,7 +173,7 @@ export class ItemController {
     });
   });
 
-  // Ottieni gli item per un'opera specifica (per ID Wikidata)
+  // GET /api/items/artwork/:artworkId — item collegati a un'opera (per ID Wikidata)
   static getByArtwork = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { artworkId } = req.params;
     const { duration, languageLevel } = req.query;
@@ -167,24 +194,7 @@ export class ItemController {
     });
   });
 
-  // Ottieni gli item per un autore specifico (per ID Wikidata)
-  static getByAuthor = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const { authorWikidataId } = req.params;
-
-    const items = await ItemModel.find({
-      referenceType: ItemReferenceType.AUTHOR,
-      referenceId: authorWikidataId,
-    })
-      .sort({ createdAt: -1 })
-      .lean();
-
-    res.json({
-      success: true,
-      data: items,
-    });
-  });
-
-  // Ottieni gli item per riferimento (generico - funziona per ogni tipo)
+  // GET /api/items/reference/:referenceType/:referenceId — item per riferimento generico (ogni tipo)
   static getByReference = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { referenceType, referenceId } = req.params;
 
@@ -201,7 +211,63 @@ export class ItemController {
     });
   });
 
-  // Cerca item
+  // GET /api/items/artwork/:artworkId/usable — come getByArtwork, ma ristretto
+  // a ciò che l'utente autenticato può abbinare a una tappa che sta
+  // costruendo: propri contenuti, gratuiti, o già acquistati (vedi
+  // buildUsableItemsFilter) — a differenza del catalogo pubblico, dove
+  // chiunque vede tutto per poterlo valutare/acquistare.
+  static getUsableItemsForArtwork = asyncHandler(
+    async (req: AuthRequest, res: Response): Promise<void> => {
+      const { artworkId } = req.params;
+      const { duration, languageLevel } = req.query;
+
+      if (!req.user) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
+      }
+
+      const filter: Record<string, unknown> = {
+        referenceType: ItemReferenceType.ARTWORK,
+        referenceId: artworkId,
+        ...(await buildUsableItemsFilter(req.user.id)),
+      };
+      if (duration) filter.duration = duration;
+      if (languageLevel) filter.languageLevel = languageLevel;
+
+      const items = await ItemModel.find(filter).sort({ createdAt: -1 }).lean();
+
+      res.json({ success: true, data: items });
+    },
+  );
+
+  // GET /api/items/reference-type/:referenceType/usable?museumId=X — item di
+  // un museo per tipo di riferimento (AUTHOR/MOVEMENT/PERIOD/MUSEUM),
+  // ristretti come sopra — usata dalle tappe "Contenuto" nell'editor visite.
+  static getUsableItemsByReferenceType = asyncHandler(
+    async (req: AuthRequest, res: Response): Promise<void> => {
+      const { referenceType } = req.params;
+      const { museumId } = req.query;
+
+      if (!req.user) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
+      }
+      if (!museumId) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'museumId è obbligatorio');
+      }
+
+      const museumIdFilter = await buildMuseumIdFilterValue(museumId as string);
+      const filter: Record<string, unknown> = {
+        referenceType,
+        ...(museumIdFilter !== undefined ? { museumId: museumIdFilter } : {}),
+        ...(await buildUsableItemsFilter(req.user.id)),
+      };
+
+      const items = await ItemModel.find(filter).sort({ createdAt: -1 }).lean();
+
+      res.json({ success: true, data: items });
+    },
+  );
+
+  // GET /api/items/search — ricerca testuale su titolo/testo, con filtri e paginazione
   static search = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { q, museumId, referenceType, tags } = req.query;
 
@@ -240,13 +306,13 @@ export class ItemController {
     });
   });
 
-  // Ottieni item per ID
+  // GET /api/items/:id — dettaglio di un singolo item
   static getById = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
     const item = await ItemModel.findById(id).lean();
     if (!item) {
-      throw new AppError(404, 'ITEM_NOT_FOUND', 'Item not found');
+      throw new AppError(404, 'ITEM_NOT_FOUND', 'Item non trovato');
     }
 
     res.json({
@@ -255,15 +321,15 @@ export class ItemController {
     });
   });
 
-  // Crea item (solo autore)
+  // POST /api/items — crea l'item verificando copertura traduzioni (solo autore autenticato)
   static create = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
     }
 
     if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
     const itemData = {
@@ -277,7 +343,7 @@ export class ItemController {
       throw new AppError(
         400,
         'VALIDATION_ERROR',
-        `sourceLanguage must be one of: ${SUPPORTED_APP_LANGUAGES.join(', ')}`,
+        `sourceLanguage deve essere una tra: ${SUPPORTED_APP_LANGUAGES.join(', ')}`,
       );
     }
 
@@ -307,30 +373,41 @@ export class ItemController {
     res.status(201).json({
       success: true,
       data: item,
-      message: 'Item created successfully',
+      message: 'Item creato con successo',
     });
   });
 
-  // Aggiorna item (solo proprietario)
+  // PUT /api/items/:id — aggiorna l'item (owner, admin o curatore)
   static update = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
+    }
+
     const { id } = req.params;
 
     if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
     const item = await ItemModel.findById(id);
     if (!item) {
-      throw new AppError(404, 'ITEM_NOT_FOUND', 'Item not found');
+      throw new AppError(404, 'ITEM_NOT_FOUND', 'Item non trovato');
     }
 
-    // Autore proprietario, admin o curatore (gestisce tutto il contenuto del suo museo,
-    // stesso criterio già usato per gli artwork) possono modificare l'item.
-    const canManage =
-      item.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
-    if (!canManage) {
-      throw new AppError(403, 'FORBIDDEN', 'You can only update your own items');
-    }
+    // Proprietario (ovunque), o curatore del museo a cui appartiene l'item.
+    await assertCan(
+      req.user,
+      'manage',
+      'item',
+      { museumId: item.museumId, authorId: item.authorId },
+      'Puoi aggiornare solo i tuoi item o quelli dei musei che curi',
+    );
+
+    // Per invalidare l'audio generato del testo/traduzione che sta per
+    // cambiare: serve il valore prima che Object.assign lo sovrascriva.
+    const oldText = item.text;
+    const oldTranslatedTexts = mapToRecord(item.translatedTexts);
 
     const updateData = { ...req.body };
     delete updateData.museumId;
@@ -338,47 +415,80 @@ export class ItemController {
     if (req.body.price !== undefined) {
       item.isFree = req.body.price === 0;
     }
+
+    // Un audio che legge un testo diverso da quello scritto ora è
+    // semplicemente sbagliato: va tolto (file su disco incluso), non
+    // rigenerato subito (costerebbe una chiamata OpenAI ad ogni salvataggio)
+    // — tornerà a leggere con la sintesi del browser finché non si rilancia
+    // "Genera audio mancante" per il museo.
+    if (item.audio) {
+      const audio = mapToRecord<GeneratedAudio>(item.audio);
+      let audioChanged = false;
+
+      if (req.body.text !== undefined && req.body.text !== oldText && audio[item.sourceLanguage]) {
+        await deleteGeneratedAudioFile(audio[item.sourceLanguage]);
+        delete audio[item.sourceLanguage];
+        audioChanged = true;
+      }
+
+      if (req.body.translatedTexts !== undefined) {
+        const newTranslatedTexts = mapToRecord(item.translatedTexts);
+        for (const lang of Object.keys(audio)) {
+          if (lang === item.sourceLanguage) continue;
+          if (newTranslatedTexts[lang] !== oldTranslatedTexts[lang]) {
+            await deleteGeneratedAudioFile(audio[lang]);
+            delete audio[lang];
+            audioChanged = true;
+          }
+        }
+      }
+
+      if (audioChanged) item.set('audio', audio);
+    }
+
     await item.save();
 
     res.json({
       success: true,
       data: item,
-      message: 'Item updated successfully',
+      message: 'Item aggiornato con successo',
     });
   });
 
-  // Elimina item (solo proprietario)
+  // DELETE /api/items/:id — elimina l'item (owner, admin o curatore)
   static delete = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id } = req.params;
 
     if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
     const item = await ItemModel.findById(id);
     if (!item) {
-      throw new AppError(404, 'ITEM_NOT_FOUND', 'Item not found');
+      throw new AppError(404, 'ITEM_NOT_FOUND', 'Item non trovato');
     }
 
-    // Stesso criterio dell'update: autore proprietario, admin o curatore.
-    const canManage =
-      item.authorId === req.user.id || req.user.role === 'admin' || req.user.role === 'curator';
-    if (!canManage) {
-      throw new AppError(403, 'FORBIDDEN', 'You can only delete your own items');
-    }
+    // Stesso criterio dell'update.
+    await assertCan(
+      req.user,
+      'manage',
+      'item',
+      { museumId: item.museumId, authorId: item.authorId },
+      'Puoi eliminare solo i tuoi item o quelli dei musei che curi',
+    );
 
     await item.deleteOne();
 
     res.json({
       success: true,
-      message: 'Item deleted successfully',
+      message: 'Item eliminato con successo',
     });
   });
 
-  // Ottieni gli item propri dell'utente
+  // GET /api/items/my-items — item creati dall'utente autenticato
   static getMyItems = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     if (!req.user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
     const items = await ItemModel.find({ authorId: req.user.id }).sort({ createdAt: -1 }).lean();

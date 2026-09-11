@@ -137,7 +137,7 @@ router.get('/me', authMiddleware, AuthController.me);
  *   put:
  *     tags: [Auth]
  *     summary: Aggiorna il proprio profilo
- *     description: Self-service — l'utente autenticato aggiorna email e/o preferenze proprie. Non tocca ruolo, roleAssignments, username o isActive (quelli restano riservati agli admin via PUT /api/users/:id).
+ *     description: Self-service — l'utente autenticato aggiorna email e/o preferenze proprie. Non tocca ruolo, museumRoles, username o isActive (quelli restano riservati agli admin via PUT /api/users/:id).
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -169,5 +169,16 @@ router.put(
   AuthController.changePasswordValidation,
   AuthController.changePassword,
 );
+
+/**
+ * @swagger
+ * /api/auth/me/role-requests:
+ *   get:
+ *     tags: [Auth]
+ *     summary: Le mie richieste di ruolo museo in attesa
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/me/role-requests', authMiddleware, AuthController.myRoleRequests);
 
 export default router;

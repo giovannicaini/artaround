@@ -1,3 +1,8 @@
+/*
+ * Tipo usato come result nel service di Wikidata
+ *
+ */
+
 export interface WikidataSearchResult {
   id: string;
   label: string;

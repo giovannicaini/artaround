@@ -2,18 +2,12 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, state, property } from 'lit/decorators.js';
 import { userService } from '../../services/user.service';
 import { museumService } from '../../services/museum.service';
-import { artworkService } from '../../services/artwork.service';
-import { itemService } from '../../services/item.service';
-import { visitService } from '../../services/visit.service';
 import {
   type User,
-  UserRole,
-  ContextualRole,
-  ResourceType,
-  type RoleAssignment,
+  MuseumRole,
+  type MuseumRoleAssignment,
   type CreateUserData,
   type UpdateUserData,
-  type RoleAssignmentData,
 } from '@artaround/shared';
 import '../ui/ui-button';
 import '../ui/ui-card';
@@ -43,7 +37,7 @@ interface UserFormData {
   username: string;
   email: string;
   password: string;
-  role: UserRole;
+  isAdmin: boolean;
   isActive: boolean;
 }
 
@@ -71,7 +65,7 @@ export class UsersPage extends LitElement {
 
   // Filtri
   @state() private searchQuery = '';
-  @state() private filterRole: UserRole | '' = '';
+  @state() private filterAdmin: 'all' | 'admin' | 'user' = 'all';
   @state() private filterActive: 'all' | 'active' | 'inactive' = 'all';
 
   // Dati del form
@@ -79,14 +73,14 @@ export class UsersPage extends LitElement {
     username: '',
     email: '',
     password: '',
-    role: UserRole.VISITOR,
+    isAdmin: false,
     isActive: true,
   };
 
-  // Cerca il nome della risorsa (id → nome)
+  // Cerca il nome del museo (_id → nome)
   @state() private resourceNames: Map<string, string> = new Map();
 
-  // Opzioni risorsa per il picker nel modal ruoli
+  // Opzioni museo per il picker nel modal ruoli
   @state() private resourceOptions: { value: string; label: string }[] = [];
   @state() private resourceOptionsLoading = false;
 
@@ -95,12 +89,11 @@ export class UsersPage extends LitElement {
   @state() private userToDelete: User | null = null;
   @state() private deleting = false;
 
-  // Modal assegnazione ruolo
+  // Modal assegnazione ruolo museo (curatore/autore di un museo specifico)
   @state() private roleAssignmentModalOpen = false;
-  @state() private roleAssignmentData: RoleAssignmentData = {
-    role: ContextualRole.VIEWER,
-    resourceType: ResourceType.ITEM,
-    resourceId: '',
+  @state() private roleAssignmentData: { role: MuseumRole; museumId: string } = {
+    role: MuseumRole.AUTHOR,
+    museumId: '',
   };
 
   // ─── Ciclo di vita ───────────────────────────────────────────
@@ -116,21 +109,15 @@ export class UsersPage extends LitElement {
 
   private async loadResourceNames() {
     const museums = await museumService.getMuseums();
-    const map = new Map<string, string>();
-    for (const m of museums) {
-      map.set(m._id, m.name);
-      if (m.wikidataId) map.set(m.wikidataId, m.name);
-    }
-    this.resourceNames = map;
+    this.resourceNames = new Map(museums.map((m) => [m._id, m.name]));
   }
 
-  private getRoleAssignmentLabel(ra: RoleAssignment): string {
-    const roleLabel = userService.getContextualRoleLabel(ra.role);
-    const typeLabel = userService.getResourceTypeLabel(ra.resourceType);
-    const resourceName = this.resourceNames.get(ra.resourceId);
-    return resourceName
-      ? `${roleLabel} — ${typeLabel} "${resourceName}"`
-      : `${roleLabel} — ${typeLabel} (${ra.resourceId.slice(-6)})`;
+  private getRoleAssignmentLabel(ra: MuseumRoleAssignment): string {
+    const roleLabel = userService.getMuseumRoleLabel(ra.role);
+    const museumName = this.resourceNames.get(ra.museumId);
+    return museumName
+      ? `${roleLabel} — ${museumName}`
+      : `${roleLabel} — museo (${ra.museumId.slice(-6)})`;
   }
 
   updated(changedProps: Map<string, unknown>) {
@@ -151,7 +138,7 @@ export class UsersPage extends LitElement {
       };
 
       if (this.searchQuery) params.search = this.searchQuery;
-      if (this.filterRole) params.role = this.filterRole;
+      if (this.filterAdmin !== 'all') params.isAdmin = this.filterAdmin === 'admin';
       if (this.filterActive !== 'all') params.isActive = this.filterActive === 'active';
 
       const response = await userService.getUsers(
@@ -169,8 +156,8 @@ export class UsersPage extends LitElement {
   }
 
   // ─── Azioni (filtri / CRUD / ruoli) ───────────────────
-  private handleFilterRole(role: UserRole | '') {
-    this.filterRole = role;
+  private handleFilterAdmin(filter: 'all' | 'admin' | 'user') {
+    this.filterAdmin = filter;
     this.page = 1;
     this.loadUsers();
   }
@@ -191,7 +178,7 @@ export class UsersPage extends LitElement {
       username: '',
       email: '',
       password: '',
-      role: UserRole.VISITOR,
+      isAdmin: false,
       isActive: true,
     };
     this.viewMode = 'create';
@@ -205,7 +192,7 @@ export class UsersPage extends LitElement {
       username: user.username,
       email: user.email,
       password: '', // Don't populate password
-      role: user.role,
+      isAdmin: user.isAdmin,
       isActive: user.isActive,
     };
     this.viewMode = 'edit';
@@ -251,7 +238,7 @@ export class UsersPage extends LitElement {
           username: this.formData.username.trim(),
           email: this.formData.email.trim(),
           password: this.formData.password,
-          role: this.formData.role,
+          isAdmin: this.formData.isAdmin,
           isActive: this.formData.isActive,
         };
         await userService.create(data);
@@ -260,7 +247,7 @@ export class UsersPage extends LitElement {
         const data: UpdateUserData = {
           username: this.formData.username.trim(),
           email: this.formData.email.trim(),
-          role: this.formData.role,
+          isAdmin: this.formData.isAdmin,
           isActive: this.formData.isActive,
         };
         if (this.formData.password) {
@@ -305,37 +292,28 @@ export class UsersPage extends LitElement {
     }
   }
 
-  // Metodi per l'assegnazione di ruolo
+  // Metodi per l'assegnazione di curatore/autore di un museo. Non esiste un
+  // CURATOR/AUTHOR generico: l'assegnazione è sempre su un museo specifico
+  // (vedi museumService.addCurator/addAuthor, che richiamano gli endpoint
+  // /museums/:id/curators e /museums/:id/authors — non un endpoint generico).
   private openRoleAssignmentModal(user: User) {
     this.selectedUser = user;
     this.roleAssignmentData = {
-      role: ContextualRole.VIEWER,
-      resourceType: ResourceType.MUSEUM,
-      resourceId: '',
+      role: MuseumRole.AUTHOR,
+      museumId: '',
     };
     this.roleAssignmentModalOpen = true;
-    this.loadResourceOptions(ResourceType.MUSEUM);
+    this.loadMuseumOptions();
   }
 
-  private async loadResourceOptions(type: ResourceType) {
+  private async loadMuseumOptions() {
     this.resourceOptionsLoading = true;
     this.resourceOptions = [];
     try {
-      if (type === ResourceType.MUSEUM) {
-        const museums = await museumService.getMuseums();
-        this.resourceOptions = museums.map((m) => ({ value: m._id, label: m.name }));
-      } else if (type === ResourceType.ITEM) {
-        const res = await itemService.getItems({ limit: 200 });
-        this.resourceOptions = res.items.map((i) => ({ value: i._id, label: i.title }));
-      } else if (type === ResourceType.ARTWORK) {
-        const res = await artworkService.getArtworks({ limit: 200 });
-        this.resourceOptions = res.artworks.map((a) => ({ value: a._id, label: a.title }));
-      } else if (type === ResourceType.VISIT) {
-        const res = await visitService.getVisits({ limit: 200 });
-        this.resourceOptions = res.visits.map((v) => ({ value: v._id, label: v.title }));
-      }
+      const museums = await museumService.getMuseums();
+      this.resourceOptions = museums.map((m) => ({ value: m._id, label: m.name }));
     } catch (e) {
-      console.error('Error loading resource options:', e);
+      console.error('Error loading museum options:', e);
       this.resourceOptions = [];
     } finally {
       this.resourceOptionsLoading = false;
@@ -343,23 +321,31 @@ export class UsersPage extends LitElement {
     }
   }
 
+  private async refreshSelectedUser(userId: string) {
+    const updatedUser = await userService.getById(userId);
+    this.selectedUser = updatedUser;
+    this.users = this.users.map((u) => (u._id === updatedUser._id ? updatedUser : u));
+  }
+
   private async handleAddRoleAssignment() {
-    if (!this.selectedUser || !this.roleAssignmentData.resourceId) {
-      this.error = __('ID risorsa obbligatorio');
+    if (!this.selectedUser || !this.roleAssignmentData.museumId) {
+      this.error = __('Museo obbligatorio');
       return;
     }
 
     this.saving = true;
     try {
-      const updatedUser = await userService.addRoleAssignment(
-        this.selectedUser._id,
-        this.roleAssignmentData,
-      );
-      this.selectedUser = updatedUser;
+      const { museumId, role } = this.roleAssignmentData;
+      const result =
+        role === MuseumRole.CURATOR
+          ? await museumService.addCurator(museumId, this.selectedUser._id)
+          : await museumService.addAuthor(museumId, this.selectedUser._id);
 
-      // Aggiorna l'utente nella lista
-      this.users = this.users.map((u) => (u._id === updatedUser._id ? updatedUser : u));
+      if (!result.success) {
+        throw new Error(result.error || __("Errore nell'assegnazione del ruolo"));
+      }
 
+      await this.refreshSelectedUser(this.selectedUser._id);
       this.roleAssignmentModalOpen = false;
       this.success = __('Ruolo assegnato con successo!');
     } catch (e) {
@@ -370,19 +356,20 @@ export class UsersPage extends LitElement {
     }
   }
 
-  private async handleRemoveRoleAssignment(assignment: RoleAssignment) {
+  private async handleRemoveRoleAssignment(assignment: MuseumRoleAssignment) {
     if (!this.selectedUser) return;
 
     try {
-      const updatedUser = await userService.removeRoleAssignment(this.selectedUser._id, {
-        role: assignment.role,
-        resourceType: assignment.resourceType,
-        resourceId: assignment.resourceId,
-      });
-      this.selectedUser = updatedUser;
+      const result =
+        assignment.role === MuseumRole.CURATOR
+          ? await museumService.removeCurator(assignment.museumId, this.selectedUser._id)
+          : await museumService.removeAuthor(assignment.museumId, this.selectedUser._id);
 
-      // Aggiorna l'utente nella lista
-      this.users = this.users.map((u) => (u._id === updatedUser._id ? updatedUser : u));
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      await this.refreshSelectedUser(this.selectedUser._id);
     } catch (e) {
       console.error('Error removing role assignment:', e);
     }
@@ -434,17 +421,15 @@ export class UsersPage extends LitElement {
         </div>
 
         <div class="flex flex-wrap gap-2">
-          <!-- Filtro ruolo -->
+          <!-- Filtro ruolo globale -->
           <ui-filter-tabs
             .tabs=${[
-              { value: '', label: __('Tutti') },
-              ...Object.values(UserRole).map((role) => ({
-                value: role,
-                label: userService.getRoleLabel(role),
-              })),
+              { value: 'all', label: __('Tutti') },
+              { value: 'admin', label: userService.getRoleLabel(true) },
+              { value: 'user', label: userService.getRoleLabel(false) },
             ]}
-            .value=${this.filterRole}
-            @filter-change=${(e: CustomEvent) => this.handleFilterRole(e.detail.value)}
+            .value=${this.filterAdmin}
+            @filter-change=${(e: CustomEvent) => this.handleFilterAdmin(e.detail.value)}
           ></ui-filter-tabs>
 
           <!-- Filtro attivo -->
@@ -472,7 +457,9 @@ export class UsersPage extends LitElement {
           ? html`<ui-empty
               icon="users"
               .title=${__('Nessun utente trovato')}
-              .description=${this.searchQuery || this.filterRole || this.filterActive !== 'all'
+              .description=${this.searchQuery ||
+              this.filterAdmin !== 'all' ||
+              this.filterActive !== 'all'
                 ? __('Prova a modificare i filtri di ricerca')
                 : __('Crea il primo utente per iniziare')}
             >
@@ -517,7 +504,7 @@ export class UsersPage extends LitElement {
                 <th
                   class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider"
                 >
-                  ${__('Ruoli Contestuali')}
+                  ${__('Curatore/Autore di')}
                 </th>
                 <th
                   class="px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider"
@@ -545,22 +532,11 @@ export class UsersPage extends LitElement {
     `;
   }
 
-  private getRoleBadgeVariant(role: UserRole): string {
-    const roleColors: Record<UserRole, string> = {
-      admin: 'danger',
-      curator: 'primary',
-      author: 'success',
-      visitor: 'secondary',
-    };
-
-    return roleColors[role] || 'secondary';
-  }
-
-  private renderRoleBadge(role: UserRole, variant?: string) {
+  private renderRoleBadge(isAdmin: boolean, variant?: string) {
     return html`
       <ui-badge
-        variant="${variant || this.getRoleBadgeVariant(role)}"
-        .label=${userService.getRoleLabel(role)}
+        variant="${variant || (isAdmin ? 'danger' : 'secondary')}"
+        .label=${userService.getRoleLabel(isAdmin)}
       ></ui-badge>
     `;
   }
@@ -596,12 +572,12 @@ export class UsersPage extends LitElement {
             </div>
           </div>
         </td>
-        <td class="px-4 py-3">${this.renderRoleBadge(user.role)}</td>
+        <td class="px-4 py-3">${this.renderRoleBadge(user.isAdmin)}</td>
         <td class="px-4 py-3">
-          ${user.roleAssignments && user.roleAssignments.length > 0
+          ${user.museumRoles && user.museumRoles.length > 0
             ? html`
                 <div class="flex flex-wrap gap-1">
-                  ${user.roleAssignments
+                  ${user.museumRoles
                     .slice(0, 2)
                     .map(
                       (ra) => html`
@@ -612,11 +588,11 @@ export class UsersPage extends LitElement {
                         ></ui-badge>
                       `,
                     )}
-                  ${user.roleAssignments.length > 2
+                  ${user.museumRoles.length > 2
                     ? html`<ui-badge
                         variant="outline"
                         size="sm"
-                        .label=${`+${user.roleAssignments.length - 2}`}
+                        .label=${`+${user.museumRoles.length - 2}`}
                       ></ui-badge>`
                     : nothing}
                 </div>
@@ -724,24 +700,10 @@ export class UsersPage extends LitElement {
                 })}
               ?required=${!isEdit}
             ></ui-input>
-
-            <ui-select
-              .label=${__('Ruolo Globale')}
-              .value=${this.formData.role}
-              .options=${Object.values(UserRole).map((role) => ({
-                value: role,
-                label: userService.getRoleLabel(role),
-              }))}
-              @select-change=${(e: CustomEvent) =>
-                (this.formData = {
-                  ...this.formData,
-                  role: e.detail.value as UserRole,
-                })}
-            ></ui-select>
           </div>
 
           <!-- Sezione checkbox -->
-          <div class="mt-8 pt-6 border-t border-surface-200 dark:border-surface-700">
+          <div class="mt-8 pt-6 border-t border-surface-200 dark:border-surface-700 space-y-4">
             <ui-checkbox
               .label=${__('Account attivo')}
               .hint=${__("Se disattivo, l'utente non potrà accedere al sistema")}
@@ -750,6 +712,17 @@ export class UsersPage extends LitElement {
                 (this.formData = {
                   ...this.formData,
                   isActive: e.detail.checked,
+                })}
+            ></ui-checkbox>
+
+            <ui-checkbox
+              .label=${__('Amministratore')}
+              .hint=${__('Accesso completo al sistema, incluse queste impostazioni utenti')}
+              ?checked=${this.formData.isAdmin}
+              @checkbox-change=${(e: CustomEvent) =>
+                (this.formData = {
+                  ...this.formData,
+                  isAdmin: e.detail.checked,
                 })}
             ></ui-checkbox>
           </div>
@@ -806,7 +779,7 @@ export class UsersPage extends LitElement {
             <dl class="grid grid-cols-2 gap-4">
               <div>
                 <dt class="text-sm text-surface-500">${__('Ruolo Globale')}</dt>
-                <dd class="mt-1">${this.renderRoleBadge(user.role, 'primary')}</dd>
+                <dd class="mt-1">${this.renderRoleBadge(user.isAdmin, 'primary')}</dd>
               </div>
               <div>
                 <dt class="text-sm text-surface-500">${__('Stato')}</dt>
@@ -840,25 +813,25 @@ export class UsersPage extends LitElement {
           `}
         ></ui-panel-section>
 
-        <!-- Card assegnazioni ruolo -->
+        <!-- Card curatore/autore -->
         <ui-card>
           <div class="flex items-center justify-between mb-4">
             <h3 class="font-semibold text-surface-900 dark:text-white">
-              ${__('Ruoli Contestuali')}
+              ${__('Curatore/Autore di')}
             </h3>
             <ui-button
               variant="outline"
               size="sm"
               icon="plus"
-              .label=${__('Aggiungi ruolo')}
+              .label=${__('Assegna museo')}
               @click=${() => this.openRoleAssignmentModal(user)}
             ></ui-button>
           </div>
 
-          ${user.roleAssignments && user.roleAssignments.length > 0
+          ${user.museumRoles && user.museumRoles.length > 0
             ? html`
                 <div class="space-y-2">
-                  ${user.roleAssignments.map((ra) =>
+                  ${user.museumRoles.map((ra) =>
                     this.renderRoleAssignmentItem(ra, {
                       showIcon: true,
                       removeIcon: 'x',
@@ -870,9 +843,9 @@ export class UsersPage extends LitElement {
             : html`
                 <div class="text-center py-8 text-surface-500">
                   <ui-icon name="shield" size="lg" class="mb-2 opacity-50"></ui-icon>
-                  <p>${__('Nessun ruolo contestuale assegnato')}</p>
+                  <p>${__('Non è curatore o autore di nessun museo')}</p>
                   <p class="text-sm mt-1">
-                    ${__('I ruoli contestuali permettono permessi specifici su singole risorse')}
+                    ${__('Assegnalo come curatore o autore di un museo specifico')}
                   </p>
                 </div>
               `}
@@ -881,18 +854,8 @@ export class UsersPage extends LitElement {
     `;
   }
 
-  private getResourceIcon(type: ResourceType): string {
-    const icons: Record<ResourceType, string> = {
-      item: 'document',
-      visit: 'map',
-      artwork: 'image',
-      museum: 'building',
-    };
-    return icons[type] || 'file';
-  }
-
   private renderRoleAssignmentItem(
-    ra: RoleAssignment,
+    ra: MuseumRoleAssignment,
     options: {
       compact?: boolean;
       showIcon?: boolean;
@@ -918,7 +881,7 @@ export class UsersPage extends LitElement {
                   class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center"
                 >
                   <ui-icon
-                    name=${this.getResourceIcon(ra.resourceType)}
+                    name="building"
                     size="sm"
                     class="text-brand-600 dark:text-brand-400"
                   ></ui-icon>
@@ -931,11 +894,10 @@ export class UsersPage extends LitElement {
                 ? 'text-sm font-medium text-surface-900 dark:text-white'
                 : 'font-medium text-surface-900 dark:text-white'}
             >
-              ${userService.getContextualRoleLabel(ra.role)}
+              ${userService.getMuseumRoleLabel(ra.role)}
             </p>
             <p class=${compact ? 'text-xs text-surface-500' : 'text-sm text-surface-500'}>
-              ${userService.getResourceTypeLabel(ra.resourceType)}:
-              ${this.resourceNames.get(ra.resourceId) ?? ra.resourceId}
+              ${this.resourceNames.get(ra.museumId) ?? ra.museumId}
             </p>
           </div>
         </div>
@@ -974,7 +936,7 @@ export class UsersPage extends LitElement {
   private renderRoleAssignmentModal() {
     if (!this.roleAssignmentModalOpen) return nothing;
 
-    const existingRoles = this.selectedUser?.roleAssignments ?? [];
+    const existingRoles = this.selectedUser?.museumRoles ?? [];
 
     return html`
       <div
@@ -990,17 +952,17 @@ export class UsersPage extends LitElement {
         >
           <div class="p-6 border-b border-surface-200 dark:border-surface-700 flex-shrink-0">
             <h3 class="text-lg font-semibold text-surface-900 dark:text-white">
-              Ruoli Contestuali — ${this.selectedUser?.username}
+              Curatore/Autore di — ${this.selectedUser?.username}
             </h3>
           </div>
 
           <div class="overflow-y-auto flex-1">
-            <!-- Assegnazioni di ruolo esistenti -->
+            <!-- Assegnazioni esistenti -->
             ${existingRoles.length > 0
               ? html`
                   <div class="p-6 pb-0 space-y-2">
                     <p class="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">
-                      Ruoli assegnati
+                      Musei assegnati
                     </p>
                     ${existingRoles.map((ra) =>
                       this.renderRoleAssignmentItem(ra, {
@@ -1013,59 +975,41 @@ export class UsersPage extends LitElement {
                 `
               : nothing}
 
-            <!-- Aggiungi nuova assegnazione di ruolo -->
+            <!-- Assegna un nuovo museo -->
             <div class="p-6 space-y-4">
               ${existingRoles.length > 0
                 ? html`<p class="text-xs font-semibold text-surface-500 uppercase tracking-wider">
-                    ${__('Aggiungi ruolo')}
+                    ${__('Assegna museo')}
                   </p>`
                 : nothing}
 
               <ui-select
-                .label=${__('Tipo di Ruolo')}
+                .label=${__('Ruolo')}
                 .value=${this.roleAssignmentData.role}
-                .options=${Object.values(ContextualRole).map((role) => ({
+                .options=${Object.values(MuseumRole).map((role) => ({
                   value: role,
-                  label: userService.getContextualRoleLabel(role),
+                  label: userService.getMuseumRoleLabel(role),
                 }))}
                 @select-change=${(e: CustomEvent) =>
                   (this.roleAssignmentData = {
                     ...this.roleAssignmentData,
-                    role: e.detail.value as ContextualRole,
+                    role: e.detail.value as MuseumRole,
                   })}
               ></ui-select>
 
-              <ui-select
-                .label=${__('Tipo di Risorsa')}
-                .value=${this.roleAssignmentData.resourceType}
-                .options=${Object.values(ResourceType).map((type) => ({
-                  value: type,
-                  label: userService.getResourceTypeLabel(type),
-                }))}
-                @select-change=${(e: CustomEvent) => {
-                  const newType = e.detail.value as ResourceType;
-                  this.roleAssignmentData = {
-                    ...this.roleAssignmentData,
-                    resourceType: newType,
-                    resourceId: '',
-                  };
-                  this.loadResourceOptions(newType);
-                }}
-              ></ui-select>
-
               <ui-search-list-picker
-                .label=${__('Risorsa')}
+                .label=${__('Museo')}
                 .placeholder=${__('Cerca per nome...')}
-                .loadingText=${__('Caricamento risorse...')}
-                .emptyText=${__('Nessuna risorsa disponibile')}
+                .loadingText=${__('Caricamento musei...')}
+                .emptyText=${__('Nessun museo disponibile')}
                 .noResultsText=${__('Nessun risultato')}
                 .loading=${this.resourceOptionsLoading}
                 .options=${this.resourceOptions}
-                .value=${this.roleAssignmentData.resourceId}
+                .value=${this.roleAssignmentData.museumId}
                 @value-change=${(e: CustomEvent<{ value: string }>) => {
                   this.roleAssignmentData = {
                     ...this.roleAssignmentData,
-                    resourceId: e.detail.value,
+                    museumId: e.detail.value,
                   };
                 }}
               ></ui-search-list-picker>

@@ -9,7 +9,6 @@ import {
   CONTENT_DURATION_OPTIONS_IT,
   ITEM_REFERENCE_TYPE_OPTIONS_IT,
   LANGUAGE_LEVEL_OPTIONS_IT,
-  UserRole,
   ItemReferenceType,
   ContentDuration,
   LanguageLevel,
@@ -19,6 +18,7 @@ import {
 import {
   getPermissions,
   canEditOwnItem,
+  isMuseumCurator,
   type PermissionSet,
 } from '../../services/permissions.service';
 import '../ui/ui-button';
@@ -81,7 +81,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
 
   // ─── Stato calcolato ──────────────────────────────────────
   private get permissions(): PermissionSet {
-    return getPermissions(this.user);
+    return getPermissions(this.user, this.selectedMuseumId ?? undefined);
   }
 
   private get activeFilterCount(): number {
@@ -237,14 +237,17 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
   }
 
   /**
-   * Permesso reale di modificare/eliminare QUESTO item: rispecchia esattamente il
-   * controllo server-side (item.controller.ts) — proprio contenuto, oppure
-   * curatore/admin che gestiscono tutto il contenuto del museo. this.permissions
-   * (PermissionSet) dice solo "il ruolo può modificare contenuti in generale",
-   * non basta per decidere se mostrare il bottone su un item altrui.
+   * Permesso reale di modificare/eliminare QUESTO item: proprio contenuto
+   * (sempre, ovunque), oppure curatore del museo selezionato. Usa
+   * this.selectedMuseumId (sempre l'_id Mongo) e non item.museumId (salvato
+   * come QID Wikidata — vedi museum-id.util.ts lato server): i due formati
+   * non sono direttamente confrontabili senza risolvere l'id lato server.
+   * Corretto perché quando si sfoglia un item non proprio la pagina ha
+   * sempre un museo selezionato; con "i miei contenuti" su più musei senza
+   * selezione, conta comunque solo la proprietà.
    */
   private canManageItem(item: Item): boolean {
-    if (this.user?.role === UserRole.CURATOR) {
+    if (isMuseumCurator(this.user, this.selectedMuseumId ?? undefined)) {
       return true;
     }
     return canEditOwnItem(this.user, item.authorId);
@@ -427,7 +430,7 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
           variant="secondary"
           size="sm"
           .label=${__('Reset')}
-          @click=${this.handleResetFilters}
+          @click=${() => this.handleResetFilters()}
         ></ui-button>
       </div>
     `;

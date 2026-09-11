@@ -132,7 +132,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
   }
 
   private get permissions(): PermissionSet {
-    return getPermissions(this.user);
+    return getPermissions(this.user, this.selectedMuseumId ?? undefined);
   }
 
   // ─── Ciclo di vita ───────────────────────────────────────────
@@ -873,7 +873,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
           variant="secondary"
           size="sm"
           .label=${__('Reset')}
-          @click=${this.handleResetFilters}
+          @click=${() => this.handleResetFilters()}
         ></ui-button>
       </div>
     `;
@@ -1118,7 +1118,15 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
         bodyClass="p-3"
         .renderTopLeft=${artwork.wikidataId
           ? () =>
-              html`<ui-badge variant="primary" size="sm" .label=${artwork.wikidataId}></ui-badge>`
+              html`<a
+                href="https://www.wikidata.org/wiki/${artwork.wikidataId}"
+                target="_blank"
+                rel="noopener noreferrer"
+                @click=${(e: Event) => e.stopPropagation()}
+                title=${__('Vedi su Wikidata')}
+              >
+                <ui-badge variant="primary" size="sm" .label=${artwork.wikidataId}></ui-badge>
+              </a>`
           : null}
         .renderTopRight=${() =>
           html`<ui-badge

@@ -46,9 +46,7 @@ function pointOnCubic(seg: BezierSegment, t: number): Point {
   };
 }
 
-/** Percorso morbido che passa per tutti i punti (opere + waypoint) senza
- * spigoli vivi in corrispondenza delle svolte — al posto della spezzata
- * "M...L...L..." usata in precedenza. */
+/** Percorso morbido che passa per tutti i punti (opere + waypoint), senza spigoli vivi sulle svolte. */
 export function buildSmoothPath(points: Point[]): string {
   if (points.length < 2) return '';
   if (points.length === 2) {
@@ -65,11 +63,7 @@ export interface PathArrow extends Point {
   angleDeg: number;
 }
 
-/** Frecce di verso a distanza regolare lungo la curva (non lungo i singoli
- * segmenti, che hanno lunghezze molto diverse tra loro): campiona la curva,
- * calcola la lunghezza cumulativa e piazza una freccia ogni `spacing` px,
- * con l'angolo della tangente in quel punto per orientarla nel verso di
- * percorrenza. */
+/** Frecce di verso ogni `spacing` px lungo la curva (non lungo i segmenti, di lunghezza diversa). */
 export function computePathArrows(points: Point[], spacing = 90): PathArrow[] {
   if (points.length < 2) return [];
   const segments = catmullRomToBezierSegments(points);

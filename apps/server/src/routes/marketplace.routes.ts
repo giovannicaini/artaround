@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { MarketplaceController } from '../controllers/marketplace.controller.js';
 import { authMiddleware } from '../middleware/index.js';
+import { authorizeContentCreator } from '../utils/policy.util.js';
 
 const router = Router();
 
@@ -117,11 +118,16 @@ router.get('/visits', MarketplaceController.getVisits);
  *       409:
  *         description: Item già acquistato
  */
-router.post('/purchase/item/:itemId', authMiddleware, MarketplaceController.purchaseItem);
+router.post(
+  '/purchase/item/:itemId',
+  authMiddleware,
+  authorizeContentCreator,
+  MarketplaceController.purchaseItem,
+);
 
 /**
  * @swagger
- * /api/marketplace/purchase/{visitId}:
+ * /api/marketplace/purchase/visit/{visitId}:
  *   post:
  *     tags: [Marketplace]
  *     summary: Acquista visita
@@ -153,31 +159,6 @@ router.post('/purchase/item/:itemId', authMiddleware, MarketplaceController.purc
  *                       type: string
  *                     price:
  *                       type: number
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       404:
- *         $ref: '#/components/responses/NotFoundError'
- */
-router.post('/purchase/:visitId', authMiddleware, MarketplaceController.purchaseVisit);
-
-/**
- * @swagger
- * /api/marketplace/purchase/visit/{visitId}:
- *   post:
- *     tags: [Marketplace]
- *     summary: Acquista visita (alias)
- *     description: Alias di /api/marketplace/purchase/{visitId}, stesso comportamento.
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: visitId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Acquisto completato
  *       401:
  *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
@@ -256,35 +237,6 @@ router.get('/my-visit-purchases', authMiddleware, MarketplaceController.getMyPur
  *         $ref: '#/components/responses/UnauthorizedError'
  */
 router.get('/my-item-purchases', authMiddleware, MarketplaceController.getMyItemPurchases);
-
-/**
- * @swagger
- * /api/marketplace/credit/balance:
- *   get:
- *     tags: [Marketplace]
- *     summary: Saldo credito
- *     description: Ottiene il saldo di credito dell'utente autenticato
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Saldo attuale
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     balance:
- *                       type: number
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- */
-router.get('/credit/balance', authMiddleware, MarketplaceController.getCreditBalance);
 
 /**
  * @swagger

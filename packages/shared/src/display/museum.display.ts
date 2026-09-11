@@ -72,3 +72,29 @@ export const MARKER_TYPE_EDITOR_OPTIONS_IT: ReadonlyArray<
   icon: MARKER_TYPE_META[type].icon,
   label: MARKER_TYPE_META[type].label,
 }));
+
+// Lista fissa e limitata di servizi attivabili per museo (vedi MuseumService)
+// — un sottoinsieme di MarkerType, quelli che ha senso offrire come "servizio"
+// oltre a semplice punto sulla mappa.
+export const MUSEUM_SERVICE_TYPES: readonly MarkerType[] = [
+  MarkerType.EXIT,
+  MarkerType.TOILETTE,
+  MarkerType.ACCESSIBLE_TOILETTE,
+  MarkerType.BAR,
+  MarkerType.RESTAURANT,
+  MarkerType.SHOP,
+  MarkerType.CLOAKROOM,
+  MarkerType.LOCKER,
+  MarkerType.INFO_POINT,
+  MarkerType.WIFI,
+  MarkerType.AUDIO_GUIDE,
+];
+
+export const MUSEUM_SERVICE_TYPE_OPTIONS: ReadonlyArray<
+  SelectOption<MarkerType> & { icon: string; type: MarkerType }
+> = MUSEUM_SERVICE_TYPES.map((type) => ({
+  type,
+  value: type,
+  icon: MARKER_TYPE_META[type].icon,
+  label: MARKER_TYPE_META[type].label,
+}));

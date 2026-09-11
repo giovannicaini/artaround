@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state, property } from 'lit/decorators.js';
-import type { Museum, User } from '@artaround/shared';
+import { MuseumRole, type Museum, type User } from '@artaround/shared';
 import { museumService } from '../../services/museum.service';
 import { artworkService } from '../../services/artwork.service';
 import { itemService } from '../../services/item.service';
@@ -183,8 +183,10 @@ export class MuseumsPage extends LitElement {
                   ${museum._id === this.currentSelectedMuseumId
                     ? this.renderMuseumTag('selected')
                     : nothing}
-                  ${myRoles.includes('manager') ? this.renderMuseumTag('curator') : nothing}
-                  ${myRoles.includes('author') ? this.renderMuseumTag('author') : nothing}
+                  ${myRoles.includes(MuseumRole.CURATOR)
+                    ? this.renderMuseumTag('curator')
+                    : nothing}
+                  ${myRoles.includes(MuseumRole.AUTHOR) ? this.renderMuseumTag('author') : nothing}
                 </div>
                 <p
                   class="text-sm text-surface-500 dark:text-surface-400 line-clamp-2 max-w-[300px]"
@@ -318,23 +320,21 @@ export class MuseumsPage extends LitElement {
   }
 
   // ─── Filtri / azioni ─────────────────────────────────
-  private getMuseumRoles(museumId: string): string[] {
-    if (!this.user?.roleAssignments) return [];
+  private getMuseumRoles(museumId: string): MuseumRole[] {
+    if (!this.user?.museumRoles) return [];
 
-    return this.user.roleAssignments
-      .filter((ra) => ra.resourceType === 'museum' && ra.resourceId === museumId)
-      .map((ra) => ra.role);
+    return this.user.museumRoles.filter((ra) => ra.museumId === museumId).map((ra) => ra.role);
   }
 
   private get filteredMuseums(): Museum[] {
     let filtered = this.museums;
 
-    // Filtra per ruolo
-    if (this.filterRole !== 'all' && this.user?.roleAssignments) {
-      const targetRole = this.filterRole === 'curator' ? 'manager' : 'author';
-      const myMuseumIds = this.user.roleAssignments
-        .filter((ra) => ra.resourceType === 'museum' && ra.role === targetRole)
-        .map((ra) => ra.resourceId);
+    // Filtra per ruolo (curatore/autore sono sempre relativi a un museo specifico)
+    if (this.filterRole !== 'all' && this.user?.museumRoles) {
+      const targetRole = this.filterRole === 'curator' ? MuseumRole.CURATOR : MuseumRole.AUTHOR;
+      const myMuseumIds = this.user.museumRoles
+        .filter((ra) => ra.role === targetRole)
+        .map((ra) => ra.museumId);
       filtered = filtered.filter((museum) => myMuseumIds.includes(museum._id));
     }
 

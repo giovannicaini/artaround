@@ -13,6 +13,24 @@ import {
 
 export interface VisitDocument extends Omit<IVisit, '_id'>, Document {}
 
+// Audio generato con OpenAI per un testo in una lingua — vedi
+// audio-generation.service.ts. words[].charIndex è già allineato al testo,
+// calcolato una sola volta alla generazione (non ad ogni ascolto).
+const generatedAudioSchema = new Schema(
+  {
+    url: { type: String, required: true },
+    words: [
+      {
+        word: { type: String, required: true },
+        start: { type: Number, required: true },
+        end: { type: Number, required: true },
+        charIndex: { type: Number, required: true },
+      },
+    ],
+  },
+  { _id: false },
+);
+
 const visitStepSchema = new Schema<VisitStep>(
   {
     id: { type: String, required: true },
@@ -28,17 +46,21 @@ const visitStepSchema = new Schema<VisitStep>(
     selectedItemId: { type: Schema.Types.ObjectId, ref: 'Item' },
     // Per tappe LOGISTIC
     logisticTitle: String,
+    logisticTitleTranslations: { type: Map, of: String, default: undefined },
     logisticText: String,
+    logisticTextTranslations: { type: Map, of: String, default: undefined },
+    logisticTextAudio: { type: Map, of: generatedAudioSchema, default: undefined },
     logisticIcon: String,
     // Per tappe NAVIGATION
     navigationText: String,
+    navigationTextTranslations: { type: Map, of: String, default: undefined },
+    navigationTextAudio: { type: Map, of: generatedAudioSchema, default: undefined },
     navigationImage: String,
     navigationVisual: { type: String, enum: ['image', 'map'] },
     fromRoom: String,
     toRoom: String,
-    // Punto sulla mappa: per WAYPOINT è sempre un MapMarker di tipo WAYPOINT
-    // (svolta muta); per LOGISTIC/NAVIGATION è un'associazione facoltativa a
-    // un punto di interesse qualsiasi (vedi Museum.ts -> floors[].markers).
+    // Per tappe fittizie WAYPOINT è sempre un MapMarker di tipo WAYPOINT
+    // Per LOGISTIC/NAVIGATION è un POI qualsiasi (facoltativo)
     mapMarkerId: String,
     // Campi comuni
     isOptional: { type: Boolean, default: false },

@@ -1,35 +1,49 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/async-handler.util.js';
 import { body, validationResult } from 'express-validator';
-import { ItemModel, MuseumModel, VisitModel } from '../models/index.js';
+import { ItemModel, MuseumModel, VisitModel, MuseumRoleRequestModel } from '../models/index.js';
 import { AppError } from '../middleware/index.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import { TranslationService } from '../utils/translation.service.js';
-import { findMuseumByAnyId } from '../utils/museum-id.util.js';
+import { findMuseumByAnyId, buildMuseumIdFilterValue } from '../utils/museum-id.util.js';
+import { assertCanApproveRoleRequest } from '../utils/policy.util.js';
+import {
+  generateAudioForText,
+  deleteGeneratedAudioFile,
+} from '../utils/audio-generation.service.js';
+import { mapToRecord } from '../utils/mongoose-map.util.js';
+import * as jobsService from '../utils/jobs.service.js';
+import type { JobProgress } from '../models/Job.js';
+import {
+  notifyMany,
+  notify,
+  resolveRoleRequestNotifications,
+} from '../utils/notifications.service.js';
 import {
   MuseumFloor,
   MapMarker,
   FloorConnection,
   MarkerType,
   ConnectionType,
-  RoleAssignment,
+  MuseumRole,
+  MUSEUM_SERVICE_TYPES,
+  type MuseumRoleAssignment,
   SUPPORTED_APP_LANGUAGES,
   DEFAULT_APP_LANGUAGE,
   type AppLanguage,
   type MuseumRoom,
+  type GeneratedAudio,
 } from '@artaround/shared';
 
 export class MuseumController {
-  private static readonly HEX_COLOR_REGEX = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
-  private static readonly SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
+  // Pulisce/deduplica activeLanguages e verifica che siano lingue supportate
   private static normalizeActiveLanguages(activeLanguages: unknown): AppLanguage[] | undefined {
     if (activeLanguages === undefined) {
       return undefined;
     }
 
     if (!Array.isArray(activeLanguages)) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'activeLanguages must be an array');
+      throw new AppError(400, 'VALIDATION_ERROR', 'activeLanguages deve essere un array');
     }
 
     const normalized = Array.from(
@@ -43,7 +57,7 @@ export class MuseumController {
     ).filter(Boolean);
 
     if (normalized.length === 0) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'activeLanguages cannot be empty');
+      throw new AppError(400, 'VALIDATION_ERROR', 'activeLanguages non può essere vuoto');
     }
 
     for (const lang of normalized) {
@@ -51,7 +65,7 @@ export class MuseumController {
         throw new AppError(
           400,
           'VALIDATION_ERROR',
-          `Invalid active language '${lang}'. Allowed: ${SUPPORTED_APP_LANGUAGES.join(', ')}`,
+          `Lingua attiva non valida '${lang}'. Ammesse: ${SUPPORTED_APP_LANGUAGES.join(', ')}`,
         );
       }
     }
@@ -59,112 +73,10 @@ export class MuseumController {
     return normalized as AppLanguage[];
   }
 
-  private static validateNavigatorConfigsPayload(navigatorConfigs: unknown): void {
-    if (navigatorConfigs === undefined) {
-      return;
-    }
-
-    if (!Array.isArray(navigatorConfigs)) {
-      throw new AppError(
-        400,
-        'VALIDATION_ERROR',
-        'navigatorConfigs must be an array when provided',
-      );
-    }
-
-    if (navigatorConfigs.length === 0) {
-      return;
-    }
-
-    const slugSet = new Set<string>();
-
-    for (const [index, rawConfig] of navigatorConfigs.entries()) {
-      const config = rawConfig as Record<string, unknown>;
-      const prefix = `navigatorConfigs[${index}]`;
-
-      const id = String(config.id || '').trim();
-      const name = String(config.name || '').trim();
-      const slug = String(config.slug || '').trim();
-      const branding = (config.branding || {}) as Record<string, unknown>;
-      const pwa = (config.pwa || {}) as Record<string, unknown>;
-
-      const primaryColor = String(branding.primaryColor || '').trim();
-      const secondaryColor = String(branding.secondaryColor || '').trim();
-      const themeColor = String(pwa.themeColor || '').trim();
-      const backgroundColor = String(pwa.backgroundColor || '').trim();
-
-      const manifestName = String(pwa.manifestName || '').trim();
-      const shortName = String(pwa.shortName || '').trim();
-      const startUrl = String(pwa.startUrl || '').trim();
-      const scope = String(pwa.scope || '').trim();
-      const icon192 = String(pwa.icon192 || '').trim();
-      const icon512 = String(pwa.icon512 || '').trim();
-
-      if (!id) {
-        throw new AppError(400, 'VALIDATION_ERROR', `${prefix}.id is required`);
-      }
-      if (!name) {
-        throw new AppError(400, 'VALIDATION_ERROR', `${prefix}.name is required`);
-      }
-      if (!slug || !MuseumController.SLUG_REGEX.test(slug)) {
-        throw new AppError(
-          400,
-          'VALIDATION_ERROR',
-          `${prefix}.slug is required and must be lowercase-kebab-case`,
-        );
-      }
-      if (slugSet.has(slug)) {
-        throw new AppError(400, 'VALIDATION_ERROR', `Duplicate navigator slug: ${slug}`);
-      }
-      slugSet.add(slug);
-
-      if (!manifestName) {
-        throw new AppError(400, 'VALIDATION_ERROR', `${prefix}.pwa.manifestName is required`);
-      }
-      if (!shortName) {
-        throw new AppError(400, 'VALIDATION_ERROR', `${prefix}.pwa.shortName is required`);
-      }
-      if (!startUrl) {
-        throw new AppError(400, 'VALIDATION_ERROR', `${prefix}.pwa.startUrl is required`);
-      }
-      if (!scope) {
-        throw new AppError(400, 'VALIDATION_ERROR', `${prefix}.pwa.scope is required`);
-      }
-
-      if (!icon192 || !icon512) {
-        throw new AppError(
-          400,
-          'VALIDATION_ERROR',
-          `${prefix}.pwa.icon192 and ${prefix}.pwa.icon512 are required`,
-        );
-      }
-
-      const colors = [
-        { key: 'branding.primaryColor', value: primaryColor },
-        { key: 'branding.secondaryColor', value: secondaryColor, optional: true },
-        { key: 'pwa.themeColor', value: themeColor },
-        { key: 'pwa.backgroundColor', value: backgroundColor },
-      ];
-
-      for (const color of colors) {
-        if (!color.value && color.optional) {
-          continue;
-        }
-
-        if (!MuseumController.HEX_COLOR_REGEX.test(color.value)) {
-          throw new AppError(
-            400,
-            'VALIDATION_ERROR',
-            `${prefix}.${color.key} must be a valid HEX color`,
-          );
-        }
-      }
-    }
-  }
-
+  // Normalizza location: richiede la nation e allinea il campo legacy "country"
   private static normalizeLocationPayload(rawLocation: unknown): Record<string, unknown> {
     if (!rawLocation || typeof rawLocation !== 'object') {
-      throw new AppError(400, 'VALIDATION_ERROR', 'location is required');
+      throw new AppError(400, 'VALIDATION_ERROR', 'location è obbligatoria');
     }
 
     const location = { ...(rawLocation as Record<string, unknown>) };
@@ -173,7 +85,7 @@ export class MuseumController {
       .replace(/\s+/g, ' ');
 
     if (!nation) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Nation is required');
+      throw new AppError(400, 'VALIDATION_ERROR', 'La nazione è obbligatoria');
     }
 
     location.nation = nation;
@@ -183,73 +95,117 @@ export class MuseumController {
     return location;
   }
 
-  // Regole di validazione
+  // Regole di validazione per la creazione (usate da POST /api/museums)
   static createValidation = [
-    body('name').trim().notEmpty().withMessage('Name is required'),
-    body('description').trim().notEmpty().withMessage('Description is required'),
-    body('location.address').notEmpty().withMessage('Address is required'),
-    body('location.city').notEmpty().withMessage('City is required'),
+    body('name').trim().notEmpty().withMessage('Il nome è obbligatorio'),
+    body('description').trim().notEmpty().withMessage('La descrizione è obbligatoria'),
+    body('location.address').notEmpty().withMessage("L'indirizzo è obbligatorio"),
+    body('location.city').notEmpty().withMessage('La città è obbligatoria'),
     body('location').custom((value) => {
       const nation = value?.nation || value?.country;
       if (!nation || !String(nation).trim()) {
-        throw new Error('Nation is required');
+        throw new Error('La nazione è obbligatoria');
       }
       return true;
     }),
   ];
 
+  // Regole di validazione per l'aggiornamento (usate da PUT /api/museums/:id):
+  // stessi campi della creazione, ma tutti opzionali visto che è un update parziale.
+  // La validazione della nation dentro location resta a carico di normalizeLocationPayload,
+  // richiamato dall'handler solo quando location è effettivamente presente nel body.
+  static updateValidation = [
+    body('name').optional().trim().notEmpty().withMessage('Il nome è obbligatorio'),
+    body('description').optional().trim().notEmpty().withMessage('La descrizione è obbligatoria'),
+    body('location.address').optional().notEmpty().withMessage("L'indirizzo è obbligatorio"),
+    body('location.city').optional().notEmpty().withMessage('La città è obbligatoria'),
+    body('services.services.*.type')
+      .optional()
+      .isIn(MUSEUM_SERVICE_TYPES)
+      .withMessage('Tipo di servizio non valido'),
+    body('services.services.*.active').optional().isBoolean(),
+    body('services.services.*.mapMarkerId').optional({ values: 'falsy' }).isString(),
+  ];
+
+  // Validazione per POST /api/museums/:id/floors
   static floorValidation = [
-    body('id').trim().notEmpty().withMessage('Floor ID is required'),
-    body('name').trim().notEmpty().withMessage('Floor name is required'),
-    body('level').isNumeric().withMessage('Floor level must be a number'),
-    body('svgContent').trim().notEmpty().withMessage('SVG content is required'),
-    body('dimensions.width').isNumeric().withMessage('Width is required'),
-    body('dimensions.height').isNumeric().withMessage('Height is required'),
+    body('id').trim().notEmpty().withMessage("L'ID piano è obbligatorio"),
+    body('name').trim().notEmpty().withMessage('Il nome del piano è obbligatorio'),
+    body('level').isNumeric().withMessage('Il livello del piano deve essere un numero'),
+    body('svgContent').trim().notEmpty().withMessage('Il contenuto SVG è obbligatorio'),
+    body('dimensions.width').isNumeric().withMessage('La larghezza è obbligatoria'),
+    body('dimensions.height').isNumeric().withMessage("L'altezza è obbligatoria"),
   ];
 
+  // Validazione per POST /api/museums/:id/floors/:floorId/markers
   static markerValidation = [
-    body('id').trim().notEmpty().withMessage('Marker ID is required'),
-    body('floorId').trim().notEmpty().withMessage('Floor ID is required'),
-    body('x').isNumeric().withMessage('X coordinate is required'),
-    body('y').isNumeric().withMessage('Y coordinate is required'),
-    body('type').isIn(Object.values(MarkerType)).withMessage('Invalid marker type'),
+    body('id').trim().notEmpty().withMessage("L'ID marker è obbligatorio"),
+    body('floorId').trim().notEmpty().withMessage("L'ID piano è obbligatorio"),
+    body('x').isNumeric().withMessage('La coordinata X è obbligatoria'),
+    body('y').isNumeric().withMessage('La coordinata Y è obbligatoria'),
+    body('type').isIn(Object.values(MarkerType)).withMessage('Tipo di marker non valido'),
   ];
 
+  // Validazione per POST /api/museums/:id/floors/:floorId/connections
   static connectionValidation = [
-    body('id').trim().notEmpty().withMessage('Connection ID is required'),
-    body('type').isIn(Object.values(ConnectionType)).withMessage('Invalid connection type'),
-    body('x').isNumeric().withMessage('X coordinate is required'),
-    body('y').isNumeric().withMessage('Y coordinate is required'),
-    body('targetFloorId').trim().notEmpty().withMessage('Target floor ID is required'),
+    body('id').trim().notEmpty().withMessage("L'ID collegamento è obbligatorio"),
+    body('type').isIn(Object.values(ConnectionType)).withMessage('Tipo di collegamento non valido'),
+    body('x').isNumeric().withMessage('La coordinata X è obbligatoria'),
+    body('y').isNumeric().withMessage('La coordinata Y è obbligatoria'),
+    body('targetFloorId')
+      .trim()
+      .notEmpty()
+      .withMessage("L'ID del piano di destinazione è obbligatorio"),
   ];
 
+  // Validazione per POST /api/museums/:id/sync-languages
   static syncLanguagesValidation = [
-    body('activeLanguages').isArray({ min: 1 }).withMessage('activeLanguages is required'),
+    body('activeLanguages').isArray({ min: 1 }).withMessage('activeLanguages è obbligatorio'),
   ];
 
-  private static mapToRecord(value: unknown): Record<string, string> {
-    if (value instanceof Map) {
-      return Object.fromEntries(value.entries()) as Record<string, string>;
-    }
+  // Normalizza una Map Mongoose (o un plain object) in un Record<string, string>
 
-    if (value && typeof value === 'object') {
-      return { ...(value as Record<string, string>) };
-    }
-
-    return {};
-  }
-
-  private static async syncItemTranslationsForMuseum(
+  // Rigenera le traduzioni mancanti degli item del museo (o, se `visitId` è
+  // passato, solo degli item davvero usati in QUELLA visita — stessa logica
+  // di generateItemAudioForMuseum) e scarta quelle per lingue non più attive
+  // (richiamato da runTranslationSyncJob, avviato da syncLanguages, POST
+  // /api/museums/:id/sync-languages o /api/visits/:id/sync-languages). Non
+  // privato: stesso motivo dei metodi di generazione audio, `jobId` pilota
+  // avanzamento/cancellazione.
+  static async syncItemTranslationsForMuseum(
     museumId: string,
     activeLanguages: AppLanguage[],
-  ): Promise<{
-    scanned: number;
-    updated: number;
-    generated: number;
-    removed: number;
-    failed: number;
-  }> {
-    const items = await ItemModel.find({ museumId });
+    jobId: string,
+    visitId?: string,
+  ): Promise<JobProgress> {
+    // Item.museumId è salvato come QID Wikidata, non come _id Mongo (che è
+    // quello che questo metodo riceve da syncLanguages) — senza risolvere i
+    // candidati la query non trova mai nulla, "scanned" resta sempre 0.
+    const museumIdFilter = await buildMuseumIdFilterValue(museumId);
+
+    let items;
+    if (visitId) {
+      const visits = await VisitModel.find({ _id: visitId, museumId: museumIdFilter })
+        .select('steps.itemIds')
+        .lean();
+      const usedItemIds = new Set<string>();
+      for (const visit of visits) {
+        for (const step of visit.steps || []) {
+          for (const itemId of step.itemIds || []) {
+            usedItemIds.add(String(itemId));
+          }
+        }
+      }
+      items =
+        usedItemIds.size === 0
+          ? []
+          : await ItemModel.find({
+              museumId: museumIdFilter,
+              _id: { $in: Array.from(usedItemIds) },
+            });
+    } else {
+      items = await ItemModel.find({ museumId: museumIdFilter });
+    }
 
     let updated = 0;
     let generated = 0;
@@ -257,12 +213,14 @@ export class MuseumController {
     let failed = 0;
 
     for (const item of items) {
+      if (jobsService.isCancelled(jobId)) break;
+
       try {
         const sourceLang = (item.sourceLanguage || DEFAULT_APP_LANGUAGE) as AppLanguage;
         const targetLanguages = activeLanguages.filter((lang) => lang !== sourceLang);
 
-        const titleTranslations = MuseumController.mapToRecord(item.translatedTitles);
-        const textTranslations = MuseumController.mapToRecord(item.translatedTexts);
+        const titleTranslations = mapToRecord(item.translatedTitles);
+        const textTranslations = mapToRecord(item.translatedTexts);
 
         let itemChanged = false;
         const filteredTitleTranslations: Record<string, string> = {};
@@ -327,9 +285,14 @@ export class MuseumController {
           await item.save();
           updated += 1;
         }
-      } catch {
+      } catch (err) {
         failed += 1;
+        console.error(`[syncItemTranslationsForMuseum] item ${item._id}:`, err);
       }
+
+      await jobsService.updateProgress(jobId, {
+        items: { scanned: items.length, updated, generated, removed, failed },
+      });
     }
 
     return {
@@ -341,17 +304,21 @@ export class MuseumController {
     };
   }
 
-  private static async syncVisitTranslationsForMuseum(
+  // Stessa logica di syncItemTranslationsForMuseum, ma per le visite del museo
+  // (o solo QUELLA visita, se `visitId` è passato). Non privato: stesso
+  // motivo, riusato da runTranslationSyncJob.
+  static async syncVisitTranslationsForMuseum(
     museumId: string,
     activeLanguages: AppLanguage[],
-  ): Promise<{
-    scanned: number;
-    updated: number;
-    generated: number;
-    removed: number;
-    failed: number;
-  }> {
-    const visits = await VisitModel.find({ museumId });
+    jobId: string,
+    visitId?: string,
+  ): Promise<JobProgress> {
+    // Visit.museumId è salvato come QID Wikidata, non come _id Mongo (stesso
+    // problema di syncItemTranslationsForMuseum qui sopra).
+    const museumIdFilter = await buildMuseumIdFilterValue(museumId);
+    const visits = visitId
+      ? await VisitModel.find({ _id: visitId, museumId: museumIdFilter })
+      : await VisitModel.find({ museumId: museumIdFilter });
 
     let updated = 0;
     let generated = 0;
@@ -359,12 +326,14 @@ export class MuseumController {
     let failed = 0;
 
     for (const visit of visits) {
+      if (jobsService.isCancelled(jobId)) break;
+
       try {
         const sourceLang = (visit.metadata?.language || DEFAULT_APP_LANGUAGE) as AppLanguage;
         const targetLanguages = activeLanguages.filter((lang) => lang !== sourceLang);
 
-        const titleTranslations = MuseumController.mapToRecord(visit.titleTranslations);
-        const descriptionTranslations = MuseumController.mapToRecord(visit.descriptionTranslations);
+        const titleTranslations = mapToRecord(visit.titleTranslations);
+        const descriptionTranslations = mapToRecord(visit.descriptionTranslations);
 
         let visitChanged = false;
         const filteredTitleTranslations: Record<string, string> = {};
@@ -379,6 +348,52 @@ export class MuseumController {
           }
           if (descriptionValue && descriptionValue.trim()) {
             filteredDescriptionTranslations[lang] = descriptionValue;
+          }
+        }
+
+        // Le tappe LOGISTIC/NAVIGATION hanno testo scritto direttamente dal
+        // curatore per QUESTA visita (non un Item riusabile) — stesso giro di
+        // filtro/traduzione di titolo e descrizione, ma per tappa. Le chiavi
+        // del batch sono già distinte da titolo/descrizione della visita, per
+        // cui possono viaggiare nella stessa chiamata batchTranslate.
+        const stepFieldsByStepId = new Map<
+          string,
+          Array<{ field: 'logisticTitle' | 'logisticText' | 'navigationText'; source: string }>
+        >();
+        const filteredStepTranslations: Record<string, Record<string, string>> = {};
+
+        for (const step of visit.steps) {
+          const fields: Array<{
+            field: 'logisticTitle' | 'logisticText' | 'navigationText';
+            source: string;
+          }> = [];
+          if (step.logisticTitle)
+            fields.push({ field: 'logisticTitle', source: step.logisticTitle });
+          if (step.logisticText) fields.push({ field: 'logisticText', source: step.logisticText });
+          if (step.navigationText)
+            fields.push({ field: 'navigationText', source: step.navigationText });
+          if (fields.length === 0) continue;
+          stepFieldsByStepId.set(step.id, fields);
+
+          for (const { field } of fields) {
+            const mapKey = `${step.id}:${field}`;
+            const existing = mapToRecord(
+              field === 'logisticTitle'
+                ? step.logisticTitleTranslations
+                : field === 'logisticText'
+                  ? step.logisticTextTranslations
+                  : step.navigationTextTranslations,
+            );
+            const filtered: Record<string, string> = {};
+            for (const lang of targetLanguages) {
+              if (existing[lang]?.trim()) filtered[lang] = existing[lang];
+            }
+            const removedCount = Object.keys(existing).length - Object.keys(filtered).length;
+            if (removedCount > 0) {
+              removed += removedCount;
+              visitChanged = true;
+            }
+            filteredStepTranslations[mapKey] = filtered;
           }
         }
 
@@ -408,6 +423,17 @@ export class MuseumController {
           }
         }
 
+        for (const [stepId, fields] of stepFieldsByStepId) {
+          for (const { field, source } of fields) {
+            const mapKey = `${stepId}:${field}`;
+            for (const lang of targetLanguages) {
+              if (!filteredStepTranslations[mapKey][lang]) {
+                batchItems.push({ key: `${lang}:step:${mapKey}`, text: source, targetLang: lang });
+              }
+            }
+          }
+        }
+
         if (batchItems.length > 0) {
           const translations = await TranslationService.batchTranslate(sourceLang, batchItems);
 
@@ -424,6 +450,20 @@ export class MuseumController {
               filteredDescriptionTranslations[lang] = translations[descriptionKey];
               generated += 1;
               visitChanged = true;
+            }
+          }
+
+          for (const [stepId, fields] of stepFieldsByStepId) {
+            for (const { field } of fields) {
+              const mapKey = `${stepId}:${field}`;
+              for (const lang of targetLanguages) {
+                const translationKey = `${lang}:step:${mapKey}`;
+                if (!filteredStepTranslations[mapKey][lang] && translations[translationKey]) {
+                  filteredStepTranslations[mapKey][lang] = translations[translationKey];
+                  generated += 1;
+                  visitChanged = true;
+                }
+              }
             }
           }
         }
@@ -445,12 +485,28 @@ export class MuseumController {
           visit.set('titleTranslations', filteredTitleTranslations);
           visit.set('descriptionTranslations', filteredDescriptionTranslations);
           visit.set('metadata', metadata);
+          for (const step of visit.steps) {
+            const fields = stepFieldsByStepId.get(step.id);
+            if (!fields) continue;
+            for (const { field } of fields) {
+              const value = filteredStepTranslations[`${step.id}:${field}`];
+              if (field === 'logisticTitle') step.logisticTitleTranslations = value;
+              else if (field === 'logisticText') step.logisticTextTranslations = value;
+              else step.navigationTextTranslations = value;
+            }
+          }
+          visit.markModified('steps');
           await visit.save();
           updated += 1;
         }
-      } catch {
+      } catch (err) {
         failed += 1;
+        console.error(`[syncVisitTranslationsForMuseum] visita ${visit._id}:`, err);
       }
+
+      await jobsService.updateProgress(jobId, {
+        visitSteps: { scanned: visits.length, updated, generated, removed, failed },
+      });
     }
 
     return {
@@ -462,7 +518,226 @@ export class MuseumController {
     };
   }
 
-  // Ottieni tutti i musei
+  // Genera con OpenAI l'audio mancante degli item del museo (voce sorgente +
+  // ogni lingua attiva già tradotta) — richiamato da generateAudio, POST
+  // /api/museums/:id/generate-audio (e dall'equivalente per singola visita,
+  // POST /api/visits/:id/generate-audio — VisitController.generateAudio).
+  // Azione esplicita e separata dalla traduzione testuale: genera audio
+  // reale, costa e richiede tempo per ciascun testo, non va infilata dentro
+  // syncLanguages. Non privato: riusato as-is da VisitController.
+  //
+  // Solo gli item davvero usati in almeno una visita del museo (step.itemIds)
+  // — o, se `visitId` è passato, solo quelli usati in QUELLA visita: un museo
+  // può avere molto più contenuto "riusabile" segnato di quello incluso in
+  // una visita reale — generare l'audio di testi che nessun visitatore
+  // ascolterà mai sprecherebbe tempo e costo.
+  //
+  // `jobId` pilota l'avanzamento (jobsService.updateProgress dopo ogni item)
+  // e la cancellazione (jobsService.isCancelled, controllato prima di ogni
+  // item — un job fermato a metà lascia comunque salvato quanto già fatto).
+  static async generateItemAudioForMuseum(
+    museumId: string,
+    activeLanguages: AppLanguage[],
+    jobId: string,
+    visitId?: string,
+  ): Promise<JobProgress> {
+    const museumIdFilter = await buildMuseumIdFilterValue(museumId);
+
+    const visits = visitId
+      ? await VisitModel.find({ _id: visitId, museumId: museumIdFilter })
+          .select('steps.itemIds')
+          .lean()
+      : await VisitModel.find({ museumId: museumIdFilter }).select('steps.itemIds').lean();
+    const usedItemIds = new Set<string>();
+    for (const visit of visits) {
+      for (const step of visit.steps || []) {
+        for (const itemId of step.itemIds || []) {
+          usedItemIds.add(String(itemId));
+        }
+      }
+    }
+
+    if (usedItemIds.size === 0) {
+      return { scanned: 0, updated: 0, generated: 0, removed: 0, failed: 0 };
+    }
+
+    const items = await ItemModel.find({
+      museumId: museumIdFilter,
+      _id: { $in: Array.from(usedItemIds) },
+    });
+
+    let updated = 0;
+    let generated = 0;
+    let removed = 0;
+    let failed = 0;
+
+    for (const item of items) {
+      if (jobsService.isCancelled(jobId)) break;
+
+      const sourceLang = (item.sourceLanguage || DEFAULT_APP_LANGUAGE) as AppLanguage;
+      const translatedTexts = mapToRecord(item.translatedTexts);
+      const audio = mapToRecord<GeneratedAudio>(item.audio);
+
+      // Solo la lingua sorgente e le lingue attive già tradotte: generare
+      // l'audio di una traduzione che non esiste ancora non ha senso.
+      const relevantLanguages = new Set([
+        sourceLang,
+        ...activeLanguages.filter((lang) => lang !== sourceLang && translatedTexts[lang]),
+      ]);
+
+      let itemChanged = false;
+
+      // Rimuove l'audio di lingue non più rilevanti (lingua disattivata, o
+      // traduzione che non c'è più) — file su disco incluso, mai lasciato orfano.
+      for (const lang of Object.keys(audio)) {
+        if (!relevantLanguages.has(lang as AppLanguage)) {
+          await deleteGeneratedAudioFile(audio[lang]);
+          delete audio[lang];
+          removed += 1;
+          itemChanged = true;
+        }
+      }
+
+      for (const lang of relevantLanguages) {
+        if (audio[lang]) continue; // già generato
+
+        const text = lang === sourceLang ? item.text : translatedTexts[lang];
+        if (!text) continue;
+
+        try {
+          audio[lang] = await generateAudioForText(text, lang);
+          generated += 1;
+          itemChanged = true;
+        } catch (err) {
+          failed += 1;
+          // Non deve far fallire l'intera generazione per un item — ma
+          // l'errore va comunque visibile da qualche parte (console/log del
+          // processo), altrimenti un fallimento sistematico (quota OpenAI
+          // esaurita, credenziali scadute...) resta indistinguibile da un
+          // fallimento isolato finché non lo si va a scovare a mano.
+          console.error(`[generateItemAudioForMuseum] item ${item._id}, lingua ${lang}:`, err);
+        }
+      }
+
+      if (itemChanged) {
+        item.set('audio', audio);
+        await item.save();
+        updated += 1;
+      }
+
+      await jobsService.updateProgress(jobId, {
+        items: { scanned: items.length, updated, generated, removed, failed },
+      });
+    }
+
+    return { scanned: items.length, updated, generated, removed, failed };
+  }
+
+  // Stessa logica di generateItemAudioForMuseum, ma per i testi delle tappe
+  // LOGISTIC/NAVIGATION di ogni visita del museo (logisticText/navigationText
+  // — logisticTitle non si legge ad alta voce, resta senza audio) — o, se
+  // `visitId` è passato, solo di quella visita. Non privato: riusato as-is
+  // da VisitController.
+  static async generateVisitStepAudioForMuseum(
+    museumId: string,
+    activeLanguages: AppLanguage[],
+    jobId: string,
+    visitId?: string,
+  ): Promise<JobProgress> {
+    const museumIdFilter = await buildMuseumIdFilterValue(museumId);
+    const visits = visitId
+      ? await VisitModel.find({ _id: visitId, museumId: museumIdFilter })
+      : await VisitModel.find({ museumId: museumIdFilter });
+
+    let scanned = 0;
+    let updated = 0;
+    let generated = 0;
+    let removed = 0;
+    let failed = 0;
+
+    for (const visit of visits) {
+      if (jobsService.isCancelled(jobId)) break;
+
+      const sourceLang = (visit.metadata?.language || DEFAULT_APP_LANGUAGE) as AppLanguage;
+      let visitChanged = false;
+
+      for (const step of visit.steps) {
+        const fieldsWithText: Array<{
+          textField: 'logisticText' | 'navigationText';
+          audioField: 'logisticTextAudio' | 'navigationTextAudio';
+          translations: Record<string, string>;
+        }> = [];
+
+        if (step.logisticText) {
+          fieldsWithText.push({
+            textField: 'logisticText',
+            audioField: 'logisticTextAudio',
+            translations: mapToRecord(step.logisticTextTranslations),
+          });
+        }
+        if (step.navigationText) {
+          fieldsWithText.push({
+            textField: 'navigationText',
+            audioField: 'navigationTextAudio',
+            translations: mapToRecord(step.navigationTextTranslations),
+          });
+        }
+
+        for (const { textField, audioField, translations } of fieldsWithText) {
+          scanned += 1;
+          const audio = mapToRecord<GeneratedAudio>(step[audioField]);
+
+          const relevantLanguages = new Set([
+            sourceLang,
+            ...activeLanguages.filter((lang) => lang !== sourceLang && translations[lang]),
+          ]);
+
+          for (const lang of Object.keys(audio)) {
+            if (!relevantLanguages.has(lang as AppLanguage)) {
+              await deleteGeneratedAudioFile(audio[lang]);
+              delete audio[lang];
+              removed += 1;
+              visitChanged = true;
+            }
+          }
+
+          for (const lang of relevantLanguages) {
+            if (audio[lang]) continue;
+            const text = lang === sourceLang ? step[textField] : translations[lang];
+            if (!text) continue;
+
+            try {
+              audio[lang] = await generateAudioForText(text, lang);
+              generated += 1;
+              visitChanged = true;
+            } catch (err) {
+              failed += 1;
+              console.error(
+                `[generateVisitStepAudioForMuseum] visita ${visit._id}, ${textField}, lingua ${lang}:`,
+                err,
+              );
+            }
+          }
+
+          step[audioField] = audio;
+        }
+      }
+
+      if (visitChanged) {
+        visit.markModified('steps');
+        await visit.save();
+        updated += 1;
+      }
+
+      await jobsService.updateProgress(jobId, {
+        visitSteps: { scanned, updated, generated, removed, failed },
+      });
+    }
+
+    return { scanned, updated, generated, removed, failed };
+  }
+
+  // GET /api/museums — lista musei, filtrabile per città e stato attivo
   static getAll = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { city, isActive } = req.query;
 
@@ -478,13 +753,13 @@ export class MuseumController {
     });
   });
 
-  // Ottieni museo per ID
+  // GET /api/museums/:id — dettaglio museo (accetta sia _id Mongo sia QID Wikidata)
   static getById = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const idParam = req.params.id;
     const id = Array.isArray(idParam) ? idParam[0] : idParam;
 
     if (!id) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Museum id is required');
+      throw new AppError(400, 'VALIDATION_ERROR', "L'id del museo è obbligatorio");
     }
 
     // I chiamanti pubblici (Navigator in testa) spesso hanno solo la QID
@@ -493,7 +768,7 @@ export class MuseumController {
     // invece di un più corretto 404/200. Vedi findMuseumByAnyId.
     const museum = await findMuseumByAnyId(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     res.json({
@@ -502,14 +777,14 @@ export class MuseumController {
     });
   });
 
-  // Ottieni la config del museo (servizi e info)
+  // GET /api/museums/:id/config — config pubblica per il Navigator (servizi, piani)
   static getConfig = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
     const museum = await findMuseumByAnyId(id);
 
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     // Restituisce servizi e info piani del museo come config
@@ -517,7 +792,6 @@ export class MuseumController {
       wikidataId: museum.wikidataId,
       name: museum.name,
       services: museum.services,
-      navigatorConfigs: museum.navigatorConfigs || [],
       floors: museum.floors?.map((f) => ({
         id: f.id,
         name: f.name,
@@ -532,14 +806,12 @@ export class MuseumController {
     });
   });
 
-  // Crea museo (solo admin)
+  // POST /api/museums — crea museo (solo admin)
   static create = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
     }
-
-    MuseumController.validateNavigatorConfigsPayload(req.body.navigatorConfigs);
 
     const activeLanguages = MuseumController.normalizeActiveLanguages(req.body.activeLanguages);
     const location = MuseumController.normalizeLocationPayload(req.body.location);
@@ -554,15 +826,18 @@ export class MuseumController {
     res.status(201).json({
       success: true,
       data: museum,
-      message: 'Museum created successfully',
+      message: 'Museo creato con successo',
     });
   });
 
-  // Aggiorna museo
+  // PUT /api/museums/:id — aggiorna museo (admin o curatore)
   static update = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-    const { id } = req.params;
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
+    }
 
-    MuseumController.validateNavigatorConfigsPayload(req.body.navigatorConfigs);
+    const { id } = req.params;
 
     const activeLanguages = MuseumController.normalizeActiveLanguages(req.body.activeLanguages);
     const location =
@@ -582,73 +857,181 @@ export class MuseumController {
     });
 
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     res.json({
       success: true,
       data: museum,
-      message: 'Museum updated successfully',
+      message: 'Museo aggiornato con successo',
     });
   });
 
+  // POST /api/museums/:id/sync-languages — cambia le lingue attive del museo e rigenera
+  // le traduzioni mancanti di item e visite collegate
+  // Aggiorna subito activeLanguages (serve indipendentemente da quanto dura la
+  // sincronizzazione), poi avvia in background la rigenerazione delle traduzioni
+  // mancanti/scadute — risponde 202 con l'id del job da seguire (GET /api/jobs),
+  // stesso schema di generateAudio. Solo un job "sync-languages" alla volta,
+  // ovunque (vedi jobsService.startJob) — indipendente dall'esclusione su
+  // "generate-audio", possono girare insieme.
   static syncLanguages = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
     }
 
     const idParam = req.params.id;
     const id = Array.isArray(idParam) ? idParam[0] : idParam;
 
     if (!id) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Museum id is required');
+      throw new AppError(400, 'VALIDATION_ERROR', "L'id del museo è obbligatorio");
+    }
+    if (!req.user) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
     const normalizedActiveLanguages = MuseumController.normalizeActiveLanguages(
       req.body.activeLanguages,
     );
 
     if (!normalizedActiveLanguages) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'activeLanguages is required');
+      throw new AppError(400, 'VALIDATION_ERROR', 'activeLanguages è obbligatorio');
     }
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     museum.activeLanguages = normalizedActiveLanguages;
     await museum.save();
 
-    const [itemSync, visitSync] = await Promise.all([
-      MuseumController.syncItemTranslationsForMuseum(id, normalizedActiveLanguages),
-      MuseumController.syncVisitTranslationsForMuseum(id, normalizedActiveLanguages),
-    ]);
+    const job = await jobsService.startJob({
+      type: 'sync-languages',
+      museumId: id,
+      startedBy: req.user.id,
+    });
 
-    res.json({
+    void MuseumController.runTranslationSyncJob(String(job._id), id, normalizedActiveLanguages);
+
+    res.status(202).json({
       success: true,
-      data: {
-        museumId: id,
-        activeLanguages: normalizedActiveLanguages,
-        items: itemSync,
-        visits: visitSync,
-      },
-      message: 'Lingue museo sincronizzate su contenuti e visite esistenti',
+      data: { jobId: job._id, museumId: id, activeLanguages: normalizedActiveLanguages },
+      message: "Sincronizzazione lingue avviata: segui l'avanzamento dalle notifiche",
     });
   });
 
-  // Elimina museo
+  // Corpo effettivo della sincronizzazione traduzioni, lanciato SENZA await da
+  // syncLanguages (museo intero) e da VisitController.syncLanguages (singola
+  // visita) — stesso schema di runAudioGenerationJob qui sotto.
+  static async runTranslationSyncJob(
+    jobId: string,
+    museumId: string,
+    activeLanguages: AppLanguage[],
+    visitId?: string,
+  ): Promise<void> {
+    try {
+      const [items, visitSteps] = await Promise.all([
+        MuseumController.syncItemTranslationsForMuseum(museumId, activeLanguages, jobId, visitId),
+        MuseumController.syncVisitTranslationsForMuseum(museumId, activeLanguages, jobId, visitId),
+      ]);
+      await jobsService.finishJob(
+        jobId,
+        jobsService.isCancelled(jobId) ? 'cancelled' : 'completed',
+        {
+          progress: { items, visitSteps },
+        },
+      );
+    } catch (err) {
+      console.error(`[runTranslationSyncJob] job ${jobId}:`, err);
+      await jobsService.finishJob(jobId, 'failed', {
+        error: err instanceof Error ? err.message : 'Errore sconosciuto',
+      });
+    }
+  }
+
+  // Corpo effettivo della generazione, lanciato SENZA await da generateAudio
+  // (museo intero) e da VisitController.generateAudio (singola visita) — la
+  // richiesta HTTP che lo avvia risponde subito 202 con solo il jobId,
+  // l'avanzamento si segue dal job (GET /api/jobs). Avvolta in try/catch
+  // perché un'eccezione imprevista deve chiudere il job come "failed",
+  // altrimenti resterebbe "running" per sempre bloccando l'esclusione
+  // reciproca (vedi jobsService.startJob). Non privato: riusato as-is da
+  // VisitController.generateAudio.
+  static async runAudioGenerationJob(
+    jobId: string,
+    museumId: string,
+    activeLanguages: AppLanguage[],
+    visitId?: string,
+  ): Promise<void> {
+    try {
+      const [items, visitSteps] = await Promise.all([
+        MuseumController.generateItemAudioForMuseum(museumId, activeLanguages, jobId, visitId),
+        MuseumController.generateVisitStepAudioForMuseum(museumId, activeLanguages, jobId, visitId),
+      ]);
+      await jobsService.finishJob(
+        jobId,
+        jobsService.isCancelled(jobId) ? 'cancelled' : 'completed',
+        { progress: { items, visitSteps } },
+      );
+    } catch (err) {
+      console.error(`[runAudioGenerationJob] job ${jobId}:`, err);
+      await jobsService.finishJob(jobId, 'failed', {
+        error: err instanceof Error ? err.message : 'Errore sconosciuto',
+      });
+    }
+  }
+
+  // POST /api/museums/:id/generate-audio — avvia in background la generazione
+  // con OpenAI dell'audio mancante di item e tappe del museo (voce sorgente +
+  // lingue attive già tradotte), e risponde subito con l'id del job da
+  // seguire (GET /api/jobs) — non aspetta la fine, può durare ore. Azione
+  // esplicita e separata da syncLanguages: costa e richiede tempo per
+  // ciascun testo, non va lanciata automaticamente su tutto il catalogo. Solo
+  // un job di questo tipo alla volta, ovunque (vedi jobsService.startJob).
+  static generateAudio = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const idParam = req.params.id;
+    const id = Array.isArray(idParam) ? idParam[0] : idParam;
+
+    if (!id) {
+      throw new AppError(400, 'VALIDATION_ERROR', "L'id del museo è obbligatorio");
+    }
+    if (!req.user) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
+    }
+
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
+    }
+
+    const job = await jobsService.startJob({
+      type: 'generate-audio',
+      museumId: id,
+      startedBy: req.user.id,
+    });
+
+    void MuseumController.runAudioGenerationJob(String(job._id), id, museum.activeLanguages);
+
+    res.status(202).json({
+      success: true,
+      data: { jobId: job._id, museumId: id, activeLanguages: museum.activeLanguages },
+      message: "Generazione audio avviata: segui l'avanzamento dalle notifiche",
+    });
+  });
+
+  // DELETE /api/museums/:id — elimina museo (solo admin)
   static delete = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id } = req.params;
 
     const museum = await MuseumModel.findByIdAndDelete(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     res.json({
       success: true,
-      message: 'Museum deleted successfully',
+      message: 'Museo eliminato con successo',
     });
   });
 
@@ -656,13 +1039,13 @@ export class MuseumController {
   // GESTIONE PIANI
   // ========================================
 
-  // Ottieni tutti i piani di un museo
+  // GET /api/museums/:id/floors — lista piani del museo
   static getFloors = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     res.json({
@@ -671,18 +1054,18 @@ export class MuseumController {
     });
   });
 
-  // Ottieni un piano specifico
+  // GET /api/museums/:id/floors/:floorId — dettaglio di un piano
   static getFloor = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { id, floorId } = req.params;
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     const floor = museum.floors?.find((f) => f.id === floorId);
     if (!floor) {
-      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Piano non trovato');
     }
 
     res.json({
@@ -691,11 +1074,11 @@ export class MuseumController {
     });
   });
 
-  // Aggiungi un nuovo piano
+  // POST /api/museums/:id/floors — aggiunge un piano e riordina per livello
   static addFloor = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
     }
 
     const { id } = req.params;
@@ -707,12 +1090,12 @@ export class MuseumController {
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     // Controlla se l'ID piano esiste già
     if (museum.floors?.some((f) => f.id === floorData.id)) {
-      throw new AppError(400, 'FLOOR_EXISTS', 'A floor with this ID already exists');
+      throw new AppError(400, 'FLOOR_EXISTS', 'Esiste già un piano con questo ID');
     }
 
     // Inizializza l'array dei piani se serve
@@ -730,22 +1113,22 @@ export class MuseumController {
     res.status(201).json({
       success: true,
       data: floorData,
-      message: 'Floor added successfully',
+      message: 'Piano aggiunto con successo',
     });
   });
 
-  // Aggiorna un piano
+  // PUT /api/museums/:id/floors/:floorId — aggiorna un piano
   static updateFloor = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id, floorId } = req.params;
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
     if (floorIndex === undefined || floorIndex === -1) {
-      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Piano non trovato');
     }
 
     // Aggiorna i dati del piano, preservando marker e connessioni se non forniti.
@@ -771,22 +1154,22 @@ export class MuseumController {
     res.json({
       success: true,
       data: museum.floors![floorIndex],
-      message: 'Floor updated successfully',
+      message: 'Piano aggiornato con successo',
     });
   });
 
-  // Elimina un piano
+  // DELETE /api/museums/:id/floors/:floorId — elimina un piano
   static deleteFloor = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id, floorId } = req.params;
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
     if (floorIndex === undefined || floorIndex === -1) {
-      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Piano non trovato');
     }
 
     museum.floors!.splice(floorIndex, 1);
@@ -794,7 +1177,7 @@ export class MuseumController {
 
     res.json({
       success: true,
-      message: 'Floor deleted successfully',
+      message: 'Piano eliminato con successo',
     });
   });
 
@@ -802,31 +1185,34 @@ export class MuseumController {
   // GESTIONE SALE (parallela ai marker: vedi MuseumRoom)
   // ========================================
 
+  // Validazione per POST /api/museums/:id/rooms
   static roomValidation = [
-    body('id').trim().notEmpty().withMessage('Room ID is required'),
-    body('title').trim().notEmpty().withMessage('Room title is required'),
+    body('id').trim().notEmpty().withMessage("L'ID sala è obbligatorio"),
+    body('title').trim().notEmpty().withMessage('Il titolo della sala è obbligatorio'),
     body('subtitle').optional({ values: 'falsy' }).trim(),
   ];
 
+  // Validazione per PUT /api/museums/:id/rooms/:roomId
   static roomRenameValidation = [
-    body('title').trim().notEmpty().withMessage('Room title is required'),
+    body('title').trim().notEmpty().withMessage('Il titolo della sala è obbligatorio'),
     body('subtitle').optional({ values: 'falsy' }).trim(),
   ];
 
+  // Validazione per PUT /api/museums/:id/rooms/:roomId/outline
   static roomOutlineValidation = [
-    body('floorId').trim().notEmpty().withMessage('Floor ID is required'),
+    body('floorId').trim().notEmpty().withMessage("L'ID piano è obbligatorio"),
     body('polygon').isArray({ min: 3 }).withMessage('Il contorno deve avere almeno 3 punti'),
-    body('polygon.*.x').isNumeric().withMessage('Invalid polygon point'),
-    body('polygon.*.y').isNumeric().withMessage('Invalid polygon point'),
+    body('polygon.*.x').isNumeric().withMessage('Punto del poligono non valido'),
+    body('polygon.*.y').isNumeric().withMessage('Punto del poligono non valido'),
   ];
 
-  // Ottieni tutte le sale del museo (indipendenti dal piano finché non contornate)
+  // GET /api/museums/:id/rooms — sale del museo (indipendenti dal piano finché non contornate)
   static getRooms = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     res.json({
@@ -835,11 +1221,11 @@ export class MuseumController {
     });
   });
 
-  // Crea una nuova sala (solo id/title/subtitle: il contorno si aggiunge dopo)
+  // POST /api/museums/:id/rooms — crea una sala (solo id/title/subtitle: il contorno si aggiunge dopo)
   static createRoom = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
     }
 
     const { id } = req.params;
@@ -851,11 +1237,11 @@ export class MuseumController {
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     if (museum.rooms?.some((r) => r.id === roomData.id)) {
-      throw new AppError(400, 'ROOM_EXISTS', 'A room with this ID already exists');
+      throw new AppError(400, 'ROOM_EXISTS', 'Esiste già una sala con questo ID');
     }
 
     if (!museum.rooms) {
@@ -867,27 +1253,27 @@ export class MuseumController {
     res.status(201).json({
       success: true,
       data: roomData,
-      message: 'Room created successfully',
+      message: 'Sala creata con successo',
     });
   });
 
-  // Rinomina una sala (solo title/subtitle — non tocca floorId/polygon)
+  // PUT /api/museums/:id/rooms/:roomId — rinomina una sala (solo title/subtitle, non tocca floorId/polygon)
   static updateRoom = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
     }
 
     const { id, roomId } = req.params;
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     const room = museum.rooms?.find((r) => r.id === roomId);
     if (!room) {
-      throw new AppError(404, 'ROOM_NOT_FOUND', 'Room not found');
+      throw new AppError(404, 'ROOM_NOT_FOUND', 'Sala non trovata');
     }
 
     room.title = req.body.title;
@@ -897,34 +1283,34 @@ export class MuseumController {
     res.json({
       success: true,
       data: room,
-      message: 'Room updated successfully',
+      message: 'Sala aggiornata con successo',
     });
   });
 
-  // Contorna una sala sulla piantina: floorId + poligono chiuso (endpoint
-  // separato dal rename, così un contorno malformato non può essere salvato
-  // aggirando la validazione di roomOutlineValidation).
+  // PUT /api/museums/:id/rooms/:roomId/outline — contorna una sala sulla piantina: floorId +
+  // poligono chiuso (endpoint separato dal rename, così un contorno malformato non può
+  // essere salvato aggirando la validazione di roomOutlineValidation).
   static outlineRoom = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
     }
 
     const { id, roomId } = req.params;
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     const room = museum.rooms?.find((r) => r.id === roomId);
     if (!room) {
-      throw new AppError(404, 'ROOM_NOT_FOUND', 'Room not found');
+      throw new AppError(404, 'ROOM_NOT_FOUND', 'Sala non trovata');
     }
 
     const floor = museum.floors?.find((f) => f.id === req.body.floorId);
     if (!floor) {
-      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Piano non trovato');
     }
 
     room.floorId = req.body.floorId;
@@ -934,23 +1320,24 @@ export class MuseumController {
     res.json({
       success: true,
       data: room,
-      message: 'Room outline updated successfully',
+      message: 'Contorno sala aggiornato con successo',
     });
   });
 
-  // Rimuove solo il contorno di una sala (torna disponibile senza piano/poligono)
+  // DELETE /api/museums/:id/rooms/:roomId/outline — rimuove solo il contorno di una sala
+  // (torna disponibile senza piano/poligono)
   static removeRoomOutline = asyncHandler(
     async (req: AuthRequest, res: Response): Promise<void> => {
       const { id, roomId } = req.params;
 
       const museum = await MuseumModel.findById(id);
       if (!museum) {
-        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
       }
 
       const room = museum.rooms?.find((r) => r.id === roomId);
       if (!room) {
-        throw new AppError(404, 'ROOM_NOT_FOUND', 'Room not found');
+        throw new AppError(404, 'ROOM_NOT_FOUND', 'Sala non trovata');
       }
 
       room.floorId = undefined;
@@ -960,23 +1347,23 @@ export class MuseumController {
       res.json({
         success: true,
         data: room,
-        message: 'Room outline removed successfully',
+        message: 'Contorno sala rimosso con successo',
       });
     },
   );
 
-  // Elimina una sala
+  // DELETE /api/museums/:id/rooms/:roomId — elimina una sala
   static deleteRoom = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id, roomId } = req.params;
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     const roomIndex = museum.rooms?.findIndex((r) => r.id === roomId);
     if (roomIndex === undefined || roomIndex === -1) {
-      throw new AppError(404, 'ROOM_NOT_FOUND', 'Room not found');
+      throw new AppError(404, 'ROOM_NOT_FOUND', 'Sala non trovata');
     }
 
     museum.rooms!.splice(roomIndex, 1);
@@ -984,7 +1371,7 @@ export class MuseumController {
 
     res.json({
       success: true,
-      message: 'Room deleted successfully',
+      message: 'Sala eliminata con successo',
     });
   });
 
@@ -992,18 +1379,18 @@ export class MuseumController {
   // GESTIONE MARKER
   // ========================================
 
-  // Ottieni tutti i marker di un piano
+  // GET /api/museums/:id/floors/:floorId/markers — marker di un piano
   static getMarkers = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { id, floorId } = req.params;
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     const floor = museum.floors?.find((f) => f.id === floorId);
     if (!floor) {
-      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Piano non trovato');
     }
 
     res.json({
@@ -1012,11 +1399,11 @@ export class MuseumController {
     });
   });
 
-  // Aggiungi un marker a un piano
+  // POST /api/museums/:id/floors/:floorId/markers — aggiunge un marker al piano
   static addMarker = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
     }
 
     const { id, floorId } = req.params;
@@ -1028,17 +1415,17 @@ export class MuseumController {
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
     if (floorIndex === undefined || floorIndex === -1) {
-      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Piano non trovato');
     }
 
     // Controlla se l'ID marker esiste già su questo piano
     if (museum.floors![floorIndex].markers?.some((m) => m.id === markerData.id)) {
-      throw new AppError(400, 'MARKER_EXISTS', 'A marker with this ID already exists');
+      throw new AppError(400, 'MARKER_EXISTS', 'Esiste già un marker con questo ID');
     }
 
     if (!museum.floors![floorIndex].markers) {
@@ -1051,27 +1438,27 @@ export class MuseumController {
     res.status(201).json({
       success: true,
       data: markerData,
-      message: 'Marker added successfully',
+      message: 'Marker aggiunto con successo',
     });
   });
 
-  // Aggiorna un marker
+  // PUT /api/museums/:id/floors/:floorId/markers/:markerId — aggiorna un marker
   static updateMarker = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id, floorId, markerId } = req.params;
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
     if (floorIndex === undefined || floorIndex === -1) {
-      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Piano non trovato');
     }
 
     const markerIndex = museum.floors![floorIndex].markers?.findIndex((m) => m.id === markerId);
     if (markerIndex === undefined || markerIndex === -1) {
-      throw new AppError(404, 'MARKER_NOT_FOUND', 'Marker not found');
+      throw new AppError(404, 'MARKER_NOT_FOUND', 'Marker non trovato');
     }
 
     museum.floors![floorIndex].markers![markerIndex] = {
@@ -1086,27 +1473,27 @@ export class MuseumController {
     res.json({
       success: true,
       data: museum.floors![floorIndex].markers![markerIndex],
-      message: 'Marker updated successfully',
+      message: 'Marker aggiornato con successo',
     });
   });
 
-  // Elimina un marker
+  // DELETE /api/museums/:id/floors/:floorId/markers/:markerId — elimina un marker
   static deleteMarker = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id, floorId, markerId } = req.params;
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
     if (floorIndex === undefined || floorIndex === -1) {
-      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Piano non trovato');
     }
 
     const markerIndex = museum.floors![floorIndex].markers?.findIndex((m) => m.id === markerId);
     if (markerIndex === undefined || markerIndex === -1) {
-      throw new AppError(404, 'MARKER_NOT_FOUND', 'Marker not found');
+      throw new AppError(404, 'MARKER_NOT_FOUND', 'Marker non trovato');
     }
 
     museum.floors![floorIndex].markers!.splice(markerIndex, 1);
@@ -1114,27 +1501,28 @@ export class MuseumController {
 
     res.json({
       success: true,
-      message: 'Marker deleted successfully',
+      message: 'Marker eliminato con successo',
     });
   });
 
-  // Aggiorna i marker in blocco (per il riposizionamento drag & drop)
+  // PUT /api/museums/:id/floors/:floorId/markers — sostituisce tutti i marker del piano
+  // in blocco (per il riposizionamento drag & drop)
   static updateMarkers = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id, floorId } = req.params;
     const { markers } = req.body;
 
     if (!Array.isArray(markers)) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Markers must be an array');
+      throw new AppError(400, 'VALIDATION_ERROR', 'Markers deve essere un array');
     }
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
     if (floorIndex === undefined || floorIndex === -1) {
-      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Piano non trovato');
     }
 
     // Sostituisce tutti i marker col nuovo array
@@ -1151,7 +1539,7 @@ export class MuseumController {
     res.json({
       success: true,
       data: museum.floors![floorIndex].markers,
-      message: 'Markers updated successfully',
+      message: 'Marker aggiornati con successo',
     });
   });
 
@@ -1159,11 +1547,11 @@ export class MuseumController {
   // GESTIONE COLLEGAMENTI
   // ========================================
 
-  // Aggiungi un collegamento tra piani
+  // POST /api/museums/:id/floors/:floorId/connections — aggiunge un collegamento tra piani
   static addConnection = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Validation failed', errors.array());
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
     }
 
     const { id, floorId } = req.params;
@@ -1174,17 +1562,17 @@ export class MuseumController {
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
     if (floorIndex === undefined || floorIndex === -1) {
-      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Piano non trovato');
     }
 
     // Controlla che il piano di destinazione esista
     if (!museum.floors?.some((f) => f.id === connectionData.targetFloorId)) {
-      throw new AppError(400, 'TARGET_FLOOR_NOT_FOUND', 'Target floor not found');
+      throw new AppError(400, 'TARGET_FLOOR_NOT_FOUND', 'Piano di destinazione non trovato');
     }
 
     if (!museum.floors![floorIndex].connections) {
@@ -1197,29 +1585,29 @@ export class MuseumController {
     res.status(201).json({
       success: true,
       data: connectionData,
-      message: 'Connection added successfully',
+      message: 'Collegamento aggiunto con successo',
     });
   });
 
-  // Elimina un collegamento
+  // DELETE /api/museums/:id/floors/:floorId/connections/:connectionId — elimina un collegamento
   static deleteConnection = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id, floorId, connectionId } = req.params;
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
     const floorIndex = museum.floors?.findIndex((f) => f.id === floorId);
     if (floorIndex === undefined || floorIndex === -1) {
-      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Floor not found');
+      throw new AppError(404, 'FLOOR_NOT_FOUND', 'Piano non trovato');
     }
 
     const connectionIndex = museum.floors![floorIndex].connections?.findIndex(
       (c) => c.id === connectionId,
     );
     if (connectionIndex === undefined || connectionIndex === -1) {
-      throw new AppError(404, 'CONNECTION_NOT_FOUND', 'Connection not found');
+      throw new AppError(404, 'CONNECTION_NOT_FOUND', 'Collegamento non trovato');
     }
 
     museum.floors![floorIndex].connections!.splice(connectionIndex, 1);
@@ -1227,35 +1615,26 @@ export class MuseumController {
 
     res.json({
       success: true,
-      message: 'Connection deleted successfully',
+      message: 'Collegamento eliminato con successo',
     });
   });
 
   // ========================================
-  // GESTIONE CURATORI
+  // GESTIONE CURATORI (assegnabili solo da un ADMIN)
   // ========================================
 
-  // Ottieni i curatori di un museo
+  // GET /api/museums/:id/curators — utenti curatori di questo museo
   static getCurators = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id } = req.params;
     const { User } = await import('../models/index.js');
-    const { ResourceType, ContextualRole } = await import('@artaround/shared');
 
-    // Verifica che il museo esista
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
-    // Trova gli utenti con ruolo MANAGER su questo museo
     const curators = await User.find({
-      roleAssignments: {
-        $elemMatch: {
-          resourceType: ResourceType.MUSEUM,
-          resourceId: id,
-          role: ContextualRole.MANAGER,
-        },
-      },
+      museumRoles: { $elemMatch: { museumId: id, role: MuseumRole.CURATOR } },
     }).select('-password');
 
     res.json({
@@ -1264,50 +1643,42 @@ export class MuseumController {
     });
   });
 
-  // Aggiungi un curatore a un museo
+  // POST /api/museums/:id/curators — assegna il ruolo curatore a un utente (solo admin)
   static addCurator = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id } = req.params;
     const { userId } = req.body;
     const { User } = await import('../models/index.js');
-    const { ResourceType, ContextualRole } = await import('@artaround/shared');
 
     if (!userId) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'User ID is required');
+      throw new AppError(400, 'VALIDATION_ERROR', "L'ID utente è obbligatorio");
     }
 
-    // Verifica che il museo esista
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
-    // Verifica che l'utente esista
     const user = await User.findById(userId);
     if (!user) {
-      throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+      throw new AppError(404, 'USER_NOT_FOUND', 'Utente non trovato');
     }
 
-    // Controlla se è già curatore
-    const isAlreadyCurator = user.roleAssignments?.some(
-      (assignment: RoleAssignment) =>
-        assignment.resourceType === ResourceType.MUSEUM &&
-        assignment.resourceId === id &&
-        assignment.role === ContextualRole.MANAGER,
+    const isAlreadyCurator = user.museumRoles?.some(
+      (assignment: MuseumRoleAssignment) =>
+        assignment.museumId === id && assignment.role === MuseumRole.CURATOR,
     );
 
     if (isAlreadyCurator) {
-      throw new AppError(400, 'ALREADY_CURATOR', 'User is already a curator of this museum');
+      throw new AppError(400, 'ALREADY_CURATOR', 'Questo utente è già curatore di questo museo');
     }
 
-    // Aggiungi l'assegnazione di ruolo
-    if (!user.roleAssignments) {
-      user.roleAssignments = [];
+    if (!user.museumRoles) {
+      user.museumRoles = [];
     }
 
-    user.roleAssignments.push({
-      role: ContextualRole.MANAGER,
-      resourceType: ResourceType.MUSEUM,
-      resourceId: id as string,
+    user.museumRoles.push({
+      museumId: id as string,
+      role: MuseumRole.CURATOR,
       assignedAt: new Date(),
       assignedBy: req.user!.id,
     });
@@ -1316,7 +1687,7 @@ export class MuseumController {
 
     res.status(201).json({
       success: true,
-      message: `User ${user.username} added as curator of ${museum.name}`,
+      message: `Utente ${user.username} aggiunto come curatore di ${museum.name}`,
       data: {
         userId: user._id,
         username: user.username,
@@ -1325,42 +1696,384 @@ export class MuseumController {
     });
   });
 
-  // Rimuovi un curatore da un museo
+  // DELETE /api/museums/:id/curators/:userId — revoca il ruolo curatore a un utente (solo admin)
   static removeCurator = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id, userId } = req.params;
     const { User } = await import('../models/index.js');
-    const { ResourceType, ContextualRole } = await import('@artaround/shared');
 
-    // Verifica che il museo esista
     const museum = await MuseumModel.findById(id);
     if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museum not found');
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
 
-    // Verifica che l'utente esista
     const user = await User.findById(userId);
     if (!user) {
-      throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+      throw new AppError(404, 'USER_NOT_FOUND', 'Utente non trovato');
     }
 
-    // Trova e rimuovi l'assegnazione di ruolo
-    const assignmentIndex = user.roleAssignments?.findIndex(
-      (assignment: RoleAssignment) =>
-        assignment.resourceType === ResourceType.MUSEUM &&
-        assignment.resourceId === id &&
-        assignment.role === ContextualRole.MANAGER,
+    const assignmentIndex = user.museumRoles?.findIndex(
+      (assignment: MuseumRoleAssignment) =>
+        assignment.museumId === id && assignment.role === MuseumRole.CURATOR,
     );
 
     if (assignmentIndex === undefined || assignmentIndex === -1) {
-      throw new AppError(400, 'NOT_A_CURATOR', 'User is not a curator of this museum');
+      throw new AppError(400, 'NOT_A_CURATOR', 'Questo utente non è curatore di questo museo');
     }
 
-    user.roleAssignments!.splice(assignmentIndex, 1);
+    user.museumRoles!.splice(assignmentIndex, 1);
     await user.save();
 
     res.json({
       success: true,
-      message: `User ${user.username} removed as curator of ${museum.name}`,
+      message: `Utente ${user.username} rimosso come curatore di ${museum.name}`,
     });
   });
+
+  // ========================================
+  // GESTIONE AUTORI (assegnabili da un admin, o dal curatore di QUESTO museo)
+  // ========================================
+
+  // POST /api/museums/:id/authors — promuove un utente già a sistema ad autore di questo museo
+  static addAuthor = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const { userId } = req.body;
+    const { User } = await import('../models/index.js');
+
+    if (!userId) {
+      throw new AppError(400, 'VALIDATION_ERROR', "L'ID utente è obbligatorio");
+    }
+
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError(404, 'USER_NOT_FOUND', 'Utente non trovato');
+    }
+
+    const isAlreadyAuthor = user.museumRoles?.some(
+      (assignment: MuseumRoleAssignment) =>
+        assignment.museumId === id && assignment.role === MuseumRole.AUTHOR,
+    );
+
+    if (isAlreadyAuthor) {
+      throw new AppError(400, 'ALREADY_AUTHOR', 'Questo utente è già autore di questo museo');
+    }
+
+    if (!user.museumRoles) {
+      user.museumRoles = [];
+    }
+
+    user.museumRoles.push({
+      museumId: id as string,
+      role: MuseumRole.AUTHOR,
+      assignedAt: new Date(),
+      assignedBy: req.user!.id,
+    });
+
+    await user.save();
+
+    res.status(201).json({
+      success: true,
+      message: `Utente ${user.username} aggiunto come autore di ${museum.name}`,
+      data: {
+        userId: user._id,
+        username: user.username,
+        email: user.email,
+      },
+    });
+  });
+
+  // DELETE /api/museums/:id/authors/:userId — revoca il ruolo autore a un utente
+  static removeAuthor = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id, userId } = req.params;
+    const { User } = await import('../models/index.js');
+
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError(404, 'USER_NOT_FOUND', 'Utente non trovato');
+    }
+
+    const assignmentIndex = user.museumRoles?.findIndex(
+      (assignment: MuseumRoleAssignment) =>
+        assignment.museumId === id && assignment.role === MuseumRole.AUTHOR,
+    );
+
+    if (assignmentIndex === undefined || assignmentIndex === -1) {
+      throw new AppError(400, 'NOT_AN_AUTHOR', 'Questo utente non è autore di questo museo');
+    }
+
+    user.museumRoles!.splice(assignmentIndex, 1);
+    await user.save();
+
+    res.json({
+      success: true,
+      message: `Utente ${user.username} rimosso come autore di ${museum.name}`,
+    });
+  });
+
+  // ========================================
+  // RICHIESTE DI RUOLO (un utente chiede di diventare curatore/autore di un
+  // museo; la conferma spetta a chi potrebbe assegnare quel ruolo direttamente:
+  // solo admin per CURATOR, admin o curatore del museo per AUTHOR)
+  // ========================================
+
+  static requestRoleValidation = [
+    body('role').isIn(Object.values(MuseumRole)).withMessage('Ruolo non valido'),
+  ];
+
+  // POST /api/museums/:id/role-requests — un utente chiede di diventare curatore/autore del museo
+  static requestRole = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Validazione fallita', errors.array());
+    }
+
+    if (!req.user) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
+    }
+
+    const { id } = req.params;
+    const { role } = req.body as { role: MuseumRole };
+
+    const museum = await MuseumModel.findById(id);
+    if (!museum) {
+      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
+    }
+
+    const { User } = await import('../models/index.js');
+    const user = await User.findById(req.user.id).select('museumRoles').lean();
+    const alreadyHasRole = user?.museumRoles?.some(
+      (assignment: MuseumRoleAssignment) => assignment.museumId === id && assignment.role === role,
+    );
+    if (alreadyHasRole) {
+      throw new AppError(
+        400,
+        'ALREADY_ASSIGNED',
+        `Sei già ${role === MuseumRole.CURATOR ? 'curatore' : 'autore'} di questo museo`,
+      );
+    }
+
+    const existingRequest = await MuseumRoleRequestModel.findOne({
+      userId: req.user.id,
+      museumId: id,
+      role,
+    });
+    if (existingRequest) {
+      throw new AppError(
+        400,
+        'REQUEST_ALREADY_PENDING',
+        'Hai già una richiesta in attesa per questo museo e ruolo',
+      );
+    }
+
+    const request = await MuseumRoleRequestModel.create({
+      userId: req.user.id,
+      museumId: id,
+      role,
+    });
+
+    // Notifica chi può approvarla: sempre gli admin, e se il ruolo chiesto è
+    // AUTHOR anche i curatori di QUESTO museo (stesso criterio di
+    // assertCanApproveRoleRequest — vedi policy.util.ts).
+    const admins = await User.find({ isAdmin: true }).select('_id').lean();
+    const recipientIds = admins.map((u) => String(u._id));
+    if (role === MuseumRole.AUTHOR) {
+      const curators = await User.find({
+        museumRoles: { $elemMatch: { museumId: id, role: MuseumRole.CURATOR } },
+      })
+        .select('_id')
+        .lean();
+      recipientIds.push(...curators.map((u) => String(u._id)));
+    }
+    const roleLabel = role === MuseumRole.CURATOR ? 'curatore' : 'autore';
+    await notifyMany(recipientIds, {
+      kind: 'role-request-pending',
+      title: 'Nuova richiesta di ruolo',
+      message: `${req.user.username} ha richiesto di diventare ${roleLabel} di ${museum.name}`,
+      roleRequest: { museumId: id as string, requestId: String(request._id), role },
+    });
+
+    res.status(201).json({
+      success: true,
+      data: request,
+      message: 'Richiesta inviata con successo',
+    });
+  });
+
+  // DELETE /api/museums/:id/role-requests/:requestId — annulla (il richiedente)
+  // o rifiuta (chi potrebbe approvarla) una richiesta
+  static cancelRoleRequest = asyncHandler(
+    async (req: AuthRequest, res: Response): Promise<void> => {
+      if (!req.user) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
+      }
+
+      const { id, requestId } = req.params;
+      const request = await MuseumRoleRequestModel.findById(requestId);
+      if (!request || request.museumId !== id) {
+        throw new AppError(404, 'REQUEST_NOT_FOUND', 'Richiesta non trovata');
+      }
+
+      const isRejection = request.userId !== req.user.id;
+      if (isRejection) {
+        await assertCanApproveRoleRequest(
+          req.user,
+          request.role,
+          id as string,
+          'Non hai i permessi per gestire questa richiesta',
+        );
+      }
+
+      // Solo se è un rifiuto (non un ritiro spontaneo, che il richiedente
+      // conosce già avendolo fatto lui): notifica l'esito e toglie la
+      // notifica "pending" agli altri revisori — vedi requestRole.
+      if (isRejection) {
+        const roleLabel = request.role === MuseumRole.CURATOR ? 'curatore' : 'autore';
+        const museum = await MuseumModel.findById(id).select('name').lean();
+        await notify(request.userId, {
+          kind: 'role-request-resolved',
+          title: 'Richiesta di ruolo rifiutata',
+          message: `La tua richiesta di diventare ${roleLabel} di ${museum?.name || 'questo museo'} è stata rifiutata`,
+        });
+        await resolveRoleRequestNotifications(String(request._id));
+      }
+
+      await request.deleteOne();
+
+      res.json({
+        success: true,
+        message: 'Richiesta rimossa con successo',
+      });
+    },
+  );
+
+  // POST /api/museums/:id/role-requests/:requestId/approve — conferma la richiesta
+  static approveRoleRequest = asyncHandler(
+    async (req: AuthRequest, res: Response): Promise<void> => {
+      if (!req.user) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
+      }
+
+      const { id, requestId } = req.params;
+      const request = await MuseumRoleRequestModel.findById(requestId);
+      if (!request || request.museumId !== id) {
+        throw new AppError(404, 'REQUEST_NOT_FOUND', 'Richiesta non trovata');
+      }
+
+      await assertCanApproveRoleRequest(
+        req.user,
+        request.role,
+        id as string,
+        'Non hai i permessi per approvare questa richiesta',
+      );
+
+      const museum = await MuseumModel.findById(id);
+      if (!museum) {
+        await request.deleteOne();
+        throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
+      }
+
+      const { User } = await import('../models/index.js');
+      const user = await User.findById(request.userId);
+      if (!user) {
+        await request.deleteOne();
+        throw new AppError(404, 'USER_NOT_FOUND', 'Utente non trovato');
+      }
+
+      const alreadyHasRole = user.museumRoles?.some(
+        (assignment: MuseumRoleAssignment) =>
+          assignment.museumId === id && assignment.role === request.role,
+      );
+      if (!alreadyHasRole) {
+        if (!user.museumRoles) {
+          user.museumRoles = [];
+        }
+        user.museumRoles.push({
+          museumId: id as string,
+          role: request.role,
+          assignedAt: new Date(),
+          assignedBy: req.user.id,
+        });
+        await user.save();
+      }
+
+      const roleLabel = request.role === MuseumRole.CURATOR ? 'curatore' : 'autore';
+
+      await notify(request.userId, {
+        kind: 'role-request-resolved',
+        title: 'Richiesta di ruolo approvata',
+        message: `La tua richiesta di diventare ${roleLabel} di ${museum.name} è stata approvata`,
+      });
+      await resolveRoleRequestNotifications(String(request._id));
+
+      await request.deleteOne();
+
+      res.json({
+        success: true,
+        message: `Richiesta approvata: ${user.username} è ora ${roleLabel} di ${museum.name}`,
+      });
+    },
+  );
+
+  // GET /api/museums/role-requests — richieste che l'utente può revisionare:
+  // tutte se admin, solo quelle dei musei che cura altrimenti
+  static listReviewableRoleRequests = asyncHandler(
+    async (req: AuthRequest, res: Response): Promise<void> => {
+      if (!req.user) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
+      }
+
+      let filter: Record<string, unknown> = {};
+
+      if (!req.user.isAdmin) {
+        const { User } = await import('../models/index.js');
+        const user = await User.findById(req.user.id).select('museumRoles').lean();
+        const curatedMuseumIds = (user?.museumRoles || [])
+          .filter((assignment: MuseumRoleAssignment) => assignment.role === MuseumRole.CURATOR)
+          .map((assignment: MuseumRoleAssignment) => assignment.museumId);
+
+        if (curatedMuseumIds.length === 0) {
+          res.json({ success: true, data: [] });
+          return;
+        }
+
+        filter = { museumId: { $in: curatedMuseumIds } };
+      }
+
+      const requests = await MuseumRoleRequestModel.find(filter).sort({ requestedAt: 1 }).lean();
+
+      // Arricchisce con username e nome museo: chi revisiona (specie un curatore,
+      // che non ha accesso a GET /api/users) deve poter capire chi/cosa senza chiamate aggiuntive.
+      const { User } = await import('../models/index.js');
+      const [users, museums] = await Promise.all([
+        User.find({ _id: { $in: requests.map((r) => r.userId) } })
+          .select('username email')
+          .lean(),
+        MuseumModel.find({ _id: { $in: requests.map((r) => r.museumId) } })
+          .select('name')
+          .lean(),
+      ]);
+      const userById = new Map(users.map((u) => [String(u._id), u]));
+      const museumById = new Map(museums.map((m) => [String(m._id), m]));
+
+      const enriched = requests.map((r) => ({
+        ...r,
+        username: userById.get(r.userId)?.username,
+        museumName: museumById.get(r.museumId)?.name,
+      }));
+
+      res.json({
+        success: true,
+        data: enriched,
+      });
+    },
+  );
 }

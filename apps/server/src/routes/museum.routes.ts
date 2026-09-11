@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { MuseumController } from '../controllers/museum.controller.js';
-import { authMiddleware, roleMiddleware, resourceRoleMiddleware } from '../middleware/index.js';
-import { UserRole, ContextualRole, ResourceType } from '@artaround/shared';
+import { authMiddleware, requireAdmin } from '../middleware/index.js';
+import { authorizeResource } from '../utils/policy.util.js';
 
 const router = Router();
 
@@ -28,6 +28,17 @@ const router = Router();
  *                     $ref: '#/components/schemas/Museum'
  */
 router.get('/', MuseumController.getAll);
+
+/**
+ * @swagger
+ * /api/museums/role-requests:
+ *   get:
+ *     tags: [Museum Role Requests]
+ *     summary: Richieste di ruolo da revisionare (Admin, o curatore per i propri musei)
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/role-requests', authMiddleware, MuseumController.listReviewableRoleRequests);
 
 /**
  * @swagger
@@ -155,7 +166,7 @@ router.get('/:id/config', MuseumController.getConfig);
 router.post(
   '/',
   authMiddleware,
-  roleMiddleware(UserRole.ADMIN),
+  requireAdmin,
   MuseumController.createValidation,
   MuseumController.create,
 );
@@ -196,7 +207,8 @@ router.post(
 router.put(
   '/:id',
   authMiddleware,
-  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  authorizeResource('museum', 'manage'),
+  MuseumController.updateValidation,
   MuseumController.update,
 );
 
@@ -206,7 +218,11 @@ router.put(
  *   post:
  *     tags: [Museums]
  *     summary: Sincronizza le lingue attive del museo (Admin o curatore del museo)
- *     description: Aggiorna activeLanguages e rigenera le traduzioni mancanti degli item del museo per le lingue attive.
+ *     description: >
+ *       Aggiorna subito activeLanguages, poi avvia in background la rigenerazione delle
+ *       traduzioni mancanti degli item e delle visite del museo — risponde subito con
+ *       l'id del job da seguire (GET /api/jobs), non aspetta la fine. Solo un job
+ *       "sync-languages" alla volta, ovunque.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -228,21 +244,64 @@ router.put(
  *                 items:
  *                   type: string
  *     responses:
- *       200:
- *         description: Lingue sincronizzate, con il riepilogo delle traduzioni item aggiornate
+ *       202:
+ *         description: Sincronizzazione avviata, con l'id del job
  *       401:
  *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
  *         $ref: '#/components/responses/ForbiddenError'
  *       404:
  *         $ref: '#/components/responses/NotFoundError'
+ *       409:
+ *         description: C'è già un job "sync-languages" in corso
  */
 router.post(
   '/:id/sync-languages',
   authMiddleware,
-  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  authorizeResource('museum', 'manage'),
   MuseumController.syncLanguagesValidation,
   MuseumController.syncLanguages,
+);
+
+/**
+ * @swagger
+ * /api/museums/{id}/generate-audio:
+ *   post:
+ *     tags: [Museums]
+ *     summary: Genera l'audio mancante di item e tappe del museo (Admin o curatore del museo)
+ *     description: >
+ *       Avvia in background la generazione con OpenAI dell'audio (voce + evidenziazione
+ *       sincronizzata) dei testi che non ne hanno ancora, per la lingua sorgente e le
+ *       lingue attive già tradotte. Azione esplicita, separata da sync-languages per il
+ *       costo/tempo che comporta — può durare ore: risponde subito con l'id del job da
+ *       seguire (GET /api/jobs), non aspetta la fine. Solo un job "generate-audio" alla
+ *       volta, ovunque (anche a livello di singola visita, vedi
+ *       /api/visits/{id}/generate-audio).
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       202:
+ *         description: Generazione avviata, con l'id del job
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         $ref: '#/components/responses/ForbiddenError'
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       409:
+ *         description: C'è già un job "generate-audio" in corso
+ */
+router.post(
+  '/:id/generate-audio',
+  authMiddleware,
+  authorizeResource('museum', 'manage'),
+  MuseumController.generateAudio,
 );
 
 /**
@@ -269,7 +328,7 @@ router.post(
  *       404:
  *         $ref: '#/components/responses/NotFoundError'
  */
-router.delete('/:id', authMiddleware, roleMiddleware(UserRole.ADMIN), MuseumController.delete);
+router.delete('/:id', authMiddleware, requireAdmin, MuseumController.delete);
 
 /**
  * @swagger
@@ -283,7 +342,7 @@ router.delete('/:id', authMiddleware, roleMiddleware(UserRole.ADMIN), MuseumCont
 router.get(
   '/:id/curators',
   authMiddleware,
-  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  authorizeResource('museum', 'manage'),
   MuseumController.getCurators,
 );
 
@@ -296,12 +355,7 @@ router.get(
  *     security:
  *       - bearerAuth: []
  */
-router.post(
-  '/:id/curators',
-  authMiddleware,
-  roleMiddleware(UserRole.ADMIN),
-  MuseumController.addCurator,
-);
+router.post('/:id/curators', authMiddleware, requireAdmin, MuseumController.addCurator);
 
 /**
  * @swagger
@@ -315,8 +369,40 @@ router.post(
 router.delete(
   '/:id/curators/:userId',
   authMiddleware,
-  roleMiddleware(UserRole.ADMIN),
+  requireAdmin,
   MuseumController.removeCurator,
+);
+
+/**
+ * @swagger
+ * /api/museums/{id}/authors:
+ *   post:
+ *     tags: [Museum Authors]
+ *     summary: Promuove un utente già a sistema ad autore del museo (Admin, o curatore di questo museo)
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post(
+  '/:id/authors',
+  authMiddleware,
+  authorizeResource('museum', 'manage'),
+  MuseumController.addAuthor,
+);
+
+/**
+ * @swagger
+ * /api/museums/{id}/authors/{userId}:
+ *   delete:
+ *     tags: [Museum Authors]
+ *     summary: Revoca il ruolo autore (Admin, o curatore di questo museo)
+ *     security:
+ *       - bearerAuth: []
+ */
+router.delete(
+  '/:id/authors/:userId',
+  authMiddleware,
+  authorizeResource('museum', 'manage'),
+  MuseumController.removeAuthor,
 );
 
 /**
@@ -358,7 +444,7 @@ router.get('/:id/floors/:floorId', MuseumController.getFloor);
 router.post(
   '/:id/floors',
   authMiddleware,
-  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  authorizeResource('museum', 'manage'),
   MuseumController.floorValidation,
   MuseumController.addFloor,
 );
@@ -373,7 +459,7 @@ router.post(
 router.put(
   '/:id/floors/:floorId',
   authMiddleware,
-  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  authorizeResource('museum', 'manage'),
   MuseumController.updateFloor,
 );
 
@@ -387,7 +473,7 @@ router.put(
 router.delete(
   '/:id/floors/:floorId',
   authMiddleware,
-  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  authorizeResource('museum', 'manage'),
   MuseumController.deleteFloor,
 );
 
@@ -412,7 +498,7 @@ router.get('/:id/rooms', MuseumController.getRooms);
 router.post(
   '/:id/rooms',
   authMiddleware,
-  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  authorizeResource('museum', 'manage'),
   MuseumController.roomValidation,
   MuseumController.createRoom,
 );
@@ -427,7 +513,7 @@ router.post(
 router.put(
   '/:id/rooms/:roomId',
   authMiddleware,
-  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  authorizeResource('museum', 'manage'),
   MuseumController.roomRenameValidation,
   MuseumController.updateRoom,
 );
@@ -442,7 +528,7 @@ router.put(
 router.put(
   '/:id/rooms/:roomId/outline',
   authMiddleware,
-  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  authorizeResource('museum', 'manage'),
   MuseumController.roomOutlineValidation,
   MuseumController.outlineRoom,
 );
@@ -457,7 +543,7 @@ router.put(
 router.delete(
   '/:id/rooms/:roomId/outline',
   authMiddleware,
-  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  authorizeResource('museum', 'manage'),
   MuseumController.removeRoomOutline,
 );
 
@@ -471,7 +557,7 @@ router.delete(
 router.delete(
   '/:id/rooms/:roomId',
   authMiddleware,
-  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  authorizeResource('museum', 'manage'),
   MuseumController.deleteRoom,
 );
 
@@ -494,7 +580,7 @@ router.get('/:id/floors/:floorId/markers', MuseumController.getMarkers);
 router.post(
   '/:id/floors/:floorId/markers',
   authMiddleware,
-  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  authorizeResource('museum', 'manage'),
   MuseumController.markerValidation,
   MuseumController.addMarker,
 );
@@ -509,7 +595,7 @@ router.post(
 router.put(
   '/:id/floors/:floorId/markers',
   authMiddleware,
-  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  authorizeResource('museum', 'manage'),
   MuseumController.updateMarkers,
 );
 
@@ -523,7 +609,7 @@ router.put(
 router.put(
   '/:id/floors/:floorId/markers/:markerId',
   authMiddleware,
-  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  authorizeResource('museum', 'manage'),
   MuseumController.updateMarker,
 );
 
@@ -537,7 +623,7 @@ router.put(
 router.delete(
   '/:id/floors/:floorId/markers/:markerId',
   authMiddleware,
-  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  authorizeResource('museum', 'manage'),
   MuseumController.deleteMarker,
 );
 
@@ -551,7 +637,7 @@ router.delete(
 router.post(
   '/:id/floors/:floorId/connections',
   authMiddleware,
-  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  authorizeResource('museum', 'manage'),
   MuseumController.connectionValidation,
   MuseumController.addConnection,
 );
@@ -566,8 +652,50 @@ router.post(
 router.delete(
   '/:id/floors/:floorId/connections/:connectionId',
   authMiddleware,
-  resourceRoleMiddleware(ResourceType.MUSEUM, 'id', ContextualRole.MANAGER),
+  authorizeResource('museum', 'manage'),
   MuseumController.deleteConnection,
+);
+
+/**
+ * @swagger
+ * /api/museums/{id}/role-requests:
+ *   post:
+ *     tags: [Museum Role Requests]
+ *     summary: Chiedi di diventare curatore o autore di questo museo
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post(
+  '/:id/role-requests',
+  authMiddleware,
+  MuseumController.requestRoleValidation,
+  MuseumController.requestRole,
+);
+
+/**
+ * @swagger
+ * /api/museums/{id}/role-requests/{requestId}:
+ *   delete:
+ *     tags: [Museum Role Requests]
+ *     summary: Annulla (il richiedente) o rifiuta (admin/curatore) una richiesta
+ *     security:
+ *       - bearerAuth: []
+ */
+router.delete('/:id/role-requests/:requestId', authMiddleware, MuseumController.cancelRoleRequest);
+
+/**
+ * @swagger
+ * /api/museums/{id}/role-requests/{requestId}/approve:
+ *   post:
+ *     tags: [Museum Role Requests]
+ *     summary: Conferma una richiesta di ruolo (Admin, o curatore del museo per AUTHOR)
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post(
+  '/:id/role-requests/:requestId/approve',
+  authMiddleware,
+  MuseumController.approveRoleRequest,
 );
 
 export default router;

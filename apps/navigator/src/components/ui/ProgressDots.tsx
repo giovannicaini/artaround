@@ -5,11 +5,7 @@ interface ProgressDotsProps {
   tone?: 'onImage' | 'onSurface';
 }
 
-/**
- * Barra di avanzamento a segmenti (stile "storie"), usata nel player. La
- * tappa corrente prende il gradiente aurora invece di un colore piatto —
- * è il segnale visivo più ripetuto dell'app, vale la pena farlo vivace.
- */
+/** Barra di avanzamento a segmenti (stile "storie") — la tappa corrente ha il gradiente aurora. */
 export function ProgressDots({ total, current, onSelect, tone = 'onImage' }: ProgressDotsProps) {
   const trackClass = tone === 'onImage' ? 'bg-white/20' : 'bg-surface-700';
   const doneClass = tone === 'onImage' ? 'bg-white/55' : 'bg-brand-800';
