@@ -318,8 +318,6 @@ export class MuseumsManagementPage extends LitElement {
       bodyFont: '',
       homeTitle: '',
       homeTitleTranslations: {},
-      homeSubtitle: '',
-      homeSubtitleTranslations: {},
       welcomeText: '',
       welcomeTextTranslations: {},
       openingImage: '',
@@ -368,10 +366,6 @@ export class MuseumsManagementPage extends LitElement {
       homeTitle: config.content?.homeTitle || '',
       homeTitleTranslations: this.normalizeIncomingNavigatorTranslations(
         config.content?.homeTitleTranslations,
-      ),
-      homeSubtitle: config.content?.homeSubtitle || '',
-      homeSubtitleTranslations: this.normalizeIncomingNavigatorTranslations(
-        config.content?.homeSubtitleTranslations,
       ),
       welcomeText: config.content?.welcomeText || '',
       welcomeTextTranslations: this.normalizeIncomingNavigatorTranslations(
@@ -889,8 +883,6 @@ export class MuseumsManagementPage extends LitElement {
       content: {
         homeTitle: config.homeTitle || undefined,
         homeTitleTranslations: this.normalizeTranslationMap(config.homeTitleTranslations),
-        homeSubtitle: config.homeSubtitle || undefined,
-        homeSubtitleTranslations: this.normalizeTranslationMap(config.homeSubtitleTranslations),
         welcomeText: config.welcomeText || undefined,
         welcomeTextTranslations: this.normalizeTranslationMap(config.welcomeTextTranslations),
         openingImage: config.openingImage || undefined,
@@ -1737,9 +1729,6 @@ export class MuseumsManagementPage extends LitElement {
       emptyTargetsMessage: __(
         'Aggiungi almeno una lingua aggiuntiva nelle Lingue attive del museo per gestire le traduzioni navigator.',
       ),
-      // Il Sottotitolo Home non ha effetto per una config di museo (vedi
-      // NavigatorConfigFormData/renderNavigatorTranslationsSection).
-      showHomeSubtitle: false,
       translateMissing: {
         label: __('Traduci campi navigator mancanti con AI'),
         loading: this.translatingNavigatorConfig,

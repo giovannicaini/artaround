@@ -10,18 +10,17 @@ import {
   ShoppingBag,
   Ticket,
   Accessibility,
-  Sparkles,
   UserCircle,
   ChevronRight,
   MapPin,
   Map as MapIcon,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { api } from '../services/apiClient';
 import { useAuthStore } from '../context/authStore';
 import { useI18nStore } from '../context/i18nStore';
 import { useT } from '../services/useT';
 import { useNavigatorConfigStore } from '../context/navigatorConfigStore';
-import { interestAffinity } from '../services/personalization';
 import { localizedField } from '../services/i18n';
 import { useOwnedVisitIds, canStartVisit } from '../services/visitAccess';
 import { LanguageLevel, MARKER_TYPE_META, type Visit, type MuseumService } from '@artaround/shared';
@@ -51,6 +50,12 @@ export default function MuseumPage() {
   const kioskMuseumId = useNavigatorConfigStore((state) => state.kioskMuseumId);
   const isKioskLocked = !!kioskMuseumId && kioskMuseumId === museumId;
   const [filterLevel, setFilterLevel] = useState<LanguageLevel | null>(null);
+  const [filterPrice, setFilterPrice] = useState<'free' | 'paid' | null>(null);
+  const [filterDuration, setFilterDuration] = useState<'short' | 'medium' | 'long' | null>(null);
+  const [filterInterests, setFilterInterests] = useState<string[]>([]);
+  // Filtri raggruppati in una scheda, chiusa di default: da soli prendevano
+  // spazio permanente sopra l'elenco delle visite.
+  const [showFilters, setShowFilters] = useState(false);
   // Card info pratiche (Orari/Biglietti/Accessibilità) troncata a due righe
   // nella griglia — apre qui il testo completo invece di perderlo.
   const [expandedInfo, setExpandedInfo] = useState<{ label: string; value: string } | null>(null);
@@ -58,6 +63,9 @@ export default function MuseumPage() {
   const [mapFocusMarkerId, setMapFocusMarkerId] = useState<string | undefined>();
   // Scheda di dettaglio di un servizio del museo (bar, bagni...), aperta dalla griglia servizi.
   const [selectedService, setSelectedService] = useState<MuseumService | null>(null);
+  // Mappa e servizi condivisi in un'unica voce, chiusa di default: da soli
+  // prendevano troppo spazio in cima alla pagina.
+  const [showMapAndServices, setShowMapAndServices] = useState(false);
 
   const LEVEL_META: Record<LanguageLevel, { emoji: string; label: string }> = {
     [LanguageLevel.CHILDREN]: { emoji: '👶', label: t('Bambini') },
@@ -65,6 +73,19 @@ export default function MuseumPage() {
     [LanguageLevel.MEDIUM]: { emoji: '🌿', label: t('Intermedio') },
     [LanguageLevel.SPECIALIST]: { emoji: '🌳', label: t('Avanzato') },
   };
+
+  const DURATION_META: Record<'short' | 'medium' | 'long', { emoji: string; label: string }> = {
+    short: { emoji: '⚡', label: t('Fino a 30 min') },
+    medium: { emoji: '🕒', label: t('30-60 min') },
+    long: { emoji: '⏳', label: t('Oltre 60 min') },
+  };
+
+  function durationBucket(minutes?: number): 'short' | 'medium' | 'long' | null {
+    if (minutes == null) return null;
+    if (minutes <= 30) return 'short';
+    if (minutes <= 60) return 'medium';
+    return 'long';
+  }
 
   const { data: museum, isLoading: museumLoading } = useQuery({
     queryKey: ['museum', museumId],
@@ -89,19 +110,6 @@ export default function MuseumPage() {
   // all'acquisto invece di navigare al player (vedi handleSelectVisit).
   const [purchasePromptVisit, setPurchasePromptVisit] = useState<Visit | null>(null);
 
-  const interests = user?.preferences?.interests;
-  const spotlight = useMemo(() => {
-    if (!visits || !interests?.length) return null;
-    const scored = visits
-      .map((visit) => ({
-        visit,
-        score: interestAffinity(interests, visit.targetAudience?.interests),
-      }))
-      .filter((entry) => entry.score > 0)
-      .sort((a, b) => b.score - a.score);
-    return scored[0]?.visit ?? null;
-  }, [visits, interests]);
-
   function handleSelectVisit(visit: Visit) {
     if (!canStartVisit(visit, ownedVisitIds)) {
       setPurchasePromptVisit(visit);
@@ -110,11 +118,42 @@ export default function MuseumPage() {
     navigate(`/visit/${visit._id}`);
   }
 
-  const filteredVisits = (
-    filterLevel
-      ? (visits || []).filter((v) => v.targetAudience?.languageLevels?.includes(filterLevel))
-      : visits || []
-  ).filter((v) => v._id !== spotlight?._id);
+  // Interessi effettivamente presenti tra le visite di questo museo — solo quelli, non un elenco fisso.
+  const availableInterests = useMemo(
+    () =>
+      [...new Set((visits || []).flatMap((v) => v.targetAudience?.interests || []))].sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [visits],
+  );
+
+  const activeFilterCount =
+    (filterLevel ? 1 : 0) +
+    (filterPrice ? 1 : 0) +
+    (filterDuration ? 1 : 0) +
+    filterInterests.length;
+
+  function resetFilters() {
+    setFilterLevel(null);
+    setFilterPrice(null);
+    setFilterDuration(null);
+    setFilterInterests([]);
+  }
+
+  const filteredVisits = (visits || [])
+    .filter((v) => !filterLevel || v.targetAudience?.languageLevels?.includes(filterLevel))
+    .filter((v) => {
+      if (!filterPrice) return true;
+      return filterPrice === 'free' ? v.metadata?.isFree : !v.metadata?.isFree;
+    })
+    .filter(
+      (v) => !filterDuration || durationBucket(v.metadata?.estimatedDuration) === filterDuration,
+    )
+    .filter(
+      (v) =>
+        filterInterests.length === 0 ||
+        filterInterests.some((interest) => v.targetAudience?.interests?.includes(interest)),
+    );
 
   const practicalInfo = [
     museum?.services?.openingHours && {
@@ -215,7 +254,15 @@ export default function MuseumPage() {
               <div className="flex items-center gap-2">
                 <LanguageSwitcher languages={museum?.activeLanguages} variant="glass" />
                 <IconTile
-                  icon={<UserCircle />}
+                  icon={
+                    user ? (
+                      <span className="font-display font-bold text-xs">
+                        {user.username.slice(0, 2).toUpperCase()}
+                      </span>
+                    ) : (
+                      <UserCircle />
+                    )
+                  }
                   variant="glass"
                   label={t('Account')}
                   onClick={() => navigate('/account')}
@@ -251,7 +298,7 @@ export default function MuseumPage() {
                     }`}
                 >
                   <MapPin className="w-3.5 h-3.5" />
-                  {t('Apri in Google Maps')}
+                  {t('Indicazioni stradali')}
                 </a>
               )}
             </div>
@@ -261,41 +308,21 @@ export default function MuseumPage() {
 
       <div className="lg:max-w-6xl lg:mx-auto">
         <main className="px-5 py-6 lg:px-8 lg:py-8">
-          {/* ── Blocco: mappa del museo e servizi ─────────────────── */}
+          {/* ── Blocco: mappa del museo e servizi — un'unica voce, si apre in una scheda. */}
           {(museumMap || activeServices.length > 0) && (
             <section className="mb-8">
-              {museumMap && (
-                <PressableCard
-                  onClick={() => setShowMap(true)}
-                  className="p-4 flex items-center gap-3 mb-3"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-brand-500/[.12] flex items-center justify-center flex-shrink-0">
-                    <MapIcon className="w-[18px] h-[18px] text-brand-300" />
-                  </div>
-                  <span className="flex-1 text-sm font-medium text-surface-200">
-                    {t('Mappa del museo')}
-                  </span>
-                  <ChevronRight className="w-4 h-4 text-surface-600 flex-shrink-0" />
-                </PressableCard>
-              )}
-              {activeServices.length > 0 && (
-                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-                  {activeServices.map((service) => (
-                    <button
-                      key={service.type}
-                      onClick={() => setSelectedService(service)}
-                      className="flex flex-col items-center gap-2 p-4 rounded-xl bg-surface-900
-                        border border-surface-800 text-surface-300 hover:border-brand-500/30
-                        hover:text-brand-300 transition-colors"
-                    >
-                      <span className="text-2xl">{MARKER_TYPE_META[service.type].icon}</span>
-                      <span className="text-xs font-medium text-center leading-tight">
-                        {MARKER_TYPE_META[service.type].label}
-                      </span>
-                    </button>
-                  ))}
+              <PressableCard
+                onClick={() => setShowMapAndServices(true)}
+                className="p-4 flex items-center gap-3"
+              >
+                <div className="w-9 h-9 rounded-xl bg-brand-500/[.12] flex items-center justify-center flex-shrink-0">
+                  <MapIcon className="w-[18px] h-[18px] text-brand-300" />
                 </div>
-              )}
+                <span className="flex-1 text-sm font-medium text-surface-200">
+                  {t('Mappa e servizi')}
+                </span>
+                <ChevronRight className="w-4 h-4 text-surface-600 flex-shrink-0" />
+              </PressableCard>
             </section>
           )}
 
@@ -344,6 +371,138 @@ export default function MuseumPage() {
             </Sheet>
           )}
 
+          <Sheet
+            open={showMapAndServices}
+            onClose={() => setShowMapAndServices(false)}
+            title={t('Mappa e servizi')}
+          >
+            <div className="space-y-4">
+              {museumMap && (
+                <PressableCard
+                  onClick={() => {
+                    setShowMapAndServices(false);
+                    setShowMap(true);
+                  }}
+                  className="p-4 flex items-center gap-3"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-brand-500/[.12] flex items-center justify-center flex-shrink-0">
+                    <MapIcon className="w-[18px] h-[18px] text-brand-300" />
+                  </div>
+                  <span className="flex-1 text-sm font-medium text-surface-200">
+                    {t('Mappa del museo')}
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-surface-600 flex-shrink-0" />
+                </PressableCard>
+              )}
+              {activeServices.length > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {activeServices.map((service) => (
+                    <button
+                      key={service.type}
+                      onClick={() => {
+                        setShowMapAndServices(false);
+                        setSelectedService(service);
+                      }}
+                      className="flex flex-col items-center gap-2 p-4 rounded-xl bg-surface-800
+                        text-surface-300 hover:bg-surface-700 hover:text-brand-300 transition-colors"
+                    >
+                      <span className="text-2xl">{MARKER_TYPE_META[service.type].icon}</span>
+                      <span className="text-xs font-medium text-center leading-tight">
+                        {MARKER_TYPE_META[service.type].label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Sheet>
+
+          <Sheet open={showFilters} onClose={() => setShowFilters(false)} title={t('Filtri')}>
+            <div className="space-y-5">
+              <div>
+                <p className="text-sm font-medium text-surface-300 mb-2">{t('Livello')}</p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.values(LanguageLevel).map((level) => (
+                    <Chip
+                      key={level}
+                      selected={filterLevel === level}
+                      onClick={() => setFilterLevel(filterLevel === level ? null : level)}
+                    >
+                      {LEVEL_META[level].emoji} {LEVEL_META[level].label}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-surface-300 mb-2">{t('Prezzo')}</p>
+                <div className="flex flex-wrap gap-2">
+                  <Chip
+                    selected={filterPrice === 'free'}
+                    onClick={() => setFilterPrice(filterPrice === 'free' ? null : 'free')}
+                  >
+                    🎁 {t('Gratis')}
+                  </Chip>
+                  <Chip
+                    selected={filterPrice === 'paid'}
+                    onClick={() => setFilterPrice(filterPrice === 'paid' ? null : 'paid')}
+                  >
+                    💳 {t('A pagamento')}
+                  </Chip>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-surface-300 mb-2">{t('Durata')}</p>
+                <div className="flex flex-wrap gap-2">
+                  {(Object.keys(DURATION_META) as Array<'short' | 'medium' | 'long'>).map(
+                    (bucket) => (
+                      <Chip
+                        key={bucket}
+                        selected={filterDuration === bucket}
+                        onClick={() => setFilterDuration(filterDuration === bucket ? null : bucket)}
+                      >
+                        {DURATION_META[bucket].emoji} {DURATION_META[bucket].label}
+                      </Chip>
+                    ),
+                  )}
+                </div>
+              </div>
+
+              {availableInterests.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-surface-300 mb-2">{t('Interessi')}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {availableInterests.map((interest) => (
+                      <Chip
+                        key={interest}
+                        selected={filterInterests.includes(interest)}
+                        onClick={() =>
+                          setFilterInterests((prev) =>
+                            prev.includes(interest)
+                              ? prev.filter((i) => i !== interest)
+                              : [...prev, interest],
+                          )
+                        }
+                      >
+                        {interest}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeFilterCount > 0 && (
+                <button
+                  onClick={resetFilters}
+                  className="text-brand-400 text-sm font-medium hover:underline"
+                >
+                  {t('Cancella filtri')}
+                </button>
+              )}
+            </div>
+          </Sheet>
+
           <ServiceDetailSheet
             service={selectedService}
             onClose={() => setSelectedService(null)}
@@ -367,56 +526,23 @@ export default function MuseumPage() {
             </section>
           )}
 
-          {/* ── Blocco: visita in evidenza per te ─────────────────── */}
-          {spotlight && (
-            <section className="mb-9">
-              <div className="flex items-center gap-2 mb-3">
-                <Sparkles className="w-4 h-4 text-brand-400" />
-                <h2 className="font-display text-base font-semibold text-surface-50">
-                  {t('Consigliata per te')}
-                </h2>
-              </div>
-              <PressableCard
-                onClick={() => handleSelectVisit(spotlight)}
-                className="relative overflow-hidden p-6 border-brand-500/30"
-              >
-                <div className="absolute -top-16 -right-16 w-48 h-48 gradient-aurora opacity-20 blur-3xl rounded-full" />
-                <div className="relative">
-                  <h3 className="font-display font-bold text-surface-50 text-xl mb-2 max-w-md">
-                    {localizedField(language, spotlight.title, spotlight.titleTranslations)}
-                  </h3>
-                  <p className="text-sm text-surface-400 mb-4 max-w-md line-clamp-2">
-                    {localizedField(
-                      language,
-                      spotlight.description,
-                      spotlight.descriptionTranslations,
-                    )}
-                  </p>
-                  <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full gradient-aurora text-white font-bold text-sm">
-                    <Play className="w-3.5 h-3.5" fill="currentColor" />
-                    {t('Inizia questa visita')}
-                  </div>
-                </div>
-              </PressableCard>
-            </section>
-          )}
-
-          {/* ── Blocco: tutte le visite, filtrabili ───────────────── */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+          {/* ── Blocco: tutte le visite, filtrabili — i filtri stanno in una scheda, chiusa di default. */}
+          <div className="flex items-center justify-between gap-4 mb-5">
             <h2 className="font-display text-xl font-semibold text-surface-50">
               {t('Tutte le visite')}
             </h2>
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              {Object.values(LanguageLevel).map((level) => (
-                <Chip
-                  key={level}
-                  selected={filterLevel === level}
-                  onClick={() => setFilterLevel(filterLevel === level ? null : level)}
-                >
-                  {LEVEL_META[level].emoji} {LEVEL_META[level].label}
-                </Chip>
-              ))}
-            </div>
+            <button
+              onClick={() => setShowFilters(true)}
+              className="flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium bg-surface-800 border border-surface-700 text-surface-300 hover:border-surface-500 hover:text-surface-100 transition-colors"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              {t('Filtri')}
+              {activeFilterCount > 0 && (
+                <span className="w-5 h-5 rounded-full gradient-aurora text-white text-xs font-bold flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
           </div>
 
           {!visits || visits.length === 0 ? (
@@ -431,7 +557,7 @@ export default function MuseumPage() {
               title={t('Nessuna visita per questo filtro')}
               action={
                 <button
-                  onClick={() => setFilterLevel(null)}
+                  onClick={resetFilters}
                   className="text-brand-400 text-sm font-medium hover:underline"
                 >
                   {t('Mostra tutte')}

@@ -11,7 +11,6 @@ interface NavigatorConfigState {
   rememberedSlug: string | null;
   ready: boolean;
   init: () => Promise<void>;
-  exitKiosk: () => void;
 }
 
 /** Risolve all'avvio se questo dispositivo è "agganciato" a un museo via link/QR (?ncfg=slug, poi ricordato). */
@@ -53,11 +52,5 @@ export const useNavigatorConfigStore = create<NavigatorConfigState>((set) => ({
       // Offline/errore di rete al boot: non blocca l'app, resta con lo stato già in localStorage.
       set({ ready: true });
     }
-  },
-
-  exitKiosk: () => {
-    localStorage.removeItem(SLUG_KEY);
-    localStorage.removeItem(KIOSK_MUSEUM_KEY);
-    set({ kioskMuseumId: null, rememberedSlug: null });
   },
 }));

@@ -148,8 +148,6 @@ export interface NavigatorConfig {
   content?: {
     homeTitle?: string;
     homeTitleTranslations?: Partial<Record<AppLanguage, string>>;
-    homeSubtitle?: string;
-    homeSubtitleTranslations?: Partial<Record<AppLanguage, string>>;
     welcomeText?: string;
     welcomeTextTranslations?: Partial<Record<AppLanguage, string>>;
     openingImage?: string; // legacy — l'editor scrive solo branding.splashImage, letto qui come fallback (vedi Navigator WelcomePage)

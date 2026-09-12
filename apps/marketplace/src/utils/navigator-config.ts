@@ -27,8 +27,6 @@ export interface NavigatorConfigFormData {
   bodyFont: string;
   homeTitle: string;
   homeTitleTranslations: Partial<Record<AppLanguage, string>>;
-  homeSubtitle: string;
-  homeSubtitleTranslations: Partial<Record<AppLanguage, string>>;
   welcomeText: string;
   welcomeTextTranslations: Partial<Record<AppLanguage, string>>;
   openingImage: string;
@@ -58,7 +56,6 @@ export type NavigatorColorFieldKey =
 
 export type NavigatorTranslationFieldKey =
   | 'homeTitleTranslations'
-  | 'homeSubtitleTranslations'
   | 'welcomeTextTranslations'
   | 'manifestDescriptionTranslations';
 
@@ -95,7 +92,6 @@ export function isNavigatorConfigLanguageFullyTranslated(
 ): boolean {
   const fields = [
     { source: config.homeTitle, translations: config.homeTitleTranslations },
-    { source: config.homeSubtitle, translations: config.homeSubtitleTranslations },
     { source: config.welcomeText, translations: config.welcomeTextTranslations },
     { source: config.manifestDescription, translations: config.manifestDescriptionTranslations },
   ];
@@ -277,12 +273,6 @@ export interface NavigatorTranslationsSectionOptions {
   emptyTargetsMessage?: string;
   /** Se presente, mostra il bottone "Traduci campi mancanti con AI". */
   translateMissing?: NavigatorTranslateMissingOptions;
-  /**
-   * Sottotitolo Home: ha effetto solo nella Home multi-museo, mai raggiunta
-   * da una config di museo (agganciamento kiosk salta dritto al museo) —
-   * l'editor di museo lo nasconde passando false, quello globale lo mostra.
-   */
-  showHomeSubtitle?: boolean;
 }
 
 /**
@@ -304,7 +294,6 @@ export function renderNavigatorTranslationsSection(options: NavigatorTranslation
     onUpdateField,
     emptyTargetsMessage,
     translateMissing,
-    showHomeSubtitle = true,
   } = options;
 
   const selectedLanguageLabel = selectedLanguage ? getLanguageLabel(selectedLanguage) : null;
@@ -371,33 +360,16 @@ export function renderNavigatorTranslationsSection(options: NavigatorTranslation
                           ${selectedLanguageLabel || selectedLanguage.toUpperCase()}
                         </h6>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <ui-input
-                            .label=${__('Titolo Home')}
-                            .value=${config.homeTitleTranslations[selectedLanguage] || ''}
-                            @input-change=${(e: CustomEvent) =>
-                              onUpdateField(
-                                'homeTitleTranslations',
-                                selectedLanguage,
-                                e.detail.value,
-                              )}
-                          ></ui-input>
-
-                          ${showHomeSubtitle
-                            ? html`
-                                <ui-input
-                                  .label=${__('Sottotitolo Home')}
-                                  .value=${config.homeSubtitleTranslations[selectedLanguage] || ''}
-                                  @input-change=${(e: CustomEvent) =>
-                                    onUpdateField(
-                                      'homeSubtitleTranslations',
-                                      selectedLanguage,
-                                      e.detail.value,
-                                    )}
-                                ></ui-input>
-                              `
-                            : nothing}
-                        </div>
+                        <ui-input
+                          .label=${__('Titolo Home')}
+                          .value=${config.homeTitleTranslations[selectedLanguage] || ''}
+                          @input-change=${(e: CustomEvent) =>
+                            onUpdateField(
+                              'homeTitleTranslations',
+                              selectedLanguage,
+                              e.detail.value,
+                            )}
+                        ></ui-input>
 
                         <ui-textarea
                           .label=${__('Testo di benvenuto')}
@@ -434,7 +406,7 @@ export function renderNavigatorTranslationsSection(options: NavigatorTranslation
 
 /**
  * Calcola le traduzioni mancanti per i campi navigator (homeTitle,
- * homeSubtitle, welcomeText, manifestDescription) verso le lingue target, e
+ * welcomeText, manifestDescription) verso le lingue target, e
  * ne richiede la traduzione automatica via /api/utils/translate-batch.
  * Ritorna `null` se non c'è nulla da tradurre (tutto già completo), oppure
  * il patch da applicare alla NavigatorConfigFormData. Condivisa tra i due
@@ -448,7 +420,6 @@ export async function computeNavigatorMissingTranslations(
 ): Promise<Partial<NavigatorConfigFormData> | null> {
   const fieldSources: Array<{ field: NavigatorTranslationFieldKey; source: string }> = [
     { field: 'homeTitleTranslations', source: config.homeTitle },
-    { field: 'homeSubtitleTranslations', source: config.homeSubtitle },
     { field: 'welcomeTextTranslations', source: config.welcomeText },
     { field: 'manifestDescriptionTranslations', source: config.manifestDescription },
   ];

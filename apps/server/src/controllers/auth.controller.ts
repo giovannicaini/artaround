@@ -139,7 +139,6 @@ export class AuthController {
     body('preferences.availableTime').optional().isString(),
     body('preferences.language').optional().isString(),
     body('preferences.age').optional().isInt({ min: 0, max: 120 }),
-    body('preferences.interests').optional().isArray(),
   ];
 
   // PUT /api/auth/me — aggiornamento self-service di email/preferenze proprie.
@@ -157,7 +156,6 @@ export class AuthController {
       email?: string;
       preferences?: Partial<{
         competenceLevel: CompetenceLevel;
-        interests: string[];
         availableTime: TimePreference;
         age: number;
         language: string;
@@ -183,7 +181,6 @@ export class AuthController {
     if (preferences) {
       const currentPreferences = user.preferences ?? {
         competenceLevel: CompetenceLevel.MEDIO,
-        interests: [],
         availableTime: TimePreference.NORMALE,
         language: 'it',
       };

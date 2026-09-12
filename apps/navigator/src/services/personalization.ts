@@ -29,14 +29,3 @@ export function defaultContentDuration(preferences?: UserPreferences | null): Co
   if (preferences?.availableTime) return TIME_TO_DURATION[preferences.availableTime];
   return ContentDuration.MEDIUM;
 }
-
-/** Punteggio di affinità 0-1 tra interessi salvati e quelli di una visita — alimenta "Per te". */
-export function interestAffinity(
-  userInterests: string[] | undefined,
-  targetInterests: string[] | undefined,
-): number {
-  if (!userInterests?.length || !targetInterests?.length) return 0;
-  const target = new Set(targetInterests.map((i) => i.toLowerCase()));
-  const matches = userInterests.filter((i) => target.has(i.toLowerCase())).length;
-  return matches / target.size;
-}

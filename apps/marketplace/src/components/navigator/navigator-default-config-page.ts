@@ -41,13 +41,7 @@ import '../ui/image-editor';
 import { __ } from '../../services/i18n.service';
 
 type NavigatorTextFieldKey = 'startUrl' | 'scope';
-type NavigatorGeneralFieldKey =
-  | 'name'
-  | 'slug'
-  | 'homeTitle'
-  | 'homeSubtitle'
-  | 'manifestName'
-  | 'shortName';
+type NavigatorGeneralFieldKey = 'name' | 'slug' | 'homeTitle' | 'manifestName' | 'shortName';
 
 // L'unica configurazione Navigator con applicability 'global' — vale per
 // tutto l'ecosistema quando un museo non ha una propria config (vedi le
@@ -106,8 +100,6 @@ export class NavigatorDefaultConfigPage extends LitElement {
       bodyFont: d.branding.bodyFont || '',
       homeTitle: d.content?.homeTitle || '',
       homeTitleTranslations: {},
-      homeSubtitle: d.content?.homeSubtitle || '',
-      homeSubtitleTranslations: {},
       welcomeText: d.content?.welcomeText || '',
       welcomeTextTranslations: {},
       openingImage: d.content?.openingImage || '',
@@ -151,10 +143,6 @@ export class NavigatorDefaultConfigPage extends LitElement {
           bodyFont: global.branding.bodyFont || '',
           homeTitle: global.content?.homeTitle || '',
           homeTitleTranslations: this.normalizeTranslations(global.content?.homeTitleTranslations),
-          homeSubtitle: global.content?.homeSubtitle || '',
-          homeSubtitleTranslations: this.normalizeTranslations(
-            global.content?.homeSubtitleTranslations,
-          ),
           welcomeText: global.content?.welcomeText || '',
           welcomeTextTranslations: this.normalizeTranslations(
             global.content?.welcomeTextTranslations,
@@ -404,8 +392,6 @@ export class NavigatorDefaultConfigPage extends LitElement {
       content: {
         homeTitle: config.homeTitle || undefined,
         homeTitleTranslations: this.getTranslationsOrUndefined(config.homeTitleTranslations),
-        homeSubtitle: config.homeSubtitle || undefined,
-        homeSubtitleTranslations: this.getTranslationsOrUndefined(config.homeSubtitleTranslations),
         welcomeText: config.welcomeText || undefined,
         welcomeTextTranslations: this.getTranslationsOrUndefined(config.welcomeTextTranslations),
         openingImage: config.openingImage || undefined,
@@ -570,7 +556,6 @@ export class NavigatorDefaultConfigPage extends LitElement {
                   </div>
 
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    ${this.renderGeneralField('homeSubtitle', __('Sottotitolo Home'))}
                     <ui-select
                       .label=${__('Museo in evidenza')}
                       .value=${config.featuredMuseumId}

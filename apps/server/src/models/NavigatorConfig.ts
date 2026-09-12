@@ -25,8 +25,6 @@ const navigatorConfigSchema = new Schema<NavigatorConfigDocument>(
     content: {
       homeTitle: String,
       homeTitleTranslations: { type: Map, of: String, default: undefined },
-      homeSubtitle: String,
-      homeSubtitleTranslations: { type: Map, of: String, default: undefined },
       welcomeText: String,
       welcomeTextTranslations: { type: Map, of: String, default: undefined },
       openingImage: String,

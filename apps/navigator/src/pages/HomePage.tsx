@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -15,10 +15,8 @@ import { useAuthStore } from '../context/authStore';
 import { useI18nStore } from '../context/i18nStore';
 import { useT } from '../services/useT';
 import { useActiveNavigatorConfig } from '../services/useNavigatorTheme';
-import { interestAffinity } from '../services/personalization';
 import { localizedField } from '../services/i18n';
 import { loadVisitProgress, type VisitProgress } from '../services/visitProgress';
-import { useOwnedVisitIds, canStartVisit } from '../services/visitAccess';
 import {
   LoadingState,
   ErrorState,
@@ -26,11 +24,8 @@ import {
   PressableCard,
   Badge,
   LanguageSwitcher,
-  Sheet,
-  PurchasePrompt,
-  VisitPriceBadge,
 } from '../components/ui';
-import type { Museum, Visit } from '@artaround/shared';
+import type { Museum } from '@artaround/shared';
 
 /** Home come feed di blocchi diversi (vetrina, ripresa visita, righe a scorrimento) invece di un'unica griglia. */
 export default function HomePage() {
@@ -41,8 +36,6 @@ export default function HomePage() {
   const { data: config } = useActiveNavigatorConfig();
   // Inizializzatore lazy: letto una sola volta, senza il giro extra di render di un useEffect.
   const [progress] = useState<VisitProgress | null>(() => loadVisitProgress());
-  const ownedVisitIds = useOwnedVisitIds();
-  const [purchasePromptVisit, setPurchasePromptVisit] = useState<Visit | null>(null);
 
   const {
     data: museums,
@@ -55,26 +48,6 @@ export default function HomePage() {
     queryFn: () => api.getMuseums(),
   });
 
-  const interests = user?.preferences?.interests;
-  const { data: allVisits } = useQuery({
-    queryKey: ['visits', 'all-for-recommendations'],
-    queryFn: () => api.getVisits(),
-    enabled: !!interests?.length,
-  });
-
-  const recommended = useMemo(() => {
-    if (!allVisits || !interests?.length) return [];
-    return allVisits
-      .map((visit) => ({
-        visit,
-        score: interestAffinity(interests, visit.targetAudience?.interests),
-      }))
-      .filter((entry) => entry.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 6)
-      .map((entry) => entry.visit);
-  }, [allVisits, interests]);
-
   // Museo scelto dall'admin — se non impostato, o non più disponibile, resta il primo della lista.
   const featuredMuseumId = config?.content?.featuredMuseumId;
   const featured =
@@ -86,14 +59,6 @@ export default function HomePage() {
 
   function handleResumeVisit() {
     if (progress) navigate(`/visit/${progress.visitId}`);
-  }
-
-  function handleSelectVisit(visit: Visit) {
-    if (!canStartVisit(visit, ownedVisitIds)) {
-      setPurchasePromptVisit(visit);
-      return;
-    }
-    navigate(`/visit/${visit._id}`);
   }
 
   if (isLoading) {
@@ -177,16 +142,6 @@ export default function HomePage() {
         </div>
       </header>
 
-      {config?.content?.homeSubtitle && (
-        <p className="px-5 lg:px-8 lg:max-w-6xl lg:mx-auto pt-4 text-sm text-surface-400">
-          {localizedField(
-            language,
-            config.content.homeSubtitle,
-            config.content.homeSubtitleTranslations,
-          )}
-        </p>
-      )}
-
       {/* ── Blocco: vetrina in evidenza ─────────────────────────── */}
       {featured && (
         <section className="relative">
@@ -253,32 +208,6 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* ── Blocco: riga "Per te" ──────────────────────────────── */}
-        {recommended.length > 0 && (
-          <FeedRow title={t('Per te')} icon={<Sparkles className="w-4 h-4 text-brand-400" />}>
-            {recommended.map((visit) => {
-              const owned = ownedVisitIds.has(visit._id);
-              return (
-                <PressableCard
-                  key={visit._id}
-                  onClick={() => handleSelectVisit(visit)}
-                  className="flex-shrink-0 w-64 lg:w-80 p-4"
-                >
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <p className="text-surface-50 font-semibold truncate">
-                      {localizedField(language, visit.title, visit.titleTranslations)}
-                    </p>
-                    <VisitPriceBadge visit={visit} owned={owned} />
-                  </div>
-                  <p className="text-surface-500 text-xs line-clamp-2">
-                    {localizedField(language, visit.description, visit.descriptionTranslations)}
-                  </p>
-                </PressableCard>
-              );
-            })}
-          </FeedRow>
-        )}
-
         {/* ── Blocco: riga musei ─────────────────────────────────── */}
         {museums && museums.length > 0 && (
           <FeedRow title={t('Tutti i musei')} icon={<Compass className="w-4 h-4 text-brand-400" />}>
@@ -325,19 +254,6 @@ export default function HomePage() {
           </div>
         </div>
       </main>
-
-      {purchasePromptVisit && (
-        <Sheet open onClose={() => setPurchasePromptVisit(null)}>
-          <PurchasePrompt
-            title={localizedField(
-              language,
-              purchasePromptVisit.title,
-              purchasePromptVisit.titleTranslations,
-            )}
-            price={purchasePromptVisit.metadata?.price || 0}
-          />
-        </Sheet>
-      )}
     </div>
   );
 }

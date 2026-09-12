@@ -11,7 +11,6 @@ export interface UserDocument extends Omit<IUser, '_id'>, Document {}
 const userPreferencesSchema = new Schema<UserPreferences>(
   {
     competenceLevel: { type: String, required: true },
-    interests: [{ type: String }],
     availableTime: { type: String, required: true },
     age: { type: Number },
     language: { type: String, default: 'it' },

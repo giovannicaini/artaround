@@ -11,12 +11,10 @@ import {
   Sparkles,
   ExternalLink,
   Download,
-  Home as HomeIcon,
 } from 'lucide-react';
 import { api } from '../services/apiClient';
 import { useAuthStore } from '../context/authStore';
 import { useI18nStore } from '../context/i18nStore';
-import { useNavigatorConfigStore } from '../context/navigatorConfigStore';
 import { useInstallPrompt } from '../services/useInstallPrompt';
 import { useT } from '../services/useT';
 import { localizedField } from '../services/i18n';
@@ -26,32 +24,13 @@ import {
   type UserPreferences,
   type VisitPurchaseWithVisit,
 } from '@artaround/shared';
-import {
-  Button,
-  Card,
-  Chip,
-  Select,
-  LanguageSwitcher,
-  LoadingState,
-  EmptyState,
-} from '../components/ui';
-
-const INTEREST_OPTIONS = [
-  'Storia degli artisti',
-  'Architettura',
-  'Colori e materiali',
-  'Eventi storici',
-  'Stili e correnti',
-  'Curiosità e aneddoti',
-];
+import { Button, Card, Select, LanguageSwitcher, LoadingState, EmptyState } from '../components/ui';
 
 export default function AccountPage() {
   const navigate = useNavigate();
   const t = useT();
   const language = useI18nStore((state) => state.language);
   const { user, status, error, login, register, updatePreferences, logout } = useAuthStore();
-  const kioskMuseumId = useNavigatorConfigStore((state) => state.kioskMuseumId);
-  const exitKiosk = useNavigatorConfigStore((state) => state.exitKiosk);
   const { canInstall, promptInstall } = useInstallPrompt();
   // Il tema è applicato una sola volta in App.tsx per tutta la sessione
   // (vedi useNavigatorTheme.ts) — Account non deve risolverne uno proprio.
@@ -81,26 +60,11 @@ export default function AccountPage() {
       </header>
 
       <div className="lg:max-w-2xl lg:mx-auto px-5 py-6 lg:px-0 lg:py-10">
-        {(kioskMuseumId || canInstall) && (
-          <div className="mb-6 space-y-2">
-            {canInstall && (
-              <Button variant="secondary" block icon={<Download />} onClick={promptInstall}>
-                {t("Installa l'app")}
-              </Button>
-            )}
-            {kioskMuseumId && (
-              <Button
-                variant="secondary"
-                block
-                icon={<HomeIcon />}
-                onClick={() => {
-                  exitKiosk();
-                  navigate('/');
-                }}
-              >
-                {t('Esci dalla modalità museo')}
-              </Button>
-            )}
+        {canInstall && (
+          <div className="mb-6">
+            <Button variant="secondary" block icon={<Download />} onClick={promptInstall}>
+              {t("Installa l'app")}
+            </Button>
           </div>
         )}
         {user ? (
@@ -277,7 +241,6 @@ function LoggedInView({
   const [availableTime, setAvailableTime] = useState<TimePreference>(
     user.preferences?.availableTime || TimePreference.NORMALE,
   );
-  const [interests, setInterests] = useState<string[]>(user.preferences?.interests || []);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -299,18 +262,11 @@ function LoggedInView({
     [TimePreference.APPROFONDITO]: { emoji: '🧭', label: t('Tutta la giornata') },
   };
 
-  function toggleInterest(interest: string) {
-    setInterests((prev) =>
-      prev.includes(interest) ? prev.filter((i) => i !== interest) : [...prev, interest],
-    );
-  }
-
   async function handleSave() {
     setSaving(true);
     const result = await onSave({
       competenceLevel,
       availableTime,
-      interests,
       age: user.preferences?.age,
       language,
     });
@@ -380,23 +336,6 @@ function LoggedInView({
               label: `${TIME_META[time].emoji} ${TIME_META[time].label}`,
             }))}
           />
-        </div>
-
-        <div className="mb-5">
-          <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide mb-2">
-            {t('Cosa ti interessa di più?')}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {INTEREST_OPTIONS.map((interest) => (
-              <Chip
-                key={interest}
-                selected={interests.includes(interest)}
-                onClick={() => toggleInterest(interest)}
-              >
-                {t(interest)}
-              </Chip>
-            ))}
-          </div>
         </div>
 
         <Button variant="primary" onClick={handleSave} loading={saving}>

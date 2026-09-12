@@ -99,7 +99,6 @@ export interface UpdateUserData {
 
 export interface UserPreferences {
   competenceLevel: CompetenceLevel;
-  interests: string[];
   availableTime: TimePreference;
   age?: number;
   language: string;

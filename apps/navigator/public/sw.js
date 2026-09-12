@@ -1,7 +1,6 @@
-// Service worker minimale — il minimo per soddisfare i criteri di
-// installabilità PWA (manifest valido + SW con fetch handler) e sopravvivere
-// a un attimo offline sull'app shell. Nessuna cache dei contenuti (visite,
-// audio, immagini museo): quelli restano sempre in rete.
+// Service worker minimale (per installazione PWA)
+// Nessuna cache dei contenuti (visite, audio, immagini museo)
+
 const CACHE_NAME = 'artaround-navigator-v1';
 const APP_SHELL = ['/navigator/', '/navigator/index.html'];
 
@@ -10,9 +9,7 @@ self.addEventListener('install', (event) => {
     caches
       .open(CACHE_NAME)
       .then((cache) => cache.addAll(APP_SHELL))
-      .catch(() => {
-        // Primo avvio offline o rete instabile: non blocca l'installazione del SW.
-      }),
+      .catch(() => {}),
   );
   self.skipWaiting();
 });
@@ -20,8 +17,12 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
+      // Cache di un CACHE_NAME precedente (se mai cambiato): eliminarle evita
+      // che si accumulino copie della shell ormai sostituite.
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then((keys) =>
+        Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))),
+      )
       .then(() => self.clients.claim()),
   );
 });
@@ -31,7 +32,7 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
 
   // Navigazione verso una pagina dell'app: rete, con la shell in cache come
-  // unico fallback se offline (SPA — il routing lo fa React Router dopo).
+  // unico fallback se offline.
   if (request.mode === 'navigate') {
     event.respondWith(fetch(request).catch(() => caches.match('/navigator/index.html')));
     return;
@@ -42,6 +43,7 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/navigator/assets/') || url.pathname.startsWith('/navigator/icons/');
   if (!isAppAsset) return;
 
+  // JS/CSS con nome basato sul contenuto (Vite) e icone: cachati
   event.respondWith(
     caches.match(request).then(
       (cached) =>
