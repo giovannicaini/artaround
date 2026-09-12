@@ -112,15 +112,6 @@ const ITEM_LENGTH_RULES: Record<ContentDuration, ItemLengthRule> = {
     minChars: 2500,
     maxChars: 3800,
   },
-  [ContentDuration.EXTENDED]: {
-    label: '10 minuti',
-    targetWords: 1200,
-    targetChars: 7000,
-    minWords: 950,
-    maxWords: 1450,
-    minChars: 5500,
-    maxChars: 8500,
-  },
 };
 
 const ITALIAN_CENTURY_REPLACEMENTS: Array<[RegExp, string]> = [

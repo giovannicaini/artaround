@@ -14,7 +14,7 @@ import VisitPlayerPage from './pages/VisitPlayerPage';
 import AccountPage from './pages/AccountPage';
 import WelcomePage from './pages/WelcomePage';
 import NotFoundPage from './pages/NotFoundPage';
-import { LoadingState, Toast, Sheet, IconTile } from './components/ui';
+import { LoadingState, Toast, Sheet, IconTile, LogoTile } from './components/ui';
 
 function welcomeSeenKey(configId: string): string {
   return `welcomeSeen:${configId}`;
@@ -163,17 +163,11 @@ function App() {
       <Toast
         open={showInstallToast}
         icon={
-          activeConfig?.branding.logo ? (
-            <img
-              src={activeConfig.branding.logo}
-              alt=""
-              className="w-10 h-10 rounded-xl object-cover"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded-xl gradient-aurora flex items-center justify-center">
-              <Download className="w-5 h-5 text-white" />
-            </div>
-          )
+          <LogoTile
+            logo={activeConfig?.branding.logo}
+            size={40}
+            fallbackIcon={<Download className="w-5 h-5 text-white" />}
+          />
         }
         message={format(t('Installa {name} sulla schermata Home per aprirla più veloce.'), {
           name: activeConfig?.pwa.shortName || activeConfig?.name || 'ArtAround',

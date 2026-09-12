@@ -1,15 +1,37 @@
+/*
+ * File: HomePage.tsx                                                                    *
+ * Project: @artaround/navigator                                                         *
+ * Last Modified: 12/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import {
-  MapPin,
-  ChevronRight,
-  Compass,
-  ExternalLink,
-  Sparkles,
-  Play,
-  User as UserIcon,
-} from 'lucide-react';
+import { MapPin, ChevronRight, Compass, ExternalLink, Sparkles, Play } from 'lucide-react';
 import { api } from '../services/apiClient';
 import { useAuthStore } from '../context/authStore';
 import { useI18nStore } from '../context/i18nStore';
@@ -23,18 +45,22 @@ import {
   EmptyState,
   PressableCard,
   Badge,
-  LanguageSwitcher,
+  StickyHeader,
+  LogoTile,
+  UserAvatar,
+  SectionHeader,
 } from '../components/ui';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import type { Museum } from '@artaround/shared';
 
-/** Home come feed di blocchi diversi (vetrina, ripresa visita, righe a scorrimento) invece di un'unica griglia. */
+//Homepage
 export default function HomePage() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const language = useI18nStore((state) => state.language);
   const t = useT();
   const { data: config } = useActiveNavigatorConfig();
-  // Inizializzatore lazy: letto una sola volta, senza il giro extra di render di un useEffect.
+  //carica all'apertura i progressi dell'ultima visita (da localStorage)
   const [progress] = useState<VisitProgress | null>(() => loadVisitProgress());
 
   const {
@@ -48,7 +74,7 @@ export default function HomePage() {
     queryFn: () => api.getMuseums(),
   });
 
-  // Museo scelto dall'admin — se non impostato, o non più disponibile, resta il primo della lista.
+  // Museo in evidenza: se c'è in config quello, altrimenti il primo dei musei.
   const featuredMuseumId = config?.content?.featuredMuseumId;
   const featured =
     (featuredMuseumId && museums?.find((m) => m._id === featuredMuseumId)) || museums?.[0];
@@ -95,54 +121,41 @@ export default function HomePage() {
   return (
     <div className="h-full overflow-y-auto scroll-smooth bg-surface-950">
       {/* ── Blocco: barra superiore ─────────────────────────────── */}
-      <header className="sticky top-0 z-20 safe-top bg-surface-950/85 backdrop-blur-md border-b border-surface-800/60">
-        <div className="flex items-center justify-between px-5 lg:px-8 py-3 lg:max-w-6xl lg:mx-auto">
-          <div className="flex items-center gap-2.5">
-            {config?.branding.logo ? (
-              <img src={config.branding.logo} alt="" className="w-8 h-8 rounded-xl object-cover" />
-            ) : (
-              <div className="w-8 h-8 rounded-xl gradient-aurora flex items-center justify-center">
-                <Compass className="w-[18px] h-[18px] text-white" />
-              </div>
-            )}
-            <span className="font-display text-sm font-semibold text-surface-50 tracking-tight">
-              {config?.content?.homeTitle
-                ? localizedField(
-                    language,
-                    config.content.homeTitle,
-                    config.content.homeTitleTranslations,
-                  )
-                : 'ArtAround'}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <a
-              href="/marketplace"
-              className="hidden lg:flex items-center gap-2 px-4 py-2 text-sm font-medium text-brand-300 hover:text-brand-200 bg-brand-500/10 hover:bg-brand-500/15 border border-brand-500/20 rounded-full transition-colors"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Marketplace
-            </a>
-            <LanguageSwitcher />
-            <button
-              onClick={() => navigate('/account')}
-              aria-label={t('Account')}
-              title={t('Account')}
-              className="w-9 h-9 rounded-full bg-surface-800 border border-surface-700 hover:bg-surface-700 flex items-center justify-center flex-shrink-0 transition-colors"
-            >
-              {user ? (
-                <span className="font-display font-bold text-brand-300 text-xs">
-                  {user.username.slice(0, 2).toUpperCase()}
-                </span>
-              ) : (
-                <UserIcon className="w-4 h-4 text-surface-300" />
-              )}
-            </button>
-          </div>
+      <StickyHeader>
+        <div className="flex items-center gap-2.5">
+          <LogoTile
+            logo={config?.branding.logo}
+            size={32}
+            fallbackIcon={<Compass className="w-[18px] h-[18px] text-white" />}
+          />
+          <span className="font-display text-sm font-semibold text-surface-50 tracking-tight">
+            {config?.content?.homeTitle
+              ? localizedField(
+                  language,
+                  config.content.homeTitle,
+                  config.content.homeTitleTranslations,
+                )
+              : 'ArtAround'}
+          </span>
         </div>
-      </header>
+        <div className="flex items-center gap-2">
+          <a
+            href="/marketplace"
+            className="hidden lg:flex items-center gap-2 px-4 py-2 text-sm font-medium text-brand-300 hover:text-brand-200 bg-brand-500/10 hover:bg-brand-500/15 border border-brand-500/20 rounded-full transition-colors"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Marketplace
+          </a>
+          <LanguageSwitcher menuAlign="right" />
+          <UserAvatar
+            username={user?.username}
+            onClick={() => navigate('/account')}
+            label={t('Account')}
+          />
+        </div>
+      </StickyHeader>
 
-      {/* ── Blocco: vetrina in evidenza ─────────────────────────── */}
+      {/* Blocco: museo in evidenza */}
       {featured && (
         <section className="relative">
           <button
@@ -158,8 +171,7 @@ export default function HomePage() {
             ) : (
               <div className="absolute inset-0 gradient-aurora opacity-30" />
             )}
-            {/* Scrim fisso, non legato al tema: deve scurire una foto reale (o il
-                gradiente aurora di riserva) in ogni configurazione. */}
+
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-black/10" />
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-transparent to-transparent" />
 
@@ -185,7 +197,7 @@ export default function HomePage() {
       )}
 
       <main className="pb-[calc(2.5rem_+_var(--safe-area-inset-bottom))]">
-        {/* ── Blocco: riprendi visita (riga slim) ───────────────── */}
+        {/* Blocco: riprendi visita */}
         {progress && (
           <section className="px-5 lg:px-8 lg:max-w-6xl lg:mx-auto -mt-3 relative z-10 mb-8">
             <button
@@ -208,7 +220,7 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* ── Blocco: riga musei ─────────────────────────────────── */}
+        {/* Blocco: riga musei */}
         {museums && museums.length > 0 && (
           <FeedRow title={t('Tutti i musei')} icon={<Compass className="w-4 h-4 text-brand-400" />}>
             {museums.map((museum) => (
@@ -244,9 +256,9 @@ export default function HomePage() {
           </FeedRow>
         )}
 
-        {/* ── Blocco: chiusura ───────────────────────────────────── */}
+        {/* Blocco: chiusura */}
         <div className="px-5 lg:px-8 lg:max-w-6xl lg:mx-auto mt-4">
-          <div className="flex items-center justify-between text-xs text-surface-600 pt-6 border-t border-surface-800">
+          <div className="flex items-center justify-between text-sm text-surface-600 pt-6 border-t border-surface-800">
             <p>© 2026 ArtAround</p>
             <a href="/marketplace" className="hover:text-brand-400 transition-colors lg:hidden">
               Marketplace
@@ -269,10 +281,11 @@ function FeedRow({
 }) {
   return (
     <section className="mb-9">
-      <div className="flex items-center gap-2 mb-3 px-5 lg:px-8 lg:max-w-6xl lg:mx-auto">
-        {icon}
-        <h2 className="font-display text-base font-semibold text-surface-50">{title}</h2>
-      </div>
+      <SectionHeader
+        icon={icon}
+        title={title}
+        className="mb-3 px-5 lg:px-8 lg:max-w-6xl lg:mx-auto"
+      />
       <div className="flex gap-3 overflow-x-auto scroll-smooth pb-1 px-5 lg:px-8 lg:max-w-6xl lg:mx-auto">
         {children}
       </div>

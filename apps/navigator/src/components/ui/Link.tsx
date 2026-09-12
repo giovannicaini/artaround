@@ -1,7 +1,7 @@
 /*
- * File: index.ts                                                                        *
+ * File: Link.tsx                                                             *
  * Project: @artaround/navigator                                                         *
- * Last Modified: 11/09/2026                                                             *
+ * Last Modified: 12/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
  * -----                                                                                 *
  * MIT License                                                                           *
@@ -28,34 +28,23 @@
  * ************************************************************************************* *
  */
 
-//Esporta tutti i componenti UI
-export { Button } from './Button';
-export type { ButtonVariant, ButtonSize } from './Button';
-export { IconTile } from './IconTile';
-export type { IconTileVariant, IconTileSize } from './IconTile';
-export { Chip } from './Chip';
-export { Select } from './Select';
-export type { SelectOption } from './Select';
-export { Badge } from './Badge';
-export type { BadgeVariant } from './Badge';
-export { Card, PressableCard } from './Card';
-export { Sheet } from './Sheet';
-export { LoadingState } from './LoadingState';
-export { ErrorState } from './ErrorState';
-export { EmptyState } from './EmptyState';
-export { ProgressDots } from './ProgressDots';
-export { HighlightedText } from './HighlightedText';
-export { Toast } from './Toast';
-export { IconRowCard } from './IconRowCard';
-export { FullscreenOverlay } from './FullscreenOverlay';
-export { StepText } from './StepText';
-export { PlaybackControls } from './PlaybackControls';
-export type { PlaybackControlsVariant } from './PlaybackControls';
-export { StickyHeader } from './StickyHeader';
-export { LogoTile } from './LogoTile';
-export { UserAvatar } from './UserAvatar';
-export type { UserAvatarSize } from './UserAvatar';
-export { TextField } from './TextField';
-export { LabeledSelect } from './LabeledSelect';
-export { SectionHeader } from './SectionHeader';
-export { Link } from './Link';
+import type { ReactNode } from 'react';
+
+interface LinkProps {
+  icon: ReactNode;
+  label: string;
+  href: string;
+}
+
+// Link a tutta larghezza verso il marketplace.
+export function Link({ icon, label, href }: LinkProps) {
+  return (
+    <a
+      href={href}
+      className="flex items-center justify-center gap-2.5 py-3.5 px-5 bg-surface-900 border border-surface-800 rounded-xl text-surface-400 hover:text-brand-300 hover:border-brand-500/30 transition-all text-sm font-medium"
+    >
+      {icon}
+      {label}
+    </a>
+  );
+}

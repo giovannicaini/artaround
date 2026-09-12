@@ -1,3 +1,33 @@
+/*
+ * File: MapView.tsx                                                                     *
+ * Project: @artaround/navigator                                                         *
+ * Last Modified: 12/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { ZoomIn, ZoomOut, Maximize2, Navigation, X } from 'lucide-react';
 import type { MuseumMap, MapMarker } from '@artaround/shared';
@@ -13,6 +43,7 @@ import { Button } from './ui/Button';
 interface ArtworkInfo {
   title: string;
   image: string;
+  description?: string; // usata solo fuori da una visita, per la scheda di dettaglio dell'opera
 }
 
 // ARTWORK, SCULPTURE E PAINTING devono essere visti come opera, gli altri tipi no
@@ -24,6 +55,7 @@ function isArtworkMarker(type: MarkerType): boolean {
 
 interface MapViewProps {
   map: MuseumMap;
+  inVisit?: boolean;
   routePoints?: RoutePoint[]; // percorso opere+waypoint, già risolto su tutti i piani
   artworkInfo?: Record<string, ArtworkInfo>; // titolo+immagine per Wikidata ID
   currentArtworkId?: string; // opera attualmente in ascolto (Wikidata ID)
@@ -176,6 +208,7 @@ function buildMarkerIcons(
 
 export default function MapView({
   map,
+  inVisit,
   routePoints = [],
   artworkInfo = {},
   currentArtworkId,
@@ -190,6 +223,7 @@ export default function MapView({
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [isPinching, setIsPinching] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showLegend, setShowLegend] = useState(false);
   // Marker-opera cliccato in attesa di conferma prima di saltare a
@@ -334,6 +368,7 @@ export default function MapView({
   function handleTouchStart(e: React.TouchEvent) {
     if (e.touches.length === 2) {
       setIsDragging(false);
+      setIsPinching(true);
       const [t1, t2] = [e.touches[0], e.touches[1]];
       const { x: midX, y: midY } = touchMidpoint(t1, t2);
       pinchStateRef.current = {
@@ -366,9 +401,11 @@ export default function MapView({
   }
   function handleTouchEnd(e: React.TouchEvent) {
     if (e.touches.length === 1) {
+      setIsPinching(false);
       pinchStateRef.current = null;
       startDrag(e.touches[0].clientX, e.touches[0].clientY);
     } else if (e.touches.length === 0) {
+      setIsPinching(false);
       pinchStateRef.current = null;
       setIsDragging(false);
     }
@@ -388,7 +425,7 @@ export default function MapView({
   // avere molte più opere segnate di quelle incluse in un singolo percorso.
   const visibleMarkers = floorMarkers.filter((marker) => {
     if (marker.type === MarkerType.WAYPOINT) return false;
-    if (isArtworkMarker(marker.type)) {
+    if (isArtworkMarker(marker.type) && inVisit) {
       return !!marker.artworkId && visitArtworkIds.includes(marker.artworkId);
     }
     return true;
@@ -457,15 +494,13 @@ export default function MapView({
         onTouchEnd={handleTouchEnd}
       >
         <div
-          // Niente transizione durante il trascinamento, altrimenti insegue in ritardo il dito.
-          className={`absolute ${isDragging ? '' : 'transition-transform duration-100'}`}
+          className={`absolute ${isDragging || isPinching ? '' : 'transition-transform duration-100'}`}
           style={{
             transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
             transformOrigin: '0 0',
           }}
         >
-          {/* Piano: contenuto SVG reale del piano quando disponibile (caso
-              attuale per tutti i musei), altrimenti un'immagine raster legacy. */}
+          {/* Piano: contenuto SVG reale del piano */}
           {currentFloor?.svgContent || map.svgContent ? (
             <div
               style={{ width: dimensions.width, height: dimensions.height }}
@@ -489,8 +524,7 @@ export default function MapView({
             width={dimensions.width}
             height={dimensions.height}
           >
-            {/* Sale già contornate — solo un riferimento visivo, mai interattive:
-                stessa lezione del marketplace, qui non c'è nulla da editare. */}
+            {/* Sale già contornate */}
             {floorRooms.map((room) => {
               const center = polygonCentroid(room.polygon!);
               return (
@@ -519,8 +553,7 @@ export default function MapView({
               );
             })}
 
-            {/* Percorso della visita, un "cammino" largo che piega dolcemente
-                sui waypoint, con frecce che indicano il verso di percorrenza. */}
+            {/* Percorso della visita */}
             {visitPath && (
               <>
                 <path
@@ -553,10 +586,7 @@ export default function MapView({
               </>
             )}
 
-            {/* Marker: solo le opere effettivamente incluse nel percorso di
-                questa visita (un museo può averne segnate molte di più) sono
-                mostrate con la loro immagine reale, mai un'icona generica. I
-                marker di servizio (bagni, bar, uscite...) usano invece l'icona del tipo. */}
+            {/* Marker: opere + marker di servizio */}
             {visibleMarkers.map((marker) => {
               if (isArtworkMarker(marker.type)) {
                 const info = marker.artworkId ? artworkInfo[marker.artworkId] : undefined;
@@ -574,13 +604,17 @@ export default function MapView({
                     key={marker.id}
                     className="pointer-events-auto cursor-pointer"
                     onClick={() => {
+                      // Fuori da una visita non c'è nessuna guida a cui saltare: mostra
+                      // solo la scheda di dettaglio dell'opera, come per un marker di servizio.
+                      if (!inVisit) {
+                        setInfoMarker(marker);
+                        return;
+                      }
                       if (isCurrent) return; // già la tappa in ascolto, niente da confermare
                       setPendingMarker(marker);
                     }}
                   >
-                    {/* Anello che pulsa sulla tappa corrente — non è una posizione
-                        reale dell'utente (non prevista da specifica), solo
-                        l'evidenza di dove ci si è fermati nell'ascolto. */}
+                    {/* Anello che pulsa sulla tappa corrente */}
                     {isCurrent && (
                       <circle
                         cx={marker.x}
@@ -588,7 +622,6 @@ export default function MapView({
                         r={radius + 9}
                         className="animate-ping"
                         fill="rgb(139 63 252 / 0.35)"
-                        // Senza fill-box lo scale() parte dall'origine SVG (0,0), non dal centro del cerchio.
                         style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
                       />
                     )}
@@ -640,32 +673,35 @@ export default function MapView({
                       />
                     )}
 
-                    {/* Distintivo: numero della tappa, o segno di spunta se già
-                        ascoltata — sempre leggibile sopra la miniatura. */}
-                    <circle
-                      cx={marker.x + radius * 0.68}
-                      cy={marker.y + radius * 0.68}
-                      r={9}
-                      className={
-                        isCurrent
-                          ? 'fill-brand-300'
-                          : isVisited
-                            ? 'fill-neutral-500'
-                            : 'fill-ember-500'
-                      }
-                      stroke="white"
-                      strokeWidth={1.5}
-                    />
-                    <text
-                      x={marker.x + radius * 0.68}
-                      y={marker.y + radius * 0.68}
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      className="text-[10px] font-bold select-none"
-                      fill="white"
-                    >
-                      {isVisited ? '✓' : visitIndex + 1}
-                    </text>
+                    {/* Distintivo: numero della tappa o spunta se già ascoltata */}
+                    {inVisit && (
+                      <>
+                        <circle
+                          cx={marker.x + radius * 0.68}
+                          cy={marker.y + radius * 0.68}
+                          r={9}
+                          className={
+                            isCurrent
+                              ? 'fill-brand-300'
+                              : isVisited
+                                ? 'fill-neutral-500'
+                                : 'fill-ember-500'
+                          }
+                          stroke="white"
+                          strokeWidth={1.5}
+                        />
+                        <text
+                          x={marker.x + radius * 0.68}
+                          y={marker.y + radius * 0.68}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          className="text-[10px] font-bold select-none"
+                          fill="white"
+                        >
+                          {isVisited ? '✓' : visitIndex + 1}
+                        </text>
+                      </>
+                    )}
                   </g>
                 );
               }
@@ -678,9 +714,7 @@ export default function MapView({
                   className="pointer-events-auto cursor-pointer"
                   onClick={() => setInfoMarker(marker)}
                 >
-                  {/* Stesso anello pulsante usato per l'opera in ascolto,
-                      qui sul punto a cui è associata la tappa LOGISTIC/
-                      NAVIGATION corrente (un ingresso, un bar...). */}
+                  {/* Anello pulsante per tappa LOGISTIC/NAVIGATION corrente */}
                   {isFocused && (
                     <circle
                       cx={marker.x}
@@ -713,7 +747,7 @@ export default function MapView({
           </svg>
         </div>
 
-        {/* Legend Panel */}
+        {/* Modale Legenda */}
         {showLegend && (
           <div className="absolute top-4 right-4 bg-neutral-900/95 backdrop-blur border border-neutral-800 rounded-xl p-4 min-w-48 shadow-2xl">
             <h3 className="text-sm font-semibold text-white mb-3">{t('Legenda')}</h3>
@@ -731,19 +765,21 @@ export default function MapView({
                   </div>
                 );
               })}
-              <div className="pt-2 mt-2 border-t border-neutral-700">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="w-6 h-6 rounded-full gradient-aurora flex items-center justify-center text-xs text-white font-bold">
-                    !
-                  </span>
-                  <span className="text-neutral-300">{t('Tappa corrente')}</span>
+              {inVisit && (
+                <div className="pt-2 mt-2 border-t border-neutral-700">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="w-6 h-6 rounded-full gradient-aurora flex items-center justify-center text-xs text-white font-bold">
+                      !
+                    </span>
+                    <span className="text-neutral-300">{t('Tappa corrente')}</span>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* Zoom Controls */}
+        {/* Controlli per lo zoom */}
         <div className="absolute bottom-4 right-4 flex flex-col gap-2">
           <button
             onClick={handleZoomIn}
@@ -765,10 +801,10 @@ export default function MapView({
           </button>
         </div>
 
-        {/* Tappa corrente: ricentra la mappa sul marker in ascolto — utile
-            dopo aver trascinato/zoomato in giro per esplorare il piano. */}
+        {/* Tappa corrente: ricentra la mappa sul marker in ascolto */}
         {((currentArtworkId && floorMarkers.some((m) => m.artworkId === currentArtworkId)) ||
           (!currentArtworkId &&
+            !inVisit &&
             focusMarkerId &&
             floorMarkers.some((m) => m.id === focusMarkerId))) && (
           <button
@@ -780,8 +816,7 @@ export default function MapView({
         )}
       </div>
 
-      {/* Conferma prima di saltare a un'altra opera: mai un salto diretto
-          al click sul marker. */}
+      {/* Conferma prima di saltare a un'altra opera */}
       <Sheet
         open={!!pendingMarker}
         onClose={() => setPendingMarker(null)}
@@ -826,18 +861,44 @@ export default function MapView({
           })()}
       </Sheet>
 
-      {/* Descrizione di un marker di servizio (bagni, ascensori...): niente
-          etichetta sempre visibile sulla mappa, compare solo al click. */}
+      {/* Descrizione di un marker (con modale)*/}
       <Sheet
         open={!!infoMarker}
         onClose={() => setInfoMarker(null)}
-        title={infoMarker ? infoMarker.label || markerIcons[infoMarker.type].label : ''}
+        title={
+          infoMarker
+            ? isArtworkMarker(infoMarker.type)
+              ? (infoMarker.artworkId && artworkInfo[infoMarker.artworkId]?.title) ||
+                markerIcons[infoMarker.type].label
+              : infoMarker.label || markerIcons[infoMarker.type].label
+            : ''
+        }
       >
-        {infoMarker && (
-          <p className="text-sm text-surface-300">
-            {infoMarker.description || t('Nessuna descrizione disponibile.')}
-          </p>
-        )}
+        {infoMarker &&
+          (() => {
+            const artwork = infoMarker.artworkId ? artworkInfo[infoMarker.artworkId] : undefined;
+            if (isArtworkMarker(infoMarker.type) && artwork) {
+              return (
+                <div className="flex flex-col gap-3">
+                  {artwork.image && (
+                    <img
+                      src={artwork.image}
+                      alt=""
+                      className="w-full h-40 rounded-xl object-cover"
+                    />
+                  )}
+                  <p className="text-sm text-surface-300">
+                    {artwork.description || t('Nessuna descrizione disponibile.')}
+                  </p>
+                </div>
+              );
+            }
+            return (
+              <p className="text-sm text-surface-300">
+                {infoMarker.description || t('Nessuna descrizione disponibile.')}
+              </p>
+            );
+          })()}
       </Sheet>
     </div>
   );

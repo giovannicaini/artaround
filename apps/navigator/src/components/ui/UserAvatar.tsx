@@ -1,7 +1,7 @@
 /*
- * File: index.ts                                                                        *
+ * File: UserAvatar.tsx                                                                  *
  * Project: @artaround/navigator                                                         *
- * Last Modified: 11/09/2026                                                             *
+ * Last Modified: 12/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
  * -----                                                                                 *
  * MIT License                                                                           *
@@ -28,34 +28,57 @@
  * ************************************************************************************* *
  */
 
-//Esporta tutti i componenti UI
-export { Button } from './Button';
-export type { ButtonVariant, ButtonSize } from './Button';
-export { IconTile } from './IconTile';
-export type { IconTileVariant, IconTileSize } from './IconTile';
-export { Chip } from './Chip';
-export { Select } from './Select';
-export type { SelectOption } from './Select';
-export { Badge } from './Badge';
-export type { BadgeVariant } from './Badge';
-export { Card, PressableCard } from './Card';
-export { Sheet } from './Sheet';
-export { LoadingState } from './LoadingState';
-export { ErrorState } from './ErrorState';
-export { EmptyState } from './EmptyState';
-export { ProgressDots } from './ProgressDots';
-export { HighlightedText } from './HighlightedText';
-export { Toast } from './Toast';
-export { IconRowCard } from './IconRowCard';
-export { FullscreenOverlay } from './FullscreenOverlay';
-export { StepText } from './StepText';
-export { PlaybackControls } from './PlaybackControls';
-export type { PlaybackControlsVariant } from './PlaybackControls';
-export { StickyHeader } from './StickyHeader';
-export { LogoTile } from './LogoTile';
-export { UserAvatar } from './UserAvatar';
-export type { UserAvatarSize } from './UserAvatar';
-export { TextField } from './TextField';
-export { LabeledSelect } from './LabeledSelect';
-export { SectionHeader } from './SectionHeader';
-export { Link } from './Link';
+import { UserCircle } from 'lucide-react';
+
+export type UserAvatarSize = 'sm' | 'lg';
+
+const SIZE_CLASSES: Record<UserAvatarSize, string> = {
+  sm: 'w-9 h-9',
+  lg: 'w-14 h-14',
+};
+
+const INITIALS_TEXT_CLASSES: Record<UserAvatarSize, string> = {
+  sm: 'text-xs',
+  lg: 'text-lg',
+};
+
+const ICON_SIZE_CLASSES: Record<UserAvatarSize, string> = {
+  sm: 'w-4 h-4',
+  lg: 'w-7 h-7',
+};
+
+interface UserAvatarProps {
+  username?: string; // assente = nessuno loggato: icona omino
+  size?: UserAvatarSize;
+  onClick?: () => void; // se presente, diventa un bottone (es. apre pagina Account)
+  label?: string; // aria-label del bottone, richiesta se onClick è presente
+}
+
+// Tondo circolare con iniziali utente e sfondo gradiente del navigatore
+export function UserAvatar({ username, size = 'sm', onClick, label }: UserAvatarProps) {
+  const content = username ? (
+    <span className={`font-display font-bold text-white ${INITIALS_TEXT_CLASSES[size]}`}>
+      {username.slice(0, 2).toUpperCase()}
+    </span>
+  ) : (
+    <UserCircle className={`text-white ${ICON_SIZE_CLASSES[size]}`} />
+  );
+
+  const className = `${SIZE_CLASSES[size]} rounded-full gradient-aurora shadow-glow flex items-center justify-center flex-shrink-0`;
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        title={label}
+        className={`${className} transition-all duration-200 active:scale-90`}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return <div className={className}>{content}</div>;
+}

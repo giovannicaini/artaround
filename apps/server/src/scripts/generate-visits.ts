@@ -37,7 +37,6 @@ const DURATION_SECONDS: Record<ContentDuration, number> = {
   [ContentDuration.SHORT]: 15,
   [ContentDuration.MEDIUM]: 60,
   [ContentDuration.LONG]: 240,
-  [ContentDuration.EXTENDED]: 600,
 };
 
 type VisitProfile = {

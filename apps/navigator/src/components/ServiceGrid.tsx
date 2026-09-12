@@ -1,7 +1,7 @@
 /*
- * File: index.ts                                                                        *
+ * File: ServiceGrid.tsx                                                                 *
  * Project: @artaround/navigator                                                         *
- * Last Modified: 11/09/2026                                                             *
+ * Last Modified: 12/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
  * -----                                                                                 *
  * MIT License                                                                           *
@@ -28,34 +28,37 @@
  * ************************************************************************************* *
  */
 
-//Esporta tutti i componenti UI
-export { Button } from './Button';
-export type { ButtonVariant, ButtonSize } from './Button';
-export { IconTile } from './IconTile';
-export type { IconTileVariant, IconTileSize } from './IconTile';
-export { Chip } from './Chip';
-export { Select } from './Select';
-export type { SelectOption } from './Select';
-export { Badge } from './Badge';
-export type { BadgeVariant } from './Badge';
-export { Card, PressableCard } from './Card';
-export { Sheet } from './Sheet';
-export { LoadingState } from './LoadingState';
-export { ErrorState } from './ErrorState';
-export { EmptyState } from './EmptyState';
-export { ProgressDots } from './ProgressDots';
-export { HighlightedText } from './HighlightedText';
-export { Toast } from './Toast';
-export { IconRowCard } from './IconRowCard';
-export { FullscreenOverlay } from './FullscreenOverlay';
-export { StepText } from './StepText';
-export { PlaybackControls } from './PlaybackControls';
-export type { PlaybackControlsVariant } from './PlaybackControls';
-export { StickyHeader } from './StickyHeader';
-export { LogoTile } from './LogoTile';
-export { UserAvatar } from './UserAvatar';
-export type { UserAvatarSize } from './UserAvatar';
-export { TextField } from './TextField';
-export { LabeledSelect } from './LabeledSelect';
-export { SectionHeader } from './SectionHeader';
-export { Link } from './Link';
+import { MARKER_TYPE_META, type MuseumService } from '@artaround/shared';
+import { useT } from '@/services/useT';
+
+interface ServiceGridProps {
+  services: MuseumService[];
+  onSelect: (service: MuseumService) => void;
+  emptyMessage?: string;
+}
+
+// Griglia dei servizi del museo attivati dal curatore, icona+etichetta da MARKER_TYPE_META.
+export function ServiceGrid({ services, onSelect, emptyMessage }: ServiceGridProps) {
+  const t = useT();
+  if (services.length === 0) {
+    return emptyMessage ? <p className="text-sm text-surface-400">{emptyMessage}</p> : null;
+  }
+
+  return (
+    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+      {services.map((service) => (
+        <button
+          key={service.type}
+          onClick={() => onSelect(service)}
+          className="flex flex-col items-center gap-2 p-4 rounded-xl bg-surface-800
+            text-surface-300 hover:bg-surface-700 hover:text-brand-300 transition-colors"
+        >
+          <span className="text-2xl">{MARKER_TYPE_META[service.type].icon}</span>
+          <span className="text-xs font-medium text-center leading-tight">
+            {t(MARKER_TYPE_META[service.type].label)}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}

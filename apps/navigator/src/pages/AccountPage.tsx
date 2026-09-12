@@ -1,3 +1,33 @@
+/*
+ * File: AccountPage.tsx                                                                 *
+ * Project: @artaround/navigator                                                         *
+ * Last Modified: 12/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -24,40 +54,49 @@ import {
   type UserPreferences,
   type VisitPurchaseWithVisit,
 } from '@artaround/shared';
-import { Button, Card, Select, LanguageSwitcher, LoadingState, EmptyState } from '../components/ui';
+import {
+  Button,
+  Card,
+  LoadingState,
+  EmptyState,
+  StickyHeader,
+  UserAvatar,
+  TextField,
+  LabeledSelect,
+  SectionHeader,
+  Link,
+} from '../components/ui';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 
+//Pagina Account: se si è loggati ci sono le preferenze, altrimenti login/registrazione
 export default function AccountPage() {
   const navigate = useNavigate();
   const t = useT();
   const language = useI18nStore((state) => state.language);
   const { user, status, error, login, register, updatePreferences, logout } = useAuthStore();
   const { canInstall, promptInstall } = useInstallPrompt();
-  // Il tema è applicato una sola volta in App.tsx per tutta la sessione
-  // (vedi useNavigatorTheme.ts) — Account non deve risolverne uno proprio.
 
   if (status === 'loading' && !user) {
     return (
       <div className="h-full bg-surface-950">
-        <LoadingState message={t('Un attimo...')} />
+        <LoadingState message={t('Caricamento in corso...')} />
       </div>
     );
   }
 
   return (
     <div className="h-full overflow-y-auto scroll-smooth bg-surface-950">
-      <header className="sticky top-0 z-20 safe-top bg-surface-950/85 backdrop-blur-md border-b border-surface-800/60">
-        <div className="flex items-center justify-between px-5 lg:px-8 py-3 lg:max-w-2xl lg:mx-auto">
-          <button
-            onClick={() => navigate(-1)}
-            className="w-9 h-9 rounded-full bg-surface-800 flex items-center justify-center text-surface-300 hover:bg-surface-700 transition-colors"
-            aria-label={t('Torna indietro')}
-          >
-            <ArrowLeft className="w-4.5 h-4.5" />
-          </button>
-          <span className="font-display text-sm font-semibold text-surface-50">{t('Account')}</span>
-          <LanguageSwitcher />
-        </div>
-      </header>
+      <StickyHeader maxWidthClassName="lg:max-w-2xl">
+        <button
+          onClick={() => navigate(-1)}
+          className="w-9 h-9 rounded-full bg-surface-800 flex items-center justify-center text-surface-300 hover:bg-surface-700 transition-colors"
+          aria-label={t('Torna indietro')}
+        >
+          <ArrowLeft className="w-4.5 h-4.5" />
+        </button>
+        <span className="font-display text-sm font-semibold text-surface-50">{t('Account')}</span>
+        <LanguageSwitcher menuAlign="right" />
+      </StickyHeader>
 
       <div className="lg:max-w-2xl lg:mx-auto px-5 py-6 lg:px-0 lg:py-10">
         {canInstall && (
@@ -139,40 +178,37 @@ function AuthForms({
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-3.5 mb-5">
-        <Field icon={<UserIcon className="w-4 h-4" />} label={t('Nome utente')}>
-          <input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-            autoComplete="username"
-            className="w-full bg-transparent text-surface-50 placeholder:text-surface-600 outline-none"
-          />
-        </Field>
+        <TextField
+          icon={<UserIcon className="w-4 h-4" />}
+          label={t('Nome utente')}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+          autoComplete="username"
+        />
 
         {mode === 'register' && (
-          <Field icon={<Mail className="w-4 h-4" />} label={t('Email')}>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              className="w-full bg-transparent text-surface-50 placeholder:text-surface-600 outline-none"
-            />
-          </Field>
+          <TextField
+            icon={<Mail className="w-4 h-4" />}
+            label={t('Email')}
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
         )}
 
-        <Field icon={<Lock className="w-4 h-4" />} label={t('Password')}>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            className="w-full bg-transparent text-surface-50 placeholder:text-surface-600 outline-none"
-          />
-        </Field>
+        <TextField
+          icon={<Lock className="w-4 h-4" />}
+          label={t('Password')}
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          minLength={8}
+          autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+        />
 
         {(localError || authError) && (
           <p className="text-danger-500 text-sm">{localError || authError}</p>
@@ -201,28 +237,6 @@ function AuthForms({
   );
 }
 
-function Field({
-  icon,
-  label,
-  children,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="text-xs font-semibold text-surface-500 uppercase tracking-wide mb-1.5 block">
-        {label}
-      </span>
-      <div className="flex items-center gap-2.5 px-3.5 h-11 rounded-xl bg-surface-900 border border-surface-800 focus-within:border-brand-500/50 transition-colors">
-        <span className="text-surface-500 flex-shrink-0">{icon}</span>
-        {children}
-      </div>
-    </label>
-  );
-}
-
 function LoggedInView({
   user,
   language,
@@ -244,6 +258,7 @@ function LoggedInView({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  //ripristina pulsante "salvato" dopo salvataggio
   useEffect(() => {
     if (!saved) return;
     const timer = setTimeout(() => setSaved(false), 2000);
@@ -283,11 +298,7 @@ function LoggedInView({
     <div className="space-y-8">
       {/* Profilo */}
       <div className="flex items-center gap-4">
-        <div className="w-14 h-14 rounded-full gradient-aurora shadow-glow flex items-center justify-center flex-shrink-0">
-          <span className="font-display font-bold text-white text-lg">
-            {user.username.slice(0, 2).toUpperCase()}
-          </span>
-        </div>
+        <UserAvatar username={user.username} size="lg" />
         <div className="min-w-0">
           <p className="font-display font-semibold text-surface-50 text-lg truncate">
             {user.username}
@@ -298,45 +309,35 @@ function LoggedInView({
 
       {/* Preferenze */}
       <section>
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="w-4 h-4 text-brand-400" />
-          <h2 className="font-display text-base font-semibold text-surface-50">
-            {t('Le tue preferenze')}
-          </h2>
-        </div>
+        <SectionHeader
+          icon={<Sparkles className="w-4 h-4 text-brand-400" />}
+          title={t('Le tue preferenze')}
+        />
         <p className="text-surface-500 text-sm mb-4">
           {t(
             'Guidano i livelli e le durate proposti di default — puoi comunque cambiarli sempre durante la visita.',
           )}
         </p>
 
-        <div className="mb-5">
-          <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide mb-2">
-            {t("Quanto conosci già l'arte?")}
-          </p>
-          <Select
-            value={competenceLevel}
-            onChange={(value) => setCompetenceLevel(value as CompetenceLevel)}
-            options={Object.values(CompetenceLevel).map((level) => ({
-              value: level,
-              label: `${COMPETENCE_META[level].emoji} ${COMPETENCE_META[level].label}`,
-            }))}
-          />
-        </div>
+        <LabeledSelect
+          label={t("Quanto conosci già l'arte?")}
+          value={competenceLevel}
+          onChange={(value) => setCompetenceLevel(value as CompetenceLevel)}
+          options={Object.values(CompetenceLevel).map((level) => ({
+            value: level,
+            label: `${COMPETENCE_META[level].emoji} ${COMPETENCE_META[level].label}`,
+          }))}
+        />
 
-        <div className="mb-5">
-          <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide mb-2">
-            {t('Quanto tempo hai di solito?')}
-          </p>
-          <Select
-            value={availableTime}
-            onChange={(value) => setAvailableTime(value as TimePreference)}
-            options={Object.values(TimePreference).map((time) => ({
-              value: time,
-              label: `${TIME_META[time].emoji} ${TIME_META[time].label}`,
-            }))}
-          />
-        </div>
+        <LabeledSelect
+          label={t('Quanto tempo hai di solito?')}
+          value={availableTime}
+          onChange={(value) => setAvailableTime(value as TimePreference)}
+          options={Object.values(TimePreference).map((time) => ({
+            value: time,
+            label: `${TIME_META[time].emoji} ${TIME_META[time].label}`,
+          }))}
+        />
 
         <Button variant="primary" onClick={handleSave} loading={saving}>
           {saved ? t('Salvato ✓') : t('Salva preferenze')}
@@ -345,23 +346,19 @@ function LoggedInView({
 
       {/* Acquisti */}
       <section>
-        <div className="flex items-center gap-2 mb-4">
-          <ShoppingBag className="w-4 h-4 text-brand-400" />
-          <h2 className="font-display text-base font-semibold text-surface-50">
-            {t('I miei acquisti')}
-          </h2>
-        </div>
+        <SectionHeader
+          icon={<ShoppingBag className="w-4 h-4 text-brand-400" />}
+          title={t('I miei acquisti')}
+        />
         <PurchasesList purchases={purchases} loading={purchasesLoading} language={language} />
       </section>
 
       <div className="pt-4 border-t border-surface-800 space-y-3">
-        <a
-          href="/marketplace"
-          className="flex items-center justify-center gap-2.5 py-3 px-5 bg-surface-900 border border-surface-800 rounded-xl text-surface-400 hover:text-brand-300 hover:border-brand-500/30 transition-all text-sm font-medium"
-        >
-          <ExternalLink className="w-4 h-4" />
-          {t('Vai al Marketplace completo')}
-        </a>
+        <Link
+          icon={<ExternalLink className="w-4 h-4" />}
+          label={t('Vai al Marketplace completo')}
+          href="/marketplace/"
+        />
         <button
           onClick={onLogout}
           className="w-full flex items-center justify-center gap-2 py-3 px-5 text-danger-500 hover:bg-danger-100 rounded-xl transition-colors text-sm font-medium"
@@ -386,8 +383,7 @@ function PurchasesList({
   const t = useT();
   const navigate = useNavigate();
 
-  // getMyPurchases popola già visitId con la visita intera — nessun'altra
-  // richiesta necessaria per mostrare titolo/durata/opere.
+  // visitId è già un documento visita completo
   const resolved = useMemo(() => (purchases || []).map((p) => p.visitId), [purchases]);
 
   if (loading) return <LoadingState fullHeight={false} message={t('Cerco i tuoi acquisti...')} />;

@@ -1,7 +1,7 @@
 /*
- * File: index.ts                                                                        *
+ * File: LabeledSelect.tsx                                                               *
  * Project: @artaround/navigator                                                         *
- * Last Modified: 11/09/2026                                                             *
+ * Last Modified: 12/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
  * -----                                                                                 *
  * MIT License                                                                           *
@@ -28,34 +28,21 @@
  * ************************************************************************************* *
  */
 
-//Esporta tutti i componenti UI
-export { Button } from './Button';
-export type { ButtonVariant, ButtonSize } from './Button';
-export { IconTile } from './IconTile';
-export type { IconTileVariant, IconTileSize } from './IconTile';
-export { Chip } from './Chip';
-export { Select } from './Select';
-export type { SelectOption } from './Select';
-export { Badge } from './Badge';
-export type { BadgeVariant } from './Badge';
-export { Card, PressableCard } from './Card';
-export { Sheet } from './Sheet';
-export { LoadingState } from './LoadingState';
-export { ErrorState } from './ErrorState';
-export { EmptyState } from './EmptyState';
-export { ProgressDots } from './ProgressDots';
-export { HighlightedText } from './HighlightedText';
-export { Toast } from './Toast';
-export { IconRowCard } from './IconRowCard';
-export { FullscreenOverlay } from './FullscreenOverlay';
-export { StepText } from './StepText';
-export { PlaybackControls } from './PlaybackControls';
-export type { PlaybackControlsVariant } from './PlaybackControls';
-export { StickyHeader } from './StickyHeader';
-export { LogoTile } from './LogoTile';
-export { UserAvatar } from './UserAvatar';
-export type { UserAvatarSize } from './UserAvatar';
-export { TextField } from './TextField';
-export { LabeledSelect } from './LabeledSelect';
-export { SectionHeader } from './SectionHeader';
-export { Link } from './Link';
+import { Select, type SelectOption } from './Select';
+
+interface LabeledSelectProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: SelectOption[];
+}
+
+// Select preceduto da un'etichetta, per i form con più campi in colonna.
+export function LabeledSelect({ label, value, onChange, options }: LabeledSelectProps) {
+  return (
+    <div className="mb-5">
+      <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide mb-2">{label}</p>
+      <Select value={value} onChange={onChange} options={options} />
+    </div>
+  );
+}

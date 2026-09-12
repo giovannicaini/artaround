@@ -1,7 +1,7 @@
 /*
- * File: index.ts                                                                        *
+ * File: FullscreenOverlay.tsx                                                           *
  * Project: @artaround/navigator                                                         *
- * Last Modified: 11/09/2026                                                             *
+ * Last Modified: 12/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
  * -----                                                                                 *
  * MIT License                                                                           *
@@ -28,34 +28,26 @@
  * ************************************************************************************* *
  */
 
-//Esporta tutti i componenti UI
-export { Button } from './Button';
-export type { ButtonVariant, ButtonSize } from './Button';
-export { IconTile } from './IconTile';
-export type { IconTileVariant, IconTileSize } from './IconTile';
-export { Chip } from './Chip';
-export { Select } from './Select';
-export type { SelectOption } from './Select';
-export { Badge } from './Badge';
-export type { BadgeVariant } from './Badge';
-export { Card, PressableCard } from './Card';
-export { Sheet } from './Sheet';
-export { LoadingState } from './LoadingState';
-export { ErrorState } from './ErrorState';
-export { EmptyState } from './EmptyState';
-export { ProgressDots } from './ProgressDots';
-export { HighlightedText } from './HighlightedText';
-export { Toast } from './Toast';
-export { IconRowCard } from './IconRowCard';
-export { FullscreenOverlay } from './FullscreenOverlay';
-export { StepText } from './StepText';
-export { PlaybackControls } from './PlaybackControls';
-export type { PlaybackControlsVariant } from './PlaybackControls';
-export { StickyHeader } from './StickyHeader';
-export { LogoTile } from './LogoTile';
-export { UserAvatar } from './UserAvatar';
-export type { UserAvatarSize } from './UserAvatar';
-export { TextField } from './TextField';
-export { LabeledSelect } from './LabeledSelect';
-export { SectionHeader } from './SectionHeader';
-export { Link } from './Link';
+import type { ReactNode } from 'react';
+import { motion } from 'framer-motion';
+
+interface FullscreenOverlayProps {
+  children: ReactNode;
+  onClick?: () => void;
+  className?: string;
+}
+
+// Contenitore comune ai pannelli a schermo intero (testo, immagine)
+export function FullscreenOverlay({ children, onClick, className = '' }: FullscreenOverlayProps) {
+  return (
+    <motion.div
+      className={`fixed inset-0 z-[70] bg-surface-950 ${className}`}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onClick}
+    >
+      {children}
+    </motion.div>
+  );
+}

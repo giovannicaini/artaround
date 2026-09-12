@@ -1,7 +1,7 @@
 /*
- * File: index.ts                                                                        *
+ * File: IconRowCard.tsx                                                                 *
  * Project: @artaround/navigator                                                         *
- * Last Modified: 11/09/2026                                                             *
+ * Last Modified: 12/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
  * -----                                                                                 *
  * MIT License                                                                           *
@@ -28,34 +28,38 @@
  * ************************************************************************************* *
  */
 
-//Esporta tutti i componenti UI
-export { Button } from './Button';
-export type { ButtonVariant, ButtonSize } from './Button';
-export { IconTile } from './IconTile';
-export type { IconTileVariant, IconTileSize } from './IconTile';
-export { Chip } from './Chip';
-export { Select } from './Select';
-export type { SelectOption } from './Select';
-export { Badge } from './Badge';
-export type { BadgeVariant } from './Badge';
-export { Card, PressableCard } from './Card';
-export { Sheet } from './Sheet';
-export { LoadingState } from './LoadingState';
-export { ErrorState } from './ErrorState';
-export { EmptyState } from './EmptyState';
-export { ProgressDots } from './ProgressDots';
-export { HighlightedText } from './HighlightedText';
-export { Toast } from './Toast';
-export { IconRowCard } from './IconRowCard';
-export { FullscreenOverlay } from './FullscreenOverlay';
-export { StepText } from './StepText';
-export { PlaybackControls } from './PlaybackControls';
-export type { PlaybackControlsVariant } from './PlaybackControls';
-export { StickyHeader } from './StickyHeader';
-export { LogoTile } from './LogoTile';
-export { UserAvatar } from './UserAvatar';
-export type { UserAvatarSize } from './UserAvatar';
-export { TextField } from './TextField';
-export { LabeledSelect } from './LabeledSelect';
-export { SectionHeader } from './SectionHeader';
-export { Link } from './Link';
+import type { ReactNode } from 'react';
+import { ChevronRight } from 'lucide-react';
+import { PressableCard } from './Card';
+
+interface IconRowCardProps {
+  icon: ReactNode;
+  label: string;
+  value?: string; // se presente, etichetta+valore su due righe invece di una sola scritta
+  onClick: () => void;
+}
+
+// Card cliccabile con icona, etichetta (ed eventuale testo troncato)
+export function IconRowCard({ icon, label, value, onClick }: IconRowCardProps) {
+  return (
+    <PressableCard
+      onClick={onClick}
+      className={`p-4 flex gap-3 ${value ? 'items-start' : 'items-center'}`}
+    >
+      <div className="w-9 h-9 rounded-xl bg-brand-500/[.12] flex items-center justify-center flex-shrink-0">
+        {icon}
+      </div>
+      {value ? (
+        <div className="min-w-0 flex-1">
+          <p className="text-[0.68rem] font-bold uppercase tracking-wide text-surface-500 mb-0.5">
+            {label}
+          </p>
+          <p className="text-sm text-surface-200 line-clamp-2">{value}</p>
+        </div>
+      ) : (
+        <span className="flex-1 text-sm font-medium text-surface-200">{label}</span>
+      )}
+      <ChevronRight className={`w-4 h-4 text-surface-600 flex-shrink-0 ${value ? 'mt-0.5' : ''}`} />
+    </PressableCard>
+  );
+}

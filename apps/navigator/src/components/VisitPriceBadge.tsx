@@ -30,8 +30,8 @@
 
 import { CheckCircle2 } from 'lucide-react';
 import type { Visit } from '@artaround/shared';
-import { Badge } from './Badge';
-import { useT } from '../../services/useT';
+import { Badge } from './ui/Badge';
+import { useT } from '../services/useT';
 
 interface VisitPriceBadgeProps {
   visit: Visit;

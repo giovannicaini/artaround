@@ -108,7 +108,6 @@ export enum ContentDuration {
   SHORT = '15s', // Panoramica rapida
   MEDIUM = '1min', // Spiegazione standard
   LONG = '4min', // Analisi dettagliata
-  EXTENDED = '10min', // Approfondimento
 }
 
 export enum LanguageLevel {

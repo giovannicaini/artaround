@@ -34,7 +34,6 @@ export const CONTENT_DURATION_LABELS_IT: Readonly<Record<ContentDuration, string
   [ContentDuration.SHORT]: 'Breve',
   [ContentDuration.MEDIUM]: 'Medio',
   [ContentDuration.LONG]: 'Lungo',
-  [ContentDuration.EXTENDED]: 'Esteso',
 };
 
 export const CONTENT_DURATION_OPTIONS_IT: ReadonlyArray<SelectOption<ContentDuration>> = [
@@ -42,14 +41,12 @@ export const CONTENT_DURATION_OPTIONS_IT: ReadonlyArray<SelectOption<ContentDura
   { value: ContentDuration.SHORT, label: '15 secondi - Breve' },
   { value: ContentDuration.MEDIUM, label: '1 minuto - Medio' },
   { value: ContentDuration.LONG, label: '4 minuti - Lungo' },
-  { value: ContentDuration.EXTENDED, label: '10 minuti - Esteso' },
 ];
 
 export const CONTENT_DURATION_MATRIX_OPTIONS_IT: ReadonlyArray<SelectOption<ContentDuration>> = [
   { value: ContentDuration.SHORT, label: '15s - Brevissima' },
   { value: ContentDuration.MEDIUM, label: '1min - Breve' },
   { value: ContentDuration.LONG, label: '4min - Media' },
-  { value: ContentDuration.EXTENDED, label: '10min - Estesa' },
 ];
 
 export const LANGUAGE_LEVEL_LABELS_IT: Readonly<Record<LanguageLevel, string>> = {

@@ -31,8 +31,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { APP_LANGUAGE_OPTIONS, type AppLanguage } from '@artaround/shared';
-import { useI18nStore } from '../../context/i18nStore';
-import { useT } from '../../services/useT';
+import { useI18nStore } from '../context/i18nStore';
+import { useT } from '../services/useT';
 
 function flagUrl(code: string): string {
   return `https://flagcdn.com/20x15/${code}.png`;
@@ -42,10 +42,18 @@ interface LanguageSwitcherProps {
   // Se un museo ha attivato solo alcune lingue, limita la scelta a quelle.
   languages?: AppLanguage[];
   variant?: 'glass' | 'panel';
+  // Lato di apertura del menu — dipende da dove sta il pulsante sullo
+  // schermo, non dallo stile: 'right' se è vicino al bordo destro (altrimenti
+  // il menu ci esce fuori e allarga la pagina su mobile).
+  menuAlign?: 'left' | 'right';
 }
 
 // Selettore lingua (bandiera + menu a comparsa)
-export function LanguageSwitcher({ languages, variant = 'panel' }: LanguageSwitcherProps) {
+export function LanguageSwitcher({
+  languages,
+  variant = 'panel',
+  menuAlign = 'left',
+}: LanguageSwitcherProps) {
   const language = useI18nStore((state) => state.language);
   const setLanguage = useI18nStore((state) => state.setLanguage);
   const t = useT();
@@ -109,8 +117,7 @@ export function LanguageSwitcher({ languages, variant = 'panel' }: LanguageSwitc
       {open && (
         <div
           role="listbox"
-          // glass apre a sinistra (right-0), panel a destra (left-0) per non uscire dallo schermo.
-          className={`absolute ${variant === 'glass' ? 'right-0' : 'left-0'} top-full mt-2 min-w-[9.5rem] rounded-xl bg-surface-900 border border-surface-800 shadow-2xl z-50 overflow-hidden py-1`}
+          className={`absolute ${menuAlign === 'right' ? 'right-0' : 'left-0'} top-full mt-2 min-w-[9.5rem] rounded-xl bg-surface-900 border border-surface-800 shadow-2xl z-50 overflow-hidden py-1`}
         >
           {options.map((option) => (
             <button

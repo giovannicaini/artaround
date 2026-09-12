@@ -1,7 +1,7 @@
 /*
- * File: index.ts                                                                        *
+ * File: TextField.tsx                                                                   *
  * Project: @artaround/navigator                                                         *
- * Last Modified: 11/09/2026                                                             *
+ * Last Modified: 12/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
  * -----                                                                                 *
  * MIT License                                                                           *
@@ -28,34 +28,27 @@
  * ************************************************************************************* *
  */
 
-//Esporta tutti i componenti UI
-export { Button } from './Button';
-export type { ButtonVariant, ButtonSize } from './Button';
-export { IconTile } from './IconTile';
-export type { IconTileVariant, IconTileSize } from './IconTile';
-export { Chip } from './Chip';
-export { Select } from './Select';
-export type { SelectOption } from './Select';
-export { Badge } from './Badge';
-export type { BadgeVariant } from './Badge';
-export { Card, PressableCard } from './Card';
-export { Sheet } from './Sheet';
-export { LoadingState } from './LoadingState';
-export { ErrorState } from './ErrorState';
-export { EmptyState } from './EmptyState';
-export { ProgressDots } from './ProgressDots';
-export { HighlightedText } from './HighlightedText';
-export { Toast } from './Toast';
-export { IconRowCard } from './IconRowCard';
-export { FullscreenOverlay } from './FullscreenOverlay';
-export { StepText } from './StepText';
-export { PlaybackControls } from './PlaybackControls';
-export type { PlaybackControlsVariant } from './PlaybackControls';
-export { StickyHeader } from './StickyHeader';
-export { LogoTile } from './LogoTile';
-export { UserAvatar } from './UserAvatar';
-export type { UserAvatarSize } from './UserAvatar';
-export { TextField } from './TextField';
-export { LabeledSelect } from './LabeledSelect';
-export { SectionHeader } from './SectionHeader';
-export { Link } from './Link';
+import type { InputHTMLAttributes, ReactNode } from 'react';
+
+interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
+  icon: ReactNode;
+  label: string;
+}
+
+// Text input con etichetta sopra e icona a sinistra, per i form (login/registrazione...)
+export function TextField({ icon, label, ...inputProps }: TextFieldProps) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold text-surface-500 uppercase tracking-wide mb-1.5 block">
+        {label}
+      </span>
+      <div className="flex items-center gap-2.5 px-3.5 h-11 rounded-xl bg-surface-900 border border-surface-800 focus-within:border-brand-500/50 transition-colors">
+        <span className="text-surface-500 flex-shrink-0">{icon}</span>
+        <input
+          {...inputProps}
+          className="w-full bg-transparent text-surface-50 placeholder:text-surface-600 outline-none"
+        />
+      </div>
+    </label>
+  );
+}
