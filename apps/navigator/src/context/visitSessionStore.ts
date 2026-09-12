@@ -98,6 +98,7 @@ interface VisitSessionState {
     visit: Visit,
     steps: PlayerStep[],
     defaults: { languageLevel: LanguageLevel; contentDuration: ContentDuration },
+    initialStepIndex?: number,
   ) => void;
   goToStep: (index: number) => void;
   nextStep: () => void;
@@ -120,11 +121,12 @@ export const useVisitSessionStore = create<VisitSessionState>((set, get) => ({
   isSpeaking: false,
   isListening: false,
 
-  start: (visit, steps, defaults) =>
+  start: (visit, steps, defaults, initialStepIndex = 0) =>
     set({
       visit,
       steps,
-      currentStepIndex: 0,
+      currentStepIndex:
+        initialStepIndex >= 0 && initialStepIndex < steps.length ? initialStepIndex : 0,
       languageLevel: defaults.languageLevel,
       contentDuration: defaults.contentDuration,
     }),

@@ -49,7 +49,7 @@ import {
 } from '../services/content';
 import { toSpeechLocale } from '../services/i18n';
 import { defaultLanguageLevel, defaultContentDuration } from '../services/personalization';
-import { saveVisitProgress } from '../services/visitProgress';
+import { saveVisitProgress, loadVisitProgress } from '../services/visitProgress';
 import { loadVisitData } from '../services/loadVisitData';
 import { useVoiceCommands } from '../services/useVoiceCommands';
 import {
@@ -146,13 +146,20 @@ export default function VisitPlayerPage() {
     enabled: !!visitId,
   });
 
-  // Una volta caricata, entra nello store di sessione con i default proposti dall'utente.
+  // Una volta caricata, entra nello store di sessione con i default proposti dall'utente —
+  // riprendendo dalla tappa salvata se il progresso su questo dispositivo è di questa visita.
   useEffect(() => {
     if (!data) return;
-    start(data.visit, data.steps, {
-      languageLevel: defaultLanguageLevel(user?.preferences),
-      contentDuration: defaultContentDuration(user?.preferences),
-    });
+    const progress = loadVisitProgress();
+    start(
+      data.visit,
+      data.steps,
+      {
+        languageLevel: defaultLanguageLevel(user?.preferences),
+        contentDuration: defaultContentDuration(user?.preferences),
+      },
+      progress?.visitId === data.visit._id ? progress.stepIndex : 0,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 

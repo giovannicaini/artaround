@@ -84,7 +84,7 @@ export default function HomePage() {
   }
 
   function handleResumeVisit() {
-    if (progress) navigate(`/visit/${progress.visitId}`);
+    if (progress) navigate(`/visit/${progress.visitId}/play`);
   }
 
   if (isLoading) {

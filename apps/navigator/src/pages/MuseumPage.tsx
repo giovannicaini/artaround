@@ -51,7 +51,7 @@ import { useT } from '../services/useT';
 import { useLanguageLevelMeta } from '../services/useLanguageLevelMeta';
 import { useNavigatorConfigStore } from '../context/navigatorConfigStore';
 import { localizedField } from '../services/i18n';
-import { useOwnedVisitIds, canStartVisit } from '../services/visitAccess';
+import { useOwnedVisitIds } from '../services/visitAccess';
 import { LanguageLevel, type Visit, type MuseumService } from '@artaround/shared';
 import {
   Chip,
@@ -67,7 +67,6 @@ import {
   StickyHeader,
 } from '../components/ui';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
-import { PurchasePrompt } from '../components/PurchasePrompt';
 import { VisitPriceBadge } from '../components/VisitPriceBadge';
 import { ServiceGrid } from '../components/ServiceGrid';
 import MapView from '../components/MapView';
@@ -147,14 +146,8 @@ export default function MuseumPage() {
   });
 
   const ownedVisitIds = useOwnedVisitIds();
-  // Visita a pagamento non posseduta: modale per acquisto su marketplace
-  const [purchasePromptVisit, setPurchasePromptVisit] = useState<Visit | null>(null);
 
   function handleSelectVisit(visit: Visit) {
-    if (!canStartVisit(visit, ownedVisitIds)) {
-      setPurchasePromptVisit(visit);
-      return;
-    }
     navigate(`/visit/${visit._id}`);
   }
 
@@ -278,6 +271,9 @@ export default function MuseumPage() {
             <ArrowLeft className="w-4.5 h-4.5" />
           </button>
         )}
+        <span className="font-display text-sm font-semibold text-surface-50">
+          {t('Dettagli Museo')}
+        </span>
         <div className="flex items-center gap-2">
           <LanguageSwitcher languages={museum?.activeLanguages} menuAlign="right" />
           <UserAvatar
@@ -358,19 +354,6 @@ export default function MuseumPage() {
               <p className="text-sm text-surface-200 whitespace-pre-line leading-relaxed">
                 {expandedInfo.value}
               </p>
-            </Sheet>
-          )}
-
-          {purchasePromptVisit && (
-            <Sheet open onClose={() => setPurchasePromptVisit(null)}>
-              <PurchasePrompt
-                title={localizedField(
-                  language,
-                  purchasePromptVisit.title,
-                  purchasePromptVisit.titleTranslations,
-                )}
-                price={purchasePromptVisit.metadata?.price || 0}
-              />
             </Sheet>
           )}
 

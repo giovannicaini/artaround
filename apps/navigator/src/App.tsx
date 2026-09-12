@@ -10,14 +10,20 @@ import { useT } from './services/useT';
 import { format } from './services/i18n';
 import HomePage from './pages/HomePage';
 import MuseumPage from './pages/MuseumPage';
+import VisitDetailPage from './pages/VisitDetailPage';
 import VisitPlayerPage from './pages/VisitPlayerPage';
 import AccountPage from './pages/AccountPage';
 import WelcomePage from './pages/WelcomePage';
+import OnboardingPage from './pages/OnboardingPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { LoadingState, Toast, Sheet, IconTile, LogoTile } from './components/ui';
 
 function welcomeSeenKey(configId: string): string {
   return `welcomeSeen:${configId}`;
+}
+
+function onboardingSeenKey(configId: string): string {
+  return `onboardingSeen:${configId}`;
 }
 
 function installToastSeenKey(configId: string): string {
@@ -80,6 +86,27 @@ function App() {
     setWelcomeDismissed(true);
   }
 
+  // Tour del prodotto, dopo l'eventuale splash del curatore — spiega cosa si
+  // può fare con l'app, non il branding di questa configurazione.
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+
+  const onboardingAlreadySeen =
+    !!activeConfig?._id &&
+    (() => {
+      try {
+        return localStorage.getItem(onboardingSeenKey(activeConfig._id)) === '1';
+      } catch {
+        return false;
+      }
+    })();
+
+  const showOnboarding =
+    configReady && !!activeConfig && !showWelcome && !onboardingAlreadySeen && !onboardingDismissed;
+
+  function finishOnboarding() {
+    setOnboardingDismissed(true);
+  }
+
   // Toast "Installa l'app": su Chrome/Edge/Android propone l'installazione
   // vera (beforeinstallprompt, vedi useInstallPrompt); su iOS Safari — che
   // non espone quell'evento — spiega come fare a mano con "Condividi".
@@ -95,7 +122,7 @@ function App() {
   );
 
   useEffect(() => {
-    if (!configReady || !activeConfig || isStandalone || showWelcome) return;
+    if (!configReady || !activeConfig || isStandalone || showWelcome || showOnboarding) return;
     if (!canInstall && !isIOS) return; // niente da proporre (desktop, browser senza supporto)
     let alreadyShown = false;
     try {
@@ -106,7 +133,7 @@ function App() {
     if (alreadyShown) return;
     const timer = setTimeout(() => setShowInstallToast(true), 2500);
     return () => clearTimeout(timer);
-  }, [configReady, activeConfig, canInstall, isIOS, isStandalone, showWelcome]);
+  }, [configReady, activeConfig, canInstall, isIOS, isStandalone, showWelcome, showOnboarding]);
 
   function dismissInstallToast() {
     if (activeConfig?._id) {
@@ -145,6 +172,14 @@ function App() {
     );
   }
 
+  if (showOnboarding && activeConfig) {
+    return (
+      <div className="h-full bg-surface-950">
+        <OnboardingPage config={activeConfig} onFinish={finishOnboarding} />
+      </div>
+    );
+  }
+
   return (
     <div className="h-full bg-surface-950">
       <Routes>
@@ -155,7 +190,8 @@ function App() {
           }
         />
         <Route path="/museum/:museumId" element={<MuseumPage />} />
-        <Route path="/visit/:visitId" element={<VisitPlayerPage />} />
+        <Route path="/visit/:visitId" element={<VisitDetailPage />} />
+        <Route path="/visit/:visitId/play" element={<VisitPlayerPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="*" element={<NotFoundPage config={activeConfig} />} />
       </Routes>
