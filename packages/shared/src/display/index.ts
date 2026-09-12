@@ -3,6 +3,7 @@
 */
 
 export * from './common';
+export * from './i18n.display';
 export * from './artwork.display';
 export * from './museum.display';
 export * from './item.display';

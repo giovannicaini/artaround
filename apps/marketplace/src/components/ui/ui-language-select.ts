@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { AppLanguage } from '@artaround/shared';
+import { APP_LANGUAGE_META, type AppLanguage } from '@artaround/shared';
 import { __ } from '../../services/i18n.service';
 import './ui-icon';
 
@@ -45,22 +45,16 @@ export class UiLanguageSelect extends LitElement {
   };
 
   private get languageOptions(): Array<{ value: AppLanguage; label: string; flagCode: string }> {
-    const all = {
-      it: { value: 'it' as const, label: __('Italiano'), flagCode: 'it' },
-      en: { value: 'en' as const, label: __('English'), flagCode: 'us' },
-      fr: { value: 'fr' as const, label: __('Français'), flagCode: 'fr' },
-      de: { value: 'de' as const, label: __('Deutsch'), flagCode: 'de' },
-      es: { value: 'es' as const, label: __('Español'), flagCode: 'es' },
+    const toOption = (lang: AppLanguage) => {
+      const meta = APP_LANGUAGE_META[lang];
+      return { value: lang, label: __(meta.label), flagCode: meta.flagCode };
     };
 
-    const uniqueLanguages = Array.from(new Set(this.languages));
-    const filtered = uniqueLanguages
-      .map((lang) => all[lang])
-      .filter((opt): opt is { value: AppLanguage; label: string; flagCode: string } =>
-        Boolean(opt),
-      );
+    const uniqueLanguages = Array.from(new Set(this.languages)).filter(
+      (lang): lang is AppLanguage => lang in APP_LANGUAGE_META,
+    );
 
-    return filtered.length > 0 ? filtered : [all.it];
+    return uniqueLanguages.length > 0 ? uniqueLanguages.map(toOption) : [toOption('it')];
   }
 
   private get selectedOption() {

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { ZoomIn, ZoomOut, Maximize2, Navigation, X } from 'lucide-react';
 import type { MuseumMap, MapMarker } from '@artaround/shared';
-import { MarkerType } from '@artaround/shared';
+import { MarkerType, MARKER_TYPE_META } from '@artaround/shared';
 import { useT } from '../services/useT';
 import { format } from '../services/i18n';
 import { polygonCentroid } from '../services/geometry';
@@ -15,7 +15,7 @@ interface ArtworkInfo {
   image: string;
 }
 
-// ARTWORK, SCULPTURE e PAINTING sono comunque tutte "un'opera" ai fini della mappa.
+// ARTWORK, SCULPTURE E PAINTING devono essere visti come opera, gli altri tipi no
 function isArtworkMarker(type: MarkerType): boolean {
   return (
     type === MarkerType.ARTWORK || type === MarkerType.SCULPTURE || type === MarkerType.PAINTING
@@ -28,11 +28,19 @@ interface MapViewProps {
   artworkInfo?: Record<string, ArtworkInfo>; // titolo+immagine per Wikidata ID
   currentArtworkId?: string; // opera attualmente in ascolto (Wikidata ID)
   visitArtworkIds?: string[]; // tutte le opere della visita, in ordine
-  // Marker non-opera (ingresso, bar...) associato a una tappa LOGISTIC/NAVIGATION —
-  // ignorato se currentArtworkId trova già un marker.
-  focusMarkerId?: string;
+  focusMarkerId?: string; //Marker non-opera (ingresso, bar...) associato a una tappa LOGISTIC/NAVIGATION
   onMarkerClick?: (marker: MapMarker) => void;
   onClose?: () => void;
+}
+
+// Non è un punto di interesse: serve solo a far piegare il percorso disegnato sulla
+// mappa, non va mai reso come marker cliccabile per il visitatore.
+const ICON_OVERRIDES: Partial<Record<MarkerType, string>> = {
+  [MarkerType.WAYPOINT]: '',
+};
+
+function markerIcon(type: MarkerType): string {
+  return ICON_OVERRIDES[type] ?? MARKER_TYPE_META[type].icon;
 }
 
 // Icon mapping for marker types — funzione (non costante di modulo) perché
@@ -41,38 +49,128 @@ function buildMarkerIcons(
   t: (text: string) => string,
 ): Record<MarkerType, { icon: string; color: string; label: string }> {
   return {
-    [MarkerType.ARTWORK]: { icon: '🖼️', color: 'bg-brand-500', label: t('Opera') },
-    [MarkerType.ENTRANCE]: { icon: '🚪', color: 'bg-green-500', label: t('Ingresso') },
-    [MarkerType.EXIT]: { icon: '🚶', color: 'bg-blue-500', label: t('Uscita') },
-    [MarkerType.TOILETTE]: { icon: '🚻', color: 'bg-cyan-500', label: t('Bagni') },
+    [MarkerType.ARTWORK]: {
+      icon: markerIcon(MarkerType.ARTWORK),
+      color: 'bg-brand-500',
+      label: t('Opera'),
+    },
+    [MarkerType.ENTRANCE]: {
+      icon: markerIcon(MarkerType.ENTRANCE),
+      color: 'bg-green-500',
+      label: t('Ingresso'),
+    },
+    [MarkerType.EXIT]: {
+      icon: markerIcon(MarkerType.EXIT),
+      color: 'bg-blue-500',
+      label: t('Uscita'),
+    },
+    [MarkerType.TOILETTE]: {
+      icon: markerIcon(MarkerType.TOILETTE),
+      color: 'bg-cyan-500',
+      label: t('Bagni'),
+    },
     [MarkerType.ACCESSIBLE_TOILETTE]: {
-      icon: '♿',
+      icon: markerIcon(MarkerType.ACCESSIBLE_TOILETTE),
       color: 'bg-cyan-600',
       label: t('Bagni accessibili'),
     },
-    [MarkerType.BAR]: { icon: '☕', color: 'bg-amber-500', label: t('Bar') },
-    [MarkerType.SHOP]: { icon: '🛍️', color: 'bg-pink-500', label: t('Shop') },
-    [MarkerType.EMERGENCY_EXIT]: { icon: '🚨', color: 'bg-red-500', label: t('Uscita emergenza') },
-    [MarkerType.ELEVATOR]: { icon: '🛗', color: 'bg-purple-500', label: t('Ascensore') },
-    [MarkerType.STAIRS]: { icon: '🪜', color: 'bg-orange-500', label: t('Scale') },
-    [MarkerType.ACCESSIBILITY]: { icon: '♿', color: 'bg-blue-600', label: t('Accessibilità') },
-    [MarkerType.ROOM]: { icon: '🏛️', color: 'bg-neutral-500', label: t('Sala') },
-    [MarkerType.INFO_POINT]: { icon: 'ℹ️', color: 'bg-blue-400', label: t('Info') },
-    [MarkerType.OBSTACLE]: { icon: '⚠️', color: 'bg-yellow-500', label: t('Ostacolo') },
-    [MarkerType.BENCH]: { icon: '🪑', color: 'bg-lime-500', label: t('Panchina') },
-    [MarkerType.AUDIO_GUIDE]: { icon: '🎧', color: 'bg-indigo-500', label: t('Audioguida') },
-    [MarkerType.WIFI]: { icon: '📶', color: 'bg-teal-500', label: 'Wi-Fi' },
-    [MarkerType.RESTAURANT]: { icon: '🍽️', color: 'bg-amber-600', label: t('Ristorante') },
-    [MarkerType.CLOAKROOM]: { icon: '🧥', color: 'bg-rose-500', label: t('Guardaroba') },
-    [MarkerType.LOCKER]: { icon: '🗄️', color: 'bg-fuchsia-500', label: t('Armadio') },
-    [MarkerType.SCULPTURE]: { icon: '🗿', color: 'bg-brand-400', label: t('Scultura') },
-    [MarkerType.PAINTING]: { icon: '🖌️', color: 'bg-brand-300', label: t('Dipinto') },
-    [MarkerType.ESCALATOR]: { icon: '🎢', color: 'bg-orange-600', label: t('Scala mobile') },
-    [MarkerType.RAMP]: { icon: '🛤️', color: 'bg-yellow-600', label: t('Rampa') },
-    [MarkerType.GALLERY]: { icon: '🖼️', color: 'bg-neutral-600', label: t('Galleria') },
-    // Non è un punto di interesse: serve solo a far piegare il percorso disegnato sulla
-    // mappa, non va mai reso come marker cliccabile per il visitatore.
-    [MarkerType.WAYPOINT]: { icon: '', color: 'bg-transparent', label: t('Waypoint') },
+    [MarkerType.BAR]: { icon: markerIcon(MarkerType.BAR), color: 'bg-amber-500', label: t('Bar') },
+    [MarkerType.SHOP]: {
+      icon: markerIcon(MarkerType.SHOP),
+      color: 'bg-pink-500',
+      label: t('Shop'),
+    },
+    [MarkerType.EMERGENCY_EXIT]: {
+      icon: markerIcon(MarkerType.EMERGENCY_EXIT),
+      color: 'bg-red-500',
+      label: t('Uscita emergenza'),
+    },
+    [MarkerType.ELEVATOR]: {
+      icon: markerIcon(MarkerType.ELEVATOR),
+      color: 'bg-purple-500',
+      label: t('Ascensore'),
+    },
+    [MarkerType.STAIRS]: {
+      icon: markerIcon(MarkerType.STAIRS),
+      color: 'bg-orange-500',
+      label: t('Scale'),
+    },
+    [MarkerType.ACCESSIBILITY]: {
+      icon: markerIcon(MarkerType.ACCESSIBILITY),
+      color: 'bg-blue-600',
+      label: t('Accessibilità'),
+    },
+    [MarkerType.ROOM]: {
+      icon: markerIcon(MarkerType.ROOM),
+      color: 'bg-neutral-500',
+      label: t('Sala'),
+    },
+    [MarkerType.INFO_POINT]: {
+      icon: markerIcon(MarkerType.INFO_POINT),
+      color: 'bg-blue-400',
+      label: t('Info'),
+    },
+    [MarkerType.OBSTACLE]: {
+      icon: markerIcon(MarkerType.OBSTACLE),
+      color: 'bg-yellow-500',
+      label: t('Ostacolo'),
+    },
+    [MarkerType.BENCH]: {
+      icon: markerIcon(MarkerType.BENCH),
+      color: 'bg-lime-500',
+      label: t('Panchina'),
+    },
+    [MarkerType.AUDIO_GUIDE]: {
+      icon: markerIcon(MarkerType.AUDIO_GUIDE),
+      color: 'bg-indigo-500',
+      label: t('Audioguida'),
+    },
+    [MarkerType.WIFI]: { icon: markerIcon(MarkerType.WIFI), color: 'bg-teal-500', label: 'Wi-Fi' },
+    [MarkerType.RESTAURANT]: {
+      icon: markerIcon(MarkerType.RESTAURANT),
+      color: 'bg-amber-600',
+      label: t('Ristorante'),
+    },
+    [MarkerType.CLOAKROOM]: {
+      icon: markerIcon(MarkerType.CLOAKROOM),
+      color: 'bg-rose-500',
+      label: t('Guardaroba'),
+    },
+    [MarkerType.LOCKER]: {
+      icon: markerIcon(MarkerType.LOCKER),
+      color: 'bg-fuchsia-500',
+      label: t('Armadio'),
+    },
+    [MarkerType.SCULPTURE]: {
+      icon: markerIcon(MarkerType.SCULPTURE),
+      color: 'bg-brand-400',
+      label: t('Scultura'),
+    },
+    [MarkerType.PAINTING]: {
+      icon: markerIcon(MarkerType.PAINTING),
+      color: 'bg-brand-300',
+      label: t('Dipinto'),
+    },
+    [MarkerType.ESCALATOR]: {
+      icon: markerIcon(MarkerType.ESCALATOR),
+      color: 'bg-orange-600',
+      label: t('Scala mobile'),
+    },
+    [MarkerType.RAMP]: {
+      icon: markerIcon(MarkerType.RAMP),
+      color: 'bg-yellow-600',
+      label: t('Rampa'),
+    },
+    [MarkerType.GALLERY]: {
+      icon: markerIcon(MarkerType.GALLERY),
+      color: 'bg-neutral-600',
+      label: t('Galleria'),
+    },
+    [MarkerType.WAYPOINT]: {
+      icon: markerIcon(MarkerType.WAYPOINT),
+      color: 'bg-transparent',
+      label: t('Waypoint'),
+    },
   };
 }
 

@@ -1,3 +1,33 @@
+/*
+ * File: authStore.ts                                                                    *
+ * Project: @artaround/navigator                                                         *
+ * Last Modified: 11/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 import { create } from 'zustand';
 import type { User, LoginRequest, RegisterRequest, UserPreferences } from '@artaround/shared';
 import { api, getToken, setToken, clearToken } from '../services/apiClient';
@@ -15,8 +45,7 @@ interface AuthState {
   logout: () => void;
 }
 
-// login e register hanno la stessa forma (chiama l'API, salva token+utente, gestisce l'errore) —
-// condivisa qui invece di duplicata.
+// sia login che register: chiama API, salva token+utente, eventuali errori
 async function authenticate(
   set: (partial: Partial<AuthState>) => void,
   action: () => Promise<{ user: User; token: string }>,
@@ -35,7 +64,7 @@ async function authenticate(
   }
 }
 
-/** Sessione utente, unico store per tutta l'app — token condiviso con il marketplace via localStorage. */
+// Sessione utente, token condiviso con il marketplace via localStorage: un login unico
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   status: 'idle',

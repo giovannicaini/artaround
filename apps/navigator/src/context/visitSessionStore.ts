@@ -1,3 +1,33 @@
+/*
+ * File: visitSessionStore.ts                                                            *
+ * Project: @artaround/navigator                                                         *
+ * Last Modified: 11/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 import { create } from 'zustand';
 import {
   LanguageLevel,
@@ -12,14 +42,14 @@ import {
 
 type Translations = Partial<Record<AppLanguage, string>>;
 
-/** Una tappa del player: opera, approfondimento, info logistiche o indicazioni. */
+// Una tappa del player: opera, approfondimento, info logistiche o indicazioni.
 export type PlayerStep =
   | {
       kind: 'artwork';
       id: string;
       artwork: Artwork;
       items: Item[];
-      // Contenuto su autore/movimento, se generato — per le risposte vocali "chi è l'autore".
+      // Contenuti su autore/movimento, se presenti
       authorItems?: Item[];
       movementItems?: Item[];
     }
@@ -38,7 +68,7 @@ export type PlayerStep =
       titleTranslations?: Translations;
       text: string;
       textTranslations?: Translations;
-      // Audio già generato per lingua — assente finché il curatore non lo genera.
+      // Audio già generato da OpenAI: se assente, si usa api del browser
       textAudio?: Partial<Record<AppLanguage, GeneratedAudio>>;
       icon?: string;
       mapMarkerId?: string;
@@ -79,10 +109,8 @@ interface VisitSessionState {
   reset: () => void;
 }
 
-/**
- * Stato di una visita in corso — sostituisce NavigatorContext. Nessun
- * "supporto legacy": le pagine leggono direttamente questi campi.
- */
+// Stato di una visita in corso
+
 export const useVisitSessionStore = create<VisitSessionState>((set, get) => ({
   visit: null,
   steps: [],

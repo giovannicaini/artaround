@@ -1054,12 +1054,7 @@ export default function VisitPlayerPage() {
               </div>
 
               <div className="mb-4">
-                <ProgressDots
-                  total={steps.length}
-                  current={currentStepIndex}
-                  onSelect={goToStep}
-                  tone="onSurface"
-                />
+                <ProgressDots total={steps.length} current={currentStepIndex} onSelect={goToStep} />
                 <p className="text-surface-400 text-xs mt-1.5 text-center font-medium">
                   {format(t('{current} di {total}'), {
                     current: String(currentStepIndex + 1),
@@ -1179,12 +1174,7 @@ export default function VisitPlayerPage() {
           </AnimatePresence>
 
           <div className="absolute bottom-0 left-0 right-0 p-6">
-            <ProgressDots
-              total={steps.length}
-              current={currentStepIndex}
-              onSelect={goToStep}
-              tone="onSurface"
-            />
+            <ProgressDots total={steps.length} current={currentStepIndex} onSelect={goToStep} />
             <p className="text-surface-500 text-sm text-center mt-2">
               {format(t('Tappa {current} di {total}'), {
                 current: String(currentStepIndex + 1),

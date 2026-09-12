@@ -1,28 +1,50 @@
+/*
+ * File: LanguageSwitcher.tsx                                                            *
+ * Project: @artaround/navigator                                                         *
+ * Last Modified: 11/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import type { AppLanguage } from '@artaround/shared';
+import { APP_LANGUAGE_OPTIONS, type AppLanguage } from '@artaround/shared';
 import { useI18nStore } from '../../context/i18nStore';
 import { useT } from '../../services/useT';
-
-const ALL_OPTIONS: Array<{ value: AppLanguage; label: string; flagCode: string }> = [
-  { value: 'it', label: 'Italiano', flagCode: 'it' },
-  { value: 'en', label: 'English', flagCode: 'us' },
-  { value: 'fr', label: 'Français', flagCode: 'fr' },
-  { value: 'de', label: 'Deutsch', flagCode: 'de' },
-  { value: 'es', label: 'Español', flagCode: 'es' },
-];
 
 function flagUrl(code: string): string {
   return `https://flagcdn.com/20x15/${code}.png`;
 }
 
 interface LanguageSwitcherProps {
-  /** Se un museo ha attivato solo alcune lingue, limita la scelta a quelle. */
+  // Se un museo ha attivato solo alcune lingue, limita la scelta a quelle.
   languages?: AppLanguage[];
   variant?: 'glass' | 'panel';
 }
 
-/** Selettore lingua (bandiera + menu a comparsa) — un solo posto in tutta l'app. */
+// Selettore lingua (bandiera + menu a comparsa)
 export function LanguageSwitcher({ languages, variant = 'panel' }: LanguageSwitcherProps) {
   const language = useI18nStore((state) => state.language);
   const setLanguage = useI18nStore((state) => state.setLanguage);
@@ -31,8 +53,8 @@ export function LanguageSwitcher({ languages, variant = 'panel' }: LanguageSwitc
   const rootRef = useRef<HTMLDivElement>(null);
 
   const options = languages?.length
-    ? ALL_OPTIONS.filter((option) => languages.includes(option.value))
-    : ALL_OPTIONS;
+    ? APP_LANGUAGE_OPTIONS.filter((option) => languages.includes(option.value))
+    : APP_LANGUAGE_OPTIONS;
   const selected = options.find((option) => option.value === language) || options[0];
 
   // Se la lingua salvata non è tra quelle attive di questo museo, passa alla prima disponibile.
@@ -87,7 +109,7 @@ export function LanguageSwitcher({ languages, variant = 'panel' }: LanguageSwitc
       {open && (
         <div
           role="listbox"
-          // glass apre a sinistra (right-0), panel a destra (left-0) — per non uscire schermo.
+          // glass apre a sinistra (right-0), panel a destra (left-0) per non uscire dallo schermo.
           className={`absolute ${variant === 'glass' ? 'right-0' : 'left-0'} top-full mt-2 min-w-[9.5rem] rounded-xl bg-surface-900 border border-surface-800 shadow-2xl z-50 overflow-hidden py-1`}
         >
           {options.map((option) => (
