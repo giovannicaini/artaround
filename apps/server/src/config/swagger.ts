@@ -36,12 +36,12 @@ const swaggerDefinition = {
   },
   servers: [
     {
-      url: `https://site2519.tw.cs.unibo.it:${config.port}`,
-      description: 'Server di sviluppo',
+      url: `https://site2519.tw.cs.unibo.it`,
+      description: 'Server di produzione',
     },
     {
       url: `http://localhost:${config.port}`,
-      description: 'Server di sviluppo/produzione',
+      description: 'Server di sviluppo',
     },
     {
       url: 'https://artaround.giovannicaini.it',
