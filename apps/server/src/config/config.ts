@@ -115,4 +115,14 @@ export const config = {
     onStart: toBoolean(process.env.SEED_ON_START, true),
     onlyIfEmpty: toBoolean(process.env.SEED_ONLY_IF_EMPTY, true),
   },
+
+  // Ripristino di un dump (vedi scripts/db-dump.mjs) fatto dall'app stessa
+  // all'avvio — per ambienti dove il database è raggiungibile solo dall'app
+  // in esecuzione, non da uno script esterno lanciato a mano. Disattivato di
+  // default: va acceso solo quando serve davvero un ripristino, mai lasciato
+  // attivo in modo permanente (altrimenti ogni riavvio azzera il database).
+  restoreDump: {
+    onStart: toBoolean(process.env.RESTORE_DUMP_ON_START, false),
+    dir: process.env.RESTORE_DUMP_DIR || path.join(workspaceRootDir, 'dump'),
+  },
 };

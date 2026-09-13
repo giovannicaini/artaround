@@ -100,6 +100,14 @@ const startServer = async () => {
     // Connetti a MongoDB
     await connectDB();
 
+    // Ripristino di un dump opzionale (vedi scripts/db-dump.mjs) fatto
+    // dall'app stessa: per ambienti dove il database è raggiungibile solo da
+    // qui, non da uno script esterno lanciato a mano. Disattivato di default.
+    if (config.restoreDump.onStart) {
+      const { restoreDump } = await import('./scripts/restore-dump.js');
+      await restoreDump(config.restoreDump.dir);
+    }
+
     // Chiude come falliti eventuali Job rimasti "running" da prima di questo
     // boot (es. un deploy a metà di una generazione audio) — vedi jobs.service.
     await reconcileOnStartup();
