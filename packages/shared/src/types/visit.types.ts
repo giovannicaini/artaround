@@ -68,9 +68,6 @@ export interface VisitStep {
   // non legati a una singola opera.
   itemIds?: string[]; // ID MongoDB degli item
 
-  // Item scelto dall'utente durante la visita (runtime)
-  selectedItemId?: string;
-
   // ===== PER TAPPE CONTENT =====
   // Approfondimento su autore/movimento/periodo/museo, non legato a una
   // singola opera — itemIds (sopra) elenca gli item di questo tipo scelti
@@ -168,8 +165,6 @@ export interface VisitMetadata {
   license: string;
 
   // Statistiche
-  rating?: number; // Valutazione media (1-5)
-  ratingsCount?: number;
   downloadsCount: number;
   purchasesCount: number;
 }
@@ -236,6 +231,5 @@ export interface VisitSummary {
   estimatedDuration: number;
   price: number;
   isFree: boolean;
-  rating?: number;
   languageLevels: LanguageLevel[];
 }

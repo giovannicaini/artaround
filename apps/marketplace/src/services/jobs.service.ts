@@ -31,7 +31,7 @@ const POLL_INTERVAL_MS = 5000;
  * Job in background (oggi solo generazione audio, vedi jobs.service.ts lato
  * server) — un solo fetch condiviso invece che uno per componente: chi ha
  * bisogno della lista attuale legge getJobs(), chi vuole restare aggiornato
- * si iscrive a 'jobs-changed' su window (stesso pattern di history.service.ts/
+ * si iscrive a 'jobs-changed' su window (stesso pattern di router.service.ts/
  * preferences.service.ts, non un registro di subscribe/unsubscribe a parte).
  * Il polling (ogni 5s) parte/si ferma da solo in base a se l'ultimo fetch
  * conteneva almeno un job "running": nessun bisogno di farlo girare quando

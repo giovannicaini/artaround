@@ -111,20 +111,30 @@ export class RoomOutlineEditor extends LitElement {
       <div
         class="bg-surface-800 dark:bg-surface-800 rounded-lg overflow-hidden border border-surface-700"
       >
-        <button
-          type="button"
-          class="w-full flex justify-between items-center p-4 bg-surface-700 border-b border-surface-600 ${showContent
+        <div
+          class="w-full flex flex-wrap justify-between items-center p-4 bg-surface-700 border-b border-surface-600 ${showContent
             ? ''
             : 'border-b-0'}"
-          @click=${() => (this.collapsed = !this.collapsed)}
         >
-          <h3 class="text-white font-medium text-base m-0">📐 ${__('Sale')}</h3>
-          <ui-icon
-            name=${this.collapsed ? 'chevron-down' : 'chevron-up'}
-            size="sm"
-            class="text-surface-400"
-          ></ui-icon>
-        </button>
+          <button
+            type="button"
+            class="flex-1 flex items-center gap-1.5 text-left"
+            @click=${() => (this.collapsed = !this.collapsed)}
+          >
+            <h3 class="text-white font-medium text-base m-0">📐 ${__('Sale')}</h3>
+            <ui-icon
+              name=${this.collapsed ? 'chevron-down' : 'chevron-up'}
+              size="sm"
+              class="text-surface-400"
+            ></ui-icon>
+          </button>
+          <ui-info-tip
+            variant="inline"
+            text=${__(
+              'Le sale si creano in "Modifica Museo" (solo il nome); qui si assegnano a un piano e si disegna il loro contorno sulla piantina. Sono un sistema separato dai marker: il contorno serve a raggruppare visivamente le opere e a generare marker in automatico con "Crea marker opere".',
+            )}
+          ></ui-info-tip>
+        </div>
 
         ${showContent
           ? this.drawMode

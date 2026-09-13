@@ -14,3 +14,14 @@ export const DEFAULT_APP_LANGUAGE: AppLanguage = 'it';
 
 export const isSupportedAppLanguage = (value: string): value is AppLanguage =>
   SUPPORTED_APP_LANGUAGES.includes(value as AppLanguage);
+
+/** Codice BCP47 per lingua — usato per la sintesi/riconoscimento vocale
+ * (SpeechSynthesisUtterance.lang, SpeechRecognition.lang) sia in Marketplace
+ * che in Navigator. */
+export const BCP47_BY_LANGUAGE: Record<AppLanguage, string> = {
+  it: 'it-IT',
+  en: 'en-US',
+  fr: 'fr-FR',
+  de: 'de-DE',
+  es: 'es-ES',
+};

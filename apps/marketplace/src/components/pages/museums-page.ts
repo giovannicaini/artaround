@@ -404,6 +404,9 @@ export class MuseumsPage extends LitElement {
               <ui-page-header
                 .title=${__('Seleziona museo')}
                 .description=${__('Scegli il museo su cui vuoi lavorare')}
+                .help=${__(
+                  'Il museo che selezioni qui diventa il museo "attivo": tutte le altre pagine (Opere, Contenuti, Visite, Gestione Musei...) mostrano e modificano i dati di questo museo finché non ne scegli un altro.',
+                )}
               ></ui-page-header>
             `}
 

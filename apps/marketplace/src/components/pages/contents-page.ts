@@ -54,6 +54,8 @@ type ViewMode = 'list' | 'create' | 'edit' | 'view';
 export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
   @property({ type: Object }) user: User | null = null;
   @property({ type: Boolean }) authorOnly = false;
+  @property({ type: String }) openingItemId = '';
+  @property({ type: String }) openingViewMode: ViewMode = 'list';
 
   @state() private viewMode: ViewMode = 'list';
   @state() private items: Item[] = [];
@@ -115,9 +117,60 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
   }
 
   updated(changedProps: Map<string, unknown>) {
+    // Solo il caricamento dei dati: non tocca viewMode, altrimenti riaprire
+    // un item già in modifica (openingItemId e openingViewMode cambiano
+    // insieme) lo riporterebbe sempre a "view" mentre il fetch è ancora in
+    // corso — viewMode lo decide solo il blocco sotto (stesso schema di
+    // artworks-page.ts).
+    if (changedProps.has('openingItemId') && this.openingItemId) {
+      void this.loadSelectedItem(this.openingItemId);
+    }
+    if (changedProps.has('openingViewMode')) {
+      if (this.openingViewMode === 'list') {
+        this.selectedItem = null;
+        this.viewMode = 'list';
+      } else if (this.openingViewMode === 'view') {
+        this.viewMode = 'view';
+      } else if (this.openingViewMode === 'edit') {
+        this.viewMode = 'edit';
+      } else if (this.openingViewMode === 'create') {
+        this.viewMode = 'create';
+      }
+    }
     if (changedProps.has('viewMode')) {
       this.scrollToTop();
+      this.emitStateChange();
     }
+  }
+
+  private async loadSelectedItem(itemId: string) {
+    if (!itemId) return;
+    try {
+      const item = await itemService.getItem(itemId);
+      if (!item) return;
+      this.selectedItem = item;
+    } catch (e) {
+      console.error('Error loading item detail:', e);
+    }
+  }
+
+  /**
+   * Stato granulare (viewMode + item selezionato) verso app-root, per la
+   * history — stesso schema di artworks-page.ts, incluso l'uso di
+   * openingItemId come fallback quando selectedItem non è ancora arrivato
+   * (fetch asincrono in corso dopo un avanti/indietro del browser).
+   */
+  private emitStateChange(): void {
+    const hasItemContext = this.viewMode === 'view' || this.viewMode === 'edit';
+    const itemId = hasItemContext ? this.selectedItem?._id || this.openingItemId || '' : '';
+
+    this.dispatchEvent(
+      new CustomEvent('page-state-changed', {
+        detail: { viewMode: this.viewMode, itemId },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   onMuseumChanged(): void {
@@ -445,6 +498,9 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
           .count=${this.pagination.total}
           .countLabel=${__('contenuti totali')}
           .description=${__('Testi descrittivi per opere, autori, movimenti')}
+          .help=${__(
+            'Un "contenuto" è un testo (con audio) letto dal Navigator durante la visita: può parlare di un\'opera specifica, di un autore, di un movimento artistico o del museo in generale — non è legato a una singola visita, ma può essere richiamato da più visite.',
+          )}
         >
           <div slot="actions" class="flex items-center gap-3">
             ${this.permissions.canCreateItem
@@ -668,17 +724,24 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
 
   private renderViewMode() {
     if (!this.selectedItem) return this.renderListView();
+    // Catturato in una costante locale (non "this.selectedItem!" dentro le
+    // chiusure sotto): <ui-panel-section> invoca .renderContent in un suo
+    // ciclio di render separato, non nello stesso istante in cui viene
+    // costruito qui — se nel frattempo this.selectedItem torna null (es. un
+    // altro avanti/indietro rapido) le chiusure leggerebbero null invece del
+    // valore con cui sono state create.
+    const item = this.selectedItem;
 
     return html`
       <div class="space-y-6">
         <!-- Header -->
         <ui-page-header
-          title=${this.selectedItem.title}
-          .description=${this.selectedItem.referenceTitle || __('Contenuto')}
+          title=${item.title}
+          .description=${item.referenceTitle || __('Contenuto')}
           showBack
           @back=${this.backToListView}
         >
-          ${this.canManageItem(this.selectedItem)
+          ${this.canManageItem(item)
             ? html`
                 <ui-button
                   slot="actions"
@@ -708,31 +771,26 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
                 <div class="flex flex-wrap gap-2 mb-4">
                   <ui-badge
                     variant="primary"
-                    .label=${getReferenceTypeLabel(this.selectedItem!.referenceType)}
+                    .label=${getReferenceTypeLabel(item.referenceType)}
                   ></ui-badge>
                   <ui-badge
                     variant="secondary"
-                    .label=${getContentDurationLabel(this.selectedItem!.duration)}
+                    .label=${getContentDurationLabel(item.duration)}
                   ></ui-badge>
                   <ui-badge
                     variant="secondary"
-                    .label=${getLanguageLevelLabel(this.selectedItem!.languageLevel)}
+                    .label=${getLanguageLevelLabel(item.languageLevel)}
                   ></ui-badge>
                 </div>
 
                 <dl class="grid grid-cols-2 gap-4">
-                  ${this.renderDetailRow(
-                    __('Riferimento Wikidata'),
-                    this.selectedItem!.referenceId,
-                  )}
-                  ${this.renderDetailRow(__('Licenza'), this.selectedItem!.license || __('N/D'))}
+                  ${this.renderDetailRow(__('Riferimento Wikidata'), item.referenceId)}
+                  ${this.renderDetailRow(__('Licenza'), item.license || __('N/D'))}
                   ${this.renderDetailRow(
                     __('Prezzo'),
-                    this.selectedItem!.isFree
-                      ? __('Gratuito')
-                      : `€${this.selectedItem!.price || 0}`,
+                    item.isFree ? __('Gratuito') : `€${item.price || 0}`,
                   )}
-                  ${this.renderDetailRow(__('Autore'), this.selectedItem!.authorName)}
+                  ${this.renderDetailRow(__('Autore'), item.authorName)}
                 </dl>
               `}
             ></ui-panel-section>
@@ -743,20 +801,20 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
               icon="document"
               .renderContent=${() => html`
                 <p class="text-surface-700 dark:text-surface-300 whitespace-pre-wrap">
-                  ${this.selectedItem!.text}
+                  ${item.text}
                 </p>
               `}
             ></ui-panel-section>
 
             <!-- Tags -->
-            ${this.selectedItem.tags && this.selectedItem.tags.length > 0
+            ${item.tags && item.tags.length > 0
               ? html`
                   <ui-panel-section
                     .title=${__('Tag')}
                     icon="tag"
                     .renderContent=${() => html`
                       <div class="flex flex-wrap gap-2">
-                        ${this.selectedItem!.tags?.map(
+                        ${item.tags?.map(
                           (tag) => html`<ui-badge variant="secondary" .label=${tag}></ui-badge>`,
                         )}
                       </div>
@@ -784,12 +842,12 @@ export class ContentsPage extends MuseumAwareMixin(AppBaseElement) {
         ></ui-page-header>
 
         <!-- Edit Form -->
+        <!-- Resta sul form al salvataggio (mostra "Contenuto aggiornato con
+             successo!"), comodo per modificare più campi in sequenza; si torna
+             alla lista solo con "Indietro" o "Annulla". -->
         <item-creator
           itemId="${this.selectedItem._id}"
-          @item-created=${() => {
-            this.backToListView();
-            this.loadItems();
-          }}
+          @item-created=${() => this.loadItems()}
           @cancel=${this.backToListView}
         ></item-creator>
       </div>

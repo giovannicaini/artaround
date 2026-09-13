@@ -1025,6 +1025,9 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                   <div class="mb-6">
                     <ui-select
                       .label=${`${__('Sala')} *`}
+                      .help=${__(
+                        'Oltre a organizzare le opere, questa assegnazione è ciò che "Crea marker opere" (in Gestione Mappe) usa per generare automaticamente il marker sulla piantina, se la sala ha un contorno disegnato.',
+                      )}
                       .placeholder=${__('Seleziona la sala')}
                       .value=${this.roomId}
                       .options=${this.availableRooms.map((r) => ({
@@ -1065,6 +1068,9 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                 html`
                   <ui-input
                     .label=${__('Piano')}
+                    .help=${__(
+                      "Testo libero, solo descrittivo — non è collegato al piano vero e proprio della piantina (quello dipende dalla Sala scelta sopra e da dove il curatore l'ha posizionata in Gestione Mappe).",
+                    )}
                     .placeholder=${__('Es: Piano Terra, Primo Piano')}
                     .value=${this.floor}
                     @input-change=${(e: CustomEvent) => {

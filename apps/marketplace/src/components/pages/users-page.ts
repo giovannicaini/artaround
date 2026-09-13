@@ -29,6 +29,7 @@ import '../ui/ui-checkbox';
 import '../ui/ui-filter-tabs';
 import '../ui/ui-search-list-picker';
 import '../ui/ui-panel-section';
+import '../ui/ui-info-tip';
 import { __ } from '../../services/i18n.service';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'view';
@@ -49,6 +50,8 @@ interface UserFormData {
 @customElement('users-page')
 export class UsersPage extends LitElement {
   @property({ type: Object }) currentUser: User | null = null;
+  @property({ type: String }) openingUserId = '';
+  @property({ type: String }) openingViewMode: ViewMode = 'list';
 
   @state() private viewMode: ViewMode = 'list';
   @state() private users: User[] = [];
@@ -121,9 +124,60 @@ export class UsersPage extends LitElement {
   }
 
   updated(changedProps: Map<string, unknown>) {
+    // Solo il caricamento dei dati: non tocca viewMode, altrimenti riaprire
+    // un utente già in modifica (openingUserId e openingViewMode cambiano
+    // insieme) lo riporterebbe sempre a "view" mentre il fetch è ancora in
+    // corso — viewMode lo decide solo il blocco sotto (stesso schema di
+    // artworks-page.ts).
+    if (changedProps.has('openingUserId') && this.openingUserId) {
+      void this.loadSelectedUser(this.openingUserId);
+    }
+    if (changedProps.has('openingViewMode')) {
+      if (this.openingViewMode === 'list') {
+        this.selectedUser = null;
+        this.viewMode = 'list';
+      } else if (this.openingViewMode === 'view') {
+        this.viewMode = 'view';
+      } else if (this.openingViewMode === 'edit') {
+        this.viewMode = 'edit';
+      } else if (this.openingViewMode === 'create') {
+        this.viewMode = 'create';
+      }
+    }
     if (changedProps.has('viewMode')) {
       window.scrollTo(0, 0);
+      this.emitStateChange();
     }
+  }
+
+  private async loadSelectedUser(userId: string) {
+    if (!userId) return;
+    try {
+      const user = await userService.getById(userId);
+      if (!user) return;
+      this.selectedUser = user;
+    } catch (e) {
+      console.error('Error loading user detail:', e);
+    }
+  }
+
+  /**
+   * Stato granulare (viewMode + utente selezionato) verso app-root, per la
+   * history — stesso schema di artworks-page.ts, incluso l'uso di
+   * openingUserId come fallback quando selectedUser non è ancora arrivato
+   * (fetch asincrono in corso dopo un avanti/indietro del browser).
+   */
+  private emitStateChange(): void {
+    const hasUserContext = this.viewMode === 'view' || this.viewMode === 'edit';
+    const userId = hasUserContext ? this.selectedUser?._id || this.openingUserId || '' : '';
+
+    this.dispatchEvent(
+      new CustomEvent('page-state-changed', {
+        detail: { viewMode: this.viewMode, userId },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   // ─── Caricamento dati ────────────────────────────────────────
@@ -257,12 +311,16 @@ export class UsersPage extends LitElement {
         this.success = __('Utente aggiornato con successo!');
       }
 
-      // Ricarica la lista e torna indietro
+      // Solo la creazione torna alla lista: in modifica si resta sul form (mostra
+      // il messaggio di successo sopra), comodo per un secondo aggiustamento senza
+      // dover riaprire l'utente.
       await this.loadUsers();
-      setTimeout(() => {
-        this.viewMode = 'list';
-        this.selectedUser = null;
-      }, 1000);
+      if (this.viewMode === 'create') {
+        setTimeout(() => {
+          this.viewMode = 'list';
+          this.selectedUser = null;
+        }, 1000);
+      }
     } catch (e) {
       console.error('Error saving user:', e);
       this.error = e instanceof Error ? e.message : __('Errore nel salvataggio');
@@ -395,6 +453,9 @@ export class UsersPage extends LitElement {
         .title=${__('Gestione Utenti')}
         .count=${this.total}
         .countLabel=${__('utenti')}
+        .help=${__(
+          'Elenco di tutti gli utenti registrati sulla piattaforma (riservato agli admin). Da qui crei account, li disattivi e assegni i ruoli Curatore/Autore sui singoli musei — non è la pagina per gestire il tuo profilo (quella è "Il mio account").',
+        )}
       >
         <ui-button
           slot="actions"
@@ -815,9 +876,17 @@ export class UsersPage extends LitElement {
 
         <!-- Card curatore/autore -->
         <ui-card>
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="font-semibold text-surface-900 dark:text-white">
+          <div class="flex items-start justify-between mb-4">
+            <h3
+              class="flex items-center gap-1.5 flex-wrap font-semibold text-surface-900 dark:text-white"
+            >
               ${__('Curatore/Autore di')}
+              <ui-info-tip
+                variant="inline"
+                text=${__(
+                  'Curatore: gestione completa di quel museo (opere, sale, mappe, dati del museo) e può modificare/eliminare item e visite di chiunque. Autore: può creare item e visite per quel museo, ma modificare/eliminare solo i propri.',
+                )}
+              ></ui-info-tip>
             </h3>
             <ui-button
               variant="outline"

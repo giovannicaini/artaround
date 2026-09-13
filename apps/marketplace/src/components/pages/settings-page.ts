@@ -244,6 +244,9 @@ export class SettingsPage extends LitElement {
           .description=${__(
             'Saldo spendibile nel marketplace. Nessun pagamento reale: scegli una cifra e ricaricala.',
           )}
+          .help=${__(
+            'Il credito è personale, non del museo: serve per comprare item e visite di altri autori nel Marketplace. Se il saldo non basta per un acquisto, ricaricalo qui prima di riprovare.',
+          )}
         ></ui-section-header>
 
         <div class="mt-4 flex items-center gap-3">
@@ -356,6 +359,9 @@ export class SettingsPage extends LitElement {
         <ui-page-header
           .title=${__('Il mio account')}
           .description=${__('Gestisci il tuo profilo e la tua password')}
+          .help=${__(
+            'Impostazioni personali del tuo utente: credito, profilo e password. Per gestire altri utenti (solo admin) vai invece nella pagina Utenti.',
+          )}
         ></ui-page-header>
 
         ${this.renderCreditCard()}
@@ -364,6 +370,9 @@ export class SettingsPage extends LitElement {
           <ui-section-header
             .title=${__('Profilo')}
             .description=${this.user?.username || ''}
+            .help=${__(
+              'Livello di competenza e tempo a disposizione sono le tue preferenze di default: il Navigator le propone come punto di partenza a ogni nuova visita, ma restano modificabili dal visitatore in ogni momento.',
+            )}
           ></ui-section-header>
 
           <form @submit=${this.handleSaveProfile} class="space-y-4 mt-4">
@@ -425,7 +434,12 @@ export class SettingsPage extends LitElement {
         </ui-card>
 
         <ui-card padding="lg">
-          <ui-section-header .title=${__('Cambia password')}></ui-section-header>
+          <ui-section-header
+            .title=${__('Cambia password')}
+            .help=${__(
+              'Serve la password attuale per confermare il cambio. Dopo il salvataggio resti collegato in questa sessione, ma dovrai usare la nuova password al prossimo accesso.',
+            )}
+          ></ui-section-header>
 
           <form @submit=${this.handleChangePassword} class="space-y-4 mt-4">
             ${this.passwordError

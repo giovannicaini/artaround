@@ -247,6 +247,9 @@ export class MarketplacePage extends LitElement {
         <ui-page-header
           .title=${__('Marketplace')}
           .description=${__('Acquista contenuti creati da altri utenti')}
+          .help=${__(
+            'Vetrina di item e visite in vendita, creati da altri autori. Acquistandoli il costo viene scalato dal tuo credito e li ritrovi poi in "Acquisti".',
+          )}
         ></ui-page-header>
 
         <ui-filter-tabs

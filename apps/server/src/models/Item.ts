@@ -125,7 +125,6 @@ const itemSchema = new Schema<ItemDocument>(
       type: Number,
       default: 0,
     },
-    rating: Number,
 
     // Metadati
     tags: [String],

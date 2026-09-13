@@ -24,6 +24,9 @@ export class AuthorAreaPage extends LitElement {
         <ui-page-header
           title=${__('Area Autore')}
           .description=${__('Crea e gestisci i tuoi contenuti: item e visite')}
+          .help=${__(
+            "Qui vedi solo i contenuti e le visite che hai creato tu. Per l'elenco completo di tutti gli item/visite del museo (anche di altri autori) usa le pagine Contenuti e Visite nel menu principale.",
+          )}
         ></ui-page-header>
 
         <ui-filter-tabs

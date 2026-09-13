@@ -43,7 +43,6 @@ const visitStepSchema = new Schema<VisitStep>(
     // Per tappe ARTWORK
     artworkId: String, // Wikidata ID
     itemIds: [{ type: Schema.Types.ObjectId, ref: 'Item' }],
-    selectedItemId: { type: Schema.Types.ObjectId, ref: 'Item' },
     // Per tappe LOGISTIC
     logisticTitle: String,
     logisticTitleTranslations: { type: Map, of: String, default: undefined },
@@ -117,8 +116,6 @@ const visitMetadataSchema = new Schema<VisitMetadata>(
     price: { type: Number, default: 0, min: 0 },
     isFree: { type: Boolean, default: true },
     license: { type: String, required: true },
-    rating: { type: Number, min: 0, max: 5 },
-    ratingsCount: { type: Number, default: 0 },
     downloadsCount: { type: Number, default: 0 },
     purchasesCount: { type: Number, default: 0 },
   },
@@ -181,7 +178,6 @@ const visitSchema = new Schema<VisitDocument>(
 // Indici
 visitSchema.index({ museumId: 1, isPublished: 1 });
 visitSchema.index({ 'metadata.isFree': 1 });
-visitSchema.index({ 'metadata.rating': -1 });
 visitSchema.index({ title: 'text', description: 'text' });
 
 export const VisitModel = mongoose.model<VisitDocument>('Visit', visitSchema);

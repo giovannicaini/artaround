@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import './ui-info-tip';
 
 /**
  * UI Checkbox
@@ -20,6 +21,7 @@ import { customElement, property } from 'lit/decorators.js';
 @customElement('ui-checkbox')
 export class UiCheckbox extends LitElement {
   @property({ type: String }) label = '';
+  @property({ type: String }) help = '';
   @property({ type: String }) hint = '';
   @property({ type: Boolean }) checked = false;
   @property({ type: Boolean }) disabled = false;
@@ -61,9 +63,10 @@ export class UiCheckbox extends LitElement {
           ${this.label
             ? html`
                 <span
-                  class="text-sm text-surface-700 dark:text-surface-300 group-hover:text-surface-900 dark:group-hover:text-white transition-colors"
+                  class="inline-flex items-center gap-1.5 text-sm text-surface-700 dark:text-surface-300 group-hover:text-surface-900 dark:group-hover:text-white transition-colors"
                 >
                   ${this.label}
+                  ${this.help ? html`<ui-info-tip text=${this.help}></ui-info-tip>` : nothing}
                 </span>
               `
             : nothing}

@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import './ui-icon';
 import './ui-button';
+import './ui-info-tip';
 
 /**
  * UI Page Header
@@ -26,6 +27,7 @@ import './ui-button';
 export class UiPageHeader extends LitElement {
   @property({ type: String }) title = '';
   @property({ type: String }) description = '';
+  @property({ type: String }) help = '';
   @property({ type: Number }) count: number | undefined = undefined;
   @property({ type: String }) countLabel = '';
   @property({ type: Boolean }) showBack = false;
@@ -89,8 +91,8 @@ export class UiPageHeader extends LitElement {
     const showDescription = this.description || countText;
 
     return html`
-      <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between mb-6">
-        <div class="flex items-center gap-4">
+      <div class="flex flex-col sm:flex-row gap-4 sm:items-start sm:justify-between mb-6">
+        <div class="flex items-start gap-4">
           ${this.showBack
             ? html`
                 <button
@@ -103,7 +105,14 @@ export class UiPageHeader extends LitElement {
               `
             : nothing}
           <div>
-            <h1 class="text-2xl font-bold text-surface-900 dark:text-white">${this.title}</h1>
+            <h1
+              class="flex items-center gap-2 flex-wrap text-2xl font-bold text-surface-900 dark:text-white"
+            >
+              ${this.title}
+              ${this.help
+                ? html`<ui-info-tip variant="inline" text=${this.help}></ui-info-tip>`
+                : nothing}
+            </h1>
             ${showDescription
               ? html`
                   <p class="text-sm text-surface-500 dark:text-surface-400 mt-1">

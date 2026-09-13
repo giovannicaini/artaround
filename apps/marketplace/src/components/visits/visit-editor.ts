@@ -48,6 +48,7 @@ import '../ui/ui-checkbox';
 import '../ui/ui-icon-button';
 import '../ui/ui-tag-input';
 import '../ui/ui-panel-section';
+import '../ui/ui-info-tip';
 import '../ui/ui-language-select';
 import '../ui/ui-filter-tabs';
 import '../ui/image-editor';
@@ -70,6 +71,9 @@ const CONTENT_STEP_REFERENCE_TYPE_OPTIONS = ITEM_REFERENCE_TYPE_OPTIONS_IT.filte
 @customElement('visit-editor')
 export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
   @property({ type: String }) visitId = ''; // For edit mode
+  // Tab da cui aprire l'editor (es. tornando da un avanti/indietro del
+  // browser su una tab diversa da "info") — vedi emitTabChange().
+  @property({ type: String }) openingTab = '';
 
   @state() private loadingVisit = false;
   @state() private saving = false;
@@ -86,6 +90,10 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
   @state() private museums: Museum[] = [];
   @state() private loadingMuseums = true;
   @state() private activeTab: EditorTab = 'info';
+  // La primissima emissione di activeTab (il default 'info' o il tab
+  // ripristinato da openingTab) corregge solo l'URL corrente (replace); da lì
+  // in poi ogni cambio è un vero passo di history — vedi updated().
+  private hasEmittedTabOnce = false;
   @state() private activeLanguages: AppLanguage[] = ['it'];
 
   // Basic info
@@ -205,6 +213,30 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       (this.success || this.error)
     ) {
       this.querySelector('#feedback-alert')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    if (changedProps.has('openingTab') && this.openingTab) {
+      this.activeTab = this.openingTab as EditorTab;
+    }
+
+    // Notifica il genitore (visits-page) a ogni cambio tab, per la history —
+    // stesso schema di artworks-page.ts, un livello più in profondità: qui
+    // il "cosa sono" (viewMode/visitId) non lo sa il visit-editor, lo aggiunge
+    // visits-page che intercetta questo evento (vedi handleEditorStateChanged).
+    // La primissima emissione (il default 'info' del field, o il ripristino
+    // di openingTab appena sopra) sostituisce invece di aggiungere un passo —
+    // altrimenti aprire l'editor produce da solo un secondo passo di history
+    // (visitId+edit, poi +tab) da un unico click.
+    if (changedProps.has('activeTab')) {
+      const replace = !this.hasEmittedTabOnce;
+      this.hasEmittedTabOnce = true;
+      this.dispatchEvent(
+        new CustomEvent('page-state-changed', {
+          detail: { tab: this.activeTab, replace },
+          bubbles: true,
+          composed: true,
+        }),
+      );
     }
   }
 
@@ -1103,6 +1135,9 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         <ui-panel-section
           .title=${__('Museo')}
           icon="location"
+          .help=${__(
+            'Il museo in cui si svolge la visita: determina quali opere, piante e marker sono disponibili nelle tappe del Percorso. Cambiarlo dopo aver già aggiunto delle tappe non le rimuove automaticamente, ma i riferimenti a opere/waypoint del museo precedente restano non validi.',
+          )}
           .renderContent=${() => html`
             <ui-select
               .label=${__('Seleziona il museo')}
@@ -1239,6 +1274,9 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         <ui-panel-section
           .title=${__('Informazioni pratiche')}
           icon="info"
+          .help=${__(
+            'Specifiche di questa visita, indipendenti da quelle generali del museo (utile per es. per una mostra temporanea con orari o biglietto propri). Lascia vuoto un campo per non mostrarlo nella scheda della visita.',
+          )}
           .renderContent=${() => html`
             <div class="space-y-4">
               <ui-input
@@ -1300,17 +1338,24 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
             @click=${() => this.addStep(VisitStepType.ARTWORK)}
             ?disabled=${!this.museumId || this.artworks.length === 0}
           ></ui-button>
-          <ui-button
-            type="button"
-            variant="outline"
-            size="sm"
-            icon="tag"
-            .label=${__('Approfondimento')}
-            .title=${__(
-              'Contenuto su un autore, un movimento, un periodo o il museo stesso — non legato a una singola opera.',
-            )}
-            @click=${() => this.addStep(VisitStepType.CONTENT)}
-          ></ui-button>
+          <span class="inline-flex items-center gap-1">
+            <ui-button
+              type="button"
+              variant="outline"
+              size="sm"
+              icon="tag"
+              .label=${__('Approfondimento')}
+              .title=${__(
+                'Contenuto su un autore, un movimento, un periodo o il museo stesso — non legato a una singola opera.',
+              )}
+              @click=${() => this.addStep(VisitStepType.CONTENT)}
+            ></ui-button>
+            <ui-info-tip
+              text=${__(
+                'Contenuto su un autore, un movimento, un periodo o il museo stesso — non legato a una singola opera.',
+              )}
+            ></ui-info-tip>
+          </span>
           <ui-button
             type="button"
             variant="outline"
@@ -1327,18 +1372,25 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
             .label=${__('Indicazioni')}
             @click=${() => this.addStep(VisitStepType.NAVIGATION)}
           ></ui-button>
-          <ui-button
-            type="button"
-            variant="outline"
-            size="sm"
-            icon="location"
-            .label=${__('Svolta percorso')}
-            .title=${__(
-              'Punto muto per far piegare la linea del percorso sulla mappa (es. una porta su un corridoio): nessun audio, non è una tappa.',
-            )}
-            @click=${() => this.addStep(VisitStepType.WAYPOINT)}
-            ?disabled=${this.loadingFloors || this.floors.length === 0}
-          ></ui-button>
+          <span class="inline-flex items-center gap-1">
+            <ui-button
+              type="button"
+              variant="outline"
+              size="sm"
+              icon="location"
+              .label=${__('Svolta percorso')}
+              .title=${__(
+                'Punto muto per far piegare la linea del percorso sulla mappa (es. una porta su un corridoio): nessun audio, non è una tappa.',
+              )}
+              @click=${() => this.addStep(VisitStepType.WAYPOINT)}
+              ?disabled=${this.loadingFloors || this.floors.length === 0}
+            ></ui-button>
+            <ui-info-tip
+              text=${__(
+                'Punto muto per far piegare la linea del percorso sulla mappa (es. una porta su un corridoio): nessun audio, non è una tappa.',
+              )}
+            ></ui-info-tip>
+          </span>
         </div>
 
         ${this.renderStepsContent()}
@@ -1871,6 +1923,9 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
       <div class="space-y-4 mt-3 pt-3 border-t border-surface-200 dark:border-surface-700">
         <ui-select
           .label=${__('Tipo di approfondimento')}
+          .help=${__(
+            'Determina quali Contenuti sono selezionabili qui sotto: solo quelli creati con lo stesso tipo di riferimento (Opera, Autore, Movimento, Periodo o Museo).',
+          )}
           .value=${step.contentReferenceType || ''}
           .options=${CONTENT_STEP_REFERENCE_TYPE_OPTIONS}
           placeholder=${__('Seleziona un tipo')}
@@ -2378,6 +2433,9 @@ export class VisitEditor extends MuseumAwareMixin(AppBaseElement) {
         <ui-panel-section
           .title=${__('Servizi disponibili')}
           icon="cog"
+          .help=${__(
+            'Testo libero mostrato nella scheda della visita — non collegato ai "Servizi del museo" (quelli strutturati, con marker sulla mappa) gestiti in Gestione Musei.',
+          )}
           .renderContent=${() => html`
             <ui-tag-input
               .placeholder=${__('Es. Bar, Guardaroba, WiFi')}

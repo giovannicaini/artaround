@@ -1,5 +1,5 @@
 import type { AppLanguage } from '@artaround/shared';
-import { localesByLanguage, type I18nDictionary } from '@artaround/shared';
+import { localesByLanguage, isSupportedAppLanguage, type I18nDictionary } from '@artaround/shared';
 
 const DICTIONARIES: Record<AppLanguage, I18nDictionary> = {
   it: localesByLanguage.it,
@@ -98,8 +98,8 @@ class I18nService {
 
   private loadLanguage(): AppLanguage {
     try {
-      const saved = localStorage.getItem(I18nService.STORAGE_KEY) as AppLanguage | null;
-      if (saved && ['it', 'en', 'fr', 'de', 'es'].includes(saved)) {
+      const saved = localStorage.getItem(I18nService.STORAGE_KEY);
+      if (saved && isSupportedAppLanguage(saved)) {
         return saved;
       }
     } catch {

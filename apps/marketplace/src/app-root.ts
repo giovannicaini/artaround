@@ -2,7 +2,7 @@ import { LitElement, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { authService } from './services/auth.service';
 import { preferencesService } from './services/preferences.service';
-import { historyService, type HistoryState } from './services/history.service';
+import { routerService, type RouteState } from './services/router.service';
 import { __ } from './services/i18n.service';
 import { type User } from '@artaround/shared';
 import { isContentCreator, isMuseumCurator } from './services/permissions.service';
@@ -62,9 +62,6 @@ export class AppRoot extends LitElement {
   @state()
   private loading = true;
 
-  // Flag per evitare cicli durante la navigazione dalla history
-  private isNavigatingFromHistory = false;
-
   // Tracking dei moduli-pagina caricati on-demand (vedi PAGE_LOADERS)
   private loadedPageModules = new Set<string>();
   private pendingPageModules = new Set<string>();
@@ -78,17 +75,28 @@ export class AppRoot extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.checkAuth();
-    this.restoreHistoryState();
+    const initial = routerService.init();
+    // applyRoute valuta i permessi (canAccessMuseumConfigArea ecc.) su
+    // this.currentUser: applicarla subito, prima che checkAuth() risolva,
+    // lo troverebbe sempre null e rimanderebbe sempre alla dashboard un
+    // refresh su qualunque stato che richieda un permesso — da qui aspetta
+    // che l'utente sia noto.
+    this.checkAuth().then(() => this.applyRoute(initial.route, initial.params));
+    window.addEventListener('route-changed', this.handleRouteChanged as EventListener);
     window.addEventListener('museum-changed', this.handleMuseumChanged as EventListener);
     window.addEventListener('ui-language-changed', this.handleLanguageChanged as EventListener);
   }
 
   disconnectedCallback() {
+    window.removeEventListener('route-changed', this.handleRouteChanged as EventListener);
     window.removeEventListener('museum-changed', this.handleMuseumChanged as EventListener);
     window.removeEventListener('ui-language-changed', this.handleLanguageChanged as EventListener);
     super.disconnectedCallback();
   }
+
+  private handleRouteChanged = (event: CustomEvent<{ state: RouteState }>) => {
+    this.applyRoute(event.detail.state.route, event.detail.state.params);
+  };
 
   private handleLanguageChanged = (_event: CustomEvent) => {
     this.pageTitle = this.getRouteTitle(this.currentRoute);
@@ -147,51 +155,9 @@ export class AppRoot extends LitElement {
   handleNavigate(e: CustomEvent) {
     const route = e.detail.route;
 
-    if (route === 'logout') {
-      this.handleLogout();
-      return;
-    }
-
-    if (route === 'author-area' && !isContentCreator(this.currentUser)) {
-      this.currentRoute = 'dashboard';
-      this.pageTitle = this.getRouteTitle('dashboard');
-      this.pushToHistory('dashboard', {}, this.getRouteTitle('dashboard'));
-      return;
-    }
-
-    if (this.requiresSelectedMuseum(route) && !this.hasSelectedMuseum()) {
-      this.redirectToMuseumsSelection();
-      return;
-    }
-
-    if (this.requiresMuseumConfigAccess(route) && !this.canAccessMuseumConfigArea()) {
-      this.currentRoute = 'dashboard';
-      this.pageTitle = this.getRouteTitle('dashboard');
-      this.pushToHistory('dashboard', {}, this.getRouteTitle('dashboard'));
-      return;
-    }
-
-    if (route === 'navigator-default-config' && !this.currentUser?.isAdmin) {
-      this.currentRoute = 'dashboard';
-      this.pageTitle = this.getRouteTitle('dashboard');
-      this.pushToHistory('dashboard', {}, this.getRouteTitle('dashboard'));
-      return;
-    }
-
-    this.currentRoute = route;
     // Alcune voci di menu (es. museum-maps) portano parametri propri (museumId) nell'evento;
     // altrimenti si riparte puliti per non trascinarsi routeParams di una navigazione precedente.
-    this.routeParams = e.detail.params || {};
-
-    // Scroll to top on navigation
-    window.scrollTo(0, 0);
-
-    this.pageTitle = this.getRouteTitle(route);
-
-    // Push to history (only if not navigating from history)
-    if (!this.isNavigatingFromHistory) {
-      this.pushToHistory(route, this.routeParams, this.pageTitle);
-    }
+    routerService.navigate(route, e.detail.params || {}, { title: this.getRouteTitle(route) });
   }
 
   // ─── Renderer delle rotte ─────────────────────────────────────
@@ -296,6 +262,8 @@ export class AppRoot extends LitElement {
       case 'museums-management':
         return html`<museums-management-page
           .currentUser=${this.currentUser}
+          .openingMuseumId=${this.routeParams.museumId || ''}
+          .openingViewMode=${this.routeParams.viewMode || 'list'}
         ></museums-management-page>`;
       case 'museum-edit': {
         const selectedMuseum = preferencesService.getSelectedMuseum();
@@ -318,13 +286,14 @@ export class AppRoot extends LitElement {
       case 'museum-maps':
         return html`<museum-map-page
           .museumId=${this.routeParams.museumId || ''}
+          .openingFloorId=${this.routeParams.floorId || ''}
+          .openingMarkerId=${this.routeParams.markerId || ''}
         ></museum-map-page>`;
       case 'artworks':
         return html`<artworks-page
           .user=${this.currentUser}
           .openingArtworkId=${this.routeParams.artworkId || ''}
           .openingViewMode=${this.routeParams.viewMode || 'list'}
-          @page-state-changed=${this.handlePageStateChanged}
         ></artworks-page>`;
       case 'author-area':
         return html`<author-area-page .user=${this.currentUser}></author-area-page>`;
@@ -333,11 +302,24 @@ export class AppRoot extends LitElement {
       case 'purchases':
         return html`<purchases-page .user=${this.currentUser}></purchases-page>`;
       case 'contents':
-        return html`<contents-page .user=${this.currentUser}></contents-page>`;
+        return html`<contents-page
+          .user=${this.currentUser}
+          .openingItemId=${this.routeParams.itemId || ''}
+          .openingViewMode=${this.routeParams.viewMode || 'list'}
+        ></contents-page>`;
       case 'visits':
-        return html`<visits-page .user=${this.currentUser}></visits-page>`;
+        return html`<visits-page
+          .user=${this.currentUser}
+          .openingVisitId=${this.routeParams.visitId || ''}
+          .openingViewMode=${this.routeParams.viewMode || 'list'}
+          .openingTab=${this.routeParams.tab || ''}
+        ></visits-page>`;
       case 'users':
-        return html`<users-page .currentUser=${this.currentUser}></users-page>`;
+        return html`<users-page
+          .currentUser=${this.currentUser}
+          .openingUserId=${this.routeParams.userId || ''}
+          .openingViewMode=${this.routeParams.viewMode || 'list'}
+        ></users-page>`;
       case 'settings':
         return html`<settings-page .user=${this.currentUser}></settings-page>`;
       default:
@@ -423,8 +405,6 @@ export class AppRoot extends LitElement {
           @menu-toggle=${this.handleMenuToggle}
           @sidebar-toggle=${this.handleSidebarToggle}
           @select-museum=${this.handleSelectMuseum}
-          @history-back=${this.handleHistoryBack}
-          @history-forward=${this.handleHistoryForward}
           @logout=${this.handleLogout}
         ></admin-header>
 
@@ -463,41 +443,37 @@ export class AppRoot extends LitElement {
 
   private handleMuseumConfirmed(e: CustomEvent) {
     preferencesService.setSelectedMuseum(e.detail);
-    this.currentRoute = 'artworks';
-    this.pageTitle = this.getRouteTitle('artworks');
-    this.pushToHistory('artworks', {}, this.getRouteTitle('artworks'));
+    routerService.navigate('artworks', {}, { title: this.getRouteTitle('artworks') });
   }
 
   private handleSelectMuseum() {
-    this.currentRoute = 'museums';
-    this.pageTitle = this.getRouteTitle('museums');
-    this.pushToHistory('museums', {}, this.getRouteTitle('museums'));
+    routerService.navigate('museums', {}, { title: this.getRouteTitle('museums') });
   }
 
   private handleMuseumChanged = (event: CustomEvent) => {
     if (!event.detail) {
-      this.currentRoute = 'dashboard';
-      this.pageTitle = this.getRouteTitle('dashboard');
-      this.routeParams = {};
-      this.pushToHistory('dashboard', {}, this.getRouteTitle('dashboard'));
+      routerService.navigate(
+        'dashboard',
+        {},
+        { replace: true, title: this.getRouteTitle('dashboard') },
+      );
       return;
     }
 
     if (this.requiresMuseumConfigAccess(this.currentRoute) && !this.canAccessMuseumConfigArea()) {
-      this.currentRoute = 'dashboard';
-      this.pageTitle = this.getRouteTitle('dashboard');
-      this.pushToHistory('dashboard', {}, this.getRouteTitle('dashboard'));
+      routerService.navigate(
+        'dashboard',
+        {},
+        { replace: true, title: this.getRouteTitle('dashboard') },
+      );
     }
   };
 
   private handleOpenMapEditor(e: CustomEvent) {
-    this.routeParams = { museumId: e.detail.museumId };
-    this.currentRoute = 'museum-maps';
-    this.pageTitle = this.getRouteTitle('museum-maps');
-    this.pushToHistory(
+    routerService.navigate(
       'museum-maps',
       { museumId: e.detail.museumId },
-      this.getRouteTitle('museum-maps'),
+      { title: this.getRouteTitle('museum-maps') },
     );
   }
 
@@ -505,45 +481,31 @@ export class AppRoot extends LitElement {
     const artworkId = e.detail?.artworkId;
     if (!artworkId) return;
 
-    this.routeParams = { ...this.routeParams, artworkId: String(artworkId) };
-    this.currentRoute = 'artworks';
-    this.pageTitle = this.getRouteTitle('artworks');
-    this.pushToHistory(
+    routerService.navigate(
       'artworks',
-      { artworkId: String(artworkId) },
-      this.getRouteTitle('artworks'),
+      { ...this.routeParams, artworkId: String(artworkId) },
+      { title: this.getRouteTitle('artworks') },
     );
   }
 
   /**
-   * Handles state changes from child pages (e.g., viewMode changes in artworks-page)
-   * Updates the history with the new state
+   * Stato granulare emesso da una pagina figlia (es. viewMode/entità
+   * selezionata in artworks-page, tab attivo in visit-editor via
+   * visits-page): si fonde con i routeParams correnti e diventa un vero
+   * passo di history — stesso canale per qualunque pagina, non serve più
+   * toccare app-root per aggiungerne una nuova. `replace` (opzionale, non è
+   * un route param) sostituisce la voce corrente invece di aggiungerne una:
+   * usato da una pagina quando risolve da sola un default non scelto
+   * dall'utente (es. il primo piano di museum-map-page), per non produrre un
+   * passo di history in più a ogni apertura.
    */
   private handlePageStateChanged(e: CustomEvent) {
-    // Don't update history when navigating from history
-    if (this.isNavigatingFromHistory) return;
-
-    const { viewMode, artworkId } = e.detail;
-
-    // Build params based on the page state
-    const params: Record<string, string> = { ...this.routeParams };
-
-    if (viewMode) {
-      params.viewMode = viewMode;
-    }
-
-    if (artworkId) {
-      params.artworkId = artworkId;
-    } else {
-      // Clear artworkId if going back to list
-      delete params.artworkId;
-    }
-
-    // Update routeParams to keep them in sync
-    this.routeParams = params;
-
-    // Push to history with the updated state
-    this.pushToHistory(this.currentRoute, params, this.pageTitle);
+    const { replace, ...params } = e.detail;
+    routerService.navigate(
+      this.currentRoute,
+      { ...this.routeParams, ...params },
+      { title: this.pageTitle, replace },
+    );
   }
 
   // ─── Permessi ──────────────────────────────────────────
@@ -569,13 +531,6 @@ export class AppRoot extends LitElement {
     return Boolean(preferencesService.getSelectedMuseum()?._id);
   }
 
-  private redirectToMuseumsSelection(): void {
-    this.currentRoute = 'museums';
-    this.pageTitle = this.getRouteTitle('museums');
-    this.routeParams = {};
-    this.pushToHistory('museums', {}, this.getRouteTitle('museums'));
-  }
-
   private canAccessMuseumConfigArea(): boolean {
     const selectedMuseum = preferencesService.getSelectedMuseum();
 
@@ -586,84 +541,56 @@ export class AppRoot extends LitElement {
     return isMuseumCurator(this.currentUser, selectedMuseum._id);
   }
 
-  // ─── Gestione history ──────────────────────────────────
+  // ─── Routing ──────────────────────────────────
   /**
-   * Ripristina lo stato della navigazione dal localStorage all'avvio
+   * Unico punto che traduce "route+params" in stato renderizzato — usato
+   * sia per il primo URL al boot sia per ogni evento `route-changed`
+   * (click su un link di navigazione, popstate da un bottone avanti/indietro
+   * vero del browser, o un redirect di permesso). Applica gli stessi
+   * controlli di permesso indipendentemente da come si è arrivati alla
+   * route, cosa che prima non era garantita (es. il check autore su
+   * "author-area" valeva solo cliccando il menu, non tornando indietro).
    */
-  private restoreHistoryState(): void {
-    const savedState = historyService.getSavedState();
-    if (savedState) {
-      this.isNavigatingFromHistory = true;
-      this.navigateToState(savedState);
-      this.isNavigatingFromHistory = false;
-    } else {
-      // Prima visita: aggiungi dashboard alla history
-      this.pushToHistory('dashboard', {}, this.getRouteTitle('dashboard'));
-    }
-  }
-
-  /**
-   * Naviga indietro nella history
-   */
-  private handleHistoryBack(): void {
-    const state = historyService.back();
-    if (state) {
-      this.isNavigatingFromHistory = true;
-      this.navigateToState(state);
-      this.isNavigatingFromHistory = false;
-    }
-  }
-
-  /**
-   * Naviga avanti nella history
-   */
-  private handleHistoryForward(): void {
-    const state = historyService.forward();
-    if (state) {
-      this.isNavigatingFromHistory = true;
-      this.navigateToState(state);
-      this.isNavigatingFromHistory = false;
-    }
-  }
-
-  /**
-   * Naviga verso uno stato specifico
-   */
-  private navigateToState(state: HistoryState): void {
-    // Verifica i permessi prima di navigare
-    if (this.requiresSelectedMuseum(state.route) && !this.hasSelectedMuseum()) {
-      this.currentRoute = 'museums';
-      this.pageTitle = this.getRouteTitle('museums');
-      this.routeParams = {};
+  private applyRoute(route: string, params: Record<string, string>): void {
+    if (route === 'author-area' && !isContentCreator(this.currentUser)) {
+      routerService.navigate(
+        'dashboard',
+        {},
+        { replace: true, title: this.getRouteTitle('dashboard') },
+      );
       return;
     }
 
-    if (this.requiresMuseumConfigAccess(state.route) && !this.canAccessMuseumConfigArea()) {
-      this.currentRoute = 'dashboard';
-      this.pageTitle = this.getRouteTitle('dashboard');
-      this.routeParams = {};
+    if (this.requiresSelectedMuseum(route) && !this.hasSelectedMuseum()) {
+      routerService.navigate(
+        'museums',
+        {},
+        { replace: true, title: this.getRouteTitle('museums') },
+      );
       return;
     }
 
-    if (state.route === 'navigator-default-config' && !this.currentUser?.isAdmin) {
-      this.currentRoute = 'dashboard';
-      this.pageTitle = this.getRouteTitle('dashboard');
-      this.routeParams = {};
+    if (this.requiresMuseumConfigAccess(route) && !this.canAccessMuseumConfigArea()) {
+      routerService.navigate(
+        'dashboard',
+        {},
+        { replace: true, title: this.getRouteTitle('dashboard') },
+      );
       return;
     }
 
-    this.currentRoute = state.route;
-    this.routeParams = { ...state.params };
-    this.pageTitle = this.getRouteTitle(state.route);
+    if (route === 'navigator-default-config' && !this.currentUser?.isAdmin) {
+      routerService.navigate(
+        'dashboard',
+        {},
+        { replace: true, title: this.getRouteTitle('dashboard') },
+      );
+      return;
+    }
 
-    // Scroll to top on navigation
+    this.currentRoute = route;
+    this.routeParams = params;
+    this.pageTitle = this.getRouteTitle(route);
     window.scrollTo(0, 0);
-  }
-
-  /**
-   * Aggiunge lo stato corrente alla history
-   */
-  private pushToHistory(route: string, params: Record<string, string>, title: string): void {
-    historyService.push(route, params, title);
   }
 }

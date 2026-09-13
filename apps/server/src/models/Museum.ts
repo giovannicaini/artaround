@@ -8,7 +8,6 @@ import {
   MapMarker,
   MarkerType,
   ConnectionType,
-  AccessibilityInfo,
   SUPPORTED_APP_LANGUAGES,
   DEFAULT_APP_LANGUAGE,
   MUSEUM_SERVICE_TYPES,
@@ -80,19 +79,6 @@ const servicesSchema = new Schema<MuseumServices>(
   { _id: false },
 );
 
-const accessibilityInfoSchema = new Schema<AccessibilityInfo>(
-  {
-    wheelchairAccessible: { type: Boolean, default: false },
-    hasSteps: { type: Boolean, default: false },
-    stepCount: Number,
-    hasRamp: { type: Boolean, default: false },
-    visualAids: { type: Boolean, default: false },
-    audioAids: { type: Boolean, default: false },
-    notes: String,
-  },
-  { _id: false },
-);
-
 const mapMarkerSchema = new Schema<MapMarker>(
   {
     id: { type: String, required: true },
@@ -114,7 +100,6 @@ const mapMarkerSchema = new Schema<MapMarker>(
       y: { type: Number, default: 50 },
     },
     focalZoom: { type: Number, default: 1 },
-    accessibilityInfo: accessibilityInfoSchema,
   },
   { _id: false },
 );
@@ -133,7 +118,6 @@ const floorConnectionSchema = new Schema<FloorConnection>(
     targetX: Number,
     targetY: Number,
     label: String,
-    isAccessible: { type: Boolean, default: false },
   },
   { _id: false },
 );
@@ -163,7 +147,6 @@ const floorSchema = new Schema<MuseumFloor>(
     name: { type: String, required: true },
     level: { type: Number, required: true },
     svgContent: { type: String, required: true },
-    svgUrl: String,
     dimensions: {
       width: { type: Number, required: true },
       height: { type: Number, required: true },

@@ -37,6 +37,7 @@ import '../ui/ui-alert';
 import '../ui/ui-loading';
 import '../ui/ui-badge';
 import '../ui/ui-color-input';
+import '../ui/ui-info-tip';
 import '../ui/image-editor';
 import { __ } from '../../services/i18n.service';
 
@@ -288,19 +289,30 @@ export class NavigatorDefaultConfigPage extends LitElement {
     );
   }
 
-  private renderColorField(fieldKey: NavigatorColorFieldKey, label: string, fallback: string) {
+  private renderColorField(
+    fieldKey: NavigatorColorFieldKey,
+    label: string,
+    fallback: string,
+    help = '',
+  ) {
     if (!this.config) return nothing;
-    return renderNavigatorColorField(this.config, fieldKey, label, fallback, (patch) =>
-      this.updateConfig(patch),
+    return renderNavigatorColorField(
+      this.config,
+      fieldKey,
+      label,
+      fallback,
+      (patch) => this.updateConfig(patch),
+      help,
     );
   }
 
-  private renderTextField(fieldKey: NavigatorTextFieldKey, label: string) {
+  private renderTextField(fieldKey: NavigatorTextFieldKey, label: string, help = '') {
     if (!this.config) return nothing;
     const config = this.config;
     return html`
       <ui-input
         label=${label}
+        .help=${help}
         .value=${config[fieldKey]}
         @input-change=${(e: CustomEvent) =>
           this.updateConfig({ [fieldKey]: e.detail.value } as Partial<NavigatorConfigFormData>)}
@@ -311,14 +323,15 @@ export class NavigatorDefaultConfigPage extends LitElement {
   private renderGeneralField(
     fieldKey: NavigatorGeneralFieldKey,
     label: string,
-    options: { required?: boolean; transform?: (value: string) => string } = {},
+    options: { required?: boolean; transform?: (value: string) => string; help?: string } = {},
   ) {
     if (!this.config) return nothing;
     const config = this.config;
-    const { required = false, transform } = options;
+    const { required = false, transform, help = '' } = options;
     return html`
       <ui-input
         label=${label}
+        .help=${help}
         .value=${config[fieldKey]}
         @input-change=${(e: CustomEvent) =>
           this.updateConfig({
@@ -501,6 +514,9 @@ export class NavigatorDefaultConfigPage extends LitElement {
           .description=${__(
             "L'unica configurazione valida per tutti i musei che non hanno una propria configurazione dedicata",
           )}
+          .help=${__(
+            'Se un museo ha una propria Configurazione Navigator (sezione "Configurazioni Navigator" in Gestione Musei), quella ha sempre la precedenza su questa. Modifica qui solo il branding/manifest usato di default.',
+          )}
         >
           <div slot="actions">
             <ui-button
@@ -549,6 +565,9 @@ export class NavigatorDefaultConfigPage extends LitElement {
                   <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     ${this.renderGeneralField('name', __('Nome Config *'), { required: true })}
                     ${this.renderGeneralField('slug', __('Slug *'), {
+                      help: __(
+                        'Identificatore univoco nel link/QR di questa configurazione (?ncfg=slug). Cambiarlo dopo la pubblicazione invalida i link e i QR già distribuiti.',
+                      ),
                       required: true,
                       transform: sanitizeSlug,
                     })}
@@ -558,6 +577,9 @@ export class NavigatorDefaultConfigPage extends LitElement {
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ui-select
                       .label=${__('Museo in evidenza')}
+                      .help=${__(
+                        'Il museo mostrato in primo piano nella Home del Navigator quando questa configurazione permette di scegliere tra più musei.',
+                      )}
                       .value=${config.featuredMuseumId}
                       .options=${this.museums.map((m) => ({ value: m._id, label: m.name }))}
                       placeholder=${__('Il primo della lista (default)')}
@@ -570,28 +592,52 @@ export class NavigatorDefaultConfigPage extends LitElement {
                     ${this.renderGeneralField('shortName', __('Nome breve manifest *'), {
                       required: true,
                     })}
-                    ${this.renderColorField('primaryColor', __('Colore primario'), '#0ea5e9')}
-                    ${this.renderColorField('secondaryColor', __('Colore secondario'), '#1f2937')}
+                    ${this.renderColorField(
+                      'primaryColor',
+                      __('Colore primario'),
+                      '#0ea5e9',
+                      __(
+                        'Accento principale di tutta la UI del Navigator: pulsanti, gradiente, elementi in evidenza.',
+                      ),
+                    )}
+                    ${this.renderColorField(
+                      'secondaryColor',
+                      __('Colore secondario'),
+                      '#1f2937',
+                      __(
+                        "Estremità opposta del gradiente firma dell'app, insieme al colore primario.",
+                      ),
+                    )}
                     ${this.renderColorField(
                       'appBackgroundColor',
                       __('Colore sfondo app'),
                       '#0b0813',
+                      __(
+                        'Sfondo di tutte le schermate del Navigator: da questo colore vengono derivate automaticamente le sue sfumature (card, bordi, testo).',
+                      ),
                     )}
                     ${this.renderColorField(
                       'themeColor',
                       __('Colore tema (barra browser)'),
                       '#0ea5e9',
+                      __(
+                        "Colore della barra di stato/indirizzo del browser e della splash screen quando l'app è installata sul telefono — non incide sull'aspetto interno del Navigator.",
+                      ),
                     )}
                     ${this.renderColorField(
                       'backgroundColor',
                       __('Colore sfondo manifest/splash'),
                       '#ffffff',
+                      __(
+                        "Sfondo mostrato per una frazione di secondo all'avvio dell'app installata, prima che venga caricata la vera schermata — impostalo simile al colore sfondo app per evitare un lampo di colore diverso.",
+                      ),
                     )}
                   </div>
 
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ui-select
                       .label=${__('Font titoli')}
+                      .help=${__('Font usato per titoli e intestazioni nel Navigator.')}
                       .value=${config.displayFont}
                       .options=${NAVIGATOR_FONT_SELECT_OPTIONS}
                       placeholder=${__('Predefinito')}
@@ -600,6 +646,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
                     ></ui-select>
                     <ui-select
                       .label=${__('Font testo')}
+                      .help=${__('Font usato per il corpo dei testi (descrizioni, paragrafi).')}
                       .value=${config.bodyFont}
                       .options=${NAVIGATOR_FONT_SELECT_OPTIONS}
                       placeholder=${__('Predefinito')}
@@ -611,6 +658,9 @@ export class NavigatorDefaultConfigPage extends LitElement {
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ui-select
                       .label=${__('Visualizzazione')}
+                      .help=${__(
+                        "Come appare l'app una volta installata sul telefono: standalone nasconde la UI del browser mantenendo la barra di stato, fullscreen nasconde anche quella, minimal-ui lascia pochi controlli di navigazione, browser la apre come una normale scheda.",
+                      )}
                       .value=${config.display}
                       .options=${displayOptions}
                       @select-change=${(e: CustomEvent) =>
@@ -620,6 +670,9 @@ export class NavigatorDefaultConfigPage extends LitElement {
                     ></ui-select>
                     <ui-select
                       .label=${__('Orientamento')}
+                      .help=${__(
+                        'Blocca l\'app installata su un orientamento (verticale/orizzontale) oppure segue quello del dispositivo ("any").',
+                      )}
                       .value=${config.orientation}
                       .options=${orientationOptions}
                       @select-change=${(e: CustomEvent) =>
@@ -627,8 +680,20 @@ export class NavigatorDefaultConfigPage extends LitElement {
                           orientation: e.detail.value as NavigatorConfigFormData['orientation'],
                         })}
                     ></ui-select>
-                    ${this.renderTextField('startUrl', __('URL iniziale'))}
-                    ${this.renderTextField('scope', __('Ambito'))}
+                    ${this.renderTextField(
+                      'startUrl',
+                      __('URL iniziale'),
+                      __(
+                        'Pagina aperta quando si avvia l\'app installata dall\'icona in home screen. Di norma "/" (la Home del Navigator).',
+                      ),
+                    )}
+                    ${this.renderTextField(
+                      'scope',
+                      __('Ambito'),
+                      __(
+                        'Percorso entro cui l\'app resta "installata": uscendo da questo ambito, i link si aprono nel browser normale invece che nell\'app.',
+                      ),
+                    )}
                   </div>
 
                   <ui-textarea

@@ -7,7 +7,6 @@ import type {
   MuseumRoom,
   CreateMuseumData,
   MuseumCurator,
-  MuseumConfigResponse,
   MuseumRole,
   MuseumRoleRequest,
   MuseumRoleRequestWithNames,
@@ -40,16 +39,6 @@ export class MuseumService {
 
   async getMuseum(id: string): Promise<Museum | null> {
     const response = await apiService.get<Museum>(`/museums/${id}`);
-
-    if (response.success && response.data) {
-      return response.data;
-    }
-
-    return null;
-  }
-
-  async getMuseumConfig(id: string): Promise<MuseumConfigResponse | null> {
-    const response = await apiService.get<MuseumConfigResponse>(`/museums/${id}/config`);
 
     if (response.success && response.data) {
       return response.data;

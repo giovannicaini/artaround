@@ -1,5 +1,5 @@
 import { apiService, getErrorMessage } from './api.service';
-import { historyService } from './history.service';
+import { routerService } from './router.service';
 import { preferencesService } from './preferences.service';
 import type {
   User,
@@ -34,7 +34,7 @@ export class AuthService {
       // Ignora i fallimenti di storage (modalità privata/quota)
     }
 
-    historyService.clear();
+    routerService.reset();
     preferencesService.clearSelectedMuseum();
   }
 

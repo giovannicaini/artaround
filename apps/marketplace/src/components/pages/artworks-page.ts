@@ -143,8 +143,12 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
   }
 
   updated(changedProps: Map<string, unknown>) {
+    // Solo il caricamento dei dati dell'opera: non tocca viewMode, altrimenti
+    // riaprire un'opera già in modifica (openingArtworkId e openingViewMode
+    // cambiano insieme) la riporterebbe sempre a "view" mentre il fetch è
+    // ancora in corso — viewMode lo decide solo il blocco sotto.
     if (changedProps.has('openingArtworkId') && this.openingArtworkId) {
-      this.openArtworkDetail(this.openingArtworkId);
+      void this.loadSelectedArtwork(this.openingArtworkId);
     }
     // Gestisce l'apertura con un viewMode specifico (es. dalla navigazione history)
     if (changedProps.has('openingViewMode')) {
@@ -152,9 +156,9 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
         // Torna alla vista lista dalla history
         this.selectedArtwork = null;
         this.viewMode = 'list';
-      } else if (this.openingViewMode === 'view' && this.openingArtworkId && this.selectedArtwork) {
-        // Già gestito da openArtworkDetail
-      } else if (this.openingViewMode === 'edit' && this.selectedArtwork) {
+      } else if (this.openingViewMode === 'view') {
+        this.viewMode = 'view';
+      } else if (this.openingViewMode === 'edit') {
         this.viewMode = 'edit';
       } else if (this.openingViewMode === 'create') {
         this.viewMode = 'create';
@@ -341,7 +345,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
   }
 
   // ─── Azioni (filtri / CRUD / vista) ────────────────────
-  private async openArtworkDetail(artworkId: string) {
+  private async loadSelectedArtwork(artworkId: string) {
     if (!artworkId) return;
 
     try {
@@ -349,8 +353,6 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
       if (!artwork) return;
 
       this.selectedArtwork = artwork;
-      this.viewMode = 'view';
-      this.emitStateChange();
     } catch (e) {
       console.error('Error opening artwork detail:', e);
     }
@@ -957,6 +959,9 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
           .description=${__('Collegate tramite Wikidata')}
           .count=${this.pagination.total}
           .countLabel=${__('opere fisiche nei musei')}
+          .help=${__(
+            'Le opere fisiche esposte nel museo (quadri, sculture...). Servono da riferimento per i contenuti di tipo Opera e per posizionare i marker sulla mappa; non vanno confuse con i Contenuti, che sono i testi/audio letti dal Navigator su di esse.',
+          )}
         >
           <div slot="actions" class="flex items-center gap-3">
             ${this.permissions.canCreateArtwork
@@ -1243,20 +1248,27 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
 
   private renderViewMode() {
     if (!this.selectedArtwork) return this.renderListView();
+    // Catturato in una costante locale: <ui-panel-section> invoca
+    // .renderContent in un suo ciclo di render separato, non nello stesso
+    // istante in cui viene costruito qui — se nel frattempo
+    // this.selectedArtwork torna null (es. un altro avanti/indietro rapido)
+    // le chiusure leggerebbero null invece del valore con cui sono state
+    // create.
+    const artwork = this.selectedArtwork;
 
-    const createdAt = this.formatDateTime(this.selectedArtwork.createdAt as unknown as string);
-    const updatedAt = this.formatDateTime(this.selectedArtwork.updatedAt as unknown as string);
+    const createdAt = this.formatDateTime(artwork.createdAt as unknown as string);
+    const updatedAt = this.formatDateTime(artwork.updatedAt as unknown as string);
 
-    const selectedImageAttrs = this.selectedArtwork.image
-      ? this.getArtworkImageAttrs(this.selectedArtwork.image, '(max-width: 1024px) 100vw, 33vw')
+    const selectedImageAttrs = artwork.image
+      ? this.getArtworkImageAttrs(artwork.image, '(max-width: 1024px) 100vw, 33vw')
       : null;
 
     return html`
       <div class="space-y-6">
         <!-- Header -->
         <ui-page-header
-          .title=${this.selectedArtwork.title}
-          .description=${`${this.selectedArtwork.author || __('Autore sconosciuto')}${this.selectedArtwork.year ? ` • ${this.selectedArtwork.year}` : ''}`}
+          .title=${artwork.title}
+          .description=${`${artwork.author || __('Autore sconosciuto')}${artwork.year ? ` • ${artwork.year}` : ''}`}
           showBack
           @back=${this.handleBackToList}
         >
@@ -1281,13 +1293,13 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
               <div
                 class="aspect-square bg-surface-100 dark:bg-surface-800 rounded-lg overflow-hidden"
               >
-                ${this.selectedArtwork.image
+                ${artwork.image
                   ? html`
                       <img
                         src="${selectedImageAttrs?.src}"
                         srcset="${ifDefined(selectedImageAttrs?.srcset)}"
                         sizes="${ifDefined(selectedImageAttrs?.sizes)}"
-                        alt="${this.selectedArtwork.title}"
+                        alt="${artwork.title}"
                         class="w-full h-full object-cover"
                         @error=${(e: Event) => {
                           const img = e.target as HTMLImageElement;
@@ -1310,16 +1322,16 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
               </div>
 
               <!-- Wikidata link -->
-              ${this.selectedArtwork.wikidataId
+              ${artwork.wikidataId
                 ? html`
                     <a
-                      href="https://www.wikidata.org/wiki/${this.selectedArtwork.wikidataId}"
+                      href="https://www.wikidata.org/wiki/${artwork.wikidataId}"
                       target="_blank"
                       rel="noopener noreferrer"
                       class="mt-4 flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors text-sm"
                     >
                       <ui-icon name="link" size="xs"></ui-icon>
-                      Vedi su Wikidata (${this.selectedArtwork.wikidataId})
+                      Vedi su Wikidata (${artwork.wikidataId})
                     </a>
                   `
                 : nothing}
@@ -1334,15 +1346,15 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
               icon="grid"
               .renderContent=${() => html`
                 <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  ${this.renderDetailField('Titolo', this.selectedArtwork!.title, true)}
-                  ${this.renderDetailField('Autore', this.selectedArtwork!.author)}
-                  ${this.renderDetailField('Anno / Periodo', this.selectedArtwork!.year)}
+                  ${this.renderDetailField('Titolo', artwork.title, true)}
+                  ${this.renderDetailField('Autore', artwork.author)}
+                  ${this.renderDetailField('Anno / Periodo', artwork.year)}
                   ${this.renderDetailField(
                     'Tipo',
-                    `${getArtworkTypeIcon(this.selectedArtwork!.artworkType)} ${getArtworkTypeLabel(this.selectedArtwork!.artworkType)}`,
+                    `${getArtworkTypeIcon(artwork.artworkType)} ${getArtworkTypeLabel(artwork.artworkType)}`,
                   )}
-                  ${this.renderDetailField('Sala', this.selectedArtwork!.room)}
-                  ${this.renderDetailField('Piano', this.selectedArtwork!.floor)}
+                  ${this.renderDetailField('Sala', artwork.room)}
+                  ${this.renderDetailField('Piano', artwork.floor)}
                 </dl>
               `}
             ></ui-panel-section>
@@ -1352,24 +1364,12 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
               icon="hash"
               .renderContent=${() => html`
                 <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  ${this.renderWikidataField('ID Wikidata', this.selectedArtwork!.wikidataId)}
-                  ${this.renderWikidataField('ID Museo', this.selectedArtwork!.museumId)}
-                  ${this.renderWikidataField(
-                    'ID Autore Wikidata',
-                    this.selectedArtwork!.authorWikidataId,
-                  )}
-                  ${this.renderWikidataField(
-                    'ID Movimento Wikidata',
-                    this.selectedArtwork!.movementWikidataId,
-                  )}
-                  ${this.renderWikidataField(
-                    'ID Stile Wikidata',
-                    this.selectedArtwork!.styleWikidataId,
-                  )}
-                  ${this.renderWikidataField(
-                    'ID Periodo Wikidata',
-                    this.selectedArtwork!.periodWikidataId,
-                  )}
+                  ${this.renderWikidataField('ID Wikidata', artwork.wikidataId)}
+                  ${this.renderWikidataField('ID Museo', artwork.museumId)}
+                  ${this.renderWikidataField('ID Autore Wikidata', artwork.authorWikidataId)}
+                  ${this.renderWikidataField('ID Movimento Wikidata', artwork.movementWikidataId)}
+                  ${this.renderWikidataField('ID Stile Wikidata', artwork.styleWikidataId)}
+                  ${this.renderWikidataField('ID Periodo Wikidata', artwork.periodWikidataId)}
                 </dl>
               `}
             ></ui-panel-section>
@@ -1379,40 +1379,33 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
               icon="tag"
               .renderContent=${() => html`
                 <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  ${this.renderDetailField('Movimento', this.selectedArtwork!.movement)}
-                  ${this.renderDetailField('Stile', this.selectedArtwork!.style)}
-                  ${this.renderDetailField('Periodo', this.selectedArtwork!.period)}
-                  ${this.renderDetailField('Tecnica', this.selectedArtwork!.technique)}
-                  ${this.renderDetailField(
-                    'Dimensioni',
-                    this.selectedArtwork!.dimensions?.displayText,
-                  )}
+                  ${this.renderDetailField('Movimento', artwork.movement)}
+                  ${this.renderDetailField('Stile', artwork.style)}
+                  ${this.renderDetailField('Periodo', artwork.period)}
+                  ${this.renderDetailField('Tecnica', artwork.technique)}
+                  ${this.renderDetailField('Dimensioni', artwork.dimensions?.displayText)}
                 </dl>
               `}
             ></ui-panel-section>
 
             <!-- Materials -->
-            ${(this.selectedArtwork.materials && this.selectedArtwork.materials.length > 0) ||
-            (this.selectedArtwork.subjects && this.selectedArtwork.subjects.length > 0) ||
-            (this.selectedArtwork.historicalEvents &&
-              this.selectedArtwork.historicalEvents.length > 0) ||
-            this.selectedArtwork.artworkCollection
+            ${(artwork.materials && artwork.materials.length > 0) ||
+            (artwork.subjects && artwork.subjects.length > 0) ||
+            (artwork.historicalEvents && artwork.historicalEvents.length > 0) ||
+            artwork.artworkCollection
               ? html`
                   <ui-panel-section
                     .title=${__('Contesto')}
                     icon="layers"
                     .renderContent=${() => html`
-                      ${this.renderTagList('Materiali', this.selectedArtwork!.materials)}
-                      ${this.renderTagList('Soggetti', this.selectedArtwork!.subjects)}
-                      ${this.renderTagList(
-                        'Eventi storici',
-                        this.selectedArtwork!.historicalEvents,
-                      )}
-                      ${this.selectedArtwork!.artworkCollection
+                      ${this.renderTagList('Materiali', artwork.materials)}
+                      ${this.renderTagList('Soggetti', artwork.subjects)}
+                      ${this.renderTagList('Eventi storici', artwork.historicalEvents)}
+                      ${artwork.artworkCollection
                         ? html`
                             <p class="text-sm text-surface-600 dark:text-surface-400">
                               <span class="font-medium">Collezione:</span>
-                              ${this.selectedArtwork!.artworkCollection}
+                              ${artwork.artworkCollection}
                             </p>
                           `
                         : nothing}
@@ -1422,14 +1415,14 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
               : nothing}
 
             <!-- Additional Images -->
-            ${this.selectedArtwork.images && this.selectedArtwork.images.length > 0
+            ${artwork.images && artwork.images.length > 0
               ? html`
                   <ui-panel-section
                     .title=${__('Immagini aggiuntive')}
                     icon="image"
                     .renderContent=${() => html`
                       <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        ${this.selectedArtwork!.images!.map((imagePath) => {
+                        ${artwork.images!.map((imagePath) => {
                           const imageAttrs = this.getArtworkImageAttrs(
                             imagePath,
                             '(max-width: 768px) 50vw, 33vw',
@@ -1456,24 +1449,18 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
               : nothing}
 
             <!-- Map Position -->
-            ${this.selectedArtwork.mapPosition
+            ${artwork.mapPosition
               ? html`
                   <ui-panel-section
                     .title=${__('Posizione Mappa')}
                     icon="location"
                     .renderContent=${() => html`
                       <dl class="grid grid-cols-2 gap-4">
-                        ${this.renderDetailField(
-                          'Floor ID',
-                          this.selectedArtwork!.mapPosition!.floorId,
-                        )}
-                        ${this.renderDetailField('X', this.selectedArtwork!.mapPosition!.x)}
-                        ${this.renderDetailField('Y', this.selectedArtwork!.mapPosition!.y)}
-                        ${this.selectedArtwork!.mapPosition!.rotation !== undefined
-                          ? this.renderDetailField(
-                              'Rotazione',
-                              `${this.selectedArtwork!.mapPosition!.rotation}°`,
-                            )
+                        ${this.renderDetailField('Floor ID', artwork.mapPosition!.floorId)}
+                        ${this.renderDetailField('X', artwork.mapPosition!.x)}
+                        ${this.renderDetailField('Y', artwork.mapPosition!.y)}
+                        ${artwork.mapPosition!.rotation !== undefined
+                          ? this.renderDetailField('Rotazione', `${artwork.mapPosition!.rotation}°`)
                           : nothing}
                       </dl>
                     `}
@@ -1482,14 +1469,14 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
               : nothing}
 
             <!-- Metadata -->
-            ${createdAt || updatedAt || this.selectedArtwork._id
+            ${createdAt || updatedAt || artwork._id
               ? html`
                   <ui-panel-section
                     .title=${__('Metadati')}
                     icon="clock"
                     .renderContent=${() => html`
                       <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        ${this.renderDetailField('ID interno', this.selectedArtwork!._id)}
+                        ${this.renderDetailField('ID interno', artwork._id)}
                         ${this.renderDetailField('Creato il', createdAt)}
                         ${this.renderDetailField('Aggiornato il', updatedAt)}
                       </dl>
@@ -1499,14 +1486,14 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
               : nothing}
 
             <!-- Description -->
-            ${this.selectedArtwork.description
+            ${artwork.description
               ? html`
                   <ui-panel-section
                     .title=${__('Descrizione')}
                     icon="document"
                     .renderContent=${() => html`
                       <p class="text-surface-700 dark:text-surface-300 whitespace-pre-wrap">
-                        ${this.selectedArtwork!.description}
+                        ${artwork.description}
                       </p>
                     `}
                   ></ui-panel-section>
@@ -1532,12 +1519,12 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
         ></ui-page-header>
 
         <!-- Edit Form -->
+        <!-- Resta sul form al salvataggio (mostra "Opera aggiornata con successo!"),
+             comodo per modificare più campi in sequenza; si torna alla lista solo
+             con "Indietro" o "Annulla". -->
         <artwork-creator
           artworkId="${this.selectedArtwork._id}"
-          @artwork-created=${() => {
-            this.handleBackToList();
-            this.loadArtworks();
-          }}
+          @artwork-created=${() => this.loadArtworks()}
           @cancel=${this.handleBackToList}
         ></artwork-creator>
       </div>
@@ -1578,12 +1565,22 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
    * Usato per la gestione della history
    */
   private emitStateChange(): void {
+    // this.selectedArtwork si popola in modo asincrono (fetch) quando si
+    // arriva qui da un cambio di openingArtworkId (es. avanti/indietro nel
+    // browser): finché non risolve resta quello di prima (o null).
+    // openingArtworkId riflette invece subito il valore corretto, aggiornato
+    // in modo sincrono nello stesso giro in cui cambia anche viewMode —
+    // usarlo come fallback (solo per view/edit, mai per list/create) evita
+    // di emettere per un attimo uno stato "a metà" (viewMode nuovo, artworkId
+    // vecchio o mancante) che finirebbe comunque in history.
+    const hasArtworkContext = this.viewMode === 'view' || this.viewMode === 'edit';
+    const artworkId = hasArtworkContext
+      ? this.selectedArtwork?._id || this.openingArtworkId || ''
+      : '';
+
     this.dispatchEvent(
       new CustomEvent('page-state-changed', {
-        detail: {
-          viewMode: this.viewMode,
-          artworkId: this.selectedArtwork?._id || '',
-        },
+        detail: { viewMode: this.viewMode, artworkId },
         bubbles: true,
         composed: true,
       }),

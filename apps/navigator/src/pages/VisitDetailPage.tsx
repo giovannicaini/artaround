@@ -31,7 +31,7 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Clock, Users, Star, Ticket, Accessibility } from 'lucide-react';
+import { ArrowLeft, Clock, Users, Ticket, Accessibility } from 'lucide-react';
 import { api, ApiError } from '../services/apiClient';
 import { useAuthStore } from '../context/authStore';
 import { useI18nStore } from '../context/i18nStore';
@@ -212,9 +212,10 @@ export default function VisitDetailPage() {
           <VisitPriceBadge visit={visit} owned={owned} />
         </div>
 
-        {visit.targetAudience?.languageLevels?.length > 0 && (
+        {(visit.targetAudience?.languageLevels?.length > 0 ||
+          visit.generalInfo?.wheelchairAccessible) && (
           <div className="flex items-center gap-2 flex-wrap mb-4">
-            {visit.targetAudience.languageLevels.map((level) => (
+            {visit.targetAudience?.languageLevels?.map((level) => (
               <span
                 key={level}
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-surface-800 text-surface-300"
@@ -222,6 +223,12 @@ export default function VisitDetailPage() {
                 {LEVEL_META[level].emoji} {LEVEL_META[level].label}
               </span>
             ))}
+            {visit.generalInfo?.wheelchairAccessible && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-surface-800 text-surface-300">
+                <Accessibility className="w-3.5 h-3.5" />
+                {t('Accessibile in sedia a rotelle')}
+              </span>
+            )}
           </div>
         )}
 
@@ -234,12 +241,6 @@ export default function VisitDetailPage() {
             <Users className="w-4 h-4" />
             {visit.metadata?.artworksCount} {t('opere')}
           </span>
-          {visit.metadata?.rating && (
-            <span className="flex items-center gap-1">
-              <Star className="w-4 h-4 fill-brand-400 text-brand-400" />
-              <span className="font-medium text-surface-300">{visit.metadata.rating}</span>
-            </span>
-          )}
         </div>
 
         <section className="mb-8">
@@ -260,6 +261,22 @@ export default function VisitDetailPage() {
                 onClick={() => setExpandedInfo({ label, value })}
               />
             ))}
+          </section>
+        )}
+
+        {visit.generalInfo?.services && visit.generalInfo.services.length > 0 && (
+          <section className="mb-8">
+            <SectionHeader title={t('Servizi disponibili')} className="mb-3" />
+            <div className="flex flex-wrap gap-2">
+              {visit.generalInfo.services.map((service, i) => (
+                <span
+                  key={i}
+                  className="px-2.5 py-1 rounded-full text-xs font-medium bg-surface-800 text-surface-300"
+                >
+                  {service}
+                </span>
+              ))}
+            </div>
           </section>
         )}
 

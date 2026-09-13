@@ -22,6 +22,7 @@ import '../ui/ui-button';
 import '../ui/ui-card';
 import '../ui/ui-image-placeholder';
 import '../ui/ui-icon';
+import '../ui/ui-info-tip';
 import { __ } from '../../services/i18n.service';
 
 /**
@@ -38,6 +39,14 @@ export class MuseumMapPage extends LitElement {
 
   @property({ type: String })
   museumId: string = '';
+
+  // Piano/marker da cui aprire (es. tornando da un avanti/indietro del
+  // browser) — vedi emitStateChange().
+  @property({ type: String })
+  openingFloorId: string = '';
+
+  @property({ type: String })
+  openingMarkerId: string = '';
 
   @state()
   private museum: Museum | null = null;
@@ -105,9 +114,73 @@ export class MuseumMapPage extends LitElement {
     return counts;
   }
 
+  // La primissima volta che piano/marker vengono impostati (il default
+  // scelto da loadData() se non arriva nulla da fuori, o il ripristino di un
+  // deep-link) corregge solo l'URL corrente (replace); da lì in poi ogni
+  // cambio è una vera selezione dell'utente e aggiunge un passo di history —
+  // altrimenti aprire la pagina produrrebbe da sola un secondo passo (route+
+  // museo, poi route+museo+piano) da un unico click.
+  private hasEmittedStateOnce = false;
+
   async connectedCallback() {
     super.connectedCallback();
     await this.loadData();
+  }
+
+  updated(changedProps: Map<string, unknown>) {
+    // Piano/marker richiesti da fuori sono cambiati (avanti/indietro del
+    // browser rimasto dentro questa stessa pagina, cambiando solo piano o
+    // marker): la pagina persiste come istanza unica per tutta la route, va
+    // aggiornata a mano perché non viene mai ricreata da zero.
+    if (
+      changedProps.has('openingFloorId') &&
+      this.openingFloorId &&
+      this.openingFloorId !== this.selectedFloorId
+    ) {
+      const floor = this.floors.find((f) => f.id === this.openingFloorId);
+      if (floor) this.selectedFloorId = floor.id;
+    }
+    if (changedProps.has('openingMarkerId')) {
+      const floor = this.floors.find((f) => f.id === (this.selectedFloorId || this.openingFloorId));
+      this.selectedMarker = this.openingMarkerId
+        ? floor?.markers?.find((m) => m.id === this.openingMarkerId) || null
+        : null;
+    }
+
+    // this.selectedFloorId ancora null: è il primissimo giro di updated(),
+    // prima che loadData() risolva — selectedFloorId/selectedMarker
+    // "cambiano" solo perché passano da undefined al loro valore iniziale
+    // (null), non c'è ancora nulla di vero da riportare nell'URL.
+    if (
+      (changedProps.has('selectedFloorId') || changedProps.has('selectedMarker')) &&
+      this.selectedFloorId
+    ) {
+      const replace = !this.hasEmittedStateOnce;
+      this.hasEmittedStateOnce = true;
+      this.emitStateChange(replace);
+    }
+  }
+
+  /**
+   * Stato granulare (piano + marker selezionati) verso app-root, per la
+   * history — stesso schema di artworks-page.ts. `replace` sostituisce la
+   * voce di history corrente invece di aggiungerne una nuova: usato solo per
+   * la primissima emissione di questa istanza (il piano scelto o ripristinato
+   * da loadData() al caricamento), mai per una vera selezione dell'utente —
+   * vedi hasEmittedStateOnce.
+   */
+  private emitStateChange(replace = false): void {
+    this.dispatchEvent(
+      new CustomEvent('page-state-changed', {
+        detail: {
+          floorId: this.selectedFloorId || '',
+          markerId: this.selectedMarker?.id || '',
+          replace,
+        },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   // ─── Caricamento dati ────────────────────────────────────────
@@ -135,9 +208,16 @@ export class MuseumMapPage extends LitElement {
       this.artworks = artworksResponse || [];
       this.rooms = rooms || [];
 
-      // Seleziona il primo piano di default
+      // Seleziona il piano indicato da fuori (deep-link/history), altrimenti
+      // il primo di default.
       if (this.floors.length > 0 && !this.selectedFloorId) {
-        this.selectedFloorId = this.floors[0].id;
+        const opening =
+          this.openingFloorId && this.floors.find((f) => f.id === this.openingFloorId);
+        this.selectedFloorId = opening ? opening.id : this.floors[0].id;
+      }
+      if (this.openingMarkerId && !this.selectedMarker) {
+        const floor = this.floors.find((f) => f.id === this.selectedFloorId);
+        this.selectedMarker = floor?.markers?.find((m) => m.id === this.openingMarkerId) || null;
       }
     } catch (err) {
       console.error('Error loading museum data:', err);
@@ -189,16 +269,24 @@ export class MuseumMapPage extends LitElement {
       <div class="min-h-screen bg-surface-950 ${this.isFullscreen ? 'fixed inset-0 z-50' : ''}">
         <!-- Header -->
         <div
-          class="flex flex-wrap items-center justify-between gap-3 p-4 bg-surface-900 border-b border-surface-800"
+          class="flex flex-wrap items-start justify-between gap-3 p-4 bg-surface-900 border-b border-surface-800"
         >
-          <div class="flex items-center gap-4">
+          <div class="flex items-start gap-4">
             <ui-button
               variant="secondary"
               .label=${`← ${__('Indietro')}`}
               @click=${this.goBack}
             ></ui-button>
             <div>
-              <h1 class="text-xl font-semibold text-white m-0">🗺️ ${__('Gestione Mappe')}</h1>
+              <h1 class="flex items-center gap-1.5 flex-wrap text-xl font-semibold text-white m-0">
+                🗺️ ${__('Gestione Mappe')}
+                <ui-info-tip
+                  variant="inline"
+                  text=${__(
+                    'Piani, sale e marker sono tre cose distinte: i piani (a sinistra) sono le piantine caricate; le sale si creano in "Modifica Museo" e qui si contornano sulla piantina; i marker (a destra) sono i singoli punti — opere o servizi. "Salva Tutto" salva solo i marker: piani e sale si salvano già da soli quando li aggiungi o modifichi.',
+                  )}
+                ></ui-info-tip>
+              </h1>
               <p class="text-sm text-surface-400 m-0">${this.museum?.name || __('Museo')}</p>
             </div>
           </div>

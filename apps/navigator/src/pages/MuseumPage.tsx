@@ -35,7 +35,6 @@ import {
   ArrowLeft,
   Clock,
   Users,
-  Star,
   Play,
   ShoppingBag,
   Ticket,
@@ -569,14 +568,6 @@ export default function MuseumPage() {
                             <Users className="w-4 h-4" />
                             {visit.metadata?.artworksCount} {t('opere')}
                           </span>
-                          {visit.metadata?.rating && (
-                            <span className="flex items-center gap-1">
-                              <Star className="w-4 h-4 fill-brand-400 text-brand-400" />
-                              <span className="font-medium text-surface-300">
-                                {visit.metadata.rating}
-                              </span>
-                            </span>
-                          )}
                         </div>
 
                         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full gradient-aurora text-white font-bold text-xs">

@@ -193,10 +193,7 @@ export type UpdateNavigatorConfigData = Partial<
  * applicability 'global' — così il comportamento resta identico a oggi
  * finché un admin non salva davvero una configurazione.
  */
-export const DEFAULT_NAVIGATOR_CONFIG: Omit<
-  NavigatorConfig,
-  '_id' | 'createdAt' | 'updatedAt'
-> = {
+export const DEFAULT_NAVIGATOR_CONFIG: Omit<NavigatorConfig, '_id' | 'createdAt' | 'updatedAt'> = {
   name: 'ArtAround Navigator',
   slug: 'default',
   applicability: 'global',
@@ -230,18 +227,6 @@ export interface MuseumCurator {
   email: string;
 }
 
-export interface MuseumConfigResponse {
-  wikidataId: string;
-  name: string;
-  services: MuseumServices;
-  floors?: Array<{
-    id: string;
-    name: string;
-    level: number;
-    markersCount: number;
-  }>;
-}
-
 export interface MuseumMap {
   type: 'svg' | 'image';
   imageUrl?: string;
@@ -266,7 +251,6 @@ export interface MuseumFloor {
   name: string; // "Piano Terra", "Primo Piano", "Seminterrato"
   level: number; // -1, 0, 1, 2... (0 = piano terra)
   svgContent: string; // Contenuto SVG grezzo (inline)
-  svgUrl?: string; // Opzionale: URL a un file SVG esterno
   dimensions: {
     width: number;
     height: number;
@@ -298,7 +282,6 @@ export interface FloorConnection {
   targetX?: number; // Posizione sul piano di destinazione
   targetY?: number;
   label?: string;
-  isAccessible: boolean; // Accessibile in sedia a rotelle
 }
 
 export enum ConnectionType {
@@ -367,15 +350,4 @@ export interface MapMarker {
   isVisible?: boolean; // Può essere nascosto/mostrato (default true)
   focalPoint?: { x: number; y: number }; // Punto focale dell'immagine per i marker opera (0-100%)
   focalZoom?: number; // Livello di zoom dell'immagine dell'opera (1 = nessuno zoom, 2 = 2x, ecc.)
-  accessibilityInfo?: AccessibilityInfo;
-}
-
-export interface AccessibilityInfo {
-  wheelchairAccessible: boolean;
-  hasSteps: boolean;
-  stepCount?: number;
-  hasRamp: boolean;
-  visualAids: boolean; // Percorsi tattili, braille
-  audioAids: boolean;
-  notes?: string;
 }

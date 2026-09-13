@@ -73,38 +73,6 @@ router.get('/:id', MuseumController.getById);
 
 /**
  * @swagger
- * /api/museums/{id}/config:
- *   get:
- *     tags: [Museums]
- *     summary: Configurazione museo
- *     description: Ottiene il file di configurazione JSON del museo
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: ID del museo
- *     responses:
- *       200:
- *         description: Configurazione museo
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   description: Configurazione personalizzata del museo
- *       404:
- *         $ref: '#/components/responses/NotFoundError'
- */
-router.get('/:id/config', MuseumController.getConfig);
-
-/**
- * @swagger
  * /api/museums:
  *   post:
  *     tags: [Museums]

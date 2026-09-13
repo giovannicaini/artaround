@@ -1,3 +1,8 @@
+/**
+ * Personalization helpers: mappa le preferenze utente (competence/time)
+ * in valori di default per `LanguageLevel` e `ContentDuration` usati dal player.
+ * Esporta `defaultLanguageLevel` e `defaultContentDuration`.
+ */
 import {
   LanguageLevel,
   ContentDuration,

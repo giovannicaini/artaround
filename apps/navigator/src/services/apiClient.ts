@@ -1,3 +1,33 @@
+/*
+ * File: apiClient.ts                                                                    *
+ * Project: @artaround/navigator                                                         *
+ * Last Modified: 11/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 import type {
   Museum,
   NavigatorConfig,
@@ -14,8 +44,14 @@ import type {
   VoiceCommandId,
 } from '@artaround/shared';
 
-// API base URL - configurable via environment variable
+/**
+ * Gestione delle richieste all'API del server.
+ */
+
+// API base URL - configurabile da .env
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
+
+// Chiave in localStorage = chiave del marketplace per unico login
 const TOKEN_KEY = 'authToken';
 
 interface ApiResponse<T> {
@@ -24,12 +60,13 @@ interface ApiResponse<T> {
   message?: string;
 }
 
+// Classe per gestire gli errori nelle richieste all'API
 export class ApiError extends Error {
   constructor(
     public status: number,
     public code: string,
     message: string,
-    // Dati extra per errori "informativi" (es. PURCHASE_REQUIRED → titolo/prezzo della visita).
+    // Dati extra per errori "informativi"
     public data?: unknown,
   ) {
     super(message);
@@ -37,8 +74,6 @@ export class ApiError extends Error {
   }
 }
 
-// Stessa chiave del marketplace (localStorage è condiviso: stesso dominio,
-// path diverso), quindi un login nell'uno vale anche nell'altro.
 export function getToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY);
@@ -63,6 +98,7 @@ export function clearToken(): void {
   }
 }
 
+//Wrapper per ogni request all'API, con autenticazione tramite JWT (se già presente il token)
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const token = getToken();
   const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -75,8 +111,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    // Forma standard di ogni risposta d'errore del server: {success:false,
-    // error:{code,message}, data?} — error annidato, non campi diretti.
+    // Risposta d'errore del server: {success:false, error:{code,message}, data?}
     const body = await response.json().catch(() => ({}));
     if (response.status === 401) clearToken();
     throw new ApiError(
@@ -91,6 +126,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   return json.data;
 }
 
+// Collezione di tutte le possibili richieste all'API
 export const api = {
   // Auth
   login: (credentials: LoginRequest): Promise<{ user: User; token: string }> =>
@@ -124,7 +160,7 @@ export const api = {
   getMuseum: (id: string): Promise<Museum> => request<Museum>(`/museums/${id}`),
 
   // Risolve quale NavigatorConfig applicare — globale, di un museo, o quella
-  // richiesta esplicitamente via link/QR (slug). Vedi context/navigatorConfigStore.
+  // richiesta esplicitamente via link/QR (slug)
   resolveNavigatorConfig: (params: {
     museumId?: string;
     slug?: string;
@@ -136,8 +172,7 @@ export const api = {
     return request<NavigatorConfig>(`/navigator-configs/resolve${qs ? `?${qs}` : ''}`);
   },
 
-  // Visits — sempre solo pubblicate: il Navigator è per i visitatori, mai
-  // per vedere le bozze (quelle si gestiscono dal marketplace).
+  // Visite (solo pubblicate)
   getVisits: (museumId?: string, options?: { isFree?: boolean }): Promise<Visit[]> => {
     const params = new URLSearchParams({ isPublished: 'true' });
     if (museumId) params.set('museumId', museumId);
@@ -147,21 +182,20 @@ export const api = {
 
   getVisit: (id: string): Promise<Visit> => request<Visit>(`/visits/${id}`),
 
-  // Artworks
+  // Opere
   getArtwork: (wikidataId: string): Promise<Artwork> =>
     request<Artwork>(`/artworks/wikidata/${wikidataId}`),
 
   getArtworksByMuseum: (museumWikidataId: string): Promise<Artwork[]> =>
     request<Artwork[]>(`/artworks/museum/${museumWikidataId}`),
 
-  // Items (content)
+  // Contenuti
   getItem: (id: string): Promise<Item> => request<Item>(`/items/${id}`),
 
   getItemsForArtwork: (artworkWikidataId: string): Promise<Item[]> =>
     request<Item[]>(`/items?referenceType=artwork&referenceId=${artworkWikidataId}`),
 
-  // Item di un museo per tipo di riferimento (autore/movimento/periodo/museo)
-  // — usata dalle tappe CONTENT, che non sono legate a un singolo artworkId.
+  // Item di un museo per tipo di riferimento (autore/movimento/periodo/museo), tappe CONTENT
   getItemsByReferenceType: (referenceType: string, museumId: string): Promise<Item[]> =>
     request<Item[]>(
       `/items?referenceType=${referenceType}&museumId=${encodeURIComponent(museumId)}`,
@@ -175,8 +209,7 @@ export const api = {
     return request<Item[]>(`/items${query ? `?${query}` : ''}`);
   },
 
-  // Marketplace / acquisti — il server popola sempre visitId con la visita
-  // intera (vedi VisitPurchaseWithVisit), non il suo id.
+  // Marketplace / acquisti
   getMyPurchases: (): Promise<VisitPurchaseWithVisit[]> =>
     request<VisitPurchaseWithVisit[]>('/marketplace/my-purchases'),
 

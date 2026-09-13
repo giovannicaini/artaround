@@ -55,19 +55,17 @@ export class MarketplaceController {
 
   // GET /api/marketplace/visits — catalogo delle visite pubblicate, con filtri e ordinamento
   static getVisits = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const { museumId, isFree, minRating, sortBy = 'createdAt' } = req.query;
+    const { museumId, isFree, sortBy = 'createdAt' } = req.query;
 
     const filter: Record<string, unknown> = { isPublished: true };
     const museumIdFilter = await buildMuseumIdFilterValue(museumId as string | undefined);
     if (museumIdFilter !== undefined) filter.museumId = museumIdFilter;
     if (isFree !== undefined) filter['metadata.isFree'] = isFree === 'true';
-    if (minRating) filter['metadata.rating'] = { $gte: parseFloat(minRating as string) };
 
     const { page, limit, skip } = parsePagination(req.query, 20);
 
     // Ordinamento
     let sort: Record<string, 1 | -1> = { createdAt: -1 };
-    if (sortBy === 'rating') sort = { 'metadata.rating': -1 };
     if (sortBy === 'price') sort = { 'metadata.price': 1 };
     if (sortBy === 'downloads') sort = { 'metadata.downloadsCount': -1 };
 

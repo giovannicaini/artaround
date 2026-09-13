@@ -217,7 +217,8 @@ export function renderNavigatorImageEditors(
 /**
  * Renderizza un campo colore (swatch <ui-color-input> + <ui-input> testuale
  * per l'hex) condiviso tra i due editor di NavigatorConfig. Richiede che il
- * chiamante importi '../ui/ui-color-input' (side-effect).
+ * chiamante importi '../ui/ui-color-input' e, se passa `help`, '../ui/ui-info-tip'
+ * (side-effect).
  */
 export function renderNavigatorColorField(
   config: NavigatorConfigFormData,
@@ -225,11 +226,14 @@ export function renderNavigatorColorField(
   label: string,
   fallback: string,
   onUpdate: (patch: Partial<NavigatorConfigFormData>) => void,
+  help = '',
 ) {
   return html`
     <div class="space-y-1.5">
-      <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
-        ${label}
+      <label
+        class="flex items-center gap-1.5 text-sm font-medium text-surface-700 dark:text-surface-300"
+      >
+        ${label} ${help ? html`<ui-info-tip text=${help}></ui-info-tip>` : nothing}
       </label>
       <div class="flex items-center gap-2">
         <ui-color-input

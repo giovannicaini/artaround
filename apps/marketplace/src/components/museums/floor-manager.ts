@@ -5,6 +5,7 @@ import { modalService } from '../../services/modal.service';
 import '../ui/ui-button';
 import '../ui/ui-input';
 import '../ui/ui-icon-button';
+import '../ui/ui-info-tip';
 import { __ } from '../../services/i18n.service';
 
 /**
@@ -58,9 +59,17 @@ export class FloorManager extends LitElement {
       >
         <!-- Header -->
         <div
-          class="flex justify-between items-center p-4 bg-surface-700 border-b border-surface-600"
+          class="flex justify-between items-start p-4 bg-surface-700 border-b border-surface-600"
         >
-          <h3 class="text-white font-medium text-base m-0">📐 ${__('Piani del Museo')}</h3>
+          <h3 class="flex items-center gap-1.5 flex-wrap text-white font-medium text-base m-0">
+            📐 ${__('Piani del Museo')}
+            <ui-info-tip
+              variant="inline"
+              text=${__(
+                'Il "Livello" (es. -1, 0, 1) è un valore semantico per l\'ordinamento tra piani, non l\'ordine in questa lista. "Collegamenti" è un conteggio di sola lettura (scale/ascensori tra piani) — non gestibile da qui.',
+              )}
+            ></ui-info-tip>
+          </h3>
           <div class="flex items-center gap-1">
             <ui-icon-button
               icon=${this.showAddForm ? 'x' : 'plus'}
@@ -161,6 +170,9 @@ export class FloorManager extends LitElement {
           ></ui-input>
           <ui-input
             .label=${__('Livello')}
+            .help=${__(
+              'Valore numerico per ordinare i piani in senso logico (es. -1 seminterrato, 0 piano terra, 1 primo piano) — non è la posizione in questa lista.',
+            )}
             type="number"
             .placeholder=${__('0')}
             .value=${String(this.newFloor.level)}

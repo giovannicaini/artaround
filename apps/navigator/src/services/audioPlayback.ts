@@ -1,12 +1,43 @@
+/*
+ * File: audioPlayback.ts                                                                *
+ * Project: @artaround/navigator                                                         *
+ * Last Modified: 11/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 import type { AudioWordTiming, GeneratedAudio } from '@artaround/shared';
 
 /**
- * Riproduce l'audio già generato (con i timing delle parole) tramite un unico
- * elemento <audio> nascosto, riusato per ogni riproduzione — alternativa a
- * services/speech.ts (Web Speech) con pausa/ripresa native.
+ * Riproduce un MP3 con i timing delle parole e chiama callback (onBoundary, onEnd) per
+ * evidenziare il testo sincronizzato durante la riproduzione. Usa un loop basato su
+ * requestAnimationFrame (RAF): ad ogni frame legge audio.currentTime + LEAD_SECONDS,
+ * trova la parola corrente con wordAt() e invoca onBoundary con l'indice carattere.
  */
 class AudioPlaybackService {
-  // Anticipa l'evidenziazione di poco: più naturale da seguire a occhio.
+  // Anticipa l'evidenziazione di poco per essere più user friendly
   private static readonly LEAD_SECONDS = 0.15;
 
   private audio: HTMLAudioElement | null = null;
@@ -15,7 +46,7 @@ class AudioPlaybackService {
   private onEndCallback: (() => void) | null = null;
   private rafId: number | null = null;
 
-  // Loop per-frame, non 'timeupdate' (troppo poco frequente per seguire bene le parole).
+  // Loop per-frame, con RAF
   private tick = (): void => {
     if (!this.audio || !this.onBoundaryCallback || this.words.length === 0) return;
     this.onBoundaryCallback(
@@ -51,6 +82,7 @@ class AudioPlaybackService {
     return current;
   }
 
+  // Crea il nuovo <audio> se non è già esistente.
   private ensureElement(): HTMLAudioElement | null {
     if (typeof window === 'undefined') return null;
     if (!this.audio) {

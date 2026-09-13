@@ -5,7 +5,7 @@ import {
   preferencesService,
   type SelectedMuseumPreference,
 } from '../../services/preferences.service';
-import { historyService } from '../../services/history.service';
+import { routerService } from '../../services/router.service';
 import { museumService } from '../../services/museum.service';
 import { jobsService, type Job } from '../../services/jobs.service';
 import { notificationsService, type Notification } from '../../services/notifications.service';
@@ -25,6 +25,7 @@ export class AdminHeader extends LitElement {
   @property({ type: Object }) user: User | null = null;
   @property({ type: Boolean }) sidebarCollapsed = false;
   @state() private darkMode = false;
+  @state() private infoTipsExpanded = false;
   @state() private userMenuOpen = false;
   @state() private selectedMuseum: SelectedMuseumPreference | null = null;
   @state() private canGoBack = false;
@@ -48,7 +49,7 @@ export class AdminHeader extends LitElement {
     this.selectedMuseum = preferencesService.getSelectedMuseum();
     void this.hydrateSelectedMuseumLocalization();
     window.addEventListener('museum-changed', this.handleMuseumChanged as EventListener);
-    window.addEventListener('history-state-changed', this.handleHistoryChanged as EventListener);
+    window.addEventListener('route-changed', this.handleRouteChanged as EventListener);
     window.addEventListener('theme-changed', this.handleThemeChanged as EventListener);
     window.addEventListener('ui-language-changed', this.handleLanguageChanged as EventListener);
     window.addEventListener('jobs-changed', this.handleJobsChanged);
@@ -57,9 +58,9 @@ export class AdminHeader extends LitElement {
     void notificationsService.refresh();
     notificationsService.startPolling();
 
-    // Initialize history state
-    this.canGoBack = historyService.canGoBack();
-    this.canGoForward = historyService.canGoForward();
+    // Stato iniziale dei due bottoni avanti/indietro
+    this.canGoBack = routerService.canGoBack();
+    this.canGoForward = routerService.canGoForward();
 
     // Close menu on outside click
     document.addEventListener('click', (e) => {
@@ -74,7 +75,7 @@ export class AdminHeader extends LitElement {
 
   disconnectedCallback() {
     window.removeEventListener('museum-changed', this.handleMuseumChanged as EventListener);
-    window.removeEventListener('history-state-changed', this.handleHistoryChanged as EventListener);
+    window.removeEventListener('route-changed', this.handleRouteChanged as EventListener);
     window.removeEventListener('theme-changed', this.handleThemeChanged as EventListener);
     window.removeEventListener('ui-language-changed', this.handleLanguageChanged as EventListener);
     window.removeEventListener('jobs-changed', this.handleJobsChanged);
@@ -88,7 +89,9 @@ export class AdminHeader extends LitElement {
     void this.hydrateSelectedMuseumLocalization();
   };
 
-  private handleHistoryChanged = (event: CustomEvent) => {
+  private handleRouteChanged = (
+    event: CustomEvent<{ canGoBack: boolean; canGoForward: boolean }>,
+  ) => {
     this.canGoBack = event.detail.canGoBack;
     this.canGoForward = event.detail.canGoForward;
   };
@@ -217,17 +220,35 @@ export class AdminHeader extends LitElement {
     return `${hours}h ${rest}min`;
   }
 
+  // Chiama direttamente la history vera del browser: il conseguente evento
+  // `popstate` arriva al router (vedi router.service.ts) che si occupa da
+  // solo di applicare il nuovo stato — non serve più far risalire un evento
+  // custom fino ad app-root per il "cosa mostrare".
   private handleHistoryBack() {
-    this.dispatchEvent(new CustomEvent('history-back', { bubbles: true, composed: true }));
+    window.history.back();
   }
 
   private handleHistoryForward() {
-    this.dispatchEvent(new CustomEvent('history-forward', { bubbles: true, composed: true }));
+    window.history.forward();
   }
 
   private toggleDarkMode() {
     const newTheme = this.darkMode ? 'light' : 'dark';
     preferencesService.setTheme(newTheme);
+  }
+
+  // Apre/chiude in blocco tutti i box informativi "inline" (titoli di
+  // pagina/sezione) presenti nella pagina corrente — le singole istanze
+  // restano comunque apribili/chiudibili una per una col proprio bottone,
+  // questo controllo serve solo a impostarle tutte allo stesso stato in un
+  // colpo solo. Vedi ui-info-tip.ts.
+  private toggleAllInfoTips() {
+    this.infoTipsExpanded = !this.infoTipsExpanded;
+    window.dispatchEvent(
+      new CustomEvent('info-tips-visibility-changed', {
+        detail: { expanded: this.infoTipsExpanded },
+      }),
+    );
   }
 
   private handleMenuToggle() {
@@ -577,6 +598,19 @@ export class AdminHeader extends LitElement {
                 : nothing}
             </div>
 
+            <!-- Info Tips Toggle: solo desktop, sul cellulare si raggiunge dal
+                 menu utente (vedi dropdown più sotto) per non affollare la
+                 topbar — stesso motivo per Tema/Accessibilità qui sotto. -->
+            <ui-icon-button
+              @click=${this.toggleAllInfoTips}
+              icon="info"
+              variant=${this.infoTipsExpanded ? 'brand' : 'default'}
+              .title=${this.infoTipsExpanded
+                ? __('Nascondi tutte le info di pagina')
+                : __('Mostra tutte le info di pagina')}
+              class="hidden lg:inline-flex"
+            ></ui-icon-button>
+
             <!-- Theme Toggle: solo desktop, sul cellulare si raggiunge dal
                  menu utente (vedi dropdown più sotto) per non affollare la
                  topbar — stesso motivo per Accessibilità qui sotto. -->
@@ -660,9 +694,18 @@ export class AdminHeader extends LitElement {
                           ${__('Il mio account')}
                         </button>
 
-                        <!-- Tema e Accessibilità: su desktop hanno già le loro
-                             icone dedicate in topbar, qui compaiono solo sul
-                             cellulare per non affollarla. -->
+                        <!-- Info Tips, Tema e Accessibilità: su desktop hanno
+                             già le loro icone dedicate in topbar, qui
+                             compaiono solo sul cellulare per non affollarla. -->
+                        <button
+                          @click=${this.toggleAllInfoTips}
+                          class="lg:hidden flex items-center gap-2 w-full px-3 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-md transition-colors"
+                        >
+                          <ui-icon name="info" size="xs"></ui-icon>
+                          ${this.infoTipsExpanded
+                            ? __('Nascondi tutte le info di pagina')
+                            : __('Mostra tutte le info di pagina')}
+                        </button>
                         <button
                           @click=${this.toggleDarkMode}
                           class="lg:hidden flex items-center gap-2 w-full px-3 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-md transition-colors"

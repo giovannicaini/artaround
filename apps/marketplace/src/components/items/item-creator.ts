@@ -13,6 +13,7 @@ import {
   type UpdateItemData,
   type AppLanguage,
   isSupportedAppLanguage,
+  BCP47_BY_LANGUAGE,
 } from '@artaround/shared';
 import { itemService } from '../../services/item.service';
 import { museumService } from '../../services/museum.service';
@@ -312,7 +313,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     if (!this.text.trim()) return;
 
     const utterance = new SpeechSynthesisUtterance(this.text);
-    utterance.lang = `${this.sourceLanguage}-${this.sourceLanguage.toUpperCase()}`;
+    utterance.lang = BCP47_BY_LANGUAGE[this.sourceLanguage];
     utterance.onend = () => {
       this.isSpeaking = false;
     };
@@ -517,6 +518,9 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
         <ui-panel-section
           .title=${__('Tipo di Contenuto')}
           icon="link"
+          .help=${__(
+            "A cosa si riferisce questo contenuto: un'opera specifica, un autore, un movimento artistico, un periodo storico o il museo in generale. Il tipo determina cosa cercare su Wikidata e da quali visite può essere richiamato.",
+          )}
           .renderContent=${() => html`
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ui-select
@@ -728,6 +732,9 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
         <ui-panel-section
           .title=${__('Licenza e Prezzo')}
           icon="euro"
+          .help=${__(
+            'Licenza Creative Commons del testo (CC0 = dominio pubblico, CC-BY = richiede attribuzione, NC = non commerciale, SA = condividi allo stesso modo, Proprietaria = tutti i diritti riservati). Il prezzo si applica solo se qualcuno acquista questo contenuto separatamente nel Marketplace, non se è già incluso in una visita.',
+          )}
           .renderContent=${() => html`
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ui-select

@@ -1,3 +1,33 @@
+/*
+ * File: useNavigatorTheme.ts                                                            *
+ * Project: @artaround/navigator                                                         *
+ * Last Modified: 11/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { NAVIGATOR_FONT_OPTIONS, type NavigatorConfig } from '@artaround/shared';
@@ -9,13 +39,11 @@ function resolveFontFamily(fontId: string | undefined): string | null {
   return NAVIGATOR_FONT_OPTIONS.find((f) => f.id === fontId)?.family ?? null;
 }
 
-/** Config Navigator attiva per tutta la sessione — quella del museo agganciato via kiosk, o quella generale. */
+// Config Navigator attiva per tutta la sessione
 export function useActiveNavigatorConfig() {
+  // kioskMuseumId e rememberedSlug viengono salvati in localStorage per far funzionare il navigator
+  // anche dopo riavvio senza ?ncfg
   const kioskMuseumId = useNavigatorConfigStore((state) => state.kioskMuseumId);
-  // Se il dispositivo è agganciato a una config precisa (link/QR ?ncfg=slug),
-  // va risolta di nuovo per QUELLO slug — risolvere solo per museumId, quando
-  // un museo ha più configurazioni, ne sceglie una qualunque (la più vecchia,
-  // vedi resolveConfig lato server) invece di quella scelta.
   const rememberedSlug = useNavigatorConfigStore((state) => state.rememberedSlug);
   const ready = useNavigatorConfigStore((state) => state.ready);
 
@@ -34,18 +62,17 @@ export function useActiveNavigatorConfig() {
   });
 }
 
-/** Applica branding/colori al documento — va chiamato una sola volta in App.tsx, non per pagina. */
+// Applica branding/colori al documento — va chiamato una sola volta in App.tsx.
 export function useApplyNavigatorTheme(config: NavigatorConfig | undefined) {
   useEffect(() => {
     const root = document.documentElement;
-    // Tutte le CSS var da applicare, raccolte prima e poi impostate/rimosse
-    // in un solo punto invece che ramo per ramo.
     const vars: Record<string, string> = {};
 
     const brandRamp = config?.branding.primaryColor
       ? buildBrandRamp(config.branding.primaryColor)
       : null;
     if (brandRamp) {
+      // tutti gli stop vengono aggiunti a vars
       for (const [stop, rgb] of Object.entries(brandRamp)) vars[`--color-brand-${stop}`] = rgb;
     }
 
@@ -53,12 +80,13 @@ export function useApplyNavigatorTheme(config: NavigatorConfig | undefined) {
       ? buildBrandRamp(config.branding.secondaryColor)
       : null;
     if (emberRamp) {
+      //si usano solo gli stop 500 e 600 per il secondario
       vars['--color-ember-500'] = `rgb(${emberRamp['500']})`;
       vars['--color-ember-600'] = `rgb(${emberRamp['600']})`;
     }
 
     // Sfondo, card, bordi e testo usano tutti la scala Tailwind "surface":
-    // sovrascrivere l'intera rampa (non un solo colore) cambia davvero l'aspetto dell'app.
+    // sovrascrive l'intera scala partendo dai colori della config
     const surfaceRamp = config?.branding.backgroundColor
       ? buildSurfaceRamp(config.branding.backgroundColor)
       : null;

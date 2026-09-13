@@ -39,6 +39,9 @@ type ViewMode = 'list' | 'create' | 'edit';
 export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
   @property({ type: Object }) user: User | null = null;
   @property({ type: Boolean }) authorArea = false;
+  @property({ type: String }) openingVisitId = '';
+  @property({ type: String }) openingViewMode: ViewMode = 'list';
+  @property({ type: String }) openingTab = '';
 
   @state() private viewMode: ViewMode = 'list';
   @state() private visits: Visit[] = [];
@@ -63,9 +66,57 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
   }
 
   updated(changedProps: Map<string, unknown>) {
+    if (changedProps.has('openingViewMode')) {
+      if (this.openingViewMode === 'list') {
+        this.selectedVisit = null;
+        this.viewMode = 'list';
+      } else if (this.openingViewMode === 'edit') {
+        this.viewMode = 'edit';
+      } else if (this.openingViewMode === 'create') {
+        this.viewMode = 'create';
+      }
+    }
     if (changedProps.has('viewMode')) {
       this.scrollToTop();
+      this.emitStateChange();
     }
+  }
+
+  /**
+   * Stato granulare (viewMode + visita selezionata + tab dell'editor) verso
+   * app-root, per la history — stesso schema di artworks-page.ts. `visitId`
+   * usa openingVisitId come fallback quando si arriva da fuori (avanti/
+   * indietro/deep-link): a differenza di artworks-page qui non serve un
+   * fetch, visit-editor carica da sé i dati partendo dal solo id.
+   *
+   * `tab` è sempre presente nel detail (stringa vuota se non applicabile):
+   * handlePageStateChanged in app-root fa un merge, non una sostituzione —
+   * ometterlo del tutto quando si esce dall'editor lascerebbe in giro il
+   * valore della tab precedente nei routeParams.
+   */
+  private emitStateChange(tab = '', replace = false): void {
+    const isEditorOpen = this.viewMode === 'edit' || this.viewMode === 'create';
+    const visitId =
+      this.viewMode === 'edit' ? this.selectedVisit?._id || this.openingVisitId || '' : '';
+
+    this.dispatchEvent(
+      new CustomEvent('page-state-changed', {
+        detail: { viewMode: this.viewMode, visitId, tab: isEditorOpen ? tab : '', replace },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  // Intercetta lo stato del tab attivo emesso da <visit-editor> (vedi il suo
+  // updated()): da solo non sa "quale visita"/"in che modalità", li aggiunge
+  // qui prima di farlo risalire — impedisce anche al `page-state-changed`
+  // "grezzo" del figlio di bollare fino ad app-root privo di quel contesto.
+  // `replace` arriva dal figlio (vero solo per la sua primissima emissione,
+  // vedi visit-editor.ts) e passa così com'è.
+  private handleEditorStateChanged(e: CustomEvent<{ tab?: string; replace?: boolean }>) {
+    e.stopPropagation();
+    this.emitStateChange(e.detail.tab, e.detail.replace);
   }
 
   onMuseumChanged(): void {
@@ -180,8 +231,13 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
+  // Solo la creazione torna alla lista: in modifica si resta sull'editor (mostra
+  // "Visita aggiornata con successo!"), comodo per modificare più tappe in sequenza
+  // su un percorso lungo senza doverlo riaprire ogni volta.
   private handleVisitSaved() {
-    this.backToListView();
+    if (this.viewMode === 'create') {
+      this.backToListView();
+    }
     this.loadVisits();
   }
 
@@ -287,9 +343,11 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     if (this.viewMode === 'create' || this.viewMode === 'edit') {
       return html`
         <visit-editor
-          .visitId=${this.selectedVisit?._id || ''}
+          .visitId=${this.selectedVisit?._id || this.openingVisitId || ''}
+          .openingTab=${this.openingTab}
           @visit-saved=${this.handleVisitSaved}
           @cancel=${this.handleCancel}
+          @page-state-changed=${this.handleEditorStateChanged}
         ></visit-editor>
       `;
     }
@@ -301,6 +359,9 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
           .title=${__('Le tue Visite')}
           .description=${__('Crea e gestisci i tuoi percorsi di visita guidata')}
           .count=${this.visits.length}
+          .help=${__(
+            'Una visita è il percorso guidato che il visitatore segue nel Navigator: una sequenza di tappe (opere, approfondimenti, indicazioni) posizionate sulla piantina. Solo le visite Pubblicate sono visibili nel Navigator/Marketplace; le Bozze restano nascoste finché non le pubblichi.',
+          )}
         >
           <div
             slot="actions"

@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import './ui-icon';
 import './ui-badge';
+import './ui-info-tip';
 import { __ } from '../../services/i18n.service';
 
 /**
@@ -24,6 +25,7 @@ import { __ } from '../../services/i18n.service';
 @customElement('ui-tag-input')
 export class UiTagInput extends LitElement {
   @property({ type: String }) label = '';
+  @property({ type: String }) help = '';
   @property({ type: String }) placeholder = '';
   @property({ type: String }) emptyText = '';
   @property({ type: Array }) tags: string[] = [];
@@ -90,8 +92,11 @@ export class UiTagInput extends LitElement {
       <div class="space-y-2">
         ${this.label
           ? html`
-              <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
+              <label
+                class="flex items-center gap-1.5 text-sm font-medium text-surface-700 dark:text-surface-300"
+              >
                 ${this.label}
+                ${this.help ? html`<ui-info-tip text=${this.help}></ui-info-tip>` : nothing}
               </label>
             `
           : nothing}

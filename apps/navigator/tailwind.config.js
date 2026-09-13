@@ -5,15 +5,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // "Aurora da galleria notturna": violetto vivido come accento
-        // dominante — le tappe fucsia/ambra del gradiente (vedi
-        // .gradient-aurora in main.css) sono l'energia in più sui momenti
-        // chiave (play, copertine, avanzamento), non un secondo colore
-        // sparso ovunque. Triplette RGB "R G B" perché Tailwind le
-        // ricompone con rgb(var(--x) / <alpha-value>) — questo è ciò che
-        // permette a bg-brand-500/40 ecc. di funzionare E a un museo di
-        // sovrascrivere l'accento a runtime (useMuseumTheme) senza
-        // ricompilare nulla.
+        // Brand colors (overridable via CSS vars)
         brand: {
           50: 'rgb(var(--color-brand-50) / <alpha-value>)',
           100: 'rgb(var(--color-brand-100) / <alpha-value>)',
@@ -27,19 +19,13 @@ export default {
           900: 'rgb(var(--color-brand-900) / <alpha-value>)',
           950: 'rgb(var(--color-brand-950) / <alpha-value>)',
         },
-        // Seconda tappa del gradiente aurora, usata anche da sola per
-        // piccoli accenti caldi (badge, evidenze) quando serve staccare
-        // dal violetto dominante.
+        // Secondary accent fallbacks
         ember: {
           400: '#fb923c',
           500: '#f59e0b',
           600: '#d97706',
         },
-        // Scala neutra con un'impronta di tinta (non grigio puro) — è la
-        // differenza tra "grigio scelto" e "grigio di default". Come brand:
-        // triplette RGB da CSS var, sovrascrivibili a runtime da una
-        // NavigatorConfig (buildSurfaceRamp in useMuseumTheme) così sfondo,
-        // card, bordi e testo dell'app cambiano insieme, non solo l'accento.
+        // Surface neutral ramp (overridable via CSS vars)
         surface: {
           50: 'rgb(var(--color-surface-50) / <alpha-value>)',
           100: 'rgb(var(--color-surface-100) / <alpha-value>)',
@@ -76,12 +62,7 @@ export default {
         },
       },
       fontFamily: {
-        // Titoli con carattere, corpo del testo altamente leggibile per
-        // l'ascolto-con-lettura-simultanea: due famiglie deliberatamente
-        // diverse, non la stessa riusata a pesi diversi. Da CSS var, non
-        // letterali: una NavigatorConfig può sovrascriverle a runtime
-        // (branding.displayFont/.bodyFont, vedi useNavigatorTheme.ts) —
-        // gli attuali Unbounded/Plus Jakarta Sans restano il fallback.
+        // Font families (overridable via CSS vars)
         display: ['var(--font-display)', '"Unbounded"', 'system-ui', 'sans-serif'],
         sans: ['var(--font-body)', '"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'Consolas', 'monospace'],

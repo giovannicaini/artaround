@@ -777,35 +777,6 @@ export class MuseumController {
     });
   });
 
-  // GET /api/museums/:id/config — config pubblica per il Navigator (servizi, piani)
-  static getConfig = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const { id } = req.params;
-
-    const museum = await findMuseumByAnyId(id);
-
-    if (!museum) {
-      throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
-    }
-
-    // Restituisce servizi e info piani del museo come config
-    const config = {
-      wikidataId: museum.wikidataId,
-      name: museum.name,
-      services: museum.services,
-      floors: museum.floors?.map((f) => ({
-        id: f.id,
-        name: f.name,
-        level: f.level,
-        markersCount: f.markers?.length || 0,
-      })),
-    };
-
-    res.json({
-      success: true,
-      data: config,
-    });
-  });
-
   // POST /api/museums — crea museo (solo admin)
   static create = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const errors = validationResult(req);
@@ -1555,10 +1526,7 @@ export class MuseumController {
     }
 
     const { id, floorId } = req.params;
-    const connectionData: FloorConnection = {
-      ...req.body,
-      isAccessible: req.body.isAccessible || false,
-    };
+    const connectionData: FloorConnection = { ...req.body };
 
     const museum = await MuseumModel.findById(id);
     if (!museum) {

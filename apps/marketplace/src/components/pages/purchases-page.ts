@@ -100,6 +100,9 @@ export class PurchasesPage extends LitElement {
         <ui-page-header
           .title=${__('Acquisti')}
           .description=${__('I contenuti acquistati che puoi riutilizzare')}
+          .help=${__(
+            'Item e visite che hai già comprato dal Marketplace. Restano disponibili qui senza doverli ricomprare, anche per usarli come base di una nuova visita.',
+          )}
         ></ui-page-header>
 
         <ui-filter-tabs

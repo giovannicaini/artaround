@@ -109,6 +109,9 @@ export class AuthController {
       throw new AppError(401, 'INVALID_CREDENTIALS', 'Username o password non validi');
     }
 
+    user.lastLogin = new Date();
+    await user.save();
+
     // Genera il JWT
     const token = jwt.sign(
       {

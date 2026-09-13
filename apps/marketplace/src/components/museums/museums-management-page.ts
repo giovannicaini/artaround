@@ -46,6 +46,7 @@ import '../ui/ui-data-grid';
 import '../ui/ui-table';
 import '../ui/ui-list-controls';
 import '../ui/ui-color-input';
+import '../ui/ui-info-tip';
 import '../ui/image-editor';
 import '../items/wikidata-autocomplete';
 import { __, i18nService } from '../../services/i18n.service';
@@ -114,6 +115,12 @@ export class MuseumsManagementPage extends LitElement {
   @property({ type: Object }) currentUser: User | null = null;
   @property({ type: String }) selectedMuseumId = '';
   @property({ type: String }) configMode: 'full' | 'museum' | 'navigator' = 'full';
+  // Solo per configMode 'full' (la lista "Gestione Musei"): quale museo/vista
+  // aprire, per la history granulare — l'omologo di selectedMuseumId sopra
+  // serve invece al caso configMode !== 'full', dove non c'è una lista da cui
+  // tornare (vedi loadSelectedMuseumForConfigMode).
+  @property({ type: String }) openingMuseumId = '';
+  @property({ type: String }) openingViewMode: ViewMode = 'list';
 
   @state() private viewMode: ViewMode = 'list';
   @state() private museums: Museum[] = [];
@@ -239,9 +246,6 @@ export class MuseumsManagementPage extends LitElement {
   };
 
   updated(changedProps: Map<string, unknown>) {
-    if (changedProps.has('viewMode')) {
-      window.scrollTo(0, 0);
-    }
     if (
       (changedProps.has('selectedMuseumId') || changedProps.has('configMode')) &&
       this.configMode !== 'full'
@@ -249,9 +253,69 @@ export class MuseumsManagementPage extends LitElement {
       this.loadSelectedMuseumForConfigMode();
     }
 
+    // Solo in modalità 'full' (lista "Gestione Musei"): apertura granulare
+    // di un museo per id/vista — stesso schema di artworks-page.ts.
+    if (this.configMode === 'full') {
+      if (changedProps.has('openingMuseumId') && this.openingMuseumId) {
+        void this.loadOpeningMuseum(this.openingMuseumId);
+      }
+      if (changedProps.has('openingViewMode')) {
+        if (this.openingViewMode === 'list') {
+          this.selectedMuseum = null;
+          this.viewMode = 'list';
+        } else if (this.openingViewMode === 'create') {
+          this.viewMode = 'create';
+        }
+        // 'edit'/'curators' li applica loadOpeningMuseum una volta arrivati i
+        // dati del museo (vedi sotto): impostarli qui, subito, mostrerebbe il
+        // form/la vista curatori con selectedMuseum ancora null.
+      }
+    }
+
+    if (changedProps.has('viewMode')) {
+      window.scrollTo(0, 0);
+      this.emitStateChange();
+    }
+
     if (changedProps.has('formData') || changedProps.has('viewMode')) {
       void this.syncLocationMapPreview();
     }
+  }
+
+  private async loadOpeningMuseum(museumId: string) {
+    try {
+      const museum = await museumService.getMuseum(museumId);
+      if (!museum) return;
+
+      if (this.openingViewMode === 'curators') {
+        void this.openCuratorsView(museum);
+      } else {
+        this.openEditForm(museum);
+      }
+    } catch (e) {
+      console.error('Error loading museum:', e);
+    }
+  }
+
+  /**
+   * Stato granulare (viewMode + museo selezionato) verso app-root, per la
+   * history — stesso schema di artworks-page.ts. Attivo solo in modalità
+   * 'full': in 'museum'/'navigator' non c'è una lista, e backToList() già
+   * gestisce quel caso a parte (navigate verso dashboard).
+   */
+  private emitStateChange(): void {
+    if (this.configMode !== 'full') return;
+
+    const hasMuseumContext = this.viewMode === 'edit' || this.viewMode === 'curators';
+    const museumId = hasMuseumContext ? this.selectedMuseum?._id || this.openingMuseumId || '' : '';
+
+    this.dispatchEvent(
+      new CustomEvent('page-state-changed', {
+        detail: { viewMode: this.viewMode, museumId },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   disconnectedCallback() {
@@ -1625,9 +1689,13 @@ export class MuseumsManagementPage extends LitElement {
       } else if (this.viewMode === 'edit' && this.selectedMuseum) {
         const result = await museumService.updateMuseum(this.selectedMuseum._id, data);
         if (result.data) {
+          // Resta sul form (mostra "Museo aggiornato con successo"): un curatore
+          // in configMode "museum"/"navigator" non ha altrove dove andare, e chi
+          // è in "full" spesso deve modificare più sezioni in sequenza. Si esce
+          // solo con "Indietro"/"Annulla" (@back/@click sopra), che restano su
+          // backToList().
           this.success = __('Museo aggiornato con successo');
           await this.loadMuseums();
-          this.backToList();
         } else {
           this.error = result.error || "Errore durante l'aggiornamento";
         }
@@ -1691,9 +1759,15 @@ export class MuseumsManagementPage extends LitElement {
     key: NavigatorColorFieldKey,
     label: string,
     fallback: string,
+    help = '',
   ) {
-    return renderNavigatorColorField(config, key, label, fallback, (patch) =>
-      this.updateEditingNavigatorConfig(patch),
+    return renderNavigatorColorField(
+      config,
+      key,
+      label,
+      fallback,
+      (patch) => this.updateEditingNavigatorConfig(patch),
+      help,
     );
   }
 
@@ -2311,7 +2385,13 @@ export class MuseumsManagementPage extends LitElement {
     const museums = this.sortedMuseums;
 
     return html`
-      <ui-page-header .title=${__('Gestione Musei')} description="">
+      <ui-page-header
+        .title=${__('Gestione Musei')}
+        description=""
+        .help=${__(
+          'Crea e modifica la scheda di ogni museo: dati generali, sale, servizi, piantine e configurazioni Navigator dedicate. Per assegnare curatori e autori usa "Gestisci Curatori" dalla card del museo.',
+        )}
+      >
         ${this.isAdmin
           ? html`
               <ui-button
@@ -2680,10 +2760,16 @@ export class MuseumsManagementPage extends LitElement {
 
         <section ?hidden=${!showBaseSections}>
           <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
+            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2 flex-wrap"
           >
             <ui-icon name="globe" size="sm" class="text-amber-500"></ui-icon>
             ${__('Contatti e Servizi')}
+            <ui-info-tip
+              variant="inline"
+              text=${__(
+                'Solo informazioni di contatto testuali. Per i servizi mostrati come schede nel Navigator (bagni, bar, uscite...) vedi la sezione "Servizi del museo" qui sotto.',
+              )}
+            ></ui-info-tip>
           </h3>
           <ui-card padding="none">
             <div class="p-6 space-y-4">
@@ -2787,12 +2873,18 @@ export class MuseumsManagementPage extends LitElement {
         </section>
 
         <section ?hidden=${!showNavigatorSection}>
-          <div class="flex items-center justify-between mb-4">
+          <div class="flex items-start justify-between mb-4">
             <h3
-              class="text-lg font-semibold text-surface-900 dark:text-white flex items-center gap-2"
+              class="text-lg font-semibold text-surface-900 dark:text-white flex items-center gap-2 flex-wrap"
             >
               <ui-icon name="cog" size="sm" class="text-purple-500"></ui-icon>
               ${__('Configurazioni Navigator')}
+              <ui-info-tip
+                variant="inline"
+                text=${__(
+                  'Branding e manifest del Navigator specifici per questo museo (colori, font, icone, testo di benvenuto). Se non ne crei una, il museo usa la Configurazione globale Navigator. Un museo può averne più di una, raggiungibili con link/QR diversi (?ncfg=slug).',
+                )}
+              ></ui-info-tip>
             </h3>
             ${!this.editingNavigatorConfig
               ? html`<ui-button
@@ -2983,25 +3075,43 @@ export class MuseumsManagementPage extends LitElement {
               'primaryColor',
               __('Colore primario'),
               '#0ea5e9',
+              __(
+                'Accento principale del Navigator per questo museo: pulsanti, gradiente, elementi in evidenza.',
+              ),
             )}
             ${this.renderNavigatorColorField(
               config,
               'secondaryColor',
               __('Colore secondario'),
               '#1f2937',
+              __("Estremità opposta del gradiente firma dell'app, insieme al colore primario."),
             )}
             ${this.renderNavigatorColorField(
               config,
               'appBackgroundColor',
               __('Colore sfondo app'),
               '#0b0813',
+              __(
+                'Sfondo di tutte le schermate del Navigator: da questo colore vengono derivate automaticamente le sue sfumature (card, bordi, testo).',
+              ),
             )}
-            ${this.renderNavigatorColorField(config, 'themeColor', __('Colore tema'), '#0ea5e9')}
+            ${this.renderNavigatorColorField(
+              config,
+              'themeColor',
+              __('Colore tema'),
+              '#0ea5e9',
+              __(
+                "Colore della barra di stato/indirizzo del browser e della splash screen quando l'app è installata sul telefono.",
+              ),
+            )}
             ${this.renderNavigatorColorField(
               config,
               'backgroundColor',
               __('Colore sfondo manifest/splash'),
               '#ffffff',
+              __(
+                "Sfondo mostrato per una frazione di secondo all'avvio dell'app installata, prima che venga caricata la vera schermata.",
+              ),
             )}
           </div>
 
@@ -3107,6 +3217,9 @@ export class MuseumsManagementPage extends LitElement {
       <ui-page-header
         title="${__('Curatori')} - ${this.selectedMuseum?.name}"
         .description=${__('Gestisci i curatori che possono modificare questo museo')}
+        .help=${__(
+          'Solo il ruolo Curatore si assegna da qui. Per assegnare il ruolo Autore (che può creare item/visite ma non gestire il museo) usa la pagina Utenti.',
+        )}
         showBack
         @back=${this.backToList}
       ></ui-page-header>

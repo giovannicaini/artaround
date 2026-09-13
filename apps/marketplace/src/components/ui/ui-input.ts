@@ -1,10 +1,12 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import './ui-info-tip';
 
 @customElement('ui-input')
 export class UiInput extends LitElement {
   @property({ type: String }) type = 'text';
   @property({ type: String }) label = '';
+  @property({ type: String }) help = '';
   @property({ type: String }) placeholder = '';
   @property({ type: String }) value = '';
   @property({ type: String }) error = '';
@@ -56,9 +58,12 @@ export class UiInput extends LitElement {
       <div class="space-y-1.5">
         ${this.label
           ? html`
-              <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
+              <label
+                class="flex items-center gap-1.5 text-sm font-medium text-surface-700 dark:text-surface-300"
+              >
                 ${this.label}
                 ${this.required ? html`<span class="text-danger-500 ml-0.5">*</span>` : nothing}
+                ${this.help ? html`<ui-info-tip text=${this.help}></ui-info-tip>` : nothing}
               </label>
             `
           : nothing}

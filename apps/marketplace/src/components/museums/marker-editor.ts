@@ -13,6 +13,7 @@ import '../ui/ui-select';
 import '../ui/ui-textarea';
 import '../ui/ui-icon-button';
 import '../ui/ui-image-placeholder';
+import '../ui/ui-info-tip';
 import { __ } from '../../services/i18n.service';
 
 /**
@@ -109,7 +110,15 @@ export class MarkerEditor extends LitElement {
         <div
           class="flex justify-between items-center p-4 bg-surface-700 border-b border-surface-600"
         >
-          <h3 class="text-white font-medium text-base m-0">📍 Marker / POI</h3>
+          <h3 class="flex items-center gap-1.5 flex-wrap text-white font-medium text-base m-0">
+            📍 Marker / POI
+            <ui-info-tip
+              variant="inline"
+              text=${__(
+                "Un marker è un punto sulla piantina: un'opera (collegata a una scheda in Gestione Opere) oppure un servizio/orientamento (ingresso, bagno, scale...). Il tipo scelto determina l'icona e se va collegato a un'opera.",
+              )}
+            ></ui-info-tip>
+          </h3>
         </div>
 
         <!-- Tabs -->
@@ -437,7 +446,15 @@ export class MarkerEditor extends LitElement {
 
     return html`
       <div class="mt-4 p-3 bg-surface-700 rounded-lg border border-surface-600">
-        <div class="text-surface-300 text-sm font-medium mb-2">🎯 ${__('Ritaglio Immagine')}</div>
+        <div class="flex items-center gap-1.5 flex-wrap text-surface-300 text-sm font-medium mb-2">
+          🎯 ${__('Ritaglio Immagine')}
+          <ui-info-tip
+            variant="inline"
+            text=${__(
+              "Il marker sulla mappa mostra l'immagine dell'opera ritagliata in tondo: qui scegli quale parte resta centrata e quanto ingrandirla, così il soggetto principale non finisce tagliato ai bordi.",
+            )}
+          ></ui-info-tip>
+        </div>
         <p class="text-surface-400 text-xs mb-3">
           ${__("Trascina l'immagine per spostarla • Scroll per zoom")}
         </p>

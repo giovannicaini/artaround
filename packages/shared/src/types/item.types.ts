@@ -79,7 +79,6 @@ export interface Item {
 
   // Statistiche
   usageCount: number; // Quante volte usato nelle visite
-  rating?: number; // Valutazione media
 
   // Metadati
   tags?: string[];

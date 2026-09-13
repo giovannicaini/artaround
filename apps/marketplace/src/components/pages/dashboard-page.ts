@@ -24,6 +24,7 @@ import '../ui/ui-badge';
 import '../ui/ui-button';
 import '../ui/ui-icon-button';
 import '../ui/ui-icon';
+import '../ui/ui-info-tip';
 import '../ui/ui-page-header';
 import '../ui/ui-alert';
 import '../ui/ui-loading';
@@ -550,8 +551,18 @@ export class DashboardPage extends LitElement {
     return html`
       <ui-card padding="md">
         <div class="space-y-4">
-          <div class="flex items-center justify-between gap-3">
-            <h3 class="font-semibold text-surface-900 dark:text-white">${__('I tuoi ruoli')}</h3>
+          <div class="flex items-start justify-between gap-3">
+            <h3
+              class="flex items-center gap-1.5 flex-wrap font-semibold text-surface-900 dark:text-white"
+            >
+              ${__('I tuoi ruoli')}
+              <ui-info-tip
+                variant="inline"
+                text=${__(
+                  'Curatore: gestione completa di quel museo (opere, sale, mappe, dati del museo) e può modificare/eliminare item e visite di chiunque. Autore: può creare item e visite per quel museo, ma modificare/eliminare solo i propri.',
+                )}
+              ></ui-info-tip>
+            </h3>
             <ui-button
               variant="outline"
               size="sm"
@@ -785,10 +796,19 @@ export class DashboardPage extends LitElement {
     `;
   }
 
-  private renderDashboardSection(title: string, description: string, content: () => unknown) {
+  private renderDashboardSection(
+    title: string,
+    description: string,
+    content: () => unknown,
+    help = '',
+  ) {
     return html`
       <section class="space-y-4 pt-2 border-t border-surface-200 dark:border-surface-800">
-        <ui-section-header .title=${title} .description=${description}></ui-section-header>
+        <ui-section-header
+          .title=${title}
+          .description=${description}
+          .help=${help}
+        ></ui-section-header>
         ${content()}
       </section>
     `;
@@ -802,6 +822,9 @@ export class DashboardPage extends LitElement {
           .title=${__('Buongiorno') + ', ' + (this.user?.username?.split(' ')[0] || 'Admin')}
           .description=${__(
             'Benvenuto nella dashboard del marketplace. Qui puoi avere una panoramica delle attività recenti e gestire le tue opere e visite.',
+          )}
+          .help=${__(
+            'Punto di ingresso del pannello: mostra il museo su cui stai lavorando, i tuoi ruoli e un riepilogo di ciò che hai creato. Le altre pagine (Opere, Contenuti, Visite) agiscono sempre sul "museo attivo" scelto qui.',
           )}
         >
         </ui-page-header>
@@ -819,8 +842,16 @@ export class DashboardPage extends LitElement {
           <div class="space-y-4">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div class="min-w-0">
-                <p class="text-sm font-medium text-surface-700 dark:text-surface-300">
+                <p
+                  class="flex items-center gap-1.5 flex-wrap text-sm font-medium text-surface-700 dark:text-surface-300"
+                >
                   ${__('Museo attivo')}
+                  <ui-info-tip
+                    variant="inline"
+                    text=${__(
+                      'Il museo su cui lavori finché non lo cambi: opere, contenuti e visite che crei o modifichi in tutte le altre pagine appartengono a questo museo.',
+                    )}
+                  ></ui-info-tip>
                 </p>
                 <p class="mt-1 text-lg font-semibold text-surface-900 dark:text-white truncate">
                   ${this.selectedMuseum?.name || __('Nessun museo selezionato')}
@@ -941,6 +972,9 @@ export class DashboardPage extends LitElement {
                     })}
                   </div>
                 `,
+                __(
+                  'Contenuti e visite che hai creato tu, e i musei di cui sei curatore: restano gli stessi qualunque sia il museo attivo scelto sopra.',
+                ),
               )}
               ${this.renderDashboardSection(
                 __('Museo selezionato'),
@@ -990,6 +1024,9 @@ export class DashboardPage extends LitElement {
                           })}
                         </div>
                       `,
+                __(
+                  'A differenza di "Le mie risorse", qui vedi tutto ciò che appartiene al museo attivo, anche se creato da altri autori/curatori — cambia se cambi museo sopra.',
+                ),
               )}
             `}
       </div>

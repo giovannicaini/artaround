@@ -424,6 +424,9 @@ export default function MapView({
   // La mappa riguarda solo le opere davvero in questa visita: un museo può
   // avere molte più opere segnate di quelle incluse in un singolo percorso.
   const visibleMarkers = floorMarkers.filter((marker) => {
+    // Nascosto dal curatore (marker-editor nel Marketplace): default a
+    // visibile quando il campo non è impostato.
+    if (marker.isVisible === false) return false;
     if (marker.type === MarkerType.WAYPOINT) return false;
     if (isArtworkMarker(marker.type) && inVisit) {
       return !!marker.artworkId && visitArtworkIds.includes(marker.artworkId);
@@ -540,14 +543,24 @@ export default function MapView({
                     y={center.y}
                     textAnchor="middle"
                     dominantBaseline="central"
-                    className="text-[11px] font-bold fill-neutral-950"
                     style={{
                       paintOrder: 'stroke',
                       stroke: 'rgb(255 255 255 / 0.9)',
                       strokeWidth: 3.5,
                     }}
                   >
-                    {room.title}
+                    <tspan
+                      x={center.x}
+                      dy={room.subtitle ? '-0.6em' : 0}
+                      className="text-[11px] font-bold fill-neutral-950"
+                    >
+                      {room.title}
+                    </tspan>
+                    {room.subtitle && (
+                      <tspan x={center.x} dy="1.3em" className="text-[9px] fill-neutral-700">
+                        {room.subtitle}
+                      </tspan>
+                    )}
                   </text>
                 </g>
               );
@@ -648,6 +661,21 @@ export default function MapView({
                           preserveAspectRatio="xMidYMid slice"
                           clipPath={`url(#${clipId})`}
                           opacity={isVisited ? 0.55 : 1}
+                          // Stesso punto focale/zoom impostati dal curatore nel
+                          // marker-editor del Marketplace (default: centro, nessuno zoom).
+                          style={
+                            marker.focalPoint || marker.focalZoom
+                              ? {
+                                  transformBox: 'fill-box',
+                                  transformOrigin: 'center',
+                                  transform: `scale(${marker.focalZoom ?? 1}) translate(${
+                                    (50 - (marker.focalPoint?.x ?? 50)) / (marker.focalZoom ?? 1)
+                                  }%, ${
+                                    (50 - (marker.focalPoint?.y ?? 50)) / (marker.focalZoom ?? 1)
+                                  }%)`,
+                                }
+                              : undefined
+                          }
                         />
                         <circle
                           cx={marker.x}
@@ -833,6 +861,19 @@ export default function MapView({
                       src={info.image}
                       alt=""
                       className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
+                      style={
+                        pendingMarker.focalPoint || pendingMarker.focalZoom
+                          ? {
+                              transform: `scale(${pendingMarker.focalZoom ?? 1}) translate(${
+                                (50 - (pendingMarker.focalPoint?.x ?? 50)) /
+                                (pendingMarker.focalZoom ?? 1)
+                              }%, ${
+                                (50 - (pendingMarker.focalPoint?.y ?? 50)) /
+                                (pendingMarker.focalZoom ?? 1)
+                              }%)`,
+                            }
+                          : undefined
+                      }
                     />
                   )}
                   <p className="font-display font-semibold text-surface-50">

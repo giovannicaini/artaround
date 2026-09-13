@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import './ui-info-tip';
 import { __ } from '../../services/i18n.service';
 
 export interface SearchListPickerOption {
@@ -10,6 +11,7 @@ export interface SearchListPickerOption {
 @customElement('ui-search-list-picker')
 export class UiSearchListPicker extends LitElement {
   @property({ type: String }) label = '';
+  @property({ type: String }) help = '';
   @property({ type: String }) value = '';
   @property({ type: String }) placeholder = '';
   @property({ type: Boolean }) loading = false;
@@ -64,9 +66,12 @@ export class UiSearchListPicker extends LitElement {
     return html`
       <div class="space-y-1.5">
         ${this.label
-          ? html`<label class="block text-sm font-medium text-surface-700 dark:text-surface-300"
-              >${this.label}</label
-            >`
+          ? html`<label
+              class="flex items-center gap-1.5 text-sm font-medium text-surface-700 dark:text-surface-300"
+            >
+              ${this.label}
+              ${this.help ? html`<ui-info-tip text=${this.help}></ui-info-tip>` : nothing}
+            </label>`
           : nothing}
         ${this.loading
           ? html`<div

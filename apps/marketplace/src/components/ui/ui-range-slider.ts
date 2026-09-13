@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import './ui-info-tip';
 import { __ } from '../../services/i18n.service';
 
 @customElement('ui-range-slider')
@@ -9,6 +10,7 @@ export class UiRangeSlider extends LitElement {
   @property({ type: Number }) from = 0;
   @property({ type: Number }) to = 100;
   @property({ type: String }) label = '';
+  @property({ type: String }) help = '';
   @property({ type: Boolean }) disabled = false;
 
   @state() private draggingHandle: 'from' | 'to' | null = null;
@@ -157,9 +159,12 @@ export class UiRangeSlider extends LitElement {
         ${this.label
           ? html`
               <div class="flex items-center justify-between">
-                <label class="text-sm font-medium text-surface-700 dark:text-surface-300"
-                  >${this.label}</label
+                <label
+                  class="flex items-center gap-1.5 text-sm font-medium text-surface-700 dark:text-surface-300"
                 >
+                  ${this.label}
+                  ${this.help ? html`<ui-info-tip text=${this.help}></ui-info-tip>` : nothing}
+                </label>
               </div>
             `
           : nothing}

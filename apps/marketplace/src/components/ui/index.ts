@@ -11,6 +11,7 @@ export * from './ui-card';
 export * from './ui-badge';
 export * from './ui-avatar';
 export * from './ui-brand-mark';
+export * from './ui-info-tip';
 
 // Componenti UI - Feedback
 export * from './ui-alert';

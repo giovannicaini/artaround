@@ -24,6 +24,11 @@ const excludeDirNames = new Set([
 const callPatterns = [
   /__\(\s*(['"`])((?:\\.|(?!\1).)*)\1\s*\)/g,
   /i18nService\.t\(\s*(['"`])((?:\\.|(?!\1).)*)\1\s*\)/g,
+  // Navigator (apps/navigator): const t = useT(); t('...') — \b prima di "t("
+  // evita falsi positivi (verificato: nessun'altra funzione chiamata "t" nel
+  // resto del monorepo, get(/set(/sort( non hanno un confine di parola prima
+  // della "t").
+  /\bt\(\s*(['"`])((?:\\.|(?!\1).)*)\1\s*\)/g,
 ];
 
 const unescapeString = (value) =>

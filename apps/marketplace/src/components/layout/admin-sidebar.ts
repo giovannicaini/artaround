@@ -107,10 +107,6 @@ export class AdminSidebar extends LitElement {
     ];
   }
 
-  private get bottomItems(): MenuItem[] {
-    return [{ id: 'settings', label: __('Il mio account'), icon: 'cog' }];
-  }
-
   private handleNavigate(route: string) {
     // museum-map-page ha bisogno del museumId del museo attivo come routeParam esplicito,
     // a differenza delle altre pagine che lo leggono da preferencesService da sole.
@@ -271,22 +267,6 @@ export class AdminSidebar extends LitElement {
         <nav class="flex-1 px-3 py-4 space-y-3 overflow-y-auto">
           ${this.renderMainNavigation(this.collapsed)}
         </nav>
-
-        <!-- Bottom Section -->
-        <div class="px-3 py-4 border-t border-surface-200 dark:border-surface-800 space-y-1">
-          ${this.bottomItems.map((item) => this.renderMenuItem(item, this.collapsed))}
-
-          <button
-            @click=${() => this.handleNavigate('logout')}
-            class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full text-danger-600 hover:bg-danger-50 dark:text-danger-400 dark:hover:bg-danger-900/20 transition-colors ${this
-              .collapsed
-              ? 'justify-center'
-              : ''}"
-          >
-            <ui-icon name="logout" size="sm"></ui-icon>
-            ${!this.collapsed ? html`<span>${__('Esci')}</span>` : nothing}
-          </button>
-        </div>
       </aside>
 
       <!-- Mobile Overlay -->
@@ -299,13 +279,7 @@ export class AdminSidebar extends LitElement {
           `
         : nothing}
 
-      <!-- Mobile Sidebar: a differenza della versione desktop mancava
-           flex-col (i figli "flex-1"/scroll non avevano un contenitore flex
-           su cui agire) e overflow-y-auto sulla nav — con più di una manciata
-           di voci (curatore + admin) il menu sforava il fondo dello schermo
-           senza modo di scorrere fino alle ultime voci. Mancava anche del
-           tutto la sezione in fondo (account/esci), presente solo su
-           desktop. -->
+      <!-- Mobile Sidebar -->
       <aside
         class="${this.mobileOpen
           ? 'translate-x-0'
@@ -326,19 +300,6 @@ export class AdminSidebar extends LitElement {
         <nav class="flex-1 px-3 py-4 space-y-3 overflow-y-auto">
           ${this.renderMainNavigation(false)}
         </nav>
-        <div
-          class="flex-shrink-0 px-3 py-4 border-t border-surface-200 dark:border-surface-800 space-y-1"
-        >
-          ${this.bottomItems.map((item) => this.renderMenuItem(item, false))}
-
-          <button
-            @click=${() => this.handleNavigate('logout')}
-            class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full text-danger-600 hover:bg-danger-50 dark:text-danger-400 dark:hover:bg-danger-900/20 transition-colors"
-          >
-            <ui-icon name="logout" size="sm"></ui-icon>
-            <span>${__('Esci')}</span>
-          </button>
-        </div>
       </aside>
     `;
   }
