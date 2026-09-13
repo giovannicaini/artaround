@@ -1,0 +1,19 @@
+# Esclusi da "git archive" (usato per gli export verso le due destinazioni
+# SSH, vedi scripts/export-project.sh) — mai da .git clone/pull normale,
+# dove questi file restano tracciati e visibili come sempre.
+scripts/i18n-retranslate.mjs export-ignore
+scripts/translate-locales.mjs export-ignore
+.vscode/ export-ignore
+.claude/ export-ignore
+.turbo/ export-ignore
+node_modules/ export-ignore
+roadmap/ export-ignore
+tmp/ export-ignore
+README.md export-ignore
+roadmap.json export-ignore
+ROADMAP.txt export-ignore
+SpecificheProgetto.txt export-ignore
+STRUTTURA_PROGETTO.txt export-ignore
+TODO export-ignore
+.gitignore export-ignore
+.gitattributes export-ignore

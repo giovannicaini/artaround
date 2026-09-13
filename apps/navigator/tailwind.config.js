@@ -64,7 +64,13 @@ export default {
       fontFamily: {
         // Font families (overridable via CSS vars)
         display: ['var(--font-display)', '"Unbounded"', 'system-ui', 'sans-serif'],
-        sans: ['var(--font-body)', '"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: [
+          'var(--font-body)',
+          '"Plus Jakarta Sans"',
+          'system-ui',
+          '-apple-system',
+          'sans-serif',
+        ],
         mono: ['"JetBrains Mono"', 'Consolas', 'monospace'],
       },
       boxShadow: {
