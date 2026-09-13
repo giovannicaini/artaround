@@ -1,0 +1,1 @@
+[{"v":{"$numberInt":"2"},"key":{"userId":{"$numberInt":"1"}},"name":"userId_1","background":true},{"v":{"$numberInt":"2"},"key":{"visitId":{"$numberInt":"1"}},"name":"visitId_1","background":true},{"v":{"$numberInt":"2"},"key":{"userId":{"$numberInt":"1"},"visitId":{"$numberInt":"1"}},"name":"userId_1_visitId_1","background":true,"unique":true}]
