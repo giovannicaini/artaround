@@ -101,9 +101,11 @@ export function useApplyNavigatorTheme(config: NavigatorConfig | undefined) {
 
     for (const [name, value] of Object.entries(vars)) root.style.setProperty(name, value);
 
+    // Status bar stesso colore del tema.
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
-    if (themeColorMeta && config?.pwa?.themeColor) {
-      themeColorMeta.setAttribute('content', config.pwa.themeColor);
+    const themeColor = config?.branding.backgroundColor || config?.pwa?.themeColor;
+    if (themeColorMeta && themeColor) {
+      themeColorMeta.setAttribute('content', themeColor);
     }
 
     return () => {

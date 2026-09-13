@@ -591,7 +591,7 @@ export default function MuseumPage() {
           </div>
         </main>
 
-        <div className="h-8 safe-bottom" />
+        <div className="h-4 safe-bottom" />
       </div>
 
       {/* Mappa del museo, non legata a nessuna visita. */}

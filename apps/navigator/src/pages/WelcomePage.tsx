@@ -62,7 +62,7 @@ export default function WelcomePage({
         </>
       )}
 
-      <div className="relative flex-1 flex flex-col items-center justify-end text-center px-6 pb-[calc(2.5rem_+_var(--safe-area-inset-bottom))] safe-top">
+      <div className="relative flex-1 flex flex-col items-center justify-end text-center px-6 pb-[calc(1.25rem_+_var(--safe-area-inset-bottom))] safe-top">
         {config.branding.logo && (
           <img
             src={config.branding.logo}

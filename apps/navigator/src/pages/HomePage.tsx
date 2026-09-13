@@ -196,7 +196,7 @@ export default function HomePage() {
         </section>
       )}
 
-      <main className="pb-[calc(2.5rem_+_var(--safe-area-inset-bottom))]">
+      <main className="pb-[calc(1.25rem_+_var(--safe-area-inset-bottom))]">
         {/* Blocco: riprendi visita */}
         {progress && (
           <section className="px-5 lg:px-8 lg:max-w-6xl lg:mx-auto -mt-3 relative z-10 mb-8">
