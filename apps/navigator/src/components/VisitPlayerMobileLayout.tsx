@@ -1,7 +1,7 @@
 /*
- * File: VisitPlayerMobileLayout.tsx                                                     *
+ * File: /src/components/VisitPlayerMobileLayout.tsx                                     *
  * Project: @artaround/navigator                                                         *
- * Last Modified: 12/09/2026                                                             *
+ * Last Modified: 13/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
  * -----                                                                                 *
  * MIT License                                                                           *

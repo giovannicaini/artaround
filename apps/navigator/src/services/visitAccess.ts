@@ -1,5 +1,5 @@
 /*
- * File: visitAccess.ts                                                                  *
+ * File: /src/services/visitAccess.ts                                                    *
  * Project: @artaround/navigator                                                         *
  * Last Modified: 09/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *

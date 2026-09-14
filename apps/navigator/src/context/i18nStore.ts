@@ -1,5 +1,5 @@
 /*
- * File: i18nStore.ts                                                                    *
+ * File: /src/context/i18nStore.ts                                                       *
  * Project: @artaround/navigator                                                         *
  * Last Modified: 11/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *

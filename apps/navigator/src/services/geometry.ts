@@ -1,5 +1,5 @@
 /*
- * File: geometry.ts                                                                     *
+ * File: /src/services/geometry.ts                                                       *
  * Project: @artaround/navigator                                                         *
  * Last Modified: 01/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *

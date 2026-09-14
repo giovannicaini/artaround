@@ -1,5 +1,5 @@
 /*
- * File: speech.ts                                                                       *
+ * File: /src/services/speech.ts                                                         *
  * Project: @artaround/navigator                                                         *
  * Last Modified: 11/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *

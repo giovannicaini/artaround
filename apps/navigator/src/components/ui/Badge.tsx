@@ -1,7 +1,7 @@
 /*
- * File: Badge.tsx                                                                       *
+ * File: /src/components/ui/Badge.tsx                                                    *
  * Project: @artaround/navigator                                                         *
- * Last Modified: 01/09/2026                                                             *
+ * Last Modified: 12/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
  * -----                                                                                 *
  * MIT License                                                                           *

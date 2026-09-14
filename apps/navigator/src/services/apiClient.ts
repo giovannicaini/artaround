@@ -1,5 +1,5 @@
 /*
- * File: apiClient.ts                                                                    *
+ * File: /src/services/apiClient.ts                                                      *
  * Project: @artaround/navigator                                                         *
  * Last Modified: 11/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *

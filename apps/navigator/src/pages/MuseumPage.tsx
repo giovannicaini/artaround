@@ -1,5 +1,5 @@
 /*
- * File: MuseumPage.tsx                                                                  *
+ * File: /src/pages/MuseumPage.tsx                                                       *
  * Project: @artaround/navigator                                                         *
  * Last Modified: 12/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
@@ -253,7 +253,10 @@ export default function MuseumPage() {
   }
 
   const museumName = museum ? localizedField(language, museum.name, museum.nameTranslations) : '';
-  const hasPhoto = !!museum?.images?.[0];
+  // coverImage è la scelta esplicita del curatore in Marketplace: ha priorità
+  // sulle foto importate in automatico da Wikidata (museum.images).
+  const museumPhoto = museum?.coverImage || museum?.images?.[0];
+  const hasPhoto = !!museumPhoto;
 
   return (
     <div className="h-full overflow-y-auto scroll-smooth bg-surface-950">
@@ -288,7 +291,7 @@ export default function MuseumPage() {
         <div className="lg:max-w-6xl lg:mx-auto lg:px-8 lg:pt-6">
           <div className="overflow-hidden lg:rounded-3xl lg:bg-surface-900">
             <img
-              src={museum!.images![0]}
+              src={museumPhoto}
               alt={museumName}
               className="w-full h-48 object-cover lg:h-auto lg:max-h-[28rem] lg:object-contain"
             />

@@ -1,5 +1,5 @@
 /*
- * File: playbackRateStore.ts                                                            *
+ * File: /src/context/playbackRateStore.ts                                               *
  * Project: @artaround/navigator                                                         *
  * Last Modified: 14/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *

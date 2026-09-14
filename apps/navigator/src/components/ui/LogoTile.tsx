@@ -1,5 +1,5 @@
 /*
- * File: LogoTile.tsx                                                                    *
+ * File: /src/components/ui/LogoTile.tsx                                                 *
  * Project: @artaround/navigator                                                         *
  * Last Modified: 12/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *

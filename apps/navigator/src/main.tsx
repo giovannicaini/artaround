@@ -1,7 +1,7 @@
 /*
- * File: main.tsx                                                                        *
+ * File: /src/main.tsx                                                                   *
  * Project: @artaround/navigator                                                         *
- * Last Modified: 11/09/2026                                                             *
+ * Last Modified: 14/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
  * -----                                                                                 *
  * MIT License                                                                           *

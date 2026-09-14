@@ -1,5 +1,5 @@
 /*
- * File: InstallPrompt.tsx                                                               *
+ * File: /src/components/InstallPrompt.tsx                                               *
  * Project: @artaround/navigator                                                         *
  * Last Modified: 13/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *

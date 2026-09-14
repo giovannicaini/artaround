@@ -1,5 +1,5 @@
 /*
- * File: HomePage.tsx                                                                    *
+ * File: /src/pages/HomePage.tsx                                                         *
  * Project: @artaround/navigator                                                         *
  * Last Modified: 12/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
@@ -162,9 +162,9 @@ export default function HomePage() {
             onClick={() => handleSelectMuseum(featured)}
             className="w-full text-left relative h-[68vh] max-h-[560px] min-h-[420px] overflow-hidden group"
           >
-            {featured.images?.[0] ? (
+            {featured.coverImage || featured.images?.[0] ? (
               <img
-                src={featured.images[0]}
+                src={featured.coverImage || featured.images?.[0]}
                 alt=""
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
@@ -230,8 +230,12 @@ export default function HomePage() {
                 className="flex-shrink-0 w-56 lg:w-72 overflow-hidden p-0"
               >
                 <div className="relative h-36 bg-surface-800 overflow-hidden">
-                  {museum.images?.[0] ? (
-                    <img src={museum.images[0]} alt="" className="w-full h-full object-cover" />
+                  {museum.coverImage || museum.images?.[0] ? (
+                    <img
+                      src={museum.coverImage || museum.images?.[0]}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand-900/40 to-surface-900">
                       <Compass className="w-10 h-10 text-brand-700" />
