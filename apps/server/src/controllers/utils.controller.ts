@@ -94,15 +94,13 @@ export class UtilsController {
     } else if (type === 'movement') {
       results = await WikidataService.searchMovements(q as string, parsedLimit);
     } else if (museumWikidataId) {
+      // Filtrata sul museo: se non trova nulla resta vuota, non allarga la
+      // ricerca a tutti i musei (romperebbe il senso del filtro richiesto).
       results = await WikidataService.searchArtworksInMuseum(
         q as string,
         museumWikidataId,
         parsedLimit,
       );
-
-      if (!results || results.length === 0) {
-        results = await WikidataService.search(q as string, parsedLimit);
-      }
     } else {
       results = await WikidataService.search(q as string, parsedLimit);
     }

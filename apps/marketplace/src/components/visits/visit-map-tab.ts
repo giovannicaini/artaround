@@ -27,6 +27,11 @@ export class VisitMapTab extends LitElement {
     return this;
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    this.style.display = 'block';
+  }
+
   render() {
     if (this.loadingFloors) {
       return html`<ui-loading .text=${__('Caricamento piantina...')}></ui-loading>`;

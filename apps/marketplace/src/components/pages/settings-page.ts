@@ -237,7 +237,7 @@ export class SettingsPage extends LitElement {
             'Saldo spendibile nel marketplace. Nessun pagamento reale: scegli una cifra e ricaricala.',
           )}
           .help=${__(
-            'Il credito è personale, non del museo: serve per comprare item e visite di altri autori nel Marketplace. Se il saldo non basta per un acquisto, ricaricalo qui prima di riprovare.',
+            'Il credito è personale: serve per acquistare item e visite di altri autori nel Marketplace. Se il saldo non basta per un acquisto, ricarica il credito qui prima di riprovare.',
           )}
         ></ui-section-header>
 

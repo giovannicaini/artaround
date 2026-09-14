@@ -44,6 +44,11 @@ export class VisitStepEditor extends LitElement {
     return this;
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    this.style.display = 'block';
+  }
+
   private updateStep(updates: Partial<VisitStep>) {
     this.dispatchEvent(
       new CustomEvent('step-update', { detail: { updates }, bubbles: true, composed: true }),

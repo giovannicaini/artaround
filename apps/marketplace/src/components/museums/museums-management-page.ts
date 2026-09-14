@@ -1693,7 +1693,7 @@ export class MuseumsManagementPage extends DeletableMixin(HistorySyncMixin(LitEl
                         .placeholder=${__('Cerca il museo su Wikidata...')}
                         searchType="museum"
                         required
-                        @wikidata-select=${this.handleWikidataSelect}
+                        @wikidata-select=${(e: CustomEvent) => this.handleWikidataSelect(e)}
                       ></wikidata-autocomplete>
                     `
                   : html`

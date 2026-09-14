@@ -80,6 +80,20 @@ export class MuseumMapPage extends HistorySyncMixin(LitElement) {
   @state()
   private isFullscreen = false;
 
+  // Larghezza delle colonne laterali su desktop, trascinabile e ricordata per il prossimo giro.
+  @state()
+  private leftColWidth = 280;
+
+  @state()
+  private rightColWidth = 360;
+
+  private resizingCol: 'left' | 'right' | null = null;
+  private resizeStartX = 0;
+  private resizeStartWidth = 0;
+  private static readonly MIN_COL_WIDTH = 220;
+  private static readonly MAX_COL_WIDTH = 560;
+  private static readonly COL_WIDTH_STORAGE_KEY = 'museumMapColumnWidths';
+
   // Sale (gestione parallela ai marker)
   @state()
   private rooms: MuseumRoom[] = [];
@@ -119,8 +133,65 @@ export class MuseumMapPage extends HistorySyncMixin(LitElement) {
 
   async connectedCallback() {
     super.connectedCallback();
+    this.loadColumnWidths();
     await this.loadData();
   }
+
+  disconnectedCallback() {
+    window.removeEventListener('pointermove', this.handleColumnResizeMove);
+    window.removeEventListener('pointerup', this.handleColumnResizeEnd);
+    super.disconnectedCallback();
+  }
+
+  private loadColumnWidths() {
+    try {
+      const stored = localStorage.getItem(MuseumMapPage.COL_WIDTH_STORAGE_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      if (typeof parsed.left === 'number') this.leftColWidth = parsed.left;
+      if (typeof parsed.right === 'number') this.rightColWidth = parsed.right;
+    } catch {
+      // localStorage non disponibile o valore corrotto: restano le larghezze di default
+    }
+  }
+
+  // ─── Colonne ridimensionabili (desktop) ─────────────────────
+  private startColumnResize(side: 'left' | 'right', e: PointerEvent) {
+    this.resizingCol = side;
+    this.resizeStartX = e.clientX;
+    this.resizeStartWidth = side === 'left' ? this.leftColWidth : this.rightColWidth;
+    window.addEventListener('pointermove', this.handleColumnResizeMove);
+    window.addEventListener('pointerup', this.handleColumnResizeEnd);
+    e.preventDefault();
+  }
+
+  private handleColumnResizeMove = (e: PointerEvent) => {
+    if (!this.resizingCol) return;
+    const delta = e.clientX - this.resizeStartX;
+    const rawWidth =
+      this.resizingCol === 'left' ? this.resizeStartWidth + delta : this.resizeStartWidth - delta;
+    const width = Math.min(
+      MuseumMapPage.MAX_COL_WIDTH,
+      Math.max(MuseumMapPage.MIN_COL_WIDTH, rawWidth),
+    );
+    if (this.resizingCol === 'left') this.leftColWidth = width;
+    else this.rightColWidth = width;
+  };
+
+  private handleColumnResizeEnd = () => {
+    if (!this.resizingCol) return;
+    this.resizingCol = null;
+    window.removeEventListener('pointermove', this.handleColumnResizeMove);
+    window.removeEventListener('pointerup', this.handleColumnResizeEnd);
+    try {
+      localStorage.setItem(
+        MuseumMapPage.COL_WIDTH_STORAGE_KEY,
+        JSON.stringify({ left: this.leftColWidth, right: this.rightColWidth }),
+      );
+    } catch {
+      // localStorage non disponibile: la larghezza scelta vale solo per questa sessione
+    }
+  };
 
   updated(changedProps: Map<string, unknown>) {
     // Piano/marker richiesti da fuori sono cambiati: la pagina persiste come istanza
@@ -249,7 +320,7 @@ export class MuseumMapPage extends HistorySyncMixin(LitElement) {
     return html`
       <div
         class="min-h-screen bg-surface-50 dark:bg-surface-950 ${this.isFullscreen
-          ? 'fixed inset-0 z-50'
+          ? 'fixed inset-0 z-50 overflow-y-auto'
           : ''}"
       >
         <div
@@ -297,10 +368,11 @@ export class MuseumMapPage extends HistorySyncMixin(LitElement) {
           </div>
         </div>
         <div
-          class="grid grid-cols-1 lg:grid-cols-12 gap-4 p-4"
-          style="min-height: calc(100vh - 80px);"
+          class="grid grid-cols-1 museum-map-columns gap-4 p-4"
+          style="min-height: calc(100vh - 80px); --map-left-w: ${this
+            .leftColWidth}px; --map-right-w: ${this.rightColWidth}px;"
         >
-          <div class="lg:col-span-3 xl:col-span-2 space-y-4 overflow-y-auto order-2 lg:order-1">
+          <div class="space-y-4 overflow-y-auto order-2 lg:order-1">
             <floor-manager
               class="block"
               .floors=${this.floors}
@@ -362,7 +434,14 @@ export class MuseumMapPage extends HistorySyncMixin(LitElement) {
                   `}
             </div>
           </div>
-          <div class="lg:col-span-5 xl:col-span-7 order-1 lg:order-2">
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label=${__('Ridimensiona colonna sinistra')}
+            class="hidden lg:block lg:order-2 w-1.5 shrink-0 cursor-col-resize rounded-full bg-surface-200 dark:bg-surface-700 hover:bg-brand-400 dark:hover:bg-brand-500 transition-colors"
+            @pointerdown=${(e: PointerEvent) => this.startColumnResize('left', e)}
+          ></div>
+          <div class="order-1 lg:order-3 min-w-0">
             <svg-map-editor
               .floors=${this.floors}
               .selectedFloorId=${this.selectedFloorId}
@@ -380,7 +459,14 @@ export class MuseumMapPage extends HistorySyncMixin(LitElement) {
               @room-point-add=${this.handleRoomPointAdd}
             ></svg-map-editor>
           </div>
-          <div class="lg:col-span-4 xl:col-span-3 overflow-y-auto order-3">
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label=${__('Ridimensiona colonna destra')}
+            class="hidden lg:block lg:order-4 w-1.5 shrink-0 cursor-col-resize rounded-full bg-surface-200 dark:bg-surface-700 hover:bg-brand-400 dark:hover:bg-brand-500 transition-colors"
+            @pointerdown=${(e: PointerEvent) => this.startColumnResize('right', e)}
+          ></div>
+          <div class="overflow-y-auto order-3 lg:order-5">
             <marker-editor
               .markers=${this.currentMarkers}
               .artworks=${this.artworks}

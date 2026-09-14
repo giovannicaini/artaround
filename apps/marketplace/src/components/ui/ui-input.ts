@@ -50,13 +50,12 @@ export class UiInput extends LitElement {
       bg-white dark:bg-surface-900
       text-surface-900 dark:text-white
       placeholder:text-surface-400 dark:placeholder:text-surface-500
-      focus:outline-none focus:ring-2 focus:ring-offset-0
       disabled:bg-surface-50 disabled:text-surface-500 disabled:cursor-not-allowed
       dark:disabled:bg-surface-800
       ${
         this.error
-          ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500/20'
-          : 'border-surface-300 dark:border-surface-600 focus:border-brand-500 focus:ring-brand-500/20'
+          ? 'border-danger-500 focus:border-danger-500 focus-glow-danger'
+          : 'border-surface-300 dark:border-surface-600 focus:border-brand-500 focus-glow'
       }
     `;
 

@@ -32,6 +32,11 @@ export class MuseumTranslationsPanel extends LitElement {
     return this;
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    this.style.display = 'block';
+  }
+
   private emit(name: string, detail?: Record<string, unknown>) {
     this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
   }

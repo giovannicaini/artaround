@@ -905,7 +905,7 @@ export class DashboardPage extends LitElement {
             'Benvenuto nella dashboard del marketplace. Qui puoi avere una panoramica delle attività recenti e gestire le tue opere e visite.',
           )}
           .help=${__(
-            'Punto di ingresso del pannello: mostra il museo su cui stai lavorando, I tuoi ruoli in specifici musei e un riepilogo di ciò che hai creato. Le altre pagine (Opere, Contenuti, Visite) agiscono sempre sul "museo attivo" scelto qui.',
+            'Punto di ingresso del Marketplace: mostra il museo su cui stai lavorando, i tuoi ruoli in specifici musei e un riepilogo di ciò che hai creato. Le altre pagine (Opere, Contenuti, Visite) agiscono sempre sul "museo attivo" scelto qui.',
           )}
         >
         </ui-page-header>
@@ -928,7 +928,7 @@ export class DashboardPage extends LitElement {
                     <ui-info-tip
                       variant="inline"
                       text=${__(
-                        'Il museo su cui lavori finché non lo cambi: opere, contenuti e visite che crei o modifichi in tutte le altre pagine appartengono a questo museo.',
+                        'Per lavorare su un museo, selezionalo qui. Una volta selezionato, tutte le pagine (Opere, Contenuti, Visite) mostreranno solo le risorse di quel museo. Se non selezioni un museo, vedrai solo le tue risorse personali.',
                       )}
                     ></ui-info-tip>
                   </p>

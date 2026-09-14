@@ -102,7 +102,7 @@ export class UiSearchListPicker extends LitElement {
                 type="text"
                 .value=${this.query}
                 placeholder=${resolvedPlaceholder}
-                class="block w-full px-3 py-2 text-sm rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                class="block w-full px-3 py-2 text-sm rounded-lg border border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-900 text-surface-900 dark:text-white focus:border-brand-500 focus-glow"
                 @input=${(e: InputEvent) => {
                   this.query = (e.target as HTMLInputElement).value;
                 }}

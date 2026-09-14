@@ -35,19 +35,17 @@ export class UiButton extends LitElement {
 
   // ─── Helper ──────────────────────────────────────────────
   private get baseClasses() {
-    return 'inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+    return 'inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-150 disabled:opacity-50 disabled:pointer-events-none';
   }
 
   private get variantClasses() {
     const variants: Record<string, string> = {
-      primary: 'gradient-aurora text-white shadow-glow hover:brightness-110 focus:ring-brand-500',
-      secondary:
-        'bg-white text-brand-700 border border-brand-200 hover:border-brand-400 hover:bg-brand-50/60 focus:ring-brand-500 dark:bg-surface-800 dark:text-brand-300 dark:border-brand-800/70 dark:hover:border-brand-600 dark:hover:bg-brand-900/20',
+      primary: 'gradient-aurora text-white shadow-glow hover:brightness-110 focus-glow',
+      secondary: 'btn-gradient-secondary text-brand-700 dark:text-brand-300 focus-glow',
       ghost:
-        'text-surface-600 hover:bg-surface-100 focus:ring-brand-500 dark:text-surface-300 dark:hover:bg-surface-800',
-      danger:
-        'bg-danger-600 text-white hover:bg-danger-700 focus:ring-danger-500 active:bg-danger-800',
-      outline: 'btn-gradient-outline text-brand-700 dark:text-brand-300 focus:ring-brand-500',
+        'text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800 focus-glow',
+      danger: 'bg-danger-600 text-white hover:bg-danger-700 active:bg-danger-800 focus-glow-danger',
+      outline: 'btn-gradient-outline text-brand-700 dark:text-brand-300 focus-glow',
     };
     return variants[this.variant];
   }

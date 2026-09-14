@@ -64,9 +64,15 @@ export class MarkerEditor extends LitElement {
   }
 
   updated(changedProperties: Map<string, unknown>) {
-    // Quando si seleziona un marker, passa alla tab lista
+    // Quando si seleziona un marker, passa alla tab lista e porta a fuoco la sua riga
     if (changedProperties.has('selectedMarker') && this.selectedMarker) {
       this.activeTab = 'list';
+      const markerId = this.selectedMarker.id;
+      this.updateComplete.then(() => {
+        const row = this.querySelector(`[data-marker-id="${markerId}"]`) as HTMLElement | null;
+        row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        row?.focus();
+      });
     }
   }
 
@@ -647,7 +653,9 @@ export class MarkerEditor extends LitElement {
 
     return html`
       <div
-        class="flex items-center gap-3 p-3 bg-surface-50 dark:bg-surface-700 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-600 transition-colors cursor-pointer ${this
+        data-marker-id=${marker.id}
+        tabindex="-1"
+        class="flex items-center gap-3 p-3 bg-surface-50 dark:bg-surface-700 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-600 transition-colors cursor-pointer focus-glow ${this
           .selectedMarker?.id === marker.id
           ? 'ring-2 ring-brand-500'
           : ''}"

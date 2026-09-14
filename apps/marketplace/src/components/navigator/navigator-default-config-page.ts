@@ -1,3 +1,33 @@
+/*
+ * File: /src/components/navigator/navigator-default-config-page.ts                      *
+ * Project: @artaround/marketplace                                                       *
+ * Last Modified: 14/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import {
@@ -559,7 +589,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
                     <ui-select
                       .label=${__('Museo in evidenza')}
                       .help=${__(
-                        'Il museo mostrato in primo piano nella Home del Navigator quando questa configurazione permette di scegliere tra più musei.',
+                        'Il museo mostrato in evidemza nella Home del Navigator quando questa configurazione permette di scegliere tra più musei.',
                       )}
                       .value=${config.featuredMuseumId}
                       .options=${this.museums.map((m) => ({ value: m._id, label: m.name }))}
@@ -584,16 +614,14 @@ export class NavigatorDefaultConfigPage extends LitElement {
                       __('Colore primario'),
                       '#0ea5e9',
                       __(
-                        'Accento principale di tutta la UI del Navigator: pulsanti, gradiente, elementi in evidenza.',
+                        'Colore principale di tutta la UI del Navigator: pulsanti, gradiente, elementi in evidenza.',
                       ),
                     )}
                     ${this.renderColorField(
                       'secondaryColor',
                       __('Colore secondario'),
                       '#1f2937',
-                      __(
-                        "Estremità opposta del gradiente firma dell'app, insieme al colore primario.",
-                      ),
+                      __('Estremità opposta del gradiente, rispetto al colore primario.'),
                     )}
                     ${this.renderColorField(
                       'appBackgroundColor',
@@ -671,14 +699,14 @@ export class NavigatorDefaultConfigPage extends LitElement {
                       'startUrl',
                       __('URL iniziale'),
                       __(
-                        'Pagina aperta quando si avvia l\'app installata dall\'icona in home screen. Di norma "/" (la Home del Navigator).',
+                        'Pagina aperta quando si avvia l\'app installata dall\'icona in home screen. Di norma "/navigator/" (la Home del Navigator).',
                       ),
                     )}
                     ${this.renderTextField(
                       'scope',
                       __('Ambito'),
                       __(
-                        'Percorso entro cui l\'app resta "installata": uscendo da questo ambito, i link si aprono nel browser normale invece che nell\'app.',
+                        'Percorso entro cui l\'app resta "installata": uscendo da questo ambito, i link si aprono nel browser normale invece che nell\'app. Di norma "/navigator/".',
                       ),
                     )}
                   </div>

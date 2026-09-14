@@ -44,7 +44,7 @@ export class UiCheckbox extends LitElement {
           .checked=${this.checked}
           ?disabled=${this.disabled}
           @change=${this.handleChange}
-          class="mt-1 w-4 h-4 rounded border-surface-300 dark:border-surface-600 text-brand-600 focus:ring-brand-500 focus:ring-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="mt-1 w-4 h-4 rounded border-surface-300 dark:border-surface-600 text-brand-600 focus-glow disabled:opacity-50 disabled:cursor-not-allowed"
         />
         <div class="flex-1">
           ${this.label

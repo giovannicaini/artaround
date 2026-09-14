@@ -1,3 +1,33 @@
+/*
+ * File: /src/components/museums/museum-navigator-configs-panel.ts                       *
+ * Project: @artaround/marketplace                                                       *
+ * Last Modified: 14/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
@@ -529,7 +559,7 @@ export class MuseumNavigatorConfigsPanel extends LitElement {
             <ui-input
               .label=${__('Nome breve manifest *')}
               .help=${__(
-                "Nome mostrato sotto l'icona nella schermata Home — tienilo breve, gli schermi tagliano i nomi troppo lunghi.",
+                "Nome mostrato sotto l'icona nella schermata Home: tienilo breve, gli schermi tagliano i nomi troppo lunghi.",
               )}
               .value=${config.shortName}
               @input-change=${(e: CustomEvent) => this.updateEditing({ shortName: e.detail.value })}
@@ -542,7 +572,7 @@ export class MuseumNavigatorConfigsPanel extends LitElement {
               '#0ea5e9',
               (patch) => this.updateEditing(patch),
               __(
-                'Accento principale del Navigator per questo museo: pulsanti, gradiente, elementi in evidenza.',
+                'Colore principale del Navigator per questa configurazione: pulsanti, gradiente, elementi in evidenza.',
               ),
             )}
             ${renderNavigatorColorField(
@@ -551,7 +581,9 @@ export class MuseumNavigatorConfigsPanel extends LitElement {
               __('Colore secondario'),
               '#1f2937',
               (patch) => this.updateEditing(patch),
-              __("Estremità opposta del gradiente firma dell'app, insieme al colore primario."),
+              __(
+                'Colore secondario del Navigator per questa configurazione (opposto al colore primario, nel gradiente).',
+              ),
             )}
             ${renderNavigatorColorField(
               config,
@@ -633,7 +665,7 @@ export class MuseumNavigatorConfigsPanel extends LitElement {
             <ui-input
               .label=${__('URL iniziale')}
               .help=${__(
-                'Pagina aperta quando si avvia l\'app installata dall\'icona in home screen. Di norma "/" (la Home del Navigator).',
+                'Pagina aperta quando si avvia l\'app installata dall\'icona in home screen. Di norma "/navigator/" (la Home del Navigator).',
               )}
               .value=${config.startUrl}
               @input-change=${(e: CustomEvent) =>
@@ -642,7 +674,7 @@ export class MuseumNavigatorConfigsPanel extends LitElement {
             <ui-input
               .label=${__('Ambito')}
               .help=${__(
-                'Percorso entro cui l\'app resta "installata": uscendo da questo ambito, i link si aprono nel browser normale invece che nell\'app.',
+                'Percorso entro cui l\'app resta "installata": uscendo da questo ambito, i link si aprono nel browser normale invece che nell\'app (di norma "/navigator/").',
               )}
               .value=${config.scope}
               @input-change=${(e: CustomEvent) =>

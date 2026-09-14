@@ -22,6 +22,11 @@ export class VisitAudienceTab extends LitElement {
     return this;
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    this.style.display = 'block';
+  }
+
   private get languageLevelOptions() {
     return LANGUAGE_LEVEL_OPTIONS_EMOJI_IT.map((option) => {
       const labelParts = option.label.split(' ');

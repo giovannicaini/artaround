@@ -1,3 +1,33 @@
+/*
+ * File: /src/components/items/artwork-creator.ts                                        *
+ * Project: @artaround/marketplace                                                       *
+ * Last Modified: 14/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
@@ -681,7 +711,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                       searchType="artwork"
                       .value=${this.wikidataId}
                       .selectedId=${this.wikidataId}
-                      @wikidata-select=${this.handleWikidataSelect}
+                      @wikidata-select=${(e: CustomEvent) => this.handleWikidataSelect(e)}
                     ></wikidata-autocomplete>
                   `}
               ${this.wikidataId
@@ -775,9 +805,9 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                 .label=${__('Cerca Autore su Wikidata')}
                 .placeholder=${__('Es: Leonardo da Vinci, Caravaggio...')}
                 searchType="author"
-                .value=${this.authorWikidataId}
+                .value=${this.author}
                 .selectedId=${this.authorWikidataId}
-                @wikidata-select=${this.handleAuthorSelect}
+                @wikidata-select=${(e: CustomEvent) => this.handleAuthorSelect(e)}
               ></wikidata-autocomplete>
 
               ${this.authorWikidataId
@@ -843,9 +873,9 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                 .label=${__('Movimento Artistico')}
                 .placeholder=${__('Es: Rinascimento, Barocco...')}
                 searchType="movement"
-                .value=${this.movementWikidataId}
+                .value=${this.movement}
                 .selectedId=${this.movementWikidataId}
-                @wikidata-select=${this.handleMovementSelect}
+                @wikidata-select=${(e: CustomEvent) => this.handleMovementSelect(e)}
               ></wikidata-autocomplete>
 
               ${this.movementWikidataId
@@ -1011,7 +1041,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                     <ui-select
                       .label=${`${__('Sala')} *`}
                       .help=${__(
-                        'Oltre a organizzare le opere, questa assegnazione è ciò che "Crea marker opere" (in Gestione Mappe) usa per generare automaticamente il marker sulla piantina, se la sala ha un contorno disegnato.',
+                        "L'assegnazione alle sale viene utilizzata anche in Gestione Mappe per creare i marker automaticamente.",
                       )}
                       .placeholder=${__('Seleziona la sala')}
                       .value=${this.roomId}
@@ -1054,7 +1084,7 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                   <ui-input
                     .label=${__('Piano')}
                     .help=${__(
-                      "Testo libero, solo descrittivo — non è collegato al piano vero e proprio della piantina (quello dipende dalla Sala scelta sopra e da dove il curatore l'ha posizionata in Gestione Mappe).",
+                      "Testo libero, solo descrittivo, facoltativo — non è collegato al piano vero e proprio della piantina (quello dipende dalla Sala scelta sopra e da dove il curatore l'ha posizionata in Gestione Mappe).",
                     )}
                     .placeholder=${__('Es: Piano Terra, Primo Piano')}
                     .value=${this.floor}

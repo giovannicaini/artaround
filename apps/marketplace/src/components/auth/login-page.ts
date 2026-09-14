@@ -69,7 +69,7 @@ export class LoginPage extends LitElement {
       <auth-shell
         .subtitle=${__('Accedi al pannello di amministrazione')}
         .renderContent=${() => html`
-          <form @submit=${this.handleSubmit} class="space-y-5">
+          <form @submit=${(e: Event) => this.handleSubmit(e)} class="space-y-5">
             ${renderFeedbackAlerts({ error: this.error })}
 
             <ui-input
@@ -102,7 +102,7 @@ export class LoginPage extends LitElement {
             <button
               type="button"
               class="w-full text-center text-sm text-surface-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-              @click=${this.goToRegister}
+              @click=${() => this.goToRegister()}
             >
               ${__('Non hai un account? Registrati')}
             </button>

@@ -126,7 +126,7 @@ export class AccessibilityPanel extends LitElement {
           role="switch"
           aria-checked="${value}"
           @click=${() => this.toggleSetting(key)}
-          class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${value
+          class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus-glow ${value
             ? 'bg-brand-500'
             : 'bg-surface-200 dark:bg-surface-600'}"
         >

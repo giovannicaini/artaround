@@ -38,6 +38,11 @@ export class VisitInfoTab extends LitElement {
     return this;
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    this.style.display = 'block';
+  }
+
   private emitChange(detail: Record<string, unknown>) {
     this.dispatchEvent(new CustomEvent('info-change', { detail, bubbles: true, composed: true }));
   }
