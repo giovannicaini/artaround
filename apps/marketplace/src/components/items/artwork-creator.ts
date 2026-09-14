@@ -17,9 +17,9 @@ import { wikidataService } from '../../services/wikidata.service';
 import './wikidata-autocomplete';
 import '../ui/ui-input';
 import '../ui/ui-select';
-import '../ui/ui-button';
+import '../ui/ui-form-actions';
 import '../ui/ui-icon';
-import '../ui/ui-card';
+import '../ui/ui-panel-section';
 import '../ui/ui-textarea';
 import '../ui/ui-alert';
 import '../ui/ui-loading';
@@ -27,12 +27,10 @@ import '../ui/image-editor';
 import '../ui/ui-tag-input';
 import '../ui/ui-museum-required-notice';
 import { __ } from '../../services/i18n.service';
+import { renderFeedbackAlerts } from '../../utils/feedback-alerts';
 
 /**
- * Componente Artwork Creator/Editor
- *
- * Usato per creare nuove opere fisiche o modificare quelle esistenti.
- * Supporta l'integrazione con Wikidata per precompilare le info dell'opera.
+ * Form di creazione/modifica di un'opera, a partire da un riferimento Wikidata.
  */
 @customElement('artwork-creator')
 export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
@@ -624,18 +622,16 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
     icon: string,
     iconClass: string,
     renderContent: () => unknown,
+    help = '',
   ) {
     return html`
-      <section>
-        <h3
-          class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-        >
-          <ui-icon name=${icon} size="sm" class=${iconClass}></ui-icon>
-          ${title}
-        </h3>
-
-        <ui-card>${renderContent()}</ui-card>
-      </section>
+      <ui-panel-section
+        .title=${title}
+        icon=${icon}
+        iconColor=${iconClass}
+        .help=${help}
+        .renderContent=${renderContent}
+      ></ui-panel-section>
     `;
   }
 
@@ -652,21 +648,13 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
 
     return html`
       <form @submit=${this.handleSubmit} class="space-y-8">
-        <!-- Messaggi di successo/errore -->
         ${!this.museumId
           ? html`<ui-museum-required-notice
               subject="opere"
               @select-museum=${this.emitSelectMuseum}
             ></ui-museum-required-notice>`
           : nothing}
-        ${this.success
-          ? html`<ui-alert variant="success" .message=${this.success}></ui-alert>`
-          : nothing}
-        ${this.error
-          ? html`<ui-alert variant="danger" .message=${this.error}></ui-alert>`
-          : nothing}
-
-        <!-- Section: Wikidata Reference -->
+        ${renderFeedbackAlerts({ error: this.error, success: this.success })}
         ${this.renderFormSection(
           __('Riferimento Wikidata'),
           'link',
@@ -720,8 +708,6 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
             </div>
           `,
         )}
-
-        <!-- Section: Basic Info -->
         ${this.renderFormSection(
           __('Informazioni Base'),
           'image',
@@ -779,8 +765,6 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
             </div>
           `,
         )}
-
-        <!-- Section: Authorship -->
         ${this.renderFormSection(
           __('Autore'),
           'user',
@@ -845,9 +829,10 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
               )}
             </div>
           `,
+          __(
+            "Cerca l'autore su Wikidata per collegarlo senza ambiguità (stesso ID usato anche altrove nell'app); Nome/Anno restano modificabili a mano anche dopo, es. per correggere una traduzione.",
+          ),
         )}
-
-        <!-- Section: Classification -->
         ${this.renderFormSection(
           __('Classificazione'),
           'tag',
@@ -910,8 +895,6 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
                   ></ui-input>
                 `,
               )}
-
-              <!-- Materials -->
               <div class="lg:col-span-2">
                 ${this.renderFieldWithBanner(
                   'materials',
@@ -932,9 +915,10 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
               </div>
             </div>
           `,
+          __(
+            'Tecnica = il procedimento usato (es. "Olio su tela", "Affresco"); Materiali = i materiali fisici dell\'opera (es. "Marmo di Carrara", "Bronzo") — non sono la stessa cosa: un dipinto ha una tecnica ma di solito un solo materiale (la tela/tavola), una scultura ha materiali ma raramente una "tecnica" in questo senso.',
+          ),
         )}
-
-        <!-- Section: Dimensions -->
         ${this.renderFormSection(
           __('Dimensioni'),
           'chart',
@@ -1012,9 +996,10 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
               </div>
             </div>
           `,
+          __(
+            "Solo informative per il visitatore (mostrate nella scheda opera) — non incidono sulla dimensione con cui viene mostrata l'immagine, che si regola invece nel punto focale del marker (Gestione Mappe).",
+          ),
         )}
-
-        <!-- Section: Location -->
         ${this.renderFormSection(
           'Posizione nel Museo',
           'location',
@@ -1083,8 +1068,6 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
             </div>
           `,
         )}
-
-        <!-- Section: Image -->
         ${this.renderFormSection('Immagine *', 'image', 'text-pink-500', () =>
           this.renderFieldWithBanner(
             'image',
@@ -1105,24 +1088,13 @@ export class ArtworkCreator extends MuseumAwareMixin(AppBaseElement) {
             `,
           ),
         )}
-
-        <!-- Actions -->
-        <div
-          class="flex items-center justify-end gap-4 pt-6 border-t border-surface-200 dark:border-surface-700"
-        >
-          <ui-button
-            variant="ghost"
-            .label=${__('Annulla')}
-            @click=${this.handleCancel}
-          ></ui-button>
-          <ui-button
-            type="submit"
-            variant="primary"
-            .label=${this.artworkId ? __('Aggiorna Opera') : __('Crea Opera')}
-            icon=${this.artworkId ? 'check' : 'plus'}
-            ?loading=${this.loading}
-          ></ui-button>
-        </div>
+        <ui-form-actions
+          cancelVariant="ghost"
+          .submitLabel=${this.artworkId ? __('Aggiorna Opera') : __('Crea Opera')}
+          submitIcon=${this.artworkId ? 'check' : 'plus'}
+          .loading=${this.loading}
+          @cancel=${this.handleCancel}
+        ></ui-form-actions>
       </form>
     `;
   }

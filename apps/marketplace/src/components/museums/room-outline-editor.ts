@@ -7,12 +7,7 @@ import '../ui/ui-icon';
 import { __ } from '../../services/i18n.service';
 
 /**
- * Room Outline Editor
- *
- * Gestione del contorno (poligono) delle sale — parallela e distinta
- * dall'editor dei marker. Le sale si CREANO in "Modifica Museo" (solo nome);
- * qui si sceglie su quale piano si trovano e si disegna il loro contorno
- * cliccando i vertici sulla piantina, chiudendo la forma sul primo punto.
+ * Disegno del contorno di una sala sulla piantina.
  */
 @customElement('room-outline-editor')
 export class RoomOutlineEditor extends LitElement {
@@ -109,10 +104,10 @@ export class RoomOutlineEditor extends LitElement {
 
     return html`
       <div
-        class="bg-surface-800 dark:bg-surface-800 rounded-lg overflow-hidden border border-surface-700"
+        class="bg-white dark:bg-surface-800 rounded-lg overflow-hidden border border-surface-200 dark:border-surface-700"
       >
         <div
-          class="w-full flex flex-wrap justify-between items-center p-4 bg-surface-700 border-b border-surface-600 ${showContent
+          class="w-full flex flex-wrap justify-between items-center p-4 bg-surface-50 dark:bg-surface-700 border-b border-surface-200 dark:border-surface-600 ${showContent
             ? ''
             : 'border-b-0'}"
         >
@@ -121,7 +116,9 @@ export class RoomOutlineEditor extends LitElement {
             class="flex-1 flex items-center gap-1.5 text-left"
             @click=${() => (this.collapsed = !this.collapsed)}
           >
-            <h3 class="text-white font-medium text-base m-0">📐 ${__('Sale')}</h3>
+            <h3 class="text-surface-900 dark:text-white font-medium text-base m-0">
+              📐 ${__('Sale')}
+            </h3>
             <ui-icon
               name=${this.collapsed ? 'chevron-down' : 'chevron-up'}
               size="sm"
@@ -150,16 +147,18 @@ export class RoomOutlineEditor extends LitElement {
 
     return html`
       <div class="p-4 space-y-3">
-        <p class="text-sm text-surface-300">
+        <p class="text-sm text-surface-600 dark:text-surface-300">
           ${__('Contornando')}:
-          <span class="font-semibold text-white">${room ? this.roomLabel(room) : ''}</span>
+          <span class="font-semibold text-surface-900 dark:text-white"
+            >${room ? this.roomLabel(room) : ''}</span
+          >
         </p>
-        <p class="text-xs text-surface-400">
+        <p class="text-xs text-surface-500 dark:text-surface-400">
           ${__(
             'Clicca sulla piantina per aggiungere un vertice. Clicca di nuovo sul primo punto (bianco) per chiudere la sala.',
           )}
         </p>
-        <p class="text-xs text-surface-400">
+        <p class="text-xs text-surface-500 dark:text-surface-400">
           ${__('Tieni premuto Ctrl (o ⌘) per allineare il segmento in orizzontale o verticale.')}
         </p>
         <p class="text-sm text-brand-400 font-medium">${this.pointCount} ${__('punti')}</p>
@@ -194,7 +193,7 @@ export class RoomOutlineEditor extends LitElement {
 
     if (rooms.length === 0 && elsewhere.length === 0) {
       return html`
-        <div class="p-10 text-center text-surface-400">
+        <div class="p-10 text-center text-surface-500 dark:text-surface-400">
           <div class="text-5xl mb-3">🏛️</div>
           <p class="m-0">${__('Nessuna sala creata')}</p>
           <p class="text-xs mt-1 m-0">
@@ -209,7 +208,9 @@ export class RoomOutlineEditor extends LitElement {
         ${rooms.map((room) => this.renderRoomRow(room))}
         ${elsewhere.length > 0
           ? html`
-              <div class="p-3 text-xs text-surface-500 border-t border-surface-700">
+              <div
+                class="p-3 text-xs text-surface-500 dark:text-surface-400 border-t border-surface-200 dark:border-surface-700"
+              >
                 ${__('Contornate su altri piani')}:
                 ${elsewhere.map((r) => this.roomLabel(r)).join(', ')}
               </div>
@@ -225,12 +226,16 @@ export class RoomOutlineEditor extends LitElement {
     const isGenerating = this.generatingMarkersRoomId === room.id;
 
     return html`
-      <div class="p-3 border-b border-surface-600 last:border-0 space-y-2">
+      <div class="p-3 border-b border-surface-100 dark:border-surface-600 last:border-0 space-y-2">
         <div class="flex items-center justify-between gap-2">
           <div class="min-w-0">
-            <p class="text-white text-sm font-medium truncate m-0">${room.title}</p>
+            <p class="text-surface-900 dark:text-white text-sm font-medium truncate m-0">
+              ${room.title}
+            </p>
             ${room.subtitle
-              ? html`<p class="text-surface-400 text-xs truncate m-0">${room.subtitle}</p>`
+              ? html`<p class="text-surface-500 dark:text-surface-400 text-xs truncate m-0">
+                  ${room.subtitle}
+                </p>`
               : nothing}
             ${isOutlined
               ? html`<ui-badge variant="success" size="sm" .label=${__('Contornata')}></ui-badge>`

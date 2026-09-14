@@ -3,6 +3,9 @@ import { customElement, property } from 'lit/decorators.js';
 import './ui-card';
 import './ui-icon-button';
 
+/**
+ * Pannello filtri collassabile con riepilogo sempre visibile.
+ */
 @customElement('ui-list-controls')
 export class UiListControls extends LitElement {
   @property({ type: String }) title = 'Opzioni elenco';
@@ -14,6 +17,12 @@ export class UiListControls extends LitElement {
   // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    // Senza questo l'elemento resta inline: lo space-y del genitore non si applica.
+    this.style.display = 'block';
   }
 
   // ─── Azioni ──────────────────────────────────────────────

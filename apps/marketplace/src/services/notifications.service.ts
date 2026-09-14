@@ -17,12 +17,7 @@ export interface Notification {
 const POLL_INTERVAL_MS = 20000;
 
 /**
- * Notifiche in-app (oggi solo richieste di ruolo museo, vedi
- * notifications.service.ts lato server) — stesso schema di jobs.service.ts
- * (polling condiviso, evento 'notifications-changed'), ma il polling qui
- * gira sempre finché il componente che lo avvia resta montato: a differenza
- * di un job, una notifica non letta non ha uno stato "attivo" che ne
- * giustifichi lo stop — resta lì finché qualcuno la legge.
+ * Notifiche in-app (oggi solo richieste di ruolo museo).
  */
 class NotificationsService {
   private notifications: Notification[] = [];

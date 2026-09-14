@@ -4,6 +4,9 @@ import './ui-card';
 import './ui-badge';
 import { __ } from '../../services/i18n.service';
 
+/**
+ * Card compatta per una risorsa in una lista (icona, titolo, meta).
+ */
 @customElement('ui-resource-list-card')
 export class UiResourceListCard extends LitElement {
   @property({ type: String }) title = '';

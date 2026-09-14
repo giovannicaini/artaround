@@ -4,9 +4,7 @@ const API_BASE_URL = import.meta.env.DEV ? 'http://localhost:3000/api' : '/api';
 
 export type ApiResponse<T> = APIResponse<T> & { error?: APIError | string };
 
-/**
- * Tipo di risposta per gli endpoint API paginati
- */
+// Tipo di risposta per gli endpoint API paginati
 export interface PaginatedApiResponse<T> extends ApiResponse<T> {
   pagination?: {
     page: number;
@@ -16,9 +14,7 @@ export interface PaginatedApiResponse<T> extends ApiResponse<T> {
   };
 }
 
-/**
- * Helper per estrarre il messaggio di errore dalla risposta
- */
+// Helper per estrarre il messaggio di errore dalla risposta
 export function getErrorMessage(response: ApiResponse<unknown>, defaultMessage: string): string {
   if (response.message) return response.message;
   if (response.error) {
@@ -28,6 +24,9 @@ export function getErrorMessage(response: ApiResponse<unknown>, defaultMessage: 
   return defaultMessage;
 }
 
+/**
+ * Client HTTP di base: header di auth, parsing risposta ed errori comuni a tutte le chiamate.
+ */
 export class ApiService {
   private baseUrl: string;
 

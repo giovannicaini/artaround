@@ -1,14 +1,18 @@
 import { html, nothing } from 'lit';
 import { customElement, state, property } from 'lit/decorators.js';
-import { MuseumAwareMixin, AppBaseElement } from '../../base';
+import { MuseumAwareMixin, AppBaseElement, DeletableMixin, HistorySyncMixin } from '../../base';
+import { renderControlsSummaryBadge } from '../../utils/list-controls';
+import { renderFeedbackAlerts } from '../../utils/feedback-alerts';
 import { visitService } from '../../services/visit.service';
-import { type User, type Visit } from '@artaround/shared';
+import { type User, type Visit, type LanguageLevel } from '@artaround/shared';
 import {
   getPermissions,
   canEditOwnItem,
   isMuseumCurator,
   type PermissionSet,
 } from '../../services/permissions.service';
+import { getLocalizedText } from '../../utils/localized-text';
+import { getLanguageLevelOptions } from '../../utils/enum-labels';
 import '../ui/ui-button';
 import '../ui/ui-card';
 import '../ui/ui-icon';
@@ -20,8 +24,8 @@ import '../ui/ui-page-header';
 import '../ui/ui-loading';
 import '../ui/ui-empty';
 import '../ui/ui-alert';
-import '../ui/ui-search-bar';
-import '../ui/ui-filter-tabs';
+import '../ui/ui-select';
+import '../ui/ui-list-controls';
 import '../ui/ui-icon-button';
 import '../ui/ui-media-card';
 import '../ui/ui-museum-required-notice';
@@ -31,12 +35,10 @@ import { __ } from '../../services/i18n.service';
 type ViewMode = 'list' | 'create' | 'edit';
 
 /**
- * Pagina Visite
- *
- * Mostra e gestisce le Visite (percorsi di visita).
+ * Pagina Visite: catalogo, filtri e form di creazione/modifica di una visita.
  */
 @customElement('visits-page')
-export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
+export class VisitsPage extends DeletableMixin(HistorySyncMixin(MuseumAwareMixin(AppBaseElement))) {
   @property({ type: Object }) user: User | null = null;
   @property({ type: Boolean }) authorArea = false;
   @property({ type: String }) openingVisitId = '';
@@ -49,10 +51,93 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
   @state() private error = '';
   @state() private searchQuery = '';
   @state() private selectedVisit: Visit | null = null;
-  @state() private deleteModalOpen = false;
-  @state() private visitToDelete: Visit | null = null;
-  @state() private deleting = false;
   @state() private filterPublished: 'all' | 'published' | 'draft' = 'all';
+  @state() private filterLanguageLevel: LanguageLevel | '' = '';
+  @state() private filterIsFree: 'true' | 'false' | '' = '';
+  @state() private controlsCollapsed = true;
+
+  // Filtri collassati di default, ma tutti locali: nessuna ricarica dal server, niente bottone "Applica".
+  private get activeFilterCount(): number {
+    return [
+      this.searchQuery.trim(),
+      this.filterPublished !== 'all' ? '1' : '',
+      this.filterLanguageLevel,
+      this.filterIsFree,
+    ].filter(Boolean).length;
+  }
+
+  private get languageLevelFilterOptions() {
+    return getLanguageLevelOptions();
+  }
+
+  private handleResetFilters() {
+    this.searchQuery = '';
+    this.filterPublished = 'all';
+    this.filterLanguageLevel = '';
+    this.filterIsFree = '';
+  }
+
+  private renderControlsContent() {
+    return html`
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <ui-input
+          .label=${__('Ricerca')}
+          .placeholder=${__('Cerca visite...')}
+          .value=${this.searchQuery}
+          @input-change=${(e: CustomEvent<{ value: string }>) => {
+            this.searchQuery = e.detail.value;
+          }}
+        ></ui-input>
+
+        <ui-select
+          .label=${__('Stato')}
+          .value=${this.filterPublished}
+          .options=${[
+            { value: 'all', label: __('Tutte') },
+            { value: 'published', label: __('Pubblicate') },
+            { value: 'draft', label: __('Bozze') },
+          ]}
+          @select-change=${(e: CustomEvent<{ value: 'all' | 'published' | 'draft' }>) => {
+            this.filterPublished = e.detail.value;
+          }}
+        ></ui-select>
+
+        <ui-select
+          .label=${__('Livello linguistico')}
+          .placeholder=${__('Tutti i livelli')}
+          clearable
+          .value=${this.filterLanguageLevel}
+          .options=${this.languageLevelFilterOptions}
+          @select-change=${(e: CustomEvent<{ value: LanguageLevel | '' }>) => {
+            this.filterLanguageLevel = e.detail.value;
+          }}
+        ></ui-select>
+
+        <ui-select
+          .label=${__('Prezzo')}
+          .placeholder=${__('Gratuite e a pagamento')}
+          clearable
+          .value=${this.filterIsFree}
+          .options=${[
+            { value: 'true', label: __('Solo gratuite') },
+            { value: 'false', label: __('Solo a pagamento') },
+          ]}
+          @select-change=${(e: CustomEvent<{ value: 'true' | 'false' | '' }>) => {
+            this.filterIsFree = e.detail.value;
+          }}
+        ></ui-select>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <ui-button
+          variant="secondary"
+          size="sm"
+          .label=${__('Reset')}
+          @click=${() => this.handleResetFilters()}
+        ></ui-button>
+      </div>
+    `;
+  }
 
   // ─── Stato calcolato ──────────────────────────────────────
   private get permissions(): PermissionSet {
@@ -82,38 +167,21 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
-  /**
-   * Stato granulare (viewMode + visita selezionata + tab dell'editor) verso
-   * app-root, per la history — stesso schema di artworks-page.ts. `visitId`
-   * usa openingVisitId come fallback quando si arriva da fuori (avanti/
-   * indietro/deep-link): a differenza di artworks-page qui non serve un
-   * fetch, visit-editor carica da sé i dati partendo dal solo id.
-   *
-   * `tab` è sempre presente nel detail (stringa vuota se non applicabile):
-   * handlePageStateChanged in app-root fa un merge, non una sostituzione —
-   * ometterlo del tutto quando si esce dall'editor lascerebbe in giro il
-   * valore della tab precedente nei routeParams.
-   */
+  // Stato granulare (viewMode + visita selezionata + tab editor) verso app-root, per la history — stesso schema di artworks-page.ts.
   private emitStateChange(tab = '', replace = false): void {
     const isEditorOpen = this.viewMode === 'edit' || this.viewMode === 'create';
     const visitId =
       this.viewMode === 'edit' ? this.selectedVisit?._id || this.openingVisitId || '' : '';
-
-    this.dispatchEvent(
-      new CustomEvent('page-state-changed', {
-        detail: { viewMode: this.viewMode, visitId, tab: isEditorOpen ? tab : '', replace },
-        bubbles: true,
-        composed: true,
-      }),
-    );
+    this.emitPageStateChange({
+      viewMode: this.viewMode,
+      visitId,
+      tab: isEditorOpen ? tab : '',
+      replace,
+    });
   }
 
-  // Intercetta lo stato del tab attivo emesso da <visit-editor> (vedi il suo
-  // updated()): da solo non sa "quale visita"/"in che modalità", li aggiunge
-  // qui prima di farlo risalire — impedisce anche al `page-state-changed`
-  // "grezzo" del figlio di bollare fino ad app-root privo di quel contesto.
-  // `replace` arriva dal figlio (vero solo per la sua primissima emissione,
-  // vedi visit-editor.ts) e passa così com'è.
+  // Intercetta lo stato del tab da <visit-editor>: da solo non sa "quale visita",
+  // lo aggiunge qui prima di farlo risalire ad app-root.
   private handleEditorStateChanged(e: CustomEvent<{ tab?: string; replace?: boolean }>) {
     e.stopPropagation();
     this.emitStateChange(e.detail.tab, e.detail.replace);
@@ -168,6 +236,17 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
       filtered = filtered.filter((v) => !v.isPublished);
     }
 
+    if (this.filterLanguageLevel) {
+      filtered = filtered.filter((v) =>
+        v.targetAudience?.languageLevels?.includes(this.filterLanguageLevel as LanguageLevel),
+      );
+    }
+
+    if (this.filterIsFree) {
+      const isFree = this.filterIsFree === 'true';
+      filtered = filtered.filter((v) => Boolean(v.metadata?.isFree) === isFree);
+    }
+
     return filtered;
   }
 
@@ -182,13 +261,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     this.selectedVisit = null;
   }
 
-  /**
-   * Permesso reale di modificare/eliminare QUESTA visita: proprio contenuto
-   * (sempre, ovunque), oppure curatore del museo selezionato. Usa
-   * this.selectedMuseumId (sempre l'_id Mongo) e non visit.museumId (salvato
-   * come QID Wikidata — vedi il commento analogo in contents-page.ts): i due
-   * formati non sono direttamente confrontabili senza risolverli lato server.
-   */
+  // Permesso reale di modificare/eliminare QUESTA visita: proprio contenuto, oppure curatore del museo selezionato (this.selectedMuseumId, non visit.museumId).
   private canManageVisit(visit: Visit): boolean {
     if (isMuseumCurator(this.user, this.selectedMuseumId ?? undefined)) {
       return true;
@@ -210,19 +283,18 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
       this.error = __('Non hai i permessi per eliminare questa visita.');
       return;
     }
-    this.visitToDelete = visit;
-    this.deleteModalOpen = true;
+    this.openDeleteModal(visit);
   }
 
   private async handleConfirmDelete() {
-    if (!this.visitToDelete) return;
+    const visit = this.entityToDelete as Visit | null;
+    if (!visit) return;
 
     this.deleting = true;
     try {
-      await visitService.delete(this.visitToDelete._id);
-      this.visits = this.visits.filter((v) => v._id !== this.visitToDelete!._id);
-      this.deleteModalOpen = false;
-      this.visitToDelete = null;
+      await visitService.delete(visit._id);
+      this.visits = this.visits.filter((v) => v._id !== visit._id);
+      this.closeDeleteModal();
     } catch (e) {
       console.error('Error deleting visit:', e);
       this.error = e instanceof Error ? e.message : __('Impossibile eliminare la visita');
@@ -231,9 +303,7 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
     }
   }
 
-  // Solo la creazione torna alla lista: in modifica si resta sull'editor (mostra
-  // "Visita aggiornata con successo!"), comodo per modificare più tappe in sequenza
-  // su un percorso lungo senza doverlo riaprire ogni volta.
+  // Solo la creazione torna alla lista: in modifica si resta sull'editor per modificare più tappe di fila.
   private handleVisitSaved() {
     if (this.viewMode === 'create') {
       this.backToListView();
@@ -259,11 +329,13 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
       visit.metadata?.artworksCount || visit.steps?.filter((s) => s.type === 'artwork').length || 0;
     const duration =
       visit.targetAudience?.estimatedDuration || visit.metadata?.estimatedDuration || 0;
+    const title = getLocalizedText(visit.title, visit.titleTranslations);
+    const description = getLocalizedText(visit.description, visit.descriptionTranslations);
 
     return html`
       <ui-media-card
         .imageSrc=${visit.coverImage || ''}
-        .imageAlt=${visit.title}
+        .imageAlt=${title}
         placeholderType="museum"
         placeholderSize="md"
         aspectClass="aspect-video"
@@ -273,11 +345,9 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
             ? html`<ui-badge variant="success" .label=${__('Pubblicata')}></ui-badge>`
             : html`<ui-badge variant="secondary" .label=${__('Bozza')}></ui-badge>`}
         .renderContent=${() => html`
-          <h3 class="font-semibold text-surface-900 dark:text-white mb-1 line-clamp-1">
-            ${visit.title}
-          </h3>
+          <h3 class="font-semibold text-surface-900 dark:text-white mb-1 line-clamp-1">${title}</h3>
           <p class="text-sm text-surface-500 dark:text-surface-400 line-clamp-2 mb-3">
-            ${visit.description}
+            ${description}
           </p>
 
           <div class="flex items-center gap-4 text-sm text-surface-500 dark:text-surface-400 mb-3">
@@ -354,33 +424,20 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
 
     return html`
       <div class="space-y-6">
-        <!-- Header -->
         <ui-page-header
-          .title=${__('Le tue Visite')}
+          .title=${this.authorArea ? __('Le mie visite') : __('Visite del museo')}
           .description=${__('Crea e gestisci i tuoi percorsi di visita guidata')}
           .count=${this.visits.length}
           .help=${__(
             'Una visita è il percorso guidato che il visitatore segue nel Navigator: una sequenza di tappe (opere, approfondimenti, indicazioni) posizionate sulla piantina. Solo le visite Pubblicate sono visibili nel Navigator/Marketplace; le Bozze restano nascoste finché non le pubblichi.',
           )}
         >
-          <div
-            slot="actions"
-            class="flex flex-col sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-3"
-          >
-            <ui-search-bar
-              class="w-full sm:w-64"
-              .placeholder=${__('Cerca visite...')}
-              .value=${this.searchQuery}
-              .showButton=${false}
-              @search=${(e: CustomEvent) => (this.searchQuery = e.detail.value)}
-            ></ui-search-bar>
-
+          <div slot="actions" class="flex items-center gap-3">
             ${this.permissions.canCreateVisit
               ? html`
                   <ui-button
                     variant="primary"
                     icon="plus"
-                    class="w-full sm:w-auto"
                     .label=${__('Nuova Visita')}
                     @click=${this.handleCreateVisit}
                   ></ui-button>
@@ -388,35 +445,26 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
               : nothing}
           </div>
         </ui-page-header>
-
-        <!-- Messaggio di errore -->
-        ${this.error
-          ? html`<ui-alert
-              variant="danger"
-              .message=${this.error}
-              dismissible
-              @dismiss=${() => (this.error = '')}
-            ></ui-alert>`
-          : nothing}
+        ${renderFeedbackAlerts({
+          error: this.error,
+          dismissible: true,
+          onDismissError: () => (this.error = ''),
+        })}
         ${!this.selectedMuseumId && !this.authorArea
           ? html`<ui-museum-required-notice
               subject="visite"
               @select-museum=${this.emitSelectMuseum}
             ></ui-museum-required-notice>`
           : nothing}
-
-        <!-- Filters -->
-        <ui-filter-tabs
-          .tabs=${[
-            { value: 'all', label: __('Tutte') },
-            { value: 'published', label: __('Pubblicate') },
-            { value: 'draft', label: __('Bozze') },
-          ]}
-          .value=${this.filterPublished}
-          @filter-change=${(e: CustomEvent) => (this.filterPublished = e.detail.value)}
-        ></ui-filter-tabs>
-
-        <!-- Content -->
+        <ui-list-controls
+          .title=${__('Filtri e ricerca')}
+          .description=${__('Espandi per filtrare per stato e ricercare per testo')}
+          .collapsed=${this.controlsCollapsed}
+          .renderSummary=${() => renderControlsSummaryBadge(this.activeFilterCount)}
+          .renderContent=${() => this.renderControlsContent()}
+          @collapsed-change=${(e: CustomEvent<{ collapsed: boolean }>) =>
+            (this.controlsCollapsed = e.detail.collapsed)}
+        ></ui-list-controls>
         ${this.loading
           ? html`<ui-loading size="lg" .text=${__('Caricamento visite...')}></ui-loading>`
           : this.filteredVisits.length === 0
@@ -443,21 +491,16 @@ export class VisitsPage extends MuseumAwareMixin(AppBaseElement) {
               </ui-empty>`
             : this.renderVisitsList()}
       </div>
-
-      <!-- Delete Modal -->
       <ui-modal
         .title=${__('Elimina Visita')}
-        message=${`${__('Sei sicuro di voler eliminare la visita')} "${this.visitToDelete?.title}"? ${__('Questa azione non può essere annullata.')}`}
+        message=${`${__('Sei sicuro di voler eliminare la visita')} "${(this.entityToDelete as Visit | null)?.title}"? ${__('Questa azione non può essere annullata.')}`}
         variant="danger"
         .confirmLabel=${__('Elimina')}
         .cancelLabel=${__('Annulla')}
         ?open=${this.deleteModalOpen}
         ?loading=${this.deleting}
         @confirm=${this.handleConfirmDelete}
-        @cancel=${() => {
-          this.deleteModalOpen = false;
-          this.visitToDelete = null;
-        }}
+        @cancel=${() => this.closeDeleteModal()}
       ></ui-modal>
     `;
   }

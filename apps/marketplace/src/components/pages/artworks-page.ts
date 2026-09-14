@@ -1,7 +1,9 @@
 import { html, nothing } from 'lit';
 import { customElement, state, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { MuseumAwareMixin, AppBaseElement } from '../../base';
+import { MuseumAwareMixin, AppBaseElement, DeletableMixin, HistorySyncMixin } from '../../base';
+import { renderControlsSummaryBadge } from '../../utils/list-controls';
+import { renderFeedbackAlerts } from '../../utils/feedback-alerts';
 import type { TableColumn, TableAction } from '../ui/ui-table';
 import { artworkService, type ArtworkFilters } from '../../services/artwork.service';
 import { uploadService } from '../../services/upload.service';
@@ -15,6 +17,7 @@ import {
 } from '@artaround/shared';
 import { getPermissions, type PermissionSet } from '../../services/permissions.service';
 import '../ui/ui-button';
+import '../ui/ui-view-toggle';
 import '../ui/ui-card';
 import '../ui/ui-icon';
 import '../ui/ui-badge';
@@ -44,13 +47,12 @@ type ArtworkListLayout = 'grid' | 'table';
 type ArtworkSortField = 'title' | 'author' | 'year' | 'updatedAt' | 'artworkType';
 
 /**
- * Pagina Opere
- *
- * Mostra e gestisce le Opere fisiche nei musei.
- * Le opere usano gli ID Wikidata come identificatori primari.
+ * Pagina Opere: catalogo, filtri e form di creazione/modifica di un'opera.
  */
 @customElement('artworks-page')
-export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
+export class ArtworksPage extends DeletableMixin(
+  HistorySyncMixin(MuseumAwareMixin(AppBaseElement)),
+) {
   @property({ type: Object }) user: User | null = null;
   @property({ type: String }) openingArtworkId = '';
   @property({ type: String }) openingViewMode: ViewMode = 'list';
@@ -79,9 +81,6 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     totalPages: 0,
   };
   @state() private selectedArtwork: Artwork | null = null;
-  @state() private deleteModalOpen = false;
-  @state() private artworkToDelete: Artwork | null = null;
-  @state() private deleting = false;
   @state() private filterType: ArtworkType | '' = '';
   @state() private controlsCollapsed = true;
   @state() private listLayout: ArtworkListLayout = 'grid';
@@ -143,10 +142,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
   }
 
   updated(changedProps: Map<string, unknown>) {
-    // Solo il caricamento dei dati dell'opera: non tocca viewMode, altrimenti
-    // riaprire un'opera già in modifica (openingArtworkId e openingViewMode
-    // cambiano insieme) la riporterebbe sempre a "view" mentre il fetch è
-    // ancora in corso — viewMode lo decide solo il blocco sotto.
+    // Solo il caricamento dati: viewMode lo decide il blocco sotto, non il fetch.
     if (changedProps.has('openingArtworkId') && this.openingArtworkId) {
       void this.loadSelectedArtwork(this.openingArtworkId);
     }
@@ -402,29 +398,23 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
       this.error = __('Non hai i permessi per eliminare le opere. Ruolo richiesto: admin.');
       return;
     }
-    this.artworkToDelete = artwork;
-    this.deleteModalOpen = true;
+    this.openDeleteModal(artwork);
   }
 
   private async handleConfirmDelete() {
-    if (!this.artworkToDelete) return;
+    const artwork = this.entityToDelete as Artwork | null;
+    if (!artwork) return;
 
     this.deleting = true;
     try {
-      await artworkService.deleteArtwork(this.artworkToDelete._id);
-      this.deleteModalOpen = false;
-      this.artworkToDelete = null;
+      await artworkService.deleteArtwork(artwork._id);
+      this.closeDeleteModal();
       this.loadArtworks();
     } catch (e) {
       console.error('Error deleting artwork:', e);
     } finally {
       this.deleting = false;
     }
-  }
-
-  private handleCancelDelete() {
-    this.deleteModalOpen = false;
-    this.artworkToDelete = null;
   }
 
   private handlePageChange(page: number) {
@@ -693,15 +683,6 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
     `;
   }
 
-  private renderControlsSummary() {
-    return html`
-      <ui-badge
-        variant=${this.activeFilterCount > 0 ? 'primary' : 'secondary'}
-        .label=${`${this.activeFilterCount} ${__('filtri')}`}
-      ></ui-badge>
-    `;
-  }
-
   private renderControlsContent(
     authorOptions: Array<{ value: string; label: string }>,
     movementOptions: Array<{ value: string; label: string }>,
@@ -735,23 +716,12 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
         ></ui-select>
 
         <div class="md:col-span-2">
-          <p class="text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-            ${__('Vista')}
-          </p>
-          <div class="flex items-center gap-2">
-            <ui-button
-              size="xs"
-              .variant=${this.listLayout === 'grid' ? 'primary' : 'secondary'}
-              .label=${__('Griglia')}
-              @click=${() => (this.listLayout = 'grid')}
-            ></ui-button>
-            <ui-button
-              size="xs"
-              .variant=${this.listLayout === 'table' ? 'primary' : 'secondary'}
-              .label=${__('Tabella')}
-              @click=${() => (this.listLayout = 'table')}
-            ></ui-button>
-          </div>
+          <ui-view-toggle
+            .value=${this.listLayout}
+            @layout-change=${(e: CustomEvent<{ value: ArtworkListLayout }>) => {
+              this.listLayout = e.detail.value;
+            }}
+          ></ui-view-toggle>
         </div>
       </div>
 
@@ -953,7 +923,6 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
 
     return html`
       <div class="space-y-6">
-        <!-- Header -->
         <ui-page-header
           .title=${__('Gestione Opere')}
           .description=${__('Collegate tramite Wikidata')}
@@ -983,13 +952,11 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
               @select-museum=${this.emitSelectMuseum}
             ></ui-museum-required-notice>`
           : nothing}
-
-        <!-- Controls -->
         <ui-list-controls
           .title=${__('Filtri e visualizzazione')}
           .description=${__('Espandi per filtrare, ordinare e cambiare layout')}
           .collapsed=${this.controlsCollapsed}
-          .renderSummary=${() => this.renderControlsSummary()}
+          .renderSummary=${() => renderControlsSummaryBadge(this.activeFilterCount)}
           .renderContent=${() =>
             this.renderControlsContent(
               authorOptions,
@@ -1005,8 +972,6 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
           @collapsed-change=${(e: CustomEvent<{ collapsed: boolean }>) =>
             (this.controlsCollapsed = e.detail.collapsed)}
         ></ui-list-controls>
-
-        <!-- Content -->
         ${this.loading
           ? this.renderLoading()
           : this.error
@@ -1016,8 +981,6 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
               : this.listLayout === 'grid'
                 ? this.renderGrid(this.normalizedArtworks)
                 : this.renderTable(this.normalizedArtworks)}
-
-        <!-- Pagination -->
         ${this.pagination.totalPages > 1 ? this.renderPagination() : nothing}
       </div>
     `;
@@ -1026,15 +989,12 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
   private renderCreateView() {
     return html`
       <div class="space-y-6">
-        <!-- Header -->
         <ui-page-header
           .title=${__('Nuova Opera')}
           .description=${__("Aggiungi un'opera fisica al catalogo")}
           showBack
           @back=${this.handleBackToList}
         ></ui-page-header>
-
-        <!-- Form -->
         <artwork-creator
           @artwork-created=${() => {
             this.handleBackToList();
@@ -1051,15 +1011,12 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
   }
 
   private renderError() {
-    return html`
-      <ui-alert
-        variant="danger"
-        .title=${__('Errore')}
-        .message=${this.error}
-        showRetry
-        @retry=${this.loadArtworks}
-      ></ui-alert>
-    `;
+    return renderFeedbackAlerts({
+      error: this.error,
+      errorTitle: __('Errore'),
+      showRetry: true,
+      onRetry: () => this.loadArtworks(),
+    });
   }
 
   private renderEmpty() {
@@ -1197,7 +1154,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
             class="flex items-center justify-between pt-3 border-t border-surface-100 dark:border-surface-800"
           >
             <ui-button
-              variant="ghost"
+              variant="secondary"
               size="xs"
               .label=${`${__('Vedi contenuti')} →`}
               @click=${() => this.handleViewArtworkContents(artwork)}
@@ -1248,12 +1205,8 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
 
   private renderViewMode() {
     if (!this.selectedArtwork) return this.renderListView();
-    // Catturato in una costante locale: <ui-panel-section> invoca
-    // .renderContent in un suo ciclo di render separato, non nello stesso
-    // istante in cui viene costruito qui — se nel frattempo
-    // this.selectedArtwork torna null (es. un altro avanti/indietro rapido)
-    // le chiusure leggerebbero null invece del valore con cui sono state
-    // create.
+    // Costante locale: <ui-panel-section> invoca .renderContent in un render
+    // separato, se selectedArtwork torna null nel frattempo le chiusure leggerebbero null.
     const artwork = this.selectedArtwork;
 
     const createdAt = this.formatDateTime(artwork.createdAt as unknown as string);
@@ -1265,7 +1218,6 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
 
     return html`
       <div class="space-y-6">
-        <!-- Header -->
         <ui-page-header
           .title=${artwork.title}
           .description=${`${artwork.author || __('Autore sconosciuto')}${artwork.year ? ` • ${artwork.year}` : ''}`}
@@ -1284,10 +1236,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
               `
             : nothing}
         </ui-page-header>
-
-        <!-- Content -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <!-- Image -->
           <div class="lg:col-span-1">
             <ui-card>
               <div
@@ -1320,8 +1269,6 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
                       <ui-image-placeholder type="artwork" size="full"></ui-image-placeholder>
                     `}
               </div>
-
-              <!-- Wikidata link -->
               ${artwork.wikidataId
                 ? html`
                     <a
@@ -1337,10 +1284,7 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
                 : nothing}
             </ui-card>
           </div>
-
-          <!-- Details -->
           <div class="lg:col-span-2 space-y-6">
-            <!-- Overview -->
             <ui-panel-section
               .title=${__('Panoramica')}
               icon="grid"
@@ -1387,8 +1331,6 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
                 </dl>
               `}
             ></ui-panel-section>
-
-            <!-- Materials -->
             ${(artwork.materials && artwork.materials.length > 0) ||
             (artwork.subjects && artwork.subjects.length > 0) ||
             (artwork.historicalEvents && artwork.historicalEvents.length > 0) ||
@@ -1413,8 +1355,6 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
                   ></ui-panel-section>
                 `
               : nothing}
-
-            <!-- Additional Images -->
             ${artwork.images && artwork.images.length > 0
               ? html`
                   <ui-panel-section
@@ -1447,8 +1387,6 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
                   ></ui-panel-section>
                 `
               : nothing}
-
-            <!-- Map Position -->
             ${artwork.mapPosition
               ? html`
                   <ui-panel-section
@@ -1467,8 +1405,6 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
                   ></ui-panel-section>
                 `
               : nothing}
-
-            <!-- Metadata -->
             ${createdAt || updatedAt || artwork._id
               ? html`
                   <ui-panel-section
@@ -1484,8 +1420,6 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
                   ></ui-panel-section>
                 `
               : nothing}
-
-            <!-- Description -->
             ${artwork.description
               ? html`
                   <ui-panel-section
@@ -1510,18 +1444,12 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
 
     return html`
       <div class="space-y-6">
-        <!-- Header -->
         <ui-page-header
           .title=${__('Modifica Opera')}
           .description=${this.selectedArtwork.title}
           showBack
           @back=${this.handleBackToList}
         ></ui-page-header>
-
-        <!-- Edit Form -->
-        <!-- Resta sul form al salvataggio (mostra "Opera aggiornata con successo!"),
-             comodo per modificare più campi in sequenza; si torna alla lista solo
-             con "Indietro" o "Annulla". -->
         <artwork-creator
           artworkId="${this.selectedArtwork._id}"
           @artwork-created=${() => this.loadArtworks()}
@@ -1541,8 +1469,6 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
           : this.viewMode === 'view'
             ? this.renderViewMode()
             : this.renderListView()}
-
-      <!-- Delete Confirmation Modal -->
       <ui-modal
         ?open=${this.deleteModalOpen}
         .title=${__('Elimina Opera')}
@@ -1554,51 +1480,28 @@ export class ArtworksPage extends MuseumAwareMixin(AppBaseElement) {
         .cancelLabel=${__('Annulla')}
         ?loading=${this.deleting}
         @confirm=${this.handleConfirmDelete}
-        @cancel=${this.handleCancelDelete}
+        @cancel=${() => this.closeDeleteModal()}
       ></ui-modal>
     `;
   }
 
   // ─── Sincronizzazione stato navigazione ───────────────────────────────
-  /**
-   * Emette un evento per notificare il genitore dei cambi di stato (viewMode, opera selezionata)
-   * Usato per la gestione della history
-   */
   private emitStateChange(): void {
-    // this.selectedArtwork si popola in modo asincrono (fetch) quando si
-    // arriva qui da un cambio di openingArtworkId (es. avanti/indietro nel
-    // browser): finché non risolve resta quello di prima (o null).
-    // openingArtworkId riflette invece subito il valore corretto, aggiornato
-    // in modo sincrono nello stesso giro in cui cambia anche viewMode —
-    // usarlo come fallback (solo per view/edit, mai per list/create) evita
-    // di emettere per un attimo uno stato "a metà" (viewMode nuovo, artworkId
-    // vecchio o mancante) che finirebbe comunque in history.
+    // selectedArtwork si popola in modo asincrono; openingArtworkId è già corretto
+    // nello stesso giro in cui cambia viewMode — usarlo come fallback evita uno stato "a metà" in history.
     const hasArtworkContext = this.viewMode === 'view' || this.viewMode === 'edit';
     const artworkId = hasArtworkContext
       ? this.selectedArtwork?._id || this.openingArtworkId || ''
       : '';
-
-    this.dispatchEvent(
-      new CustomEvent('page-state-changed', {
-        detail: { viewMode: this.viewMode, artworkId },
-        bubbles: true,
-        composed: true,
-      }),
-    );
+    this.emitPageStateChange({ viewMode: this.viewMode, artworkId });
   }
 
-  /**
-   * Torna alla vista lista e deseleziona l'opera
-   */
   private handleBackToList(): void {
     this.selectedArtwork = null;
     this.viewMode = 'list';
     this.emitStateChange();
   }
 
-  /**
-   * Passa alla modalità di creazione
-   */
   private handleGoToCreate(): void {
     this.viewMode = 'create';
     this.emitStateChange();

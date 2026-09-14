@@ -7,6 +7,9 @@ type BatchTranslationInput = {
   targetLang: AppLanguage;
 };
 
+/**
+ * Traduzione automatica con AI di titoli/testi nelle lingue attive di un museo.
+ */
 class TranslationService {
   async translateText(
     text: string,

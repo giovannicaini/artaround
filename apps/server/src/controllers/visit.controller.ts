@@ -10,6 +10,7 @@ import { assertCan } from '../utils/policy.util.js';
 import { mapToRecord } from '../utils/mongoose-map.util.js';
 import { deleteGeneratedAudioFile } from '../utils/audio-generation.service.js';
 import { applyCoverImageFallback } from '../utils/visit-cover-image.util.js';
+import { attachAuthorNames } from '../utils/author-name.util.js';
 import { MuseumController } from './museum.controller.js';
 import * as jobsService from '../utils/jobs.service.js';
 import {
@@ -165,6 +166,7 @@ export class VisitController {
       VisitModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       VisitModel.countDocuments(filter),
     ]);
+    await attachAuthorNames(visits);
 
     res.json({
       success: true,
@@ -185,6 +187,7 @@ export class VisitController {
     if (!visit) {
       throw new AppError(404, 'VISIT_NOT_FOUND', 'Visita non trovata');
     }
+    await attachAuthorNames([visit]);
 
     if (!visit.isPublished) {
       try {
@@ -250,6 +253,7 @@ export class VisitController {
     }
 
     const visits = await VisitModel.find({ authorId: req.user.id }).sort({ createdAt: -1 }).lean();
+    await attachAuthorNames(visits);
 
     res.json({
       success: true,

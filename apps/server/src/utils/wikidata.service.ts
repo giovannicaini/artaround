@@ -1,15 +1,147 @@
 import axios from 'axios';
 import { WikidataEntity } from '@artaround/shared';
 
+// Senza timeout una chiamata lenta a query.wikidata.org (il servizio mwapi
+// federato verso CirrusSearch, in particolare, a volte impiega decine di
+// secondi) blocca la richiesta fino al timeout del gateway (nginx, 60s) —
+// ogni metodo di ricerca qui sotto ha già un try/catch che ritorna [] su
+// errore, quindi fallire prima è sempre preferibile a far aspettare l'utente.
 const wikidataAxios = axios.create({
   headers: {
     'User-Agent': 'ArtAround/1.0 (https://artaround.app; contact@artaround.app)',
   },
+  timeout: 12000,
 });
 
 const WIKIDATA_SPARQL_URL = 'https://query.wikidata.org/sparql';
 
+interface WikidataMuseumBinding {
+  item: { value: string };
+  itemLabel?: { value: string };
+  itemDescription?: { value: string };
+  image?: { value: string };
+  coord?: { value: string };
+  streetAddress?: { value: string };
+  postalCode?: { value: string };
+  countryLabel?: { value: string };
+  locatedInLabel?: { value: string };
+}
+
+interface WikidataSimpleBinding {
+  item: { value: string };
+  itemLabel?: { value: string };
+  itemDescription?: { value: string };
+  image?: { value: string };
+}
+
 export class WikidataService {
+  // EntitySearch (prefix-based sull'etichetta): veloce, copre la maggior
+  // parte delle ricerche. `?item` finisce già vincolato dal servizio mwapi
+  // prima di qualunque altro pattern, quindi i controlli successivi (tipo,
+  // occupazione...) lavorano solo sulla manciata di candidati restituiti,
+  // non su tutto il grafo — è questo a rendere la query veloce.
+  private static entitySearchBlock(query: string, language: 'it' | 'en', mwapiLimit: number) {
+    return `
+      SERVICE wikibase:mwapi {
+        bd:serviceParam wikibase:endpoint "www.wikidata.org";
+                        wikibase:api "EntitySearch";
+                        mwapi:search "${query}";
+                        mwapi:language "${language}";
+                        mwapi:limit "${mwapiLimit}".
+        ?item wikibase:apiOutputItem mwapi:item.
+      }
+    `;
+  }
+
+  // CirrusSearch (motore testuale generale di Wikidata): più lento di
+  // EntitySearch ma capisce query multi-parola senza le stesse preposizioni
+  // dell'etichetta (es. "pinacoteca brera" trova "Pinacoteca di Brera") —
+  // usata solo come fallback quando EntitySearch non trova nulla.
+  private static cirrusSearchBlock(query: string, srlimit: number) {
+    return `
+      SERVICE wikibase:mwapi {
+        bd:serviceParam wikibase:endpoint "www.wikidata.org";
+                        wikibase:api "Search";
+                        mwapi:srsearch "${query}";
+                        mwapi:srlimit "${srlimit}".
+        ?item wikibase:apiOutputItem mwapi:title.
+      }
+    `;
+  }
+
+  private static parseSimpleBindings(bindings: WikidataSimpleBinding[]): WikidataEntity[] {
+    const byId = new Map<string, WikidataEntity>();
+    for (const binding of bindings) {
+      const id = binding.item.value.split('/').pop() || '';
+      if (!id || byId.has(id)) continue;
+      byId.set(id, {
+        id,
+        label: binding.itemLabel?.value || '',
+        description: binding.itemDescription?.value || '',
+        imageUrl: this.toCommonsThumbUrl(binding.image?.value),
+      });
+    }
+    return Array.from(byId.values());
+  }
+
+  // typeFilter: pattern SPARQL (VALUES/triple) che restringe ?item già
+  // vincolato dal blocco mwapi al tipo di entità cercato (autore, movimento...).
+  private static async fetchSimpleCandidates(
+    mwapiBlock: string,
+    typeFilter: string,
+    limit: number,
+  ): Promise<WikidataEntity[]> {
+    const sparqlQuery = `
+      SELECT DISTINCT ?item ?itemLabel ?itemDescription ?sitelinks ?image WHERE {
+        ${mwapiBlock}
+        ${typeFilter}
+        OPTIONAL { ?item wikibase:sitelinks ?sitelinks. }
+        OPTIONAL { ?item wdt:P18 ?image. }
+        SERVICE wikibase:label { bd:serviceParam wikibase:language "it,en". }
+      }
+      ORDER BY DESC(?sitelinks)
+      LIMIT ${limit}
+    `;
+
+    const response = await wikidataAxios.get(WIKIDATA_SPARQL_URL, {
+      params: { query: sparqlQuery, format: 'json' },
+    });
+    return this.parseSimpleBindings(response.data.results?.bindings || []);
+  }
+
+  // Prova EntitySearch (it, poi en) e solo se entrambe restano vuote ripiega
+  // su CirrusSearch — così le ricerche comuni restano veloci e solo i casi
+  // che altrimenti darebbero zero risultati pagano il costo del fallback.
+  private static async searchWithFallback(
+    query: string,
+    typeFilter: string,
+    limit: number,
+  ): Promise<WikidataEntity[]> {
+    const mwapiLimit = Math.max(limit * 4, 40);
+
+    let candidates = await this.fetchSimpleCandidates(
+      this.entitySearchBlock(query, 'it', mwapiLimit),
+      typeFilter,
+      limit,
+    );
+    if (candidates.length === 0) {
+      candidates = await this.fetchSimpleCandidates(
+        this.entitySearchBlock(query, 'en', mwapiLimit),
+        typeFilter,
+        limit,
+      );
+    }
+    if (candidates.length === 0) {
+      const cirrusLimit = Math.max(limit * 2, 20);
+      candidates = await this.fetchSimpleCandidates(
+        this.cirrusSearchBlock(query, cirrusLimit),
+        typeFilter,
+        cirrusLimit,
+      );
+    }
+    return candidates.slice(0, limit);
+  }
+
   private static normalizeText(value: string): string {
     return value
       .toLowerCase()
@@ -265,17 +397,10 @@ export class WikidataService {
         'portrait',
       ];
 
-      const fetchScoredResults = async (language: 'it' | 'en'): Promise<ScoredSearchResult[]> => {
+      const fetchScoredResults = async (mwapiBlock: string): Promise<ScoredSearchResult[]> => {
         const sparqlQuery = `
           SELECT DISTINCT ?item ?itemLabel ?itemDescription ?sitelinks ?image ?creator WHERE {
-            SERVICE wikibase:mwapi {
-              bd:serviceParam wikibase:endpoint "www.wikidata.org";
-                              wikibase:api "EntitySearch";
-                              mwapi:search "${normalizedQuery}";
-                              mwapi:language "${language}";
-                              mwapi:limit "${mwapiLimit}".
-              ?item wikibase:apiOutputItem mwapi:item.
-            }
+            ${mwapiBlock}
 
             FILTER NOT EXISTS { ?item wdt:P31 wd:Q5. }
 
@@ -323,13 +448,25 @@ export class WikidataService {
         });
       };
 
-      let scoredResults = await fetchScoredResults('it');
+      let scoredResults = await fetchScoredResults(
+        this.entitySearchBlock(normalizedQuery, 'it', mwapiLimit),
+      );
       let candidateResults = scoredResults.filter(
         (result: ScoredSearchResult) => result.artRelated,
       );
 
       if (candidateResults.length === 0) {
-        scoredResults = await fetchScoredResults('en');
+        scoredResults = await fetchScoredResults(
+          this.entitySearchBlock(normalizedQuery, 'en', mwapiLimit),
+        );
+        candidateResults = scoredResults.filter((result: ScoredSearchResult) => result.artRelated);
+      }
+
+      if (candidateResults.length === 0) {
+        const cirrusLimit = Math.max(limit * 2, 20);
+        scoredResults = await fetchScoredResults(
+          this.cirrusSearchBlock(normalizedQuery, cirrusLimit),
+        );
         candidateResults = scoredResults.filter((result: ScoredSearchResult) => result.artRelated);
       }
 
@@ -440,65 +577,102 @@ export class WikidataService {
     }
   }
 
-  static async searchMuseums(query: string, limit: number = 10): Promise<WikidataEntity[]> {
-    try {
-      const normalizedQuery = this.escapeSparqlLiteral(query.toLowerCase().trim());
-      if (!normalizedQuery) return [];
+  // Coordinate P625 arrivano come "Point(lng lat)" (WKT) — le scompone in {lat, lng}.
+  private static parseWktPoint(value?: string): { lat: number; lng: number } | undefined {
+    if (!value) return undefined;
+    const match = /Point\(([-\d.]+)\s+([-\d.]+)\)/.exec(value);
+    if (!match) return undefined;
+    return { lng: parseFloat(match[1]), lat: parseFloat(match[2]) };
+  }
 
-      const sparqlQuery = `
-        SELECT DISTINCT ?item ?itemLabel ?itemDescription ?sitelinks ?image WHERE {
-          ?item wdt:P31 ?type.
-          {
-            ?type wdt:P279* wd:Q33506.
-          } UNION {
-            VALUES ?type {
-              wd:Q33506 wd:Q207694 wd:Q1007870 wd:Q2087181 wd:Q1970365
-              wd:Q3329412 wd:Q16735822 wd:Q588140 wd:Q18674739
-            }
-          }
-
-          ?item rdfs:label ?rawLabel.
-          FILTER(LANG(?rawLabel) IN ("it", "en"))
-
-          OPTIONAL {
-            ?item schema:description ?rawDescription.
-            FILTER(LANG(?rawDescription) IN ("it", "en"))
-          }
-
-          FILTER(
-            CONTAINS(LCASE(STR(?rawLabel)), "${normalizedQuery}") ||
-            (BOUND(?rawDescription) && CONTAINS(LCASE(STR(?rawDescription)), "${normalizedQuery}"))
-          )
-
-          OPTIONAL { ?item wdt:P18 ?image. }
-          OPTIONAL { ?item wikibase:sitelinks ?sitelinks. }
-          SERVICE wikibase:label { bd:serviceParam wikibase:language "it,en". }
-        }
-        ORDER BY DESC(?sitelinks)
-        LIMIT ${Math.max(limit, 1)}
-      `;
-
-      const response = await wikidataAxios.get(WIKIDATA_SPARQL_URL, {
-        params: {
-          query: sparqlQuery,
-          format: 'json',
-        },
-      });
-
-      interface SparqlBinding {
-        item: { value: string };
-        itemLabel?: { value: string };
-        itemDescription?: { value: string };
-        image?: { value: string };
-      }
-
-      const bindings = response.data.results?.bindings || [];
-      return bindings.map((binding: SparqlBinding) => ({
-        id: binding.item.value.split('/').pop() || '',
+  private static parseMuseumBindings(bindings: WikidataMuseumBinding[]): WikidataEntity[] {
+    // Un item può comparire più volte (più valori P131/P625...): tiene solo
+    // la prima occorrenza per id, con i primi valori trovati.
+    const byId = new Map<string, WikidataEntity>();
+    for (const binding of bindings) {
+      const id = binding.item.value.split('/').pop() || '';
+      if (!id || byId.has(id)) continue;
+      byId.set(id, {
+        id,
         label: binding.itemLabel?.value || '',
         description: binding.itemDescription?.value || '',
         imageUrl: this.toCommonsThumbUrl(binding.image?.value),
-      }));
+        address: binding.streetAddress?.value,
+        postalCode: binding.postalCode?.value,
+        city: binding.locatedInLabel?.value,
+        country: binding.countryLabel?.value,
+        coordinates: this.parseWktPoint(binding.coord?.value),
+      });
+    }
+    return Array.from(byId.values());
+  }
+
+  // `?item` è vincolato dal servizio mwapi prima che parta il controllo del
+  // tipo (wdt:P279*), quindi quest'ultimo lavora solo sulla manciata di
+  // candidati restituiti dalla ricerca testuale, non su tutta la gerarchia —
+  // è questo, non la scelta di API, a rendere la query veloce.
+  private static async fetchMuseumCandidates(mwapiBlock: string, limit: number) {
+    const sparqlQuery = `
+      SELECT DISTINCT ?item ?itemLabel ?itemDescription ?sitelinks ?image ?coord
+             ?streetAddress ?postalCode ?countryLabel ?locatedInLabel WHERE {
+        ${mwapiBlock}
+
+        ?item wdt:P31 ?type.
+        {
+          ?type wdt:P279* wd:Q33506.
+        } UNION {
+          VALUES ?type {
+            wd:Q33506 wd:Q207694 wd:Q1007870 wd:Q2087181 wd:Q1970365
+            wd:Q3329412 wd:Q16735822 wd:Q588140 wd:Q18674739
+          }
+        }
+
+        OPTIONAL { ?item wikibase:sitelinks ?sitelinks. }
+        OPTIONAL { ?item wdt:P18 ?image. }
+        OPTIONAL { ?item wdt:P625 ?coord. }
+        OPTIONAL { ?item wdt:P6375 ?streetAddress. }
+        OPTIONAL { ?item wdt:P281 ?postalCode. }
+        OPTIONAL { ?item wdt:P17 ?country. }
+        OPTIONAL { ?item wdt:P131 ?locatedIn. }
+
+        SERVICE wikibase:label { bd:serviceParam wikibase:language "it,en". }
+      }
+      ORDER BY DESC(?sitelinks)
+      LIMIT ${limit}
+    `;
+
+    const response = await wikidataAxios.get(WIKIDATA_SPARQL_URL, {
+      params: { query: sparqlQuery, format: 'json' },
+    });
+    return this.parseMuseumBindings(response.data.results?.bindings || []);
+  }
+
+  static async searchMuseums(query: string, limit: number = 10): Promise<WikidataEntity[]> {
+    try {
+      const normalizedQuery = this.escapeSparqlLiteral(query.trim());
+      if (!normalizedQuery) return [];
+
+      const mwapiLimit = Math.max(limit * 4, 40);
+
+      let candidates = await this.fetchMuseumCandidates(
+        this.entitySearchBlock(normalizedQuery, 'it', mwapiLimit),
+        mwapiLimit,
+      );
+      if (candidates.length === 0) {
+        candidates = await this.fetchMuseumCandidates(
+          this.entitySearchBlock(normalizedQuery, 'en', mwapiLimit),
+          mwapiLimit,
+        );
+      }
+      if (candidates.length === 0) {
+        const cirrusLimit = Math.max(limit * 2, 20);
+        candidates = await this.fetchMuseumCandidates(
+          this.cirrusSearchBlock(normalizedQuery, cirrusLimit),
+          cirrusLimit,
+        );
+      }
+
+      return this.rankAndLimitMuseumResults(candidates, query, limit);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       console.error('[Wikidata] museum search SPARQL error:', message);
@@ -508,64 +682,23 @@ export class WikidataService {
 
   static async searchAuthors(query: string, limit: number = 10): Promise<WikidataEntity[]> {
     try {
-      const normalizedQuery = this.escapeSparqlLiteral(query.toLowerCase().trim());
+      const normalizedQuery = this.escapeSparqlLiteral(query.trim());
       if (!normalizedQuery) return [];
 
-      const sparqlQuery = `
-        SELECT DISTINCT ?item ?itemLabel ?itemDescription ?sitelinks ?image WHERE {
-          ?item wdt:P31 wd:Q5.
-          ?item wdt:P106 ?occupation.
-          VALUES ?occupation {
-            wd:Q3391743
-            wd:Q483501
-            wd:Q1028181
-            wd:Q1281618
-            wd:Q10800557
-            wd:Q1930187
-          }
-
-          ?item rdfs:label ?rawLabel.
-          FILTER(LANG(?rawLabel) IN ("it", "en"))
-
-          OPTIONAL {
-            ?item schema:description ?rawDescription.
-            FILTER(LANG(?rawDescription) IN ("it", "en"))
-          }
-
-          FILTER(
-            CONTAINS(LCASE(STR(?rawLabel)), "${normalizedQuery}") ||
-            (BOUND(?rawDescription) && CONTAINS(LCASE(STR(?rawDescription)), "${normalizedQuery}"))
-          )
-
-          OPTIONAL { ?item wdt:P18 ?image. }
-          OPTIONAL { ?item wikibase:sitelinks ?sitelinks. }
-          SERVICE wikibase:label { bd:serviceParam wikibase:language "it,en". }
+      const typeFilter = `
+        ?item wdt:P31 wd:Q5.
+        ?item wdt:P106 ?occupation.
+        VALUES ?occupation {
+          wd:Q3391743
+          wd:Q483501
+          wd:Q1028181
+          wd:Q1281618
+          wd:Q10800557
+          wd:Q1930187
         }
-        ORDER BY DESC(?sitelinks)
-        LIMIT ${Math.max(limit, 1)}
       `;
 
-      const response = await wikidataAxios.get(WIKIDATA_SPARQL_URL, {
-        params: {
-          query: sparqlQuery,
-          format: 'json',
-        },
-      });
-
-      interface AuthorBinding {
-        item: { value: string };
-        itemLabel?: { value: string };
-        itemDescription?: { value: string };
-        image?: { value: string };
-      }
-
-      const bindings = response.data.results?.bindings || [];
-      return bindings.map((binding: AuthorBinding) => ({
-        id: binding.item.value.split('/').pop() || '',
-        label: binding.itemLabel?.value || '',
-        description: binding.itemDescription?.value || '',
-        imageUrl: this.toCommonsThumbUrl(binding.image?.value),
-      }));
+      return await this.searchWithFallback(normalizedQuery, typeFilter, limit);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       console.error('[Wikidata] author search SPARQL error:', message);
@@ -575,61 +708,20 @@ export class WikidataService {
 
   static async searchMovements(query: string, limit: number = 10): Promise<WikidataEntity[]> {
     try {
-      const normalizedQuery = this.escapeSparqlLiteral(query.toLowerCase().trim());
+      const normalizedQuery = this.escapeSparqlLiteral(query.trim());
       if (!normalizedQuery) return [];
 
-      const sparqlQuery = `
-        SELECT DISTINCT ?item ?itemLabel ?itemDescription ?sitelinks ?image WHERE {
-          ?item wdt:P31 ?type.
-          VALUES ?type {
-            wd:Q968159
-            wd:Q1803238
-            wd:Q1792644
-            wd:Q2041552
-          }
-
-          ?item rdfs:label ?rawLabel.
-          FILTER(LANG(?rawLabel) IN ("it", "en"))
-
-          OPTIONAL {
-            ?item schema:description ?rawDescription.
-            FILTER(LANG(?rawDescription) IN ("it", "en"))
-          }
-
-          FILTER(
-            CONTAINS(LCASE(STR(?rawLabel)), "${normalizedQuery}") ||
-            (BOUND(?rawDescription) && CONTAINS(LCASE(STR(?rawDescription)), "${normalizedQuery}"))
-          )
-
-          OPTIONAL { ?item wdt:P18 ?image. }
-          OPTIONAL { ?item wikibase:sitelinks ?sitelinks. }
-          SERVICE wikibase:label { bd:serviceParam wikibase:language "it,en". }
+      const typeFilter = `
+        ?item wdt:P31 ?type.
+        VALUES ?type {
+          wd:Q968159
+          wd:Q1803238
+          wd:Q1792644
+          wd:Q2041552
         }
-        ORDER BY DESC(?sitelinks)
-        LIMIT ${Math.max(limit, 1)}
       `;
 
-      const response = await wikidataAxios.get(WIKIDATA_SPARQL_URL, {
-        params: {
-          query: sparqlQuery,
-          format: 'json',
-        },
-      });
-
-      interface MovementBinding {
-        item: { value: string };
-        itemLabel?: { value: string };
-        itemDescription?: { value: string };
-        image?: { value: string };
-      }
-
-      const bindings = response.data.results?.bindings || [];
-      return bindings.map((binding: MovementBinding) => ({
-        id: binding.item.value.split('/').pop() || '',
-        label: binding.itemLabel?.value || '',
-        description: binding.itemDescription?.value || '',
-        imageUrl: this.toCommonsThumbUrl(binding.image?.value),
-      }));
+      return await this.searchWithFallback(normalizedQuery, typeFilter, limit);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       console.error('[Wikidata] movement search SPARQL error:', message);

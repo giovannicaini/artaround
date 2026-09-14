@@ -10,7 +10,9 @@ import {
   type MuseumRoleRequest,
   type MuseumRoleRequestWithNames,
 } from '@artaround/shared';
-import { preferencesService } from '../../services/preferences.service';
+import { preferencesService, type TourId } from '../../services/preferences.service';
+import { isContentCreator } from '../../services/permissions.service';
+import { getTourMeta } from '../../utils/tour-content';
 import { artworkService } from '../../services/artwork.service';
 import { itemService } from '../../services/item.service';
 import { visitService } from '../../services/visit.service';
@@ -35,7 +37,11 @@ import '../ui/ui-resource-list-card';
 import '../ui/ui-select';
 import '../ui/ui-search-list-picker';
 import { __ } from '../../services/i18n.service';
+import { renderFeedbackAlerts } from '../../utils/feedback-alerts';
 
+/**
+ * Dashboard: riepilogo del museo attivo, statistiche e richieste di ruolo.
+ */
 @customElement('dashboard-page')
 export class DashboardPage extends LitElement {
   @property({ type: Object }) user: User | null = null;
@@ -285,9 +291,7 @@ export class DashboardPage extends LitElement {
       )
       .slice(0, 5);
 
-    // Le mie richieste di ruolo in attesa (chiunque può averne), e quelle da
-    // revisionare solo se admin o curatore di almeno un museo (altrimenti la
-    // lista sarebbe comunque vuota lato server: evitiamo la chiamata inutile).
+    // Le mie richieste in attesa (chiunque), quelle da revisionare solo se admin/curatore.
     const canReview = this.user.isAdmin || curatorMuseumIds.length > 0;
     const [myPendingRequests, reviewableRequests] = await Promise.all([
       authService.getMyRoleRequests(),
@@ -311,10 +315,10 @@ export class DashboardPage extends LitElement {
     return html`<ui-stat-card .label=${label} .value=${value} .icon=${icon}></ui-stat-card>`;
   }
 
-  private goToRoute(route: string) {
+  private goToRoute(route: string, params?: Record<string, string>) {
     this.dispatchEvent(
       new CustomEvent('navigate', {
-        detail: { route },
+        detail: { route, params },
         bubbles: true,
         composed: true,
       }),
@@ -413,9 +417,7 @@ export class DashboardPage extends LitElement {
     const { success } = await museumService.approveRoleRequest(request.museumId, request._id);
     if (success) {
       this.reviewableRequests = this.reviewableRequests.filter((r) => r._id !== request._id);
-      // Approvare toglie anche la propria notifica "pending" per questa
-      // richiesta (vedi resolveRoleRequestNotifications lato server) — la
-      // campanella non aspetta i 20s del polling per rifletterlo.
+      // Approvare toglie anche la notifica "pending": la campanella non aspetta il polling.
       void notificationsService.refresh();
     }
   }
@@ -555,7 +557,7 @@ export class DashboardPage extends LitElement {
             <h3
               class="flex items-center gap-1.5 flex-wrap font-semibold text-surface-900 dark:text-white"
             >
-              ${__('I tuoi ruoli')}
+              ${__('I tuoi ruoli in specifici musei')}
               <ui-info-tip
                 variant="inline"
                 text=${__(
@@ -564,7 +566,7 @@ export class DashboardPage extends LitElement {
               ></ui-info-tip>
             </h3>
             <ui-button
-              variant="outline"
+              variant="secondary"
               size="sm"
               icon="plus"
               .label=${__('Chiedi un ruolo')}
@@ -751,7 +753,7 @@ export class DashboardPage extends LitElement {
             class="flex items-center justify-end gap-3 p-6 border-t border-surface-200 dark:border-surface-700"
           >
             <ui-button
-              variant="ghost"
+              variant="secondary"
               .label=${__('Annulla')}
               @click=${() => this.closeRequestModal()}
             ></ui-button>
@@ -770,10 +772,22 @@ export class DashboardPage extends LitElement {
   private renderOpenRouteAction(route: string, label: string) {
     return html`
       <ui-button
-        variant="ghost"
+        variant="secondary"
         size="xs"
         .label=${label}
         @click=${() => this.goToRoute(route)}
+      ></ui-button>
+    `;
+  }
+
+  private renderCreateRouteAction(route: string, label: string) {
+    return html`
+      <ui-button
+        variant="secondary"
+        size="xs"
+        icon="plus"
+        .label=${label}
+        @click=${() => this.goToRoute(route, { viewMode: 'create' })}
       ></ui-button>
     `;
   }
@@ -793,6 +807,73 @@ export class DashboardPage extends LitElement {
         .renderItems=${options.renderItems}
         .renderActions=${options.renderActions || null}
       ></ui-resource-list-card>
+    `;
+  }
+
+  // ─── Tour guidati ────────────────────────────────────────
+  private replayTour(tourId: TourId) {
+    this.dispatchEvent(
+      new CustomEvent('replay-tour', { detail: { tourId }, bubbles: true, composed: true }),
+    );
+  }
+
+  // Solo i tour di competenza del ruolo attuale — curatore su ALMENO un museo, non serve sia quello attivo.
+  private get availableTours(): { id: TourId; label: string; description: string }[] {
+    const tours: { id: TourId; label: string; description: string }[] = [
+      { id: 'welcome', ...getTourMeta('welcome') },
+    ];
+
+    if (isContentCreator(this.user)) {
+      tours.push({ id: 'author', ...getTourMeta('author') });
+    }
+
+    const isCuratorOfAny =
+      !!this.user?.isAdmin ||
+      (this.user?.museumRoles || []).some((r) => r.role === MuseumRole.CURATOR);
+    if (isCuratorOfAny) {
+      tours.push({ id: 'museum', ...getTourMeta('museum') });
+      tours.push({ id: 'floorplan', ...getTourMeta('floorplan') });
+      tours.push({ id: 'navigatorConfig', ...getTourMeta('navigatorConfig') });
+    }
+
+    if (this.user?.isAdmin) {
+      tours.push({ id: 'admin', ...getTourMeta('admin') });
+    }
+
+    return tours;
+  }
+
+  private renderToursCard() {
+    return html`
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        ${this.availableTours.map(
+          (tour) => html`
+            <ui-card padding="sm">
+              <div class="flex flex-col gap-2 h-full">
+                <div class="flex items-start justify-between gap-2">
+                  <p class="font-medium text-sm text-surface-900 dark:text-white">${tour.label}</p>
+                  ${preferencesService.hasSeenTour(tour.id)
+                    ? html`<ui-badge
+                        variant="secondary"
+                        size="sm"
+                        .label=${__('Visto')}
+                      ></ui-badge>`
+                    : html`<ui-badge variant="success" size="sm" .label=${__('Nuovo')}></ui-badge>`}
+                </div>
+                <p class="text-xs text-surface-500 dark:text-surface-400 flex-1">
+                  ${tour.description}
+                </p>
+                <ui-button
+                  variant="secondary"
+                  size="sm"
+                  .label=${__('Rivedi')}
+                  @click=${() => this.replayTour(tour.id)}
+                ></ui-button>
+              </div>
+            </ui-card>
+          `,
+        )}
+      </div>
     `;
   }
 
@@ -824,64 +905,62 @@ export class DashboardPage extends LitElement {
             'Benvenuto nella dashboard del marketplace. Qui puoi avere una panoramica delle attività recenti e gestire le tue opere e visite.',
           )}
           .help=${__(
-            'Punto di ingresso del pannello: mostra il museo su cui stai lavorando, i tuoi ruoli e un riepilogo di ciò che hai creato. Le altre pagine (Opere, Contenuti, Visite) agiscono sempre sul "museo attivo" scelto qui.',
+            'Punto di ingresso del pannello: mostra il museo su cui stai lavorando, I tuoi ruoli in specifici musei e un riepilogo di ciò che hai creato. Le altre pagine (Opere, Contenuti, Visite) agiscono sempre sul "museo attivo" scelto qui.',
           )}
         >
         </ui-page-header>
 
-        ${this.loadError
-          ? html`<ui-alert
-              variant="error"
-              message=${this.loadError}
-              dismissible
-              @dismiss=${() => (this.loadError = '')}
-            ></ui-alert>`
-          : nothing}
+        ${renderFeedbackAlerts({
+          error: this.loadError,
+          dismissible: true,
+          onDismissError: () => (this.loadError = ''),
+        })}
 
         <ui-card padding="md">
-          <div class="space-y-4">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div class="min-w-0">
-                <p
-                  class="flex items-center gap-1.5 flex-wrap text-sm font-medium text-surface-700 dark:text-surface-300"
-                >
-                  ${__('Museo attivo')}
-                  <ui-info-tip
-                    variant="inline"
-                    text=${__(
-                      'Il museo su cui lavori finché non lo cambi: opere, contenuti e visite che crei o modifichi in tutte le altre pagine appartengono a questo museo.',
-                    )}
-                  ></ui-info-tip>
-                </p>
-                <p class="mt-1 text-lg font-semibold text-surface-900 dark:text-white truncate">
-                  ${this.selectedMuseum?.name || __('Nessun museo selezionato')}
-                </p>
+          <div class="space-y-3">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div class="min-w-0 flex items-center gap-3">
+                <div class="min-w-0">
+                  <p
+                    class="flex items-center gap-1.5 flex-wrap text-sm font-medium text-surface-700 dark:text-surface-300"
+                  >
+                    ${__('Museo attivo')}
+                    <ui-info-tip
+                      variant="inline"
+                      text=${__(
+                        'Il museo su cui lavori finché non lo cambi: opere, contenuti e visite che crei o modifichi in tutte le altre pagine appartengono a questo museo.',
+                      )}
+                    ></ui-info-tip>
+                  </p>
+                  <p class="text-base font-semibold text-surface-900 dark:text-white truncate">
+                    ${this.selectedMuseum?.name || __('Nessun museo selezionato')}
+                  </p>
+                </div>
+                <ui-badge
+                  variant=${this.selectedMuseum ? 'success' : 'warning'}
+                  size="sm"
+                  .label=${this.selectedMuseum ? __('Selezionato') : __('Non selezionato')}
+                ></ui-badge>
               </div>
 
-              <ui-badge
-                variant=${this.selectedMuseum ? 'success' : 'warning'}
-                size="sm"
-                .label=${this.selectedMuseum ? __('Selezionato') : __('Non selezionato')}
-              ></ui-badge>
-            </div>
-
-            <div class="flex items-center justify-end gap-2 pt-1">
-              <ui-button
-                variant="secondary"
-                size="sm"
-                icon="location"
-                .label=${this.showMuseumSelector ? __('Chiudi selettore') : __('Cambia museo')}
-                @click=${this.handleSelectMuseum}
-              ></ui-button>
-              ${this.selectedMuseum
-                ? html`
-                    <ui-icon-button
-                      icon="x"
-                      .title=${__('Deseleziona museo')}
-                      @click=${this.clearMuseumSelection}
-                    ></ui-icon-button>
-                  `
-                : nothing}
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <ui-button
+                  variant="secondary"
+                  size="sm"
+                  icon="location"
+                  .label=${this.showMuseumSelector ? __('Chiudi selettore') : __('Cambia museo')}
+                  @click=${this.handleSelectMuseum}
+                ></ui-button>
+                ${this.selectedMuseum
+                  ? html`
+                      <ui-icon-button
+                        icon="x"
+                        .title=${__('Deseleziona museo')}
+                        @click=${this.clearMuseumSelection}
+                      ></ui-icon-button>
+                    `
+                  : nothing}
+              </div>
             </div>
 
             ${this.showMuseumSelector
@@ -904,6 +983,11 @@ export class DashboardPage extends LitElement {
           ? html`<ui-loading></ui-loading>`
           : html`
               ${this.renderMyRolesCard()} ${this.renderReviewRequestsCard()}
+              ${this.renderDashboardSection(
+                __('Tour guidati'),
+                __('Rivedi in ogni momento le spiegazioni guidate della tua area'),
+                () => this.renderToursCard(),
+              )}
               ${this.user?.isAdmin
                 ? html`
                     <section class="space-y-3">
@@ -941,93 +1025,115 @@ export class DashboardPage extends LitElement {
                     </section>
                   `
                 : nothing}
-              ${this.renderDashboardSection(
-                __('Le mie risorse'),
-                __('Elementi legati al tuo utente, indipendenti dal museo attivo'),
-                () => html`
-                  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    ${this.renderResourceListCard({
-                      title: __('I musei di cui sono curatore'),
-                      emptyText: __('Nessun museo assegnato'),
-                      count: this.curatorMuseums.length,
-                      renderItems: () => this.renderCuratorMuseumsRows(),
-                    })}
-                    ${this.renderResourceListCard({
-                      title: __('Opere recenti dei musei che curo'),
-                      emptyText: __('Nessuna opera nei musei che curi'),
-                      count: this.curatedArtworks.length,
-                      renderItems: () => this.renderCuratedArtworksRows(),
-                    })}
-                    ${this.renderResourceListCard({
-                      title: __('I miei contenuti'),
-                      emptyText: __('Nessun contenuto creato'),
-                      count: this.myItems.length,
-                      renderItems: () => this.renderMyItemsRows(),
-                    })}
-                    ${this.renderResourceListCard({
-                      title: __('Le mie visite'),
-                      emptyText: __('Nessuna visita creata'),
-                      count: this.myVisits.length,
-                      renderItems: () => this.renderMyVisitsRows(),
-                    })}
-                  </div>
-                `,
-                __(
-                  'Contenuti e visite che hai creato tu, e i musei di cui sei curatore: restano gli stessi qualunque sia il museo attivo scelto sopra.',
-                ),
-              )}
-              ${this.renderDashboardSection(
-                __('Museo selezionato'),
-                this.selectedMuseum
-                  ? `${__('Statistiche e attività di')} ${this.selectedMuseum.name}`
-                  : __('Seleziona un museo per visualizzare statistiche e attività dedicate'),
-                () =>
-                  !this.selectedMuseum
-                    ? html`<ui-alert
-                        variant="info"
-                        .title=${__('Nessun museo attivo')}
-                        .message=${__(
-                          'Per lavorare su opere e configurazioni devi prima selezionare un museo.',
-                        )}
-                      ></ui-alert>`
-                    : html`
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                          ${this.renderStatCard(__('Opere nel museo'), this.totalArtworks, 'image')}
-                          ${this.renderStatCard(
-                            __('Contenuti pubblicati'),
-                            this.totalContents,
-                            'visit',
-                          )}
-                          ${this.renderStatCard(
-                            __('Visite nel museo'),
-                            this.totalVisits,
-                            'document',
-                          )}
-                        </div>
+              ${this.curatorMuseums.length > 0
+                ? this.renderDashboardSection(
+                    __('Musei che curo'),
+                    __('I musei di cui sei curatore, indipendenti dal museo attivo'),
+                    () => html`
+                      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        ${this.renderResourceListCard({
+                          title: __('I musei di cui sono curatore'),
+                          emptyText: __('Nessun museo assegnato'),
+                          count: this.curatorMuseums.length,
+                          renderItems: () => this.renderCuratorMuseumsRows(),
+                        })}
+                        ${this.renderResourceListCard({
+                          title: __('Opere recenti dei musei che curo'),
+                          emptyText: __('Nessuna opera nei musei che curi'),
+                          count: this.curatedArtworks.length,
+                          renderItems: () => this.renderCuratedArtworksRows(),
+                        })}
+                      </div>
+                    `,
+                  )
+                : nothing}
+              ${isContentCreator(this.user)
+                ? this.renderDashboardSection(
+                    __('Le mie risorse'),
+                    __('Elementi legati al tuo utente, indipendenti dal museo attivo'),
+                    () => html`
+                      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        ${this.renderResourceListCard({
+                          title: __('I miei contenuti'),
+                          emptyText: __('Nessun contenuto creato'),
+                          count: this.myItems.length,
+                          renderActions: () =>
+                            this.renderCreateRouteAction('contents', __('Nuovo item')),
+                          renderItems: () => this.renderMyItemsRows(),
+                        })}
+                        ${this.renderResourceListCard({
+                          title: __('Le mie visite'),
+                          emptyText: __('Nessuna visita creata'),
+                          count: this.myVisits.length,
+                          renderActions: () =>
+                            this.renderCreateRouteAction('visits', __('Nuova visita')),
+                          renderItems: () => this.renderMyVisitsRows(),
+                        })}
+                      </div>
+                    `,
+                    __(
+                      'Contenuti e visite che hai creato tu: restano gli stessi qualunque sia il museo attivo scelto sopra.',
+                    ),
+                  )
+                : nothing}
+              ${isContentCreator(this.user)
+                ? this.renderDashboardSection(
+                    __('Museo selezionato'),
+                    this.selectedMuseum
+                      ? `${__('Statistiche e attività di')} ${this.selectedMuseum.name}`
+                      : __('Seleziona un museo per visualizzare statistiche e attività dedicate'),
+                    () =>
+                      !this.selectedMuseum
+                        ? html`<ui-alert
+                            variant="info"
+                            .title=${__('Nessun museo attivo')}
+                            .message=${__(
+                              'Per lavorare su opere e configurazioni devi prima selezionare un museo.',
+                            )}
+                          ></ui-alert>`
+                        : html`
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                              ${this.renderStatCard(
+                                __('Opere nel museo'),
+                                this.totalArtworks,
+                                'image',
+                              )}
+                              ${this.renderStatCard(
+                                __('Contenuti pubblicati'),
+                                this.totalContents,
+                                'visit',
+                              )}
+                              ${this.renderStatCard(
+                                __('Visite nel museo'),
+                                this.totalVisits,
+                                'document',
+                              )}
+                            </div>
 
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                          ${this.renderResourceListCard({
-                            title: __('Ultime opere create'),
-                            emptyText: __('Nessuna opera disponibile'),
-                            count: this.recentArtworks.length,
-                            renderActions: () =>
-                              this.renderOpenRouteAction('artworks', __('Apri opere')),
-                            renderItems: () => this.renderRecentArtworksRows(),
-                          })}
-                          ${this.renderResourceListCard({
-                            title: __('Ultime visite'),
-                            emptyText: __('Nessuna visita disponibile'),
-                            count: this.recentVisits.length,
-                            renderActions: () =>
-                              this.renderOpenRouteAction('visits', __('Apri visite')),
-                            renderItems: () => this.renderRecentVisitsRows(),
-                          })}
-                        </div>
-                      `,
-                __(
-                  'A differenza di "Le mie risorse", qui vedi tutto ciò che appartiene al museo attivo, anche se creato da altri autori/curatori — cambia se cambi museo sopra.',
-                ),
-              )}
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                              ${this.renderResourceListCard({
+                                title: __('Ultime opere create'),
+                                emptyText: __('Nessuna opera disponibile'),
+                                count: this.recentArtworks.length,
+                                renderActions: () =>
+                                  this.renderOpenRouteAction('artworks', __('Apri opere')),
+                                renderItems: () => this.renderRecentArtworksRows(),
+                              })}
+                              ${this.renderResourceListCard({
+                                title: __('Ultime visite'),
+                                emptyText: __('Nessuna visita disponibile'),
+                                count: this.recentVisits.length,
+                                renderActions: () =>
+                                  this.renderOpenRouteAction('visits', __('Apri visite')),
+                                renderItems: () => this.renderRecentVisitsRows(),
+                              })}
+                            </div>
+                          `,
+                    __(
+                      'A differenza di "Le mie risorse", qui vedi tutto ciò che appartiene al museo attivo, anche se creato da altri autori/curatori — cambia se cambi museo sopra.',
+                    ),
+                  )
+                : nothing}
             `}
       </div>
       ${this.renderRequestModal()}

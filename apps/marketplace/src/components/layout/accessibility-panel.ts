@@ -9,6 +9,9 @@ import '../ui/ui-icon';
 import '../ui/ui-icon-button';
 import { __ } from '../../services/i18n.service';
 
+/**
+ * Pannello di accessibilità: tema, dimensione testo, spaziatura e alto contrasto.
+ */
 @customElement('accessibility-panel')
 export class AccessibilityPanel extends LitElement {
   @property({ type: Boolean }) open = false;
@@ -142,20 +145,16 @@ export class AccessibilityPanel extends LitElement {
     if (!this.open) return html``;
 
     return html`
-      <!-- Backdrop -->
       <div
         class="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
         @click=${this.close}
         aria-hidden="true"
       ></div>
-
-      <!-- Panel -->
       <div
         role="dialog"
         aria-label=${__('Impostazioni accessibilità')}
         class="fixed right-0 top-0 bottom-0 z-50 w-full max-w-sm bg-white dark:bg-surface-900 shadow-2xl flex flex-col animate-slide-left"
       >
-        <!-- Header -->
         <div
           class="flex items-center justify-between px-5 py-4 border-b border-surface-200 dark:border-surface-700"
         >
@@ -171,10 +170,7 @@ export class AccessibilityPanel extends LitElement {
             .title=${__('Chiudi pannello')}
           ></ui-icon-button>
         </div>
-
-        <!-- Content -->
         <div class="flex-1 overflow-y-auto p-5 space-y-6">
-          <!-- TEMA -->
           <section>
             <h3
               class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-3"
@@ -210,8 +206,6 @@ export class AccessibilityPanel extends LitElement {
               })}
             </div>
           </section>
-
-          <!-- DIMENSIONE FONT -->
           <section>
             <h3
               class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-3"
@@ -248,8 +242,6 @@ export class AccessibilityPanel extends LitElement {
               })}
             </div>
           </section>
-
-          <!-- SPAZIATURA TESTO -->
           <section>
             <h3
               class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-3"
@@ -285,8 +277,6 @@ export class AccessibilityPanel extends LitElement {
               })}
             </div>
           </section>
-
-          <!-- TOGGLE SETTINGS -->
           <section>
             <h3
               class="text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-3"
@@ -329,8 +319,6 @@ export class AccessibilityPanel extends LitElement {
             </div>
           </section>
         </div>
-
-        <!-- Footer -->
         <div class="px-5 py-4 border-t border-surface-200 dark:border-surface-700">
           <button
             type="button"

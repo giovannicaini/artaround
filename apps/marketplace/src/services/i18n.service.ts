@@ -37,6 +37,9 @@ const NORMALIZED_DICTIONARIES: Record<AppLanguage, Map<string, string>> = {
   es: buildNormalizedIndex(DICTIONARIES.es),
 };
 
+/**
+ * Traduzione dell'interfaccia nella lingua scelta dall'utente.
+ */
 class I18nService {
   private static readonly STORAGE_KEY = 'uiLanguage';
   private currentLanguage: AppLanguage = 'it';

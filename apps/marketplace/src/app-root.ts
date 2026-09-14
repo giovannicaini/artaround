@@ -1,7 +1,7 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { authService } from './services/auth.service';
-import { preferencesService } from './services/preferences.service';
+import { preferencesService, type TourId } from './services/preferences.service';
 import { routerService, type RouteState } from './services/router.service';
 import { __ } from './services/i18n.service';
 import { type User } from '@artaround/shared';
@@ -9,15 +9,14 @@ import { isContentCreator, isMuseumCurator } from './services/permissions.servic
 
 // Import components sempre necessari nella shell iniziale (login, layout)
 import './components/auth/login-page';
+import './components/auth/register-page';
 import './components/layout/admin-sidebar';
 import './components/layout/admin-header';
+import './components/layout/area-tour';
 import './components/ui/ui-scroll-top';
 import './components/ui/ui-button';
 
-// Le pagine vere e proprie vengono caricate on-demand (vedi PAGE_LOADERS più sotto):
-// evita di mettere ~700KB di componenti nel bundle iniziale quando l'utente ne visita
-// solo uno o due per sessione. Stesso pattern già usato per Leaflet in
-// museums-management-page.ts (import() dinamico -> chunk separato).
+// Pagine caricate on-demand (PAGE_LOADERS sotto): evita ~700KB nel bundle iniziale.
 const PAGE_LOADERS: Record<string, () => Promise<unknown>> = {
   dashboard: () => import('./components/pages/dashboard-page'),
   museums: () => import('./components/pages/museums-page'),
@@ -36,6 +35,9 @@ const PAGE_LOADERS: Record<string, () => Promise<unknown>> = {
   settings: () => import('./components/pages/settings-page'),
 };
 
+/**
+ * Radice dell'app: autenticazione, routing, sidebar/header e caricamento on-demand delle pagine.
+ */
 @customElement('app-root')
 export class AppRoot extends LitElement {
   // ─── Ciclo di vita ───────────────────────────────────────────
@@ -45,6 +47,15 @@ export class AppRoot extends LitElement {
 
   @state()
   private currentUser: User | null = null;
+
+  // Solo mentre non si è loggati: quale delle due schermate di autenticazione
+  // mostrare. Torna sempre a 'login' una volta autenticati.
+  @state()
+  private authMode: 'login' | 'register' = 'login';
+
+  // Quale tour per area è aperto ora, se c'è — da handleLogin, maybeTriggerAreaTour o un replay.
+  @state()
+  private activeTourId: TourId | null = null;
 
   @state()
   private currentRoute = 'dashboard';
@@ -76,11 +87,8 @@ export class AppRoot extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     const initial = routerService.init();
-    // applyRoute valuta i permessi (canAccessMuseumConfigArea ecc.) su
-    // this.currentUser: applicarla subito, prima che checkAuth() risolva,
-    // lo troverebbe sempre null e rimanderebbe sempre alla dashboard un
-    // refresh su qualunque stato che richieda un permesso — da qui aspetta
-    // che l'utente sia noto.
+    // applyRoute valuta i permessi su this.currentUser: applicarla prima che checkAuth()
+    // risolva lo troverebbe sempre null e rimanderebbe sempre alla dashboard.
     this.checkAuth().then(() => this.applyRoute(initial.route, initial.params));
     window.addEventListener('route-changed', this.handleRouteChanged as EventListener);
     window.addEventListener('museum-changed', this.handleMuseumChanged as EventListener);
@@ -145,11 +153,62 @@ export class AppRoot extends LitElement {
 
   handleLogin(e: CustomEvent) {
     this.currentUser = e.detail;
+    // Il tour di benvenuto è una tantum: solo se questo dispositivo non l'ha mai visto,
+    // rivedibile a piacere dalla Dashboard.
+    if (!preferencesService.hasSeenTour('welcome')) {
+      this.activeTourId = 'welcome';
+    }
+  }
+
+  private handleReplayTour(e: CustomEvent<{ tourId: TourId }>) {
+    this.activeTourId = e.detail.tourId;
+  }
+
+  // I tour Autore/Gestione Museo/Amministrazione (a differenza di quello di benvenuto, legato al login) si aprono da soli la prima…
+  private maybeTriggerAreaTour(route: string): void {
+    if (this.activeTourId || !this.currentUser) return;
+
+    const AUTHOR_ROUTES = ['author-area', 'contents', 'visits'];
+    const MUSEUM_ROUTES = ['museum-edit', 'artworks'];
+    const ADMIN_ROUTES = ['museums-management', 'navigator-default-config', 'users'];
+
+    if (
+      AUTHOR_ROUTES.includes(route) &&
+      isContentCreator(this.currentUser) &&
+      !preferencesService.hasSeenTour('author')
+    ) {
+      this.activeTourId = 'author';
+    } else if (
+      MUSEUM_ROUTES.includes(route) &&
+      this.canAccessMuseumConfigArea() &&
+      !preferencesService.hasSeenTour('museum')
+    ) {
+      this.activeTourId = 'museum';
+    } else if (
+      route === 'museum-maps' &&
+      this.canAccessMuseumConfigArea() &&
+      !preferencesService.hasSeenTour('floorplan')
+    ) {
+      this.activeTourId = 'floorplan';
+    } else if (
+      route === 'navigator-customizations' &&
+      this.canAccessMuseumConfigArea() &&
+      !preferencesService.hasSeenTour('navigatorConfig')
+    ) {
+      this.activeTourId = 'navigatorConfig';
+    } else if (
+      ADMIN_ROUTES.includes(route) &&
+      this.currentUser.isAdmin &&
+      !preferencesService.hasSeenTour('admin')
+    ) {
+      this.activeTourId = 'admin';
+    }
   }
 
   handleLogout() {
     authService.logout();
     this.currentUser = null;
+    this.authMode = 'login';
   }
 
   handleNavigate(e: CustomEvent) {
@@ -161,12 +220,7 @@ export class AppRoot extends LitElement {
   }
 
   // ─── Renderer delle rotte ─────────────────────────────────────
-  /**
-   * Assicura che il componente della pagina richiesta sia caricato prima di renderizzarla.
-   * Ritorna true se già disponibile (nessuna pagina da caricare, o già caricata),
-   * false se il caricamento è in corso: in quel caso renderPage() mostra uno spinner
-   * e si aggiorna da sola (requestUpdate) appena il chunk arriva.
-   */
+  // Assicura che il componente della pagina richiesta sia caricato prima di renderizzarla.
   private ensurePageLoaded(route: string): boolean {
     const loader = PAGE_LOADERS[route];
     if (!loader || this.loadedPageModules.has(route)) {
@@ -192,18 +246,7 @@ export class AppRoot extends LitElement {
     return false;
   }
 
-  /**
-   * I chunk delle pagine sono file con hash nel nome (vedi vite.config.ts,
-   * emptyOutDir: true): ogni nuovo deploy li rigenera e cancella quelli vecchi. Una
-   * tab rimasta aperta a cavallo di un deploy continua a usare l'indice/manifest
-   * della build precedente, quindi il primo import() di una pagina non ancora
-   * caricata in questa sessione punta a un file che sul server non esiste più e
-   * fallisce sempre allo stesso modo (da cui lo spinner infinito su "alcune pagine
-   * sì, altre no" finché non si fa F5, che scarica l'index.html aggiornato).
-   * Un retry dello stesso import() non risolve nulla: serve un reload completo.
-   * Lo facciamo una sola volta (guardia via sessionStorage) per non entrare in loop
-   * se il problema è invece un errore di rete reale.
-   */
+  // I chunk delle pagine sono file con hash nel nome (vedi vite.config.ts, emptyOutDir: true): ogni nuovo deploy li rigenera e…
   private handlePageLoadError(route: string, error: unknown) {
     console.error(`Errore nel caricamento della pagina "${route}":`, error);
 
@@ -306,6 +349,7 @@ export class AppRoot extends LitElement {
           .user=${this.currentUser}
           .openingItemId=${this.routeParams.itemId || ''}
           .openingViewMode=${this.routeParams.viewMode || 'list'}
+          .openingArtworkId=${this.routeParams.artworkId || ''}
         ></contents-page>`;
       case 'visits':
         return html`<visits-page
@@ -376,22 +420,27 @@ export class AppRoot extends LitElement {
     }
 
     if (!this.currentUser) {
-      return html` <login-page @login-success=${this.handleLogin}></login-page> `;
+      return this.authMode === 'register'
+        ? html`
+            <register-page
+              @login-success=${this.handleLogin}
+              @go-to-login=${() => (this.authMode = 'login')}
+            ></register-page>
+          `
+        : html`
+            <login-page
+              @login-success=${this.handleLogin}
+              @go-to-register=${() => (this.authMode = 'register')}
+            ></login-page>
+          `;
     }
 
     const marginClass = this.sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64';
 
+    // @navigate sull'antenato comune: dashboard-page/museums-management-page sono dentro
+    // <main>, fratelli di sidebar/header non discendenti, quindi l'evento va intercettato qui.
     return html`
       <div class="min-h-screen bg-surface-50 dark:bg-surface-950" @navigate=${this.handleNavigate}>
-        <!--
-          @navigate è messo qui, sull'antenato comune, e non sui singoli admin-sidebar/
-          admin-header: erano loro ad averlo (due volte, con rischio di doppia gestione se
-          mai avessero condiviso un antenato), ma pagine come dashboard-page o
-          museums-management-page — dentro <main>, cioè fratelli di sidebar/header, non
-          discendenti — disperdevano l'evento "navigate" senza che nessuno lo intercettasse:
-          i pulsanti "Apri opere"/"Apri visite" della dashboard e il "torna alla dashboard"
-          di museums-management-page non facevano nulla.
-        -->
         <admin-sidebar
           .currentRoute=${this.currentRoute}
           .user=${this.currentUser}
@@ -410,17 +459,32 @@ export class AppRoot extends LitElement {
 
         <main class="${marginClass} pt-16 min-h-screen transition-all duration-300">
           <div
-            class="p-4 lg:p-6"
+            class=${
+              // museum-maps gestisce da sé lo spazio disponibile: il padding qui intorno lo toglie senza motivo.
+              this.currentRoute === 'museum-maps' ? '' : 'p-4 lg:p-6'
+            }
             @select-museum=${this.handleSelectMuseum}
             @open-artwork-detail=${this.handleOpenArtworkDetail}
+            @navigate-to-contents=${this.handleNavigateToContents}
             @page-state-changed=${this.handlePageStateChanged}
             @user-updated=${this.handleUserUpdated}
+            @replay-tour=${this.handleReplayTour}
           >
             ${this.renderPage()}
           </div>
         </main>
 
         <ui-scroll-top></ui-scroll-top>
+
+        ${this.activeTourId
+          ? html`
+              <area-tour
+                .tourId=${this.activeTourId}
+                .user=${this.currentUser}
+                @tour-finished=${() => (this.activeTourId = null)}
+              ></area-tour>
+            `
+          : nothing}
       </div>
     `;
   }
@@ -488,17 +552,20 @@ export class AppRoot extends LitElement {
     );
   }
 
-  /**
-   * Stato granulare emesso da una pagina figlia (es. viewMode/entità
-   * selezionata in artworks-page, tab attivo in visit-editor via
-   * visits-page): si fonde con i routeParams correnti e diventa un vero
-   * passo di history — stesso canale per qualunque pagina, non serve più
-   * toccare app-root per aggiungerne una nuova. `replace` (opzionale, non è
-   * un route param) sostituisce la voce corrente invece di aggiungerne una:
-   * usato da una pagina quando risolve da sola un default non scelto
-   * dall'utente (es. il primo piano di museum-map-page), per non produrre un
-   * passo di history in più a ogni apertura.
-   */
+  // "Vedi contenuti" da Gestione Opere: apre Contenuti già filtrata su
+  // quell'opera (vedi contents-page.ts, openingArtworkId).
+  private handleNavigateToContents(e: CustomEvent) {
+    const artworkId = e.detail?.artworkId;
+    if (!artworkId) return;
+
+    routerService.navigate(
+      'contents',
+      { artworkId: String(artworkId) },
+      { title: this.getRouteTitle('contents') },
+    );
+  }
+
+  // Stato granulare emesso da una pagina figlia (es.
   private handlePageStateChanged(e: CustomEvent) {
     const { replace, ...params } = e.detail;
     routerService.navigate(
@@ -514,17 +581,14 @@ export class AppRoot extends LitElement {
       route === 'museum-edit' ||
       route === 'artworks' ||
       route === 'navigator-customizations' ||
-      route === 'museum-maps'
+      route === 'museum-maps' ||
+      route === 'contents' ||
+      route === 'visits'
     );
   }
 
   private requiresSelectedMuseum(route: string): boolean {
-    return (
-      route === 'author-area' ||
-      route === 'marketplace' ||
-      route === 'purchases' ||
-      route === 'contents'
-    );
+    return route === 'author-area' || route === 'marketplace' || route === 'purchases';
   }
 
   private hasSelectedMuseum(): boolean {
@@ -542,15 +606,7 @@ export class AppRoot extends LitElement {
   }
 
   // ─── Routing ──────────────────────────────────
-  /**
-   * Unico punto che traduce "route+params" in stato renderizzato — usato
-   * sia per il primo URL al boot sia per ogni evento `route-changed`
-   * (click su un link di navigazione, popstate da un bottone avanti/indietro
-   * vero del browser, o un redirect di permesso). Applica gli stessi
-   * controlli di permesso indipendentemente da come si è arrivati alla
-   * route, cosa che prima non era garantita (es. il check autore su
-   * "author-area" valeva solo cliccando il menu, non tornando indietro).
-   */
+  // Unico punto che traduce "route+params" in stato renderizzato
   private applyRoute(route: string, params: Record<string, string>): void {
     if (route === 'author-area' && !isContentCreator(this.currentUser)) {
       routerService.navigate(
@@ -592,5 +648,6 @@ export class AppRoot extends LitElement {
     this.routeParams = params;
     this.pageTitle = this.getRouteTitle(route);
     window.scrollTo(0, 0);
+    this.maybeTriggerAreaTour(route);
   }
 }

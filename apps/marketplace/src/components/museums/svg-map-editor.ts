@@ -25,9 +25,7 @@ export interface MapClickEvent {
 }
 
 /**
- * Componente SVG Map Editor
- *
- * Permette di visualizzare e modificare le piantine del museo con marker trascinabili
+ * Piantina SVG interattiva: zoom, pan, marker e costruzione del percorso di una visita.
  */
 @customElement('svg-map-editor')
 export class SvgMapEditor extends LitElement {
@@ -45,10 +43,8 @@ export class SvgMapEditor extends LitElement {
   @property({ type: Boolean })
   editMode = true;
 
-  // Modalità "costruzione percorso" (usata dall'editor di visita, con editMode
-  // false): il click su un'opera/waypoint aggiunge una tappa al percorso, il
-  // click su un punto vuoto crea una nuova svolta. Indipendente da editMode,
-  // che resta riservato alla gestione marker/sale lato museo.
+  // Modalità "costruzione percorso" (editMode false): click su opera/waypoint
+  // aggiunge una tappa, click su un punto vuoto crea una svolta.
   @property({ type: Boolean })
   routeBuildMode = false;
 
@@ -58,10 +54,8 @@ export class SvgMapEditor extends LitElement {
   @property({ type: Array })
   artworks: Artwork[] = [];
 
-  // Punti del percorso di una visita da disegnare sopra la mappa (sola anteprima,
-  // non modificabile qui): coordinate già risolte sul piano corrente, con il numero
-  // di tappa GLOBALE della visita (può non partire da 1 se le tappe precedenti sono
-  // su un altro piano).
+  // Punti del percorso da disegnare sopra la mappa (sola anteprima): coordinate già
+  // risolte sul piano corrente, col numero di tappa globale della visita.
   @property({ type: Array })
   routeStops: Array<{ x: number; y: number; order: number }> = [];
 
@@ -81,10 +75,8 @@ export class SvgMapEditor extends LitElement {
   @property({ type: Array })
   roomDrawPoints: MapPoint[] = [];
 
-  // Posizione corrente del cursore mentre si disegna una sala (già scontata
-  // di zoom e, se Ctrl/Cmd è premuto, agganciata all'asse orizzontale o
-  // verticale rispetto all'ultimo punto): usata solo per il segmento-guida
-  // che anticipa dove cadrebbe il prossimo vertice, non ancora un punto reale.
+  // Posizione del cursore mentre si disegna una sala: solo per il segmento-guida
+  // che anticipa il prossimo vertice, non ancora un punto reale.
   @state()
   private roomDrawCursor: MapPoint | null = null;
 
@@ -142,19 +134,12 @@ export class SvgMapEditor extends LitElement {
     const floor = this.currentFloor;
 
     return html`
-      <div class="bg-surface-900 rounded-lg overflow-hidden border border-surface-700">
-        <!-- Toolbar: flex-wrap perché con più piani (nomi anche lunghi, es.
-             "Primo Piano — Pinacoteca") più i controlli di zoom non
-             entravano su schermi stretti — l'overflow-hidden del box
-             esterno (per gli angoli arrotondati) li tagliava via invece di
-             lasciarli semplicemente andare a capo. -->
+      <div
+        class="bg-white dark:bg-surface-900 rounded-lg overflow-hidden border border-surface-200 dark:border-surface-700"
+      >
         <div
-          class="flex flex-wrap items-center justify-between gap-2 p-3 bg-surface-800 border-b border-surface-700"
+          class="flex flex-wrap items-center justify-between gap-2 p-3 bg-surface-50 dark:bg-surface-800 border-b border-surface-200 dark:border-surface-700"
         >
-          <!-- Floor Tabs: solo in editMode. Nelle mappe di sola anteprima (es. tab
-               Mappa dell'editor di visita) il cambio piano passa dal dropdown del
-               chiamante, che è l'unico ad aggiornare selectedFloorId in quel
-               contesto: questi pulsanti lì non farebbero nulla. -->
           ${this.editMode
             ? html`
                 <div class="flex gap-1">
@@ -165,7 +150,7 @@ export class SvgMapEditor extends LitElement {
                           .selectedFloorId === f.id ||
                         (!this.selectedFloorId && f === this.floors[0])
                           ? 'bg-brand-500 text-white'
-                          : 'bg-surface-700 text-surface-300 hover:bg-surface-600'}"
+                          : 'bg-white dark:bg-surface-700 text-surface-600 dark:text-surface-300 border border-surface-200 dark:border-transparent hover:bg-surface-100 dark:hover:bg-surface-600'}"
                         @click=${() => this.selectFloor(f.id)}
                       >
                         ${f.name}
@@ -175,28 +160,26 @@ export class SvgMapEditor extends LitElement {
                 </div>
               `
             : html`<div></div>`}
-
-          <!-- Zoom Controls -->
           <div class="flex items-center gap-2">
             <button
-              class="w-8 h-8 flex items-center justify-center rounded bg-surface-700 text-white hover:bg-surface-600 transition-colors"
+              class="w-8 h-8 flex items-center justify-center rounded bg-white dark:bg-surface-700 text-surface-600 dark:text-white border border-surface-200 dark:border-transparent hover:bg-surface-100 dark:hover:bg-surface-600 transition-colors"
               @click=${() => this.setZoom(this.zoom - 0.25)}
               ?disabled=${this.zoom <= 0.25}
             >
               ➖
             </button>
-            <span class="text-surface-300 text-sm w-16 text-center"
+            <span class="text-surface-500 dark:text-surface-300 text-sm w-16 text-center"
               >${Math.round(this.zoom * 100)}%</span
             >
             <button
-              class="w-8 h-8 flex items-center justify-center rounded bg-surface-700 text-white hover:bg-surface-600 transition-colors"
+              class="w-8 h-8 flex items-center justify-center rounded bg-white dark:bg-surface-700 text-surface-600 dark:text-white border border-surface-200 dark:border-transparent hover:bg-surface-100 dark:hover:bg-surface-600 transition-colors"
               @click=${() => this.setZoom(this.zoom + 0.25)}
               ?disabled=${this.zoom >= 3}
             >
               ➕
             </button>
             <button
-              class="w-8 h-8 flex items-center justify-center rounded bg-surface-700 text-white hover:bg-surface-600 transition-colors ml-2"
+              class="w-8 h-8 flex items-center justify-center rounded bg-white dark:bg-surface-700 text-surface-600 dark:text-white border border-surface-200 dark:border-transparent hover:bg-surface-100 dark:hover:bg-surface-600 transition-colors ml-2"
               @click=${this.resetView}
               title=${__('Reimposta vista')}
             >
@@ -204,10 +187,9 @@ export class SvgMapEditor extends LitElement {
             </button>
           </div>
         </div>
-
-        <!-- Map Container -->
         <div
-          class="relative overflow-hidden bg-surface-950 ${this.editMode || this.routeBuildMode
+          class="relative overflow-hidden bg-surface-100 dark:bg-surface-950 ${this.editMode ||
+          this.routeBuildMode
             ? 'cursor-crosshair'
             : 'cursor-grab'}"
           style="height: 500px;"
@@ -224,7 +206,6 @@ export class SvgMapEditor extends LitElement {
                   class="absolute origin-top-left transition-transform duration-75"
                   style="transform: translate(${this.panX}px, ${this.panY}px) scale(${this.zoom});"
                 >
-                  <!-- SVG Map -->
                   <div
                     class="map-svg-container"
                     @click=${this.handleMapClick}
@@ -233,21 +214,17 @@ export class SvgMapEditor extends LitElement {
                   >
                     ${unsafeHTML(floor.svgContent)}
                   </div>
-
-                  <!-- Sale (contorni poligonali) -->
                   ${this.renderRoomsOverlay(floor.id)}
-
-                  <!-- Percorso visita (anteprima) -->
                   ${this.routeStops.length > 1 ? this.renderRouteOverlay() : nothing}
-
-                  <!-- Markers Overlay -->
                   <div class="absolute inset-0 pointer-events-none">
                     ${floor.markers?.map((marker) => this.renderMarker(marker))}
                   </div>
                 </div>
               `
             : html`
-                <div class="flex items-center justify-center h-full text-surface-400">
+                <div
+                  class="flex items-center justify-center h-full text-surface-500 dark:text-surface-400"
+                >
                   <div class="text-center">
                     <div class="text-5xl mb-3">🗺️</div>
                     <p>${__('Nessuna mappa disponibile')}</p>
@@ -256,10 +233,8 @@ export class SvgMapEditor extends LitElement {
                 </div>
               `}
         </div>
-
-        <!-- Status Bar -->
         <div
-          class="flex items-center justify-between p-2 bg-surface-800 border-t border-surface-700 text-xs text-surface-400"
+          class="flex items-center justify-between p-2 bg-surface-50 dark:bg-surface-800 border-t border-surface-200 dark:border-surface-700 text-xs text-surface-500 dark:text-surface-400"
         >
           <div>
             ${floor
@@ -298,9 +273,7 @@ export class SvgMapEditor extends LitElement {
     const offsetY = (50 - focalY) * focalZoom;
 
     const markerSize = isSelected ? 48 : 32;
-    // I waypoint non sono un punto di interesse ma solo una svolta del percorso: un
-    // pallino piccolo e discreto invece dell'icona grande, per non confonderli con le
-    // tappe vere sulla mappa.
+    // I waypoint sono solo una svolta del percorso: un pallino discreto, non l'icona grande delle tappe vere.
     const isWaypoint = marker.type === MarkerType.WAYPOINT;
 
     if (isWaypoint) {
@@ -335,7 +308,6 @@ export class SvgMapEditor extends LitElement {
         <div class="relative">
           ${hasImage
             ? html`
-                <!-- Artwork marker with image -->
                 <div
                   class="rounded-full overflow-hidden border-2 shadow-lg transition-all duration-200 ${isSelected
                     ? 'border-brand-400 ring-2 ring-brand-400/50'
@@ -353,13 +325,10 @@ export class SvgMapEditor extends LitElement {
                 </div>
               `
             : html`
-                <!-- POI marker with icon -->
                 <div class="text-2xl filter drop-shadow-lg ${isSelected ? 'animate-pulse' : ''}">
                   ${this.markerIcons[marker.type] || '📍'}
                 </div>
               `}
-
-          <!-- Etichetta: visibile solo se selezionato -->
           ${isSelected && (marker.label || artwork?.title)
             ? html`
                 <div
@@ -369,8 +338,6 @@ export class SvgMapEditor extends LitElement {
                 </div>
               `
             : nothing}
-
-          <!-- Selection ring for non-image markers -->
           ${isSelected && !hasImage
             ? html`
                 <div
@@ -392,14 +359,9 @@ export class SvgMapEditor extends LitElement {
       return nothing;
     }
 
+    // pointer-events-none: solo riferimento visivo, mai cliccabili qui, altrimenti intercetterebbero i click destinati alla piantina.
     return svg`
       <svg class="absolute inset-0 w-full h-full pointer-events-none overflow-visible" style="z-index: 3;">
-        <!-- Sale già contornate: solo un riferimento visivo, MAI cliccabili qui
-             (pointer-events-none) — altrimenti un click per aggiungere un
-             marker/svolta dentro una sala verrebbe intercettato dal contorno
-             invece di raggiungere la piantina, rendendo impossibile piazzare
-             marker in sequenza rapida dentro le sale. La selezione/evidenza
-             resta pilotata solo da "Disegna/Ridisegna" nel pannello Sale. -->
         ${outlinedRooms.map((room) => {
           const isSelected = this.selectedRoomId === room.id;
           const points = (room.polygon || []).map((p) => `${p.x},${p.y}`).join(' ');
@@ -413,14 +375,10 @@ export class SvgMapEditor extends LitElement {
             ></polygon>
           `;
         })}
-
-        <!-- Etichetta col solo titolo, al centro del contorno -->
         ${outlinedRooms.map((room) => {
           if (!room.polygon) return nothing;
           const center = polygonCentroid(room.polygon);
-          // Larghezza approssimata dal numero di caratteri: niente misura
-          // reale del testo (richiederebbe un giro di getBBox dopo il
-          // render), ma basta a dare all'etichetta uno sfondo leggibile.
+          // Larghezza approssimata dal numero di caratteri, basta per uno sfondo leggibile.
           const boxWidth = room.title.length * 6.6 + 16;
           return svg`
             <g class="pointer-events-none">
@@ -446,8 +404,6 @@ export class SvgMapEditor extends LitElement {
             </g>
           `;
         })}
-
-        <!-- Contorno in corso di disegno -->
         ${
           this.roomDrawMode && this.roomDrawPoints.length > 0
             ? svg`
@@ -582,9 +538,7 @@ export class SvgMapEditor extends LitElement {
     this.isDragging = false;
   }
 
-  // Coordinate del mouse nel sistema di riferimento "grezzo" della piantina
-  // (già scontate di zoom, indipendenti dal pan perché lette dalla bounding
-  // box già trasformata dell'elemento).
+  // Coordinate del mouse nel sistema "grezzo" della piantina, già scontate di zoom e pan.
   private eventToFloorPoint(e: MouseEvent): MapPoint {
     const rect = this.mapSvgContainer?.getBoundingClientRect();
     const x = (e.clientX - (rect?.left ?? 0)) / this.zoom;
@@ -661,10 +615,7 @@ export class SvgMapEditor extends LitElement {
     e.stopPropagation();
 
     if (this.routeBuildMode) {
-      // Click su un'opera o su una svolta già esistente: il chiamante decide
-      // che tipo di tappa aggiungere in base a marker.type/artworkId, così una
-      // svolta piazzata in precedenza (es. da un'altra visita) può essere
-      // riusata invece di crearne una nuova nello stesso punto.
+      // Click su opera/svolta esistente: il chiamante decide il tipo di tappa da marker.type/artworkId.
       this.dispatchEvent(
         new CustomEvent('route-marker-add', {
           detail: marker,

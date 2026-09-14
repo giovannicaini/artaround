@@ -21,12 +21,15 @@ import {
   renderNavigatorColorField,
   renderNavigatorTranslationsSection,
   computeNavigatorMissingTranslations,
+  getNavigatorConfigTourSlides,
   NAVIGATOR_FONT_SELECT_OPTIONS,
   type NavigatorConfigFormData,
   type NavigatorColorFieldKey,
   type NavigatorTranslationFieldKey,
   type NavigatorImageFieldKey,
 } from '../../utils/navigator-config';
+import { cleanTranslationMap, normalizeTranslationMap } from '../../utils/translation-fields';
+import { getAppLanguageLabel } from '../../utils/language-label';
 import '../ui/ui-page-header';
 import '../ui/ui-card';
 import '../ui/ui-button';
@@ -38,18 +41,23 @@ import '../ui/ui-loading';
 import '../ui/ui-badge';
 import '../ui/ui-color-input';
 import '../ui/ui-info-tip';
+import '../ui/ui-tour';
 import '../ui/image-editor';
 import { __ } from '../../services/i18n.service';
 
 type NavigatorTextFieldKey = 'startUrl' | 'scope';
 type NavigatorGeneralFieldKey = 'name' | 'slug' | 'homeTitle' | 'manifestName' | 'shortName';
 
-// L'unica configurazione Navigator con applicability 'global' — vale per
-// tutto l'ecosistema quando un museo non ha una propria config (vedi le
-// "Configurazioni Navigator" per museo, in museums-management-page.ts).
+/**
+ * Editor della configurazione Navigator globale (applicability 'global').
+ */
 @customElement('navigator-default-config-page')
 export class NavigatorDefaultConfigPage extends LitElement {
   private readonly navigatorImageEditors = getNavigatorImageEditorDefinitions();
+  private readonly tourSlides = getNavigatorConfigTourSlides();
+
+  // Mostrato ad ogni visita di questa pagina (nessuna persistenza).
+  @state() private showTour = true;
 
   @state() private config: NavigatorConfigFormData | null = null;
   @state() private museums: Museum[] = [];
@@ -61,16 +69,6 @@ export class NavigatorDefaultConfigPage extends LitElement {
   @state() private success = '';
   @state() private translationLanguage: AppLanguage | null = null;
 
-  private get languageOptions(): Array<{ value: AppLanguage; label: string }> {
-    return [
-      { value: 'it', label: `🇮🇹 ${__('Italiano')}` },
-      { value: 'en', label: `🇬🇧 ${__('English')}` },
-      { value: 'fr', label: `🇫🇷 ${__('Français')}` },
-      { value: 'de', label: `🇩🇪 ${__('Deutsch')}` },
-      { value: 'es', label: `🇪🇸 ${__('Español')}` },
-    ];
-  }
-
   createRenderRoot() {
     return this;
   }
@@ -81,9 +79,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
     museumService.getMuseums().then((museums) => (this.museums = museums));
   }
 
-  // Nessuna config globale salvata ancora: parte precompilata con l'estetica
-  // attuale del Navigator (packages/shared DEFAULT_NAVIGATOR_CONFIG), così
-  // il primo salvataggio non cambia nulla di quello che si vede oggi.
+  // Nessuna config globale salvata: parte precompilata con l'estetica attuale del Navigator.
   private getEmptyConfig(): NavigatorConfigFormData {
     const d = DEFAULT_NAVIGATOR_CONFIG;
     return {
@@ -143,17 +139,15 @@ export class NavigatorDefaultConfigPage extends LitElement {
           displayFont: global.branding.displayFont || '',
           bodyFont: global.branding.bodyFont || '',
           homeTitle: global.content?.homeTitle || '',
-          homeTitleTranslations: this.normalizeTranslations(global.content?.homeTitleTranslations),
+          homeTitleTranslations: normalizeTranslationMap(global.content?.homeTitleTranslations),
           welcomeText: global.content?.welcomeText || '',
-          welcomeTextTranslations: this.normalizeTranslations(
-            global.content?.welcomeTextTranslations,
-          ),
+          welcomeTextTranslations: normalizeTranslationMap(global.content?.welcomeTextTranslations),
           openingImage: global.content?.openingImage || '',
           featuredMuseumId: global.content?.featuredMuseumId || '',
           manifestName: global.pwa.manifestName,
           shortName: global.pwa.shortName,
           manifestDescription: global.pwa.description || '',
-          manifestDescriptionTranslations: this.normalizeTranslations(
+          manifestDescriptionTranslations: normalizeTranslationMap(
             global.pwa.descriptionTranslations,
           ),
           themeColor: global.pwa.themeColor,
@@ -172,25 +166,6 @@ export class NavigatorDefaultConfigPage extends LitElement {
     this.loading = false;
   }
 
-  private normalizeTranslations(
-    value: Partial<Record<AppLanguage, string>> | Map<string, string> | undefined,
-  ): Partial<Record<AppLanguage, string>> {
-    if (!value) return {};
-    if (value instanceof Map) {
-      return Object.fromEntries(value.entries()) as Partial<Record<AppLanguage, string>>;
-    }
-    return value;
-  }
-
-  private getTranslationsOrUndefined(
-    value: Partial<Record<AppLanguage, string>>,
-  ): Partial<Record<AppLanguage, string>> | undefined {
-    const hasValue = Object.values(value || {}).some(
-      (item) => String(item || '').trim().length > 0,
-    );
-    return hasValue ? value : undefined;
-  }
-
   private updateConfig(patch: Partial<NavigatorConfigFormData>) {
     if (!this.config) return;
     this.config = { ...this.config, ...patch };
@@ -202,6 +177,12 @@ export class NavigatorDefaultConfigPage extends LitElement {
 
   private getTargetLanguages(): AppLanguage[] {
     return [...SUPPORTED_APP_LANGUAGES].filter((lang) => lang !== this.getSourceLanguage());
+  }
+
+  private cleanTranslations(
+    value: Partial<Record<AppLanguage, string>>,
+  ): Partial<Record<AppLanguage, string>> | undefined {
+    return cleanTranslationMap(value, this.getSourceLanguage(), this.getTargetLanguages());
   }
 
   private updateTranslationField(
@@ -252,19 +233,14 @@ export class NavigatorDefaultConfigPage extends LitElement {
   }
 
   private renderTranslations(config: NavigatorConfigFormData) {
-    const sourceLanguage = this.getSourceLanguage();
     const targetLanguages = this.getTargetLanguages();
-    const sourceLanguageLabel =
-      this.languageOptions.find((o) => o.value === sourceLanguage)?.label ||
-      sourceLanguage.toUpperCase();
 
     return renderNavigatorTranslationsSection({
       config,
-      sourceLanguageLabel,
+      sourceLanguageLabel: getAppLanguageLabel(this.getSourceLanguage()),
       targetLanguages,
       selectedLanguage: this.translationLanguage || targetLanguages[0] || null,
-      getLanguageLabel: (lang) =>
-        this.languageOptions.find((o) => o.value === lang)?.label || lang.toUpperCase(),
+      getLanguageLabel: (lang) => getAppLanguageLabel(lang),
       onSelectLanguage: (lang) => {
         this.translationLanguage = lang;
       },
@@ -404,9 +380,9 @@ export class NavigatorDefaultConfigPage extends LitElement {
       },
       content: {
         homeTitle: config.homeTitle || undefined,
-        homeTitleTranslations: this.getTranslationsOrUndefined(config.homeTitleTranslations),
+        homeTitleTranslations: this.cleanTranslations(config.homeTitleTranslations),
         welcomeText: config.welcomeText || undefined,
-        welcomeTextTranslations: this.getTranslationsOrUndefined(config.welcomeTextTranslations),
+        welcomeTextTranslations: this.cleanTranslations(config.welcomeTextTranslations),
         openingImage: config.openingImage || undefined,
         featuredMuseumId: config.featuredMuseumId || undefined,
       },
@@ -414,9 +390,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
         manifestName: config.manifestName,
         shortName: config.shortName,
         description: config.manifestDescription || undefined,
-        descriptionTranslations: this.getTranslationsOrUndefined(
-          config.manifestDescriptionTranslations,
-        ),
+        descriptionTranslations: this.cleanTranslations(config.manifestDescriptionTranslations),
         themeColor: config.themeColor,
         backgroundColor: config.backgroundColor,
         display: config.display,
@@ -480,9 +454,7 @@ export class NavigatorDefaultConfigPage extends LitElement {
     );
   }
 
-  // Apre l'app Navigator vera e propria con questa config attiva (?ncfg=slug,
-  // stesso parametro letto da navigatorConfigStore.ts lato Navigator) — a
-  // differenza dell'anteprima manifest, qui si vede davvero l'app.
+  // Apre l'app Navigator vera con questa config attiva (?ncfg=slug) — non solo l'anteprima manifest.
   private openNavigatorPreview() {
     if (!this.config?.slug) return;
     window.open(`/navigator/?ncfg=${encodeURIComponent(this.config.slug)}`, '_blank');
@@ -563,7 +535,12 @@ export class NavigatorDefaultConfigPage extends LitElement {
                   </div>
 
                   <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    ${this.renderGeneralField('name', __('Nome Config *'), { required: true })}
+                    ${this.renderGeneralField('name', __('Nome Config *'), {
+                      required: true,
+                      help: __(
+                        "Solo per riconoscerla qui nell'elenco delle configurazioni — non è mai visibile ai visitatori del Navigator.",
+                      ),
+                    })}
                     ${this.renderGeneralField('slug', __('Slug *'), {
                       help: __(
                         'Identificatore univoco nel link/QR di questa configurazione (?ncfg=slug). Cambiarlo dopo la pubblicazione invalida i link e i QR già distribuiti.',
@@ -571,7 +548,11 @@ export class NavigatorDefaultConfigPage extends LitElement {
                       required: true,
                       transform: sanitizeSlug,
                     })}
-                    ${this.renderGeneralField('homeTitle', __('Titolo Home'))}
+                    ${this.renderGeneralField('homeTitle', __('Titolo Home'), {
+                      help: __(
+                        'Titolo mostrato nella schermata Home del Navigator, sotto il logo.',
+                      ),
+                    })}
                   </div>
 
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -588,9 +569,15 @@ export class NavigatorDefaultConfigPage extends LitElement {
                     ></ui-select>
                     ${this.renderGeneralField('manifestName', __('Nome manifest *'), {
                       required: true,
+                      help: __(
+                        "Nome completo dell'app mostrato durante l'installazione e nel selettore app del telefono.",
+                      ),
                     })}
                     ${this.renderGeneralField('shortName', __('Nome breve manifest *'), {
                       required: true,
+                      help: __(
+                        "Nome mostrato sotto l'icona nella schermata Home — tienilo breve, gli schermi tagliano i nomi troppo lunghi.",
+                      ),
                     })}
                     ${this.renderColorField(
                       'primaryColor',
@@ -698,6 +685,9 @@ export class NavigatorDefaultConfigPage extends LitElement {
 
                   <ui-textarea
                     .label=${__('Testo di benvenuto')}
+                    .help=${__(
+                      'Testo mostrato nella schermata di benvenuto, prima che il visitatore entri nel Navigator — se vuoto, quella schermata non compare affatto.',
+                    )}
                     .value=${config.welcomeText}
                     @textarea-change=${(e: CustomEvent) =>
                       this.updateConfig({ welcomeText: e.detail.value })}
@@ -706,6 +696,9 @@ export class NavigatorDefaultConfigPage extends LitElement {
 
                   <ui-textarea
                     .label=${__('Descrizione manifest')}
+                    .help=${__(
+                      "Descrizione tecnica dell'app usata dal sistema operativo (es. nella schermata di conferma installazione) — non compare mai dentro il Navigator stesso.",
+                    )}
                     .value=${config.manifestDescription}
                     @textarea-change=${(e: CustomEvent) =>
                       this.updateConfig({ manifestDescription: e.detail.value })}
@@ -722,6 +715,15 @@ export class NavigatorDefaultConfigPage extends LitElement {
             `
           : nothing}
       </div>
+
+      ${this.showTour
+        ? html`
+            <ui-tour
+              .slides=${this.tourSlides}
+              @tour-finished=${() => (this.showTour = false)}
+            ></ui-tour>
+          `
+        : nothing}
     `;
   }
 }

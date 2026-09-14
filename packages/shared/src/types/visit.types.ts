@@ -21,6 +21,8 @@ export interface Visit {
 
   // Autore
   authorId: string; // Utente che ha creato questa visita
+  // Mai salvato: risolto dall'authorId al momento della risposta, vedi
+  // author-name.util.ts lato server.
   authorName?: string;
 
   // Info di base

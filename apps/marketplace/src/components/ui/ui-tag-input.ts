@@ -6,21 +6,7 @@ import './ui-info-tip';
 import { __ } from '../../services/i18n.service';
 
 /**
- * UI Tag Input
- *
- * Un input coerente per gestire una lista di tag.
- *
- * @fires tags-change - Emette l'array di tag aggiornato
- *
- * @example
- * ```html
- * <ui-tag-input
- *   label="Tags"
- *   placeholder="Aggiungi un tag..."
- *   .tags=${this.tags}
- *   @tags-change=${(e) => this.tags = e.detail.tags}
- * ></ui-tag-input>
- * ```
+ * Campo per inserire una lista di tag testuali.
  */
 @customElement('ui-tag-input')
 export class UiTagInput extends LitElement {

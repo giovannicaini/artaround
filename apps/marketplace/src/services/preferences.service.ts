@@ -19,11 +19,19 @@ export interface AccessibilitySettings {
   focusVisible: boolean;
 }
 
+// Un tour per area (benvenuto, autore, gestione museo, ecc.): si mostra da solo
+// la prima volta che diventa rilevante, poi resta rivedibile dalla Dashboard.
+export type TourId = 'welcome' | 'author' | 'museum' | 'floorplan' | 'navigatorConfig' | 'admin';
+
+/**
+ * Preferenze di dispositivo: museo attivo, tema e tour già visti.
+ */
 class PreferencesService {
   private static readonly STORAGE_KEYS = {
     theme: 'theme',
     accessibility: 'accessibility',
     selectedMuseum: 'selectedMuseum',
+    seenTours: 'seenTours',
   } as const;
 
   private theme: Theme = 'auto';
@@ -221,6 +229,29 @@ class PreferencesService {
   clearSelectedMuseum() {
     this.safeRemoveItem(PreferencesService.STORAGE_KEYS.selectedMuseum);
     window.dispatchEvent(new CustomEvent('museum-changed', { detail: null }));
+  }
+
+  // Tour per area: per dispositivo, non per sessione — deve sopravvivere a logout/login.
+  private readSeenTours(): TourId[] {
+    const saved = this.safeGetItem(PreferencesService.STORAGE_KEYS.seenTours);
+    if (!saved) return [];
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  hasSeenTour(id: TourId): boolean {
+    return this.readSeenTours().includes(id);
+  }
+
+  markTourSeen(id: TourId) {
+    const seen = this.readSeenTours();
+    if (!seen.includes(id)) {
+      this.safeSetItem(PreferencesService.STORAGE_KEYS.seenTours, JSON.stringify([...seen, id]));
+    }
   }
 }
 

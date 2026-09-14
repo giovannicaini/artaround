@@ -11,6 +11,9 @@ export interface SelectOption {
   fontFamily?: string; // anteprima: l'opzione nel menu usa questo font invece di quello di default
 }
 
+/**
+ * Select con etichetta, opzioni e stato disabilitato/obbligatorio.
+ */
 @customElement('ui-select')
 export class UiSelect extends LitElement {
   @property({ type: String }) label = '';
@@ -143,8 +146,6 @@ export class UiSelect extends LitElement {
                 </button>
               `
             : nothing}
-
-          <!-- Dropdown arrow -->
           <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
             <ui-icon name="chevron-down" size="xs" class="text-surface-400"></ui-icon>
           </div>

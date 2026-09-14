@@ -8,8 +8,13 @@ import { buildMuseumIdFilterValue } from '../utils/museum-id.util.js';
 import { parsePagination, buildPaginationMeta } from '../utils/pagination.util.js';
 import { assertCan } from '../utils/policy.util.js';
 import { mapToRecord } from '../utils/mongoose-map.util.js';
-import { deleteGeneratedAudioFile } from '../utils/audio-generation.service.js';
+import {
+  deleteGeneratedAudioFile,
+  generateAudioForText,
+  saveUploadedAudioFile,
+} from '../utils/audio-generation.service.js';
 import { buildUsableItemsFilter } from '../utils/item-access.util.js';
+import { attachAuthorNames } from '../utils/author-name.util.js';
 import {
   ItemReferenceType,
   ContentDuration,
@@ -165,6 +170,7 @@ export class ItemController {
       ItemModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       ItemModel.countDocuments(filter),
     ]);
+    await attachAuthorNames(items);
 
     res.json({
       success: true,
@@ -298,6 +304,7 @@ export class ItemController {
       ItemModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       ItemModel.countDocuments(filter),
     ]);
+    await attachAuthorNames(items);
 
     res.json({
       success: true,
@@ -314,6 +321,7 @@ export class ItemController {
     if (!item) {
       throw new AppError(404, 'ITEM_NOT_FOUND', 'Item non trovato');
     }
+    await attachAuthorNames([item]);
 
     res.json({
       success: true,
@@ -416,20 +424,29 @@ export class ItemController {
       item.isFree = req.body.price === 0;
     }
 
-    // Un audio che legge un testo diverso da quello scritto ora è
-    // semplicemente sbagliato: va tolto (file su disco incluso), non
-    // rigenerato subito (costerebbe una chiamata OpenAI ad ogni salvataggio)
-    // — tornerà a leggere con la sintesi del browser finché non si rilancia
-    // "Genera audio mancante" per il museo.
-    if (item.audio) {
+    // Il testo sorgente è cambiato: ogni traduzione esistente descrive il
+    // testo vecchio e ogni audio (generato o caricato, in qualunque lingua)
+    // legge un testo che non esiste più — vanno eliminati insieme, non solo
+    // quello della lingua sorgente, altrimenti resterebbero traduzioni/audio
+    // disallineati dal nuovo testo. Il client mostra un modale di conferma
+    // prima di arrivare qui (vedi item-creator.ts) — qui l'invalidazione è
+    // comunque incondizionata, per garanzia di coerenza dei dati.
+    const textChanged = req.body.text !== undefined && req.body.text !== oldText;
+
+    if (textChanged) {
+      const audio = mapToRecord<GeneratedAudio>(item.audio);
+      for (const lang of Object.keys(audio)) {
+        await deleteGeneratedAudioFile(audio[lang]);
+      }
+      item.set('audio', {});
+      item.set('translatedTitles', {});
+      item.set('translatedTexts', {});
+    } else if (item.audio) {
+      // Testo sorgente invariato: solo l'audio delle traduzioni che sono
+      // effettivamente cambiate va tolto (quello della lingua sorgente resta
+      // valido).
       const audio = mapToRecord<GeneratedAudio>(item.audio);
       let audioChanged = false;
-
-      if (req.body.text !== undefined && req.body.text !== oldText && audio[item.sourceLanguage]) {
-        await deleteGeneratedAudioFile(audio[item.sourceLanguage]);
-        delete audio[item.sourceLanguage];
-        audioChanged = true;
-      }
 
       if (req.body.translatedTexts !== undefined) {
         const newTranslatedTexts = mapToRecord(item.translatedTexts);
@@ -485,6 +502,155 @@ export class ItemController {
     });
   });
 
+  // Lingue per cui questo item ha davvero un testo scritto (sorgente o
+  // tradotto) — un audio (caricato o generato) ha senso solo per queste.
+  private static getItemTextLanguages(item: InstanceType<typeof ItemModel>): AppLanguage[] {
+    const translatedTexts = mapToRecord(item.translatedTexts);
+    const languages = new Set<AppLanguage>([item.sourceLanguage as AppLanguage]);
+    for (const lang of Object.keys(translatedTexts)) {
+      if (translatedTexts[lang]?.trim() && isSupportedAppLanguage(lang)) {
+        languages.add(lang);
+      }
+    }
+    return Array.from(languages);
+  }
+
+  // POST /api/items/:id/audio — carica un file audio per una lingua (owner, admin o curatore)
+  static uploadAudio = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const language = String(req.body.language || '').toLowerCase();
+
+    if (!req.user) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
+    }
+    if (!req.file) {
+      throw new AppError(400, 'NO_FILE', 'Nessun file caricato');
+    }
+    if (!isSupportedAppLanguage(language)) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Lingua non valida');
+    }
+
+    const item = await ItemModel.findById(id);
+    if (!item) {
+      throw new AppError(404, 'ITEM_NOT_FOUND', 'Item non trovato');
+    }
+
+    await assertCan(
+      req.user,
+      'manage',
+      'item',
+      { museumId: item.museumId, authorId: item.authorId },
+      "Puoi caricare l'audio solo dei tuoi item o di quelli dei musei che curi",
+    );
+
+    if (!ItemController.getItemTextLanguages(item).includes(language as AppLanguage)) {
+      throw new AppError(
+        400,
+        'VALIDATION_ERROR',
+        'Questa lingua non ha un testo scritto per questo item',
+      );
+    }
+
+    const audio = mapToRecord<GeneratedAudio>(item.audio);
+    await deleteGeneratedAudioFile(audio[language]); // sostituzione: elimina il file precedente
+    audio[language] = await saveUploadedAudioFile(req.file.buffer, req.file.originalname);
+    item.set('audio', audio);
+    await item.save();
+
+    res.json({ success: true, data: item, message: 'Audio caricato con successo' });
+  });
+
+  // DELETE /api/items/:id/audio/:language — rimuove l'audio di una lingua (owner, admin o curatore)
+  static deleteAudio = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const language = String(req.params.language);
+
+    if (!req.user) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
+    }
+
+    const item = await ItemModel.findById(id);
+    if (!item) {
+      throw new AppError(404, 'ITEM_NOT_FOUND', 'Item non trovato');
+    }
+
+    await assertCan(
+      req.user,
+      'manage',
+      'item',
+      { museumId: item.museumId, authorId: item.authorId },
+      "Puoi eliminare l'audio solo dei tuoi item o di quelli dei musei che curi",
+    );
+
+    const audio = mapToRecord<GeneratedAudio>(item.audio);
+    await deleteGeneratedAudioFile(audio[language]);
+    delete audio[language];
+    item.set('audio', audio);
+    await item.save();
+
+    res.json({ success: true, data: item, message: 'Audio eliminato con successo' });
+  });
+
+  // POST /api/items/:id/generate-audio — genera con OpenAI l'audio mancante di
+  // questo item (owner, admin o curatore) — sincrono, a differenza del job
+  // museo/visita in bulk: qui è al più una manciata di lingue, non centinaia
+  // di item, e l'autore vuole vedere subito il risultato.
+  static generateAudio = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id } = req.params;
+
+    if (!req.user) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
+    }
+
+    const item = await ItemModel.findById(id);
+    if (!item) {
+      throw new AppError(404, 'ITEM_NOT_FOUND', 'Item non trovato');
+    }
+
+    await assertCan(
+      req.user,
+      'manage',
+      'item',
+      { museumId: item.museumId, authorId: item.authorId },
+      "Puoi generare l'audio solo dei tuoi item o di quelli dei musei che curi",
+    );
+
+    const translatedTexts = mapToRecord(item.translatedTexts);
+    const audio = mapToRecord<GeneratedAudio>(item.audio);
+    const languages = ItemController.getItemTextLanguages(item);
+    let generated = 0;
+    let failed = 0;
+
+    for (const lang of languages) {
+      if (audio[lang]) continue; // già presente (generato o caricato)
+
+      const text = lang === item.sourceLanguage ? item.text : translatedTexts[lang];
+      if (!text) continue;
+
+      try {
+        audio[lang] = await generateAudioForText(text, lang);
+        generated += 1;
+      } catch (err) {
+        failed += 1;
+        console.error(`[ItemController.generateAudio] item ${item._id}, lingua ${lang}:`, err);
+      }
+    }
+
+    if (generated > 0) {
+      item.set('audio', audio);
+      await item.save();
+    }
+
+    res.json({
+      success: true,
+      data: item,
+      message:
+        failed > 0
+          ? `Generato audio per ${generated} lingue, ${failed} falliti`
+          : `Generato audio per ${generated} lingue`,
+    });
+  });
+
   // GET /api/items/my-items — item creati dall'utente autenticato
   static getMyItems = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     if (!req.user) {
@@ -492,6 +658,7 @@ export class ItemController {
     }
 
     const items = await ItemModel.find({ authorId: req.user.id }).sort({ createdAt: -1 }).lean();
+    await attachAuthorNames(items);
 
     res.json({
       success: true,

@@ -1,6 +1,9 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
+/**
+ * Riga di lista con icona/avatar, titolo/sottotitolo e azioni a destra.
+ */
 @customElement('ui-list-row')
 export class UiListRow extends LitElement {
   @property({ type: String }) title = '';

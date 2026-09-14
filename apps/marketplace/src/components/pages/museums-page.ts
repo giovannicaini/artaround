@@ -16,7 +16,9 @@ import '../ui/ui-alert';
 import '../ui/ui-search-bar';
 import '../ui/ui-table';
 import '../ui/ui-button';
-import { __, i18nService } from '../../services/i18n.service';
+import { __ } from '../../services/i18n.service';
+import { renderFeedbackAlerts } from '../../utils/feedback-alerts';
+import { getLocalizedText } from '../../utils/localized-text';
 
 type FilterRole = 'all' | 'curator' | 'author';
 
@@ -28,6 +30,9 @@ interface MuseumStats {
 
 type MuseumTagType = 'selected' | 'curator' | 'author';
 
+/**
+ * Elenco musei per la selezione del museo attivo.
+ */
 @customElement('museums-page')
 export class MuseumsPage extends LitElement {
   @property({ type: Object }) user: User | null = null;
@@ -138,23 +143,12 @@ export class MuseumsPage extends LitElement {
   }
 
   private getLocalizedMuseumName(museum: Museum): string {
-    const currentLanguage = i18nService.getLanguage();
-    if (currentLanguage === 'it') {
-      return museum.name || __('Museo');
-    }
-
-    return museum.nameTranslations?.[currentLanguage]?.trim() || museum.name || __('Museo');
+    return getLocalizedText(museum.name, museum.nameTranslations) || __('Museo');
   }
 
   private getLocalizedMuseumDescription(museum: Museum): string {
-    const currentLanguage = i18nService.getLanguage();
-    if (currentLanguage === 'it') {
-      return museum.description || __('Nessuna descrizione');
-    }
-
     return (
-      museum.descriptionTranslations?.[currentLanguage]?.trim() ||
-      museum.description ||
+      getLocalizedText(museum.description, museum.descriptionTranslations) ||
       __('Nessuna descrizione')
     );
   }
@@ -397,7 +391,6 @@ export class MuseumsPage extends LitElement {
   render() {
     return html`
       <div class="${this.embedded ? 'space-y-4' : 'space-y-6 animate-fade-in'}">
-        <!-- Header -->
         ${this.embedded
           ? nothing
           : html`
@@ -409,8 +402,6 @@ export class MuseumsPage extends LitElement {
                 )}
               ></ui-page-header>
             `}
-
-        <!-- Search and Filters -->
         <ui-card padding="md">
           <div class="flex flex-col md:flex-row gap-4">
             <div class="flex-1">
@@ -435,20 +426,15 @@ export class MuseumsPage extends LitElement {
               : nothing}
           </div>
         </ui-card>
-
-        <!-- Content -->
         ${this.loading
           ? html`<ui-loading size="lg" .text=${__('Caricamento musei...')}></ui-loading>`
           : this.error
-            ? html`
-                <ui-alert
-                  variant="danger"
-                  .title=${__('Errore')}
-                  .message=${this.error}
-                  showRetry
-                  @retry=${this.loadMuseums}
-                ></ui-alert>
-              `
+            ? renderFeedbackAlerts({
+                error: this.error,
+                errorTitle: __('Errore'),
+                showRetry: true,
+                onRetry: () => this.loadMuseums(),
+              })
             : this.filteredMuseums.length === 0
               ? html`
                   <ui-empty

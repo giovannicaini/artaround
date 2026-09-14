@@ -3,20 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import './ui-info-tip';
 
 /**
- * UI Checkbox
- *
- * Un input checkbox coerente con etichetta.
- *
- * @fires checkbox-change - Emette lo stato di selezione
- *
- * @example
- * ```html
- * <ui-checkbox
- *   label="Accetto i termini"
- *   .checked=${this.accepted}
- *   @checkbox-change=${(e) => this.accepted = e.detail.checked}
- * ></ui-checkbox>
- * ```
+ * Checkbox con etichetta e testo di aiuto opzionale.
  */
 @customElement('ui-checkbox')
 export class UiCheckbox extends LitElement {

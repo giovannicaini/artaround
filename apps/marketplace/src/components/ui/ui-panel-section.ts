@@ -4,10 +4,15 @@ import './ui-icon';
 import './ui-card';
 import './ui-info-tip';
 
+/**
+ * Sezione di form con titolo, icona e contenuto dentro una card.
+ */
 @customElement('ui-panel-section')
 export class UiPanelSection extends LitElement {
   @property({ type: String }) title = '';
   @property({ type: String }) icon = '';
+  @property({ type: String }) iconColor = 'text-brand-500';
+  @property({ type: String }) cardPadding: 'none' | 'sm' | 'md' | 'lg' = 'md';
   @property({ type: String }) description = '';
   @property({ type: String }) help = '';
   @property({ attribute: false }) renderContent: (() => unknown) | null = null;
@@ -30,14 +35,14 @@ export class UiPanelSection extends LitElement {
           class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2 flex-wrap"
         >
           ${this.icon
-            ? html`<ui-icon name=${this.icon} size="sm" class="text-brand-500"></ui-icon>`
+            ? html`<ui-icon name=${this.icon} size="sm" class=${this.iconColor}></ui-icon>`
             : nothing}
           ${this.title}
           ${this.help
             ? html`<ui-info-tip variant="inline" text=${this.help}></ui-info-tip>`
             : nothing}
         </h3>
-        <ui-card>
+        <ui-card padding=${this.cardPadding}>
           ${this.description
             ? html`<p class="text-sm text-surface-500 mb-4">${this.description}</p>`
             : nothing}

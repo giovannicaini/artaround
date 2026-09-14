@@ -5,21 +5,7 @@ import './ui-input';
 import './ui-button';
 
 /**
- * UI Search Bar
- *
- * Un input di ricerca coerente con bottone di ricerca opzionale.
- *
- * @fires search - Emette la query di ricerca quando si preme Invio o si clicca il bottone
- * @fires input-change - Emette a ogni cambio input per il filtro live
- *
- * @example
- * ```html
- * <ui-search-bar
- *   .placeholder=${__('Cerca contenuti...')}
- *   .value=${this.searchQuery}
- *   @search=${(e) => this.handleSearch(e.detail.value)}
- * ></ui-search-bar>
- * ```
+ * Barra di ricerca testuale con icona e pulsante di reset.
  */
 @customElement('ui-search-bar')
 export class UiSearchBar extends LitElement {

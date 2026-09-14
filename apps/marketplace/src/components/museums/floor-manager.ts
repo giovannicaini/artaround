@@ -9,9 +9,7 @@ import '../ui/ui-info-tip';
 import { __ } from '../../services/i18n.service';
 
 /**
- * Componente Floor Manager
- *
- * Gestisce i piani del museo - aggiunge, modifica, elimina piani e carica piantine SVG
+ * Lista dei piani del museo: aggiunta, modifica e upload della piantina SVG.
  */
 @customElement('floor-manager')
 export class FloorManager extends LitElement {
@@ -55,13 +53,14 @@ export class FloorManager extends LitElement {
 
     return html`
       <div
-        class="bg-surface-800 dark:bg-surface-800 rounded-lg overflow-hidden border border-surface-700"
+        class="bg-white dark:bg-surface-800 rounded-lg overflow-hidden border border-surface-200 dark:border-surface-700"
       >
-        <!-- Header -->
         <div
-          class="flex justify-between items-start p-4 bg-surface-700 border-b border-surface-600"
+          class="flex justify-between items-start p-4 bg-surface-50 dark:bg-surface-700 border-b border-surface-200 dark:border-surface-600"
         >
-          <h3 class="flex items-center gap-1.5 flex-wrap text-white font-medium text-base m-0">
+          <h3
+            class="flex items-center gap-1.5 flex-wrap text-surface-900 dark:text-white font-medium text-base m-0"
+          >
             📐 ${__('Piani del Museo')}
             <ui-info-tip
               variant="inline"
@@ -90,8 +89,6 @@ export class FloorManager extends LitElement {
         ${showContent
           ? html`
               ${this.showAddForm ? this.renderAddForm() : nothing}
-
-              <!-- Floor List -->
               <div class="max-h-[32rem] overflow-y-auto">
                 ${this.floors.length > 0
                   ? this.floors.map((floor) => this.renderFloorItem(floor))
@@ -111,33 +108,33 @@ export class FloorManager extends LitElement {
 
     return html`
       <div
-        class="flex items-center gap-3 p-3 border-b border-surface-600 cursor-pointer transition-colors hover:bg-surface-700 ${isActive
-          ? 'bg-surface-600 border-l-4 border-l-brand-500'
+        class="flex items-center gap-3 p-3 border-b border-surface-100 dark:border-surface-600 cursor-pointer transition-colors hover:bg-surface-50 dark:hover:bg-surface-700 ${isActive
+          ? 'bg-brand-50 dark:bg-surface-600 border-l-4 border-l-brand-500'
           : ''}"
         @click=${() => this.selectFloor(floor)}
       >
         <div
-          class="w-10 h-10 flex items-center justify-center bg-surface-600 rounded-lg text-white font-bold text-sm"
+          class="w-10 h-10 flex items-center justify-center bg-surface-100 dark:bg-surface-600 rounded-lg text-surface-900 dark:text-white font-bold text-sm"
         >
           ${floor.level}
         </div>
         <div class="flex-1 min-w-0">
-          <div class="text-white font-medium truncate">${floor.name}</div>
-          <div class="text-surface-400 text-xs">
+          <div class="text-surface-900 dark:text-white font-medium truncate">${floor.name}</div>
+          <div class="text-surface-500 dark:text-surface-400 text-xs">
             ${floor.dimensions.width}×${floor.dimensions.height}px • ${markerCount} ${__('marker')}
             • ${connectionCount} ${__('collegamenti')}
           </div>
         </div>
         <div class="flex gap-1">
           <button
-            class="p-1.5 rounded hover:bg-surface-500 text-surface-400 hover:text-white transition-colors"
+            class="p-1.5 rounded hover:bg-surface-200 dark:hover:bg-surface-500 text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white transition-colors"
             @click=${(e: Event) => this.editFloor(e, floor)}
             .title=${__('Modifica')}
           >
             ✏️
           </button>
           <button
-            class="p-1.5 rounded hover:bg-red-600 text-surface-400 hover:text-white transition-colors"
+            class="p-1.5 rounded hover:bg-danger-600 text-surface-500 dark:text-surface-400 hover:text-white transition-colors"
             @click=${(e: Event) => this.deleteFloor(e, floor)}
             .title=${__('Elimina')}
           >
@@ -152,11 +149,15 @@ export class FloorManager extends LitElement {
     const isEditing = this.editingFloor !== null;
 
     return html`
-      <div class="p-4 bg-surface-700 border-b border-surface-600">
-        <!-- Form Fields -->
+      <div
+        class="p-4 bg-surface-50 dark:bg-surface-700 border-b border-surface-200 dark:border-surface-600"
+      >
         <div class="grid grid-cols-3 gap-3 mb-3">
           <ui-input
             .label=${__('ID Piano')}
+            .help=${__(
+              'Identificatore tecnico interno (usato nei link e nei dati salvati) — non è mai mostrato ai visitatori, che vedono solo il campo "Nome" qui a fianco. Non modificabile dopo la creazione.',
+            )}
             .placeholder=${__('piano-terra')}
             .value=${this.newFloor.id}
             ?disabled=${isEditing}
@@ -180,13 +181,11 @@ export class FloorManager extends LitElement {
               (this.newFloor.level = parseInt(e.detail.value) || 0)}
           ></ui-input>
         </div>
-
-        <!-- SVG Upload -->
         <div
           class="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all mb-3 ${this
             .newFloor.svgContent
-            ? 'border-green-500 bg-green-500/10'
-            : 'border-surface-500 hover:border-brand-500 hover:bg-brand-500/10'}"
+            ? 'border-success-500 bg-success-500/10'
+            : 'border-surface-300 dark:border-surface-500 hover:border-brand-500 hover:bg-brand-500/10'}"
           @click=${() => this.triggerFileUpload()}
           @dragover=${(e: DragEvent) => e.preventDefault()}
           @drop=${this.handleFileDrop}
@@ -198,25 +197,21 @@ export class FloorManager extends LitElement {
             @change=${this.handleFileSelect}
           />
           <div class="text-3xl mb-2">${this.newFloor.svgContent ? '✅' : '📄'}</div>
-          <div class="text-surface-400 text-sm">
+          <div class="text-surface-500 dark:text-surface-400 text-sm">
             ${this.newFloor.svgContent
               ? __('File SVG caricato - Clicca per cambiare')
               : __('Trascina qui un file SVG o clicca per selezionare')}
           </div>
         </div>
-
-        <!-- SVG Preview -->
         ${this.newFloor.svgContent
           ? html`
               <div
-                class="max-h-36 overflow-hidden rounded bg-surface-900 mb-3 p-2 flex justify-center"
+                class="max-h-36 overflow-hidden rounded bg-surface-100 dark:bg-surface-900 mb-3 p-2 flex justify-center"
               >
                 <div class="svg-preview-container" .innerHTML=${this.newFloor.svgContent}></div>
               </div>
             `
           : nothing}
-
-        <!-- Dimensions -->
         <div class="grid grid-cols-2 gap-3 mb-3">
           <ui-input
             .label=${__('Larghezza')}
@@ -233,10 +228,12 @@ export class FloorManager extends LitElement {
               (this.newFloor.dimensions.height = parseInt(e.detail.value) || 600)}
           ></ui-input>
         </div>
-
-        <!-- Actions -->
         <div class="flex gap-2 justify-end">
-          <ui-button variant="ghost" .label=${__('Annulla')} @click=${this.cancelForm}></ui-button>
+          <ui-button
+            variant="secondary"
+            .label=${__('Annulla')}
+            @click=${this.cancelForm}
+          ></ui-button>
           <ui-button
             variant="primary"
             .label=${isEditing ? __('Salva Modifiche') : __('Aggiungi Piano')}
@@ -251,7 +248,7 @@ export class FloorManager extends LitElement {
 
   private renderEmptyState() {
     return html`
-      <div class="p-10 text-center text-surface-400">
+      <div class="p-10 text-center text-surface-500 dark:text-surface-400">
         <div class="text-5xl mb-3">🏛️</div>
         <p class="m-0">${__('Nessun piano configurato')}</p>
         <p class="text-xs mt-1 m-0">${__('Aggiungi i piani del museo per iniziare')}</p>

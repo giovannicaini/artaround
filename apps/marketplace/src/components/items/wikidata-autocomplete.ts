@@ -8,6 +8,9 @@ import '../ui/ui-input';
 import '../ui/ui-icon';
 import '../ui/ui-image-placeholder';
 
+/**
+ * Campo di ricerca con autocompletamento su Wikidata.
+ */
 @customElement('wikidata-autocomplete')
 export class WikidataAutocomplete extends LitElement {
   @property({ type: String }) label = '';
@@ -114,6 +117,11 @@ export class WikidataAutocomplete extends LitElement {
           dimensionWidth: result.dimensionWidth,
           dimensionDepth: result.dimensionDepth,
           dimensionUnit: result.dimensionUnit,
+          address: result.address,
+          postalCode: result.postalCode,
+          city: result.city,
+          country: result.country,
+          coordinates: result.coordinates,
         },
         bubbles: true,
         composed: true,
@@ -201,13 +209,9 @@ export class WikidataAutocomplete extends LitElement {
             @focus="${this.handleFocus}"
             @blur="${this.handleBlur}"
           />
-
-          <!-- Search icon -->
           <div class="absolute inset-y-0 left-0 flex items-center pl-3">
             <ui-icon name="search" size="xs" class="text-surface-400"></ui-icon>
           </div>
-
-          <!-- Status icon -->
           <div class="absolute inset-y-0 right-0 flex items-center pr-3">
             ${this.loading
               ? html`
@@ -236,8 +240,6 @@ export class WikidataAutocomplete extends LitElement {
                 : nothing}
           </div>
         </div>
-
-        <!-- Selected ID badge -->
         ${this.selectedId
           ? html`
               <div class="mt-1.5 flex items-center gap-2">
@@ -250,8 +252,6 @@ export class WikidataAutocomplete extends LitElement {
               </div>
             `
           : nothing}
-
-        <!-- Dropdown results -->
         ${this.showDropdown && (this.results.length > 0 || this.loading)
           ? html`
               <div
@@ -294,7 +294,6 @@ export class WikidataAutocomplete extends LitElement {
                             @click="${() => this.selectResult(result)}"
                           >
                             <div class="flex items-start gap-3">
-                              <!-- Thumbnail image -->
                               ${result.imageUrl
                                 ? html`
                                     <div
@@ -346,7 +345,6 @@ export class WikidataAutocomplete extends LitElement {
                                       </p>
                                     `
                                   : nothing}
-                                <!-- Metadata row: author, style, epoch -->
                                 <div class="flex flex-wrap items-center gap-2 mt-1">
                                   ${result.author
                                     ? html`

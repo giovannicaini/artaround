@@ -156,7 +156,7 @@ export function VisitPlayerDesktopLayout({
       <div className="w-1/2 xl:w-2/5 h-full bg-surface-950 flex flex-col">
         <div className="p-6 border-b border-surface-800">
           <div className="flex items-start justify-between gap-4 mb-4">
-            <AnimatePresence mode="wait" custom={stepDirection} initial={false}>
+            <AnimatePresence mode="popLayout" custom={stepDirection} initial={false}>
               <motion.div
                 key={currentStep?.id}
                 className="flex-1 min-w-0"
@@ -215,7 +215,7 @@ export function VisitPlayerDesktopLayout({
               />
             </div>
           )}
-          <AnimatePresence mode="wait" custom={stepDirection} initial={false}>
+          <AnimatePresence mode="popLayout" custom={stepDirection} initial={false}>
             <motion.div
               key={currentStep?.id}
               custom={stepDirection}

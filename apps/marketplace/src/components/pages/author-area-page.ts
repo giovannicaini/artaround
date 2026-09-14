@@ -9,6 +9,9 @@ import { __ } from '../../services/i18n.service';
 
 type AuthorTab = 'items' | 'visits';
 
+/**
+ * Area Autore: i propri contenuti e visite, in un'unica vista.
+ */
 @customElement('author-area-page')
 export class AuthorAreaPage extends LitElement {
   @property({ type: Object }) user: User | null = null;
@@ -29,14 +32,16 @@ export class AuthorAreaPage extends LitElement {
           )}
         ></ui-page-header>
 
-        <ui-filter-tabs
-          .tabs=${[
-            { value: 'items', label: __('I miei Item') },
-            { value: 'visits', label: __('Le mie visite') },
-          ]}
-          .value=${this.tab}
-          @filter-change=${(e: CustomEvent) => (this.tab = e.detail.value as AuthorTab)}
-        ></ui-filter-tabs>
+        <div class="mb-3">
+          <ui-filter-tabs
+            .tabs=${[
+              { value: 'items', label: __('I miei Item') },
+              { value: 'visits', label: __('Le mie visite') },
+            ]}
+            .value=${this.tab}
+            @filter-change=${(e: CustomEvent) => (this.tab = e.detail.value as AuthorTab)}
+          ></ui-filter-tabs>
+        </div>
 
         ${this.tab === 'items'
           ? html`<contents-page .user=${this.user} authorOnly></contents-page>`

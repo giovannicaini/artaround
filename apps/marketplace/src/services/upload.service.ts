@@ -2,6 +2,9 @@ import { apiService, type ApiResponse } from './api.service';
 import type { ImageProcessOptions, UploadResult, UploadCategory } from '@artaround/shared';
 import { __ } from './i18n.service';
 
+/**
+ * Upload di file (immagini, SVG) al server.
+ */
 export class UploadService {
   async uploadFile(
     file: File,

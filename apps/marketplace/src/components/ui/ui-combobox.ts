@@ -10,8 +10,7 @@ export interface ComboboxOption {
 }
 
 /**
- * Searchable combobox (select con ricerca).
- * Emette l'evento `combobox-change` con `{ value, label }`.
+ * Select con ricerca testuale tra le opzioni.
  */
 @customElement('ui-combobox')
 export class UiCombobox extends LitElement {
@@ -145,8 +144,6 @@ export class UiCombobox extends LitElement {
               ${this.help ? html`<ui-info-tip text=${this.help}></ui-info-tip>` : nothing}
             </label>`
           : nothing}
-
-        <!-- Trigger / search input -->
         <div class="relative">
           ${this.open
             ? html`
@@ -178,8 +175,6 @@ export class UiCombobox extends LitElement {
                   </span>
                 </button>
               `}
-
-          <!-- Clear / chevron -->
           <div class="absolute inset-y-0 right-2 flex items-center gap-1 pointer-events-none">
             ${this.value && !this.open
               ? html`
@@ -199,8 +194,6 @@ export class UiCombobox extends LitElement {
                 ></ui-icon>`}
           </div>
         </div>
-
-        <!-- Dropdown -->
         ${this.open
           ? html`
               <div

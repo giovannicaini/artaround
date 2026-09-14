@@ -19,6 +19,9 @@ interface MenuItem {
   requiresMuseum?: boolean;
 }
 
+/**
+ * Menu di navigazione laterale, con voci filtrate per ruolo dell'utente.
+ */
 @customElement('admin-sidebar')
 export class AdminSidebar extends LitElement {
   @property({ type: String }) currentRoute = 'dashboard';
@@ -58,28 +61,48 @@ export class AdminSidebar extends LitElement {
     return { id: 'dashboard', label: __('Dashboard'), icon: 'home' };
   }
 
-  private get primaryMenuItems(): MenuItem[] {
+  // Nessuna restrizione di ruolo: acquistare visite/vedere i propri acquisti
+  // è aperto a qualunque utente autenticato.
+  private get marketplaceMenuItems(): MenuItem[] {
     return [
-      {
-        id: 'author-area',
-        label: __('Area Autore'),
-        icon: 'edit',
-        // Non esiste più un ruolo AUTHOR/CURATOR globale: si è curatore o
-        // autore solo di uno o più musei specifici (User.museumRoles).
-        visible: (user) => isContentCreator(user),
-        requiresMuseum: true,
-      },
       { id: 'marketplace', label: __('Marketplace'), icon: 'euro', requiresMuseum: true },
       { id: 'purchases', label: __('Acquisti'), icon: 'check', requiresMuseum: true },
     ];
   }
 
+  // "Area Autore" a chiunque sia autore/curatore; il catalogo completo del museo solo al curatore attivo.
+  private get contentCreatorMenuItems(): MenuItem[] {
+    return [
+      {
+        id: 'author-area',
+        label: __('Area Autore'),
+        icon: 'edit',
+        visible: (user) => isContentCreator(user),
+        requiresMuseum: true,
+      },
+      {
+        id: 'contents',
+        label: __('Contenuti del museo'),
+        icon: 'document',
+        visible: () => this.canConfigureSelectedMuseum,
+        requiresMuseum: true,
+      },
+      {
+        id: 'visits',
+        label: __('Visite del museo'),
+        icon: 'visit',
+        visible: () => this.canConfigureSelectedMuseum,
+        requiresMuseum: true,
+      },
+    ];
+  }
+
+  // Solo il curatore del museo attivo: dati del museo, opere, piantina,
+  // configurazione Navigator specifica — mai un semplice autore.
   private get configureMuseumMenuItems(): MenuItem[] {
     return [
       { id: 'museum-edit', label: __('Modifica Museo'), icon: 'edit' },
       { id: 'artworks', label: __('Gestione Opere'), icon: 'image' },
-      { id: 'contents', label: __('Contenuti del museo'), icon: 'document' },
-      { id: 'visits', label: __('Visite del museo'), icon: 'visit' },
       { id: 'museum-maps', label: __('Piantina e mappa'), icon: 'location' },
       {
         id: 'navigator-customizations',
@@ -123,9 +146,7 @@ export class AdminSidebar extends LitElement {
       }),
     );
 
-    // Sul cellulare il menu restava aperto dopo aver scelto una voce,
-    // costringendo a un tap in più per chiuderlo — innocuo su desktop, dove
-    // mobileOpen non pilota la sidebar fissa.
+    // Sul cellulare il menu restava aperto dopo una scelta — innocuo su desktop.
     this.mobileOpen = false;
   }
 
@@ -233,16 +254,22 @@ export class AdminSidebar extends LitElement {
           `
         : nothing}
       ${this.renderMenuItem(this.dashboardItem, collapsed)}
-      ${this.renderMenuSection(__('I miei contenuti'), this.primaryMenuItems, undefined, collapsed)}
+      ${this.renderMenuSection(__('Marketplace'), this.marketplaceMenuItems, undefined, collapsed)}
+      ${this.renderMenuSection(
+        __('Crea Contenuti'),
+        this.contentCreatorMenuItems,
+        this.selectedMuseum?.name || '',
+        collapsed,
+      )}
       ${showConfigureMuseumArea
         ? this.renderMenuSection(
-            __('Area Curatore'),
+            __('Gestione Museo'),
             this.configureMuseumMenuItems,
             this.selectedMuseum?.name || '',
             collapsed,
           )
         : nothing}
-      ${this.renderMenuSection(__('Area Admin'), this.adminMenuItems, undefined, collapsed)}
+      ${this.renderMenuSection(__('Amministrazione'), this.adminMenuItems, undefined, collapsed)}
     `;
   }
 
@@ -250,11 +277,9 @@ export class AdminSidebar extends LitElement {
   render() {
     const sidebarWidth = this.collapsed ? 'w-16' : 'w-64';
     return html`
-      <!-- Desktop Sidebar -->
       <aside
         class="hidden lg:flex lg:flex-col ${sidebarWidth} fixed inset-y-0 left-0 z-30 bg-white dark:bg-surface-900 border-r border-surface-200 dark:border-surface-800 transition-all duration-300"
       >
-        <!-- Logo -->
         <div
           class="flex items-center ${this.collapsed
             ? 'justify-center'
@@ -262,14 +287,10 @@ export class AdminSidebar extends LitElement {
         >
           <ui-brand-mark .showText=${!this.collapsed}></ui-brand-mark>
         </div>
-
-        <!-- Navigation -->
         <nav class="flex-1 px-3 py-4 space-y-3 overflow-y-auto">
           ${this.renderMainNavigation(this.collapsed)}
         </nav>
       </aside>
-
-      <!-- Mobile Overlay -->
       ${this.mobileOpen
         ? html`
             <div
@@ -278,8 +299,6 @@ export class AdminSidebar extends LitElement {
             ></div>
           `
         : nothing}
-
-      <!-- Mobile Sidebar -->
       <aside
         class="${this.mobileOpen
           ? 'translate-x-0'

@@ -6,6 +6,9 @@ type AIHealthResponse = {
   error?: string;
 };
 
+/**
+ * Stato di salute del backend AI (OpenAI), per gli avvisi prima di avviare un job.
+ */
 class AIService {
   async checkHealth(): Promise<{ data: AIHealthResponse | null; error?: string }> {
     const response = await apiService.get<AIHealthResponse>('/utils/ai-health');

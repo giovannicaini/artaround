@@ -2,17 +2,7 @@ import { LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
 /**
- * UI Card
- *
- * Un semplice contenitore card che applica lo stile via classi CSS.
- * Usa il Light DOM - applica le classi all'host, i figli restano intatti.
- *
- * @example
- * ```html
- * <ui-card>
- *   <p>Contenuto della card</p>
- * </ui-card>
- * ```
+ * Contenitore con bordo/ombra/padding standard, base di ogni card dell'app.
  */
 @customElement('ui-card')
 export class UiCard extends LitElement {
@@ -20,6 +10,9 @@ export class UiCard extends LitElement {
   @property({ type: Boolean }) border = true;
   @property({ type: Boolean }) shadow = true;
   @property({ type: Boolean }) hover = false;
+  // Al passaggio del mouse, ombra colorata di brand (stesso .shadow-glow del
+  // pulsante primario) invece della semplice ombra neutra più marcata.
+  @property({ type: Boolean }) hoverGlow = false;
 
   private get paddingClasses() {
     const paddings: Record<string, string> = {
@@ -56,7 +49,7 @@ export class UiCard extends LitElement {
       this.classList.add(
         'transition-shadow',
         'duration-200',
-        'hover:shadow-medium',
+        this.hoverGlow ? 'hover:shadow-glow' : 'hover:shadow-medium',
         'cursor-pointer',
       );
     }

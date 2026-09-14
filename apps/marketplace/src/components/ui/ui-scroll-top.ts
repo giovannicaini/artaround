@@ -4,10 +4,7 @@ import './ui-icon';
 import { __ } from '../../services/i18n.service';
 
 /**
- * Bottone Torna su
- *
- * Un bottone flottante che appare quando l'utente scorre verso il basso,
- * per tornare rapidamente in cima alla pagina.
+ * Bottone flottante per tornare in cima alla pagina.
  */
 @customElement('ui-scroll-top')
 export class UiScrollTop extends LitElement {

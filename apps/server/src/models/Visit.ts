@@ -27,6 +27,9 @@ const generatedAudioSchema = new Schema(
         charIndex: { type: Number, required: true },
       },
     ],
+    // Sempre 'ai' oggi (le tappe non hanno ancora un upload manuale come gli
+    // item) — vedi GeneratedAudio in item.types.ts.
+    source: { type: String, enum: ['ai', 'manual'] },
   },
   { _id: false },
 );
@@ -129,13 +132,14 @@ const visitSchema = new Schema<VisitDocument>(
       required: true,
       index: true,
     },
+    // Il nome visualizzato si risolve sempre da authorId al momento della
+    // risposta (vedi author-name.util.ts), mai salvato qui.
     authorId: {
       type: String,
       required: true,
       ref: 'User',
       index: true,
     },
-    authorName: String,
     title: {
       type: String,
       required: true,

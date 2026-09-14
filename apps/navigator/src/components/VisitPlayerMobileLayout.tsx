@@ -222,7 +222,7 @@ export function VisitPlayerMobileLayout({
 
       <div className="relative z-10 -mt-6 flex-1 min-h-0 flex flex-col bg-surface-900 rounded-t-3xl shadow-2xl overflow-hidden">
         <div className="flex-1 min-h-0 flex flex-col px-5 pt-6 pb-[calc(1.5rem_+_var(--safe-area-inset-bottom))]">
-          <AnimatePresence mode="wait" custom={stepDirection} initial={false}>
+          <AnimatePresence mode="popLayout" custom={stepDirection} initial={false}>
             <motion.div
               key={currentStep?.id}
               className="mb-4 flex-shrink-0"
@@ -242,7 +242,7 @@ export function VisitPlayerMobileLayout({
             </motion.div>
           </AnimatePresence>
 
-          <AnimatePresence mode="wait" custom={stepDirection} initial={false}>
+          <AnimatePresence mode="popLayout" custom={stepDirection} initial={false}>
             <motion.div
               key={currentStep?.id}
               className="relative bg-surface-950 rounded-2xl pl-4 pr-11 pb-4 mb-5 flex-1 min-h-0 max-h-28 overflow-y-auto border border-surface-800"

@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state, property } from 'lit/decorators.js';
+import { DeletableMixin, HistorySyncMixin } from '../../base';
 import { userService } from '../../services/user.service';
 import { museumService } from '../../services/museum.service';
 import {
@@ -12,6 +13,7 @@ import {
 import '../ui/ui-button';
 import '../ui/ui-card';
 import '../ui/ui-icon';
+import '../ui/ui-avatar';
 import '../ui/ui-input';
 import '../ui/ui-select';
 import '../ui/ui-badge';
@@ -31,6 +33,8 @@ import '../ui/ui-search-list-picker';
 import '../ui/ui-panel-section';
 import '../ui/ui-info-tip';
 import { __ } from '../../services/i18n.service';
+import { renderInlineEmptyState } from '../../utils/inline-empty-state';
+import { renderFeedbackAlerts } from '../../utils/feedback-alerts';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'view';
 
@@ -43,12 +47,10 @@ interface UserFormData {
 }
 
 /**
- * Pagina Gestione Utenti
- *
- * Interfaccia admin per gestire utenti, ruoli e assegnazioni di ruolo contestuali.
+ * Gestione utenti: lista, form di creazione/modifica e assegnazione ruoli museo.
  */
 @customElement('users-page')
-export class UsersPage extends LitElement {
+export class UsersPage extends DeletableMixin(HistorySyncMixin(LitElement)) {
   @property({ type: Object }) currentUser: User | null = null;
   @property({ type: String }) openingUserId = '';
   @property({ type: String }) openingViewMode: ViewMode = 'list';
@@ -87,11 +89,6 @@ export class UsersPage extends LitElement {
   @state() private resourceOptions: { value: string; label: string }[] = [];
   @state() private resourceOptionsLoading = false;
 
-  // Modal di eliminazione
-  @state() private deleteModalOpen = false;
-  @state() private userToDelete: User | null = null;
-  @state() private deleting = false;
-
   // Modal assegnazione ruolo museo (curatore/autore di un museo specifico)
   @state() private roleAssignmentModalOpen = false;
   @state() private roleAssignmentData: { role: MuseumRole; museumId: string } = {
@@ -124,11 +121,7 @@ export class UsersPage extends LitElement {
   }
 
   updated(changedProps: Map<string, unknown>) {
-    // Solo il caricamento dei dati: non tocca viewMode, altrimenti riaprire
-    // un utente già in modifica (openingUserId e openingViewMode cambiano
-    // insieme) lo riporterebbe sempre a "view" mentre il fetch è ancora in
-    // corso — viewMode lo decide solo il blocco sotto (stesso schema di
-    // artworks-page.ts).
+    // Solo il caricamento dati: viewMode lo decide il blocco sotto, non il fetch.
     if (changedProps.has('openingUserId') && this.openingUserId) {
       void this.loadSelectedUser(this.openingUserId);
     }
@@ -161,23 +154,11 @@ export class UsersPage extends LitElement {
     }
   }
 
-  /**
-   * Stato granulare (viewMode + utente selezionato) verso app-root, per la
-   * history — stesso schema di artworks-page.ts, incluso l'uso di
-   * openingUserId come fallback quando selectedUser non è ancora arrivato
-   * (fetch asincrono in corso dopo un avanti/indietro del browser).
-   */
+  // Stato granulare (viewMode + utente selezionato) verso app-root, per la history — stesso schema di artworks-page.ts.
   private emitStateChange(): void {
     const hasUserContext = this.viewMode === 'view' || this.viewMode === 'edit';
     const userId = hasUserContext ? this.selectedUser?._id || this.openingUserId || '' : '';
-
-    this.dispatchEvent(
-      new CustomEvent('page-state-changed', {
-        detail: { viewMode: this.viewMode, userId },
-        bubbles: true,
-        composed: true,
-      }),
-    );
+    this.emitPageStateChange({ viewMode: this.viewMode, userId });
   }
 
   // ─── Caricamento dati ────────────────────────────────────────
@@ -311,9 +292,7 @@ export class UsersPage extends LitElement {
         this.success = __('Utente aggiornato con successo!');
       }
 
-      // Solo la creazione torna alla lista: in modifica si resta sul form (mostra
-      // il messaggio di successo sopra), comodo per un secondo aggiustamento senza
-      // dover riaprire l'utente.
+      // Solo la creazione torna alla lista: in modifica si resta sul form.
       await this.loadUsers();
       if (this.viewMode === 'create') {
         setTimeout(() => {
@@ -329,20 +308,15 @@ export class UsersPage extends LitElement {
     }
   }
 
-  private openDeleteModal(user: User) {
-    this.userToDelete = user;
-    this.deleteModalOpen = true;
-  }
-
   private async handleConfirmDelete() {
-    if (!this.userToDelete) return;
+    const user = this.entityToDelete as User | null;
+    if (!user) return;
 
     this.deleting = true;
     try {
-      await userService.delete(this.userToDelete._id);
+      await userService.delete(user._id);
       await this.loadUsers();
-      this.deleteModalOpen = false;
-      this.userToDelete = null;
+      this.closeDeleteModal();
     } catch (e) {
       console.error('Error deleting user:', e);
     } finally {
@@ -350,10 +324,7 @@ export class UsersPage extends LitElement {
     }
   }
 
-  // Metodi per l'assegnazione di curatore/autore di un museo. Non esiste un
-  // CURATOR/AUTHOR generico: l'assegnazione è sempre su un museo specifico
-  // (vedi museumService.addCurator/addAuthor, che richiamano gli endpoint
-  // /museums/:id/curators e /museums/:id/authors — non un endpoint generico).
+  // Assegnazione curatore/autore: non esiste un ruolo generico, è sempre su un museo specifico.
   private openRoleAssignmentModal(user: User) {
     this.selectedUser = user;
     this.roleAssignmentData = {
@@ -448,7 +419,6 @@ export class UsersPage extends LitElement {
   // ─── Helper di render ──────────────────────────────────────
   private renderList() {
     return html`
-      <!-- Intestazione -->
       <ui-page-header
         .title=${__('Gestione Utenti')}
         .count=${this.total}
@@ -465,8 +435,6 @@ export class UsersPage extends LitElement {
           @click=${this.openCreateForm}
         ></ui-button>
       </ui-page-header>
-
-      <!-- Filtri -->
       <div class="flex flex-col lg:flex-row gap-4 mb-6">
         <div class="flex-1">
           <ui-search-bar
@@ -482,7 +450,6 @@ export class UsersPage extends LitElement {
         </div>
 
         <div class="flex flex-wrap gap-2">
-          <!-- Filtro ruolo globale -->
           <ui-filter-tabs
             .tabs=${[
               { value: 'all', label: __('Tutti') },
@@ -492,8 +459,6 @@ export class UsersPage extends LitElement {
             .value=${this.filterAdmin}
             @filter-change=${(e: CustomEvent) => this.handleFilterAdmin(e.detail.value)}
           ></ui-filter-tabs>
-
-          <!-- Filtro attivo -->
           <ui-filter-tabs
             .tabs=${[
               { value: 'all', label: __('Tutti') },
@@ -505,13 +470,7 @@ export class UsersPage extends LitElement {
           ></ui-filter-tabs>
         </div>
       </div>
-
-      <!-- Messaggio di errore -->
-      ${this.error
-        ? html`<ui-alert variant="danger" .message=${this.error} class="mb-4"></ui-alert>`
-        : nothing}
-
-      <!-- Tabella utenti -->
+      ${renderFeedbackAlerts({ error: this.error, className: 'mb-4' })}
       ${this.loading
         ? html`<ui-loading size="lg" .text=${__('Caricamento utenti...')}></ui-loading>`
         : this.users.length === 0
@@ -533,8 +492,6 @@ export class UsersPage extends LitElement {
               ></ui-button>
             </ui-empty>`
           : this.renderUsersTable()}
-
-      <!-- Paginazione -->
       ${this.totalPages > 1
         ? html`<ui-pagination
             .page=${this.page}
@@ -622,11 +579,7 @@ export class UsersPage extends LitElement {
       <tr class="hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
         <td class="px-4 py-3">
           <div class="flex items-center gap-3">
-            <div
-              class="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-700 dark:text-brand-300 font-semibold"
-            >
-              ${user.username.charAt(0).toUpperCase()}
-            </div>
+            <ui-avatar size="md" .initials=${user.username.charAt(0).toUpperCase()}></ui-avatar>
             <div>
               <p class="font-medium text-surface-900 dark:text-white">${user.username}</p>
               <p class="text-sm text-surface-500">${user.email}</p>
@@ -643,7 +596,7 @@ export class UsersPage extends LitElement {
                     .map(
                       (ra) => html`
                         <ui-badge
-                          variant="outline"
+                          variant="secondary"
                           size="sm"
                           .label=${this.getRoleAssignmentLabel(ra)}
                         ></ui-badge>
@@ -651,7 +604,7 @@ export class UsersPage extends LitElement {
                     )}
                   ${user.museumRoles.length > 2
                     ? html`<ui-badge
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         .label=${`+${user.museumRoles.length - 2}`}
                       ></ui-badge>`
@@ -704,7 +657,6 @@ export class UsersPage extends LitElement {
 
     return html`
       <div class="max-w-2xl mx-auto">
-        <!-- Intestazione -->
         <ui-page-header
           .title=${isEdit ? __('Modifica Utente') : __('Nuovo Utente')}
           .description=${isEdit
@@ -713,16 +665,7 @@ export class UsersPage extends LitElement {
           showBack
           @back=${this.handleCancel}
         ></ui-page-header>
-
-        <!-- Messaggi -->
-        ${this.error
-          ? html`<ui-alert variant="danger" .message=${this.error} class="mb-4"></ui-alert>`
-          : nothing}
-        ${this.success
-          ? html`<ui-alert variant="success" .message=${this.success} class="mb-4"></ui-alert>`
-          : nothing}
-
-        <!-- Form -->
+        ${renderFeedbackAlerts({ error: this.error, success: this.success, className: 'mb-4' })}
         <ui-card>
           <div class="space-y-5">
             <ui-input
@@ -749,6 +692,7 @@ export class UsersPage extends LitElement {
 
             <ui-input
               type="password"
+              autocomplete="new-password"
               .label=${isEdit
                 ? __('Nuova Password (lascia vuoto per non modificare)')
                 : __('Password')}
@@ -762,8 +706,6 @@ export class UsersPage extends LitElement {
               ?required=${!isEdit}
             ></ui-input>
           </div>
-
-          <!-- Sezione checkbox -->
           <div class="mt-8 pt-6 border-t border-surface-200 dark:border-surface-700 space-y-4">
             <ui-checkbox
               .label=${__('Account attivo')}
@@ -787,13 +729,11 @@ export class UsersPage extends LitElement {
                 })}
             ></ui-checkbox>
           </div>
-
-          <!-- Azioni -->
           <div
             class="flex items-center justify-end gap-3 mt-8 pt-6 border-t border-surface-200 dark:border-surface-700"
           >
             <ui-button
-              variant="ghost"
+              variant="secondary"
               .label=${__('Annulla')}
               @click=${this.handleCancel}
             ></ui-button>
@@ -816,7 +756,6 @@ export class UsersPage extends LitElement {
 
     return html`
       <div class="max-w-3xl mx-auto">
-        <!-- Intestazione -->
         <div class="flex items-center gap-4 mb-6">
           <ui-icon-button icon="arrow-left" size="md" @click=${this.handleCancel}></ui-icon-button>
           <div class="flex-1">
@@ -824,14 +763,12 @@ export class UsersPage extends LitElement {
             <p class="text-sm text-surface-500 dark:text-surface-400">${user.email}</p>
           </div>
           <ui-button
-            variant="outline"
+            variant="secondary"
             icon="edit"
             .label=${__('Modifica')}
             @click=${() => this.openEditForm(user)}
           ></ui-button>
         </div>
-
-        <!-- Card info utente -->
         <ui-panel-section
           .title=${__('Informazioni Generali')}
           icon="user"
@@ -873,8 +810,6 @@ export class UsersPage extends LitElement {
             </dl>
           `}
         ></ui-panel-section>
-
-        <!-- Card curatore/autore -->
         <ui-card>
           <div class="flex items-start justify-between mb-4">
             <h3
@@ -889,7 +824,7 @@ export class UsersPage extends LitElement {
               ></ui-info-tip>
             </h3>
             <ui-button
-              variant="outline"
+              variant="secondary"
               size="sm"
               icon="plus"
               .label=${__('Assegna museo')}
@@ -909,15 +844,11 @@ export class UsersPage extends LitElement {
                   )}
                 </div>
               `
-            : html`
-                <div class="text-center py-8 text-surface-500">
-                  <ui-icon name="shield" size="lg" class="mb-2 opacity-50"></ui-icon>
-                  <p>${__('Non è curatore o autore di nessun museo')}</p>
-                  <p class="text-sm mt-1">
-                    ${__('Assegnalo come curatore o autore di un museo specifico')}
-                  </p>
-                </div>
-              `}
+            : renderInlineEmptyState({
+                icon: 'shield',
+                text: __('Non è curatore o autore di nessun museo'),
+                subtext: __('Assegnalo come curatore o autore di un museo specifico'),
+              })}
         </ui-card>
       </div>
     `;
@@ -986,17 +917,14 @@ export class UsersPage extends LitElement {
       ? html`
           <ui-modal
             .title=${__('Disattiva Utente')}
-            message=${`${__("Sei sicuro di voler disattivare l'utente")} "${this.userToDelete?.username}"? ${__("L'utente non potrà più accedere al sistema.")}`}
+            message=${`${__("Sei sicuro di voler disattivare l'utente")} "${(this.entityToDelete as User | null)?.username}"? ${__("L'utente non potrà più accedere al sistema.")}`}
             variant="danger"
             .confirmLabel=${__('Disattiva')}
             .cancelLabel=${__('Annulla')}
             ?open=${this.deleteModalOpen}
             ?loading=${this.deleting}
             @confirm=${this.handleConfirmDelete}
-            @cancel=${() => {
-              this.deleteModalOpen = false;
-              this.userToDelete = null;
-            }}
+            @cancel=${() => this.closeDeleteModal()}
           ></ui-modal>
         `
       : nothing;
@@ -1026,7 +954,6 @@ export class UsersPage extends LitElement {
           </div>
 
           <div class="overflow-y-auto flex-1">
-            <!-- Assegnazioni esistenti -->
             ${existingRoles.length > 0
               ? html`
                   <div class="p-6 pb-0 space-y-2">
@@ -1043,8 +970,6 @@ export class UsersPage extends LitElement {
                   </div>
                 `
               : nothing}
-
-            <!-- Assegna un nuovo museo -->
             <div class="p-6 space-y-4">
               ${existingRoles.length > 0
                 ? html`<p class="text-xs font-semibold text-surface-500 uppercase tracking-wider">
@@ -1088,7 +1013,7 @@ export class UsersPage extends LitElement {
               class="flex items-center justify-end gap-3 p-6 border-t border-surface-200 dark:border-surface-700 flex-shrink-0"
             >
               <ui-button
-                variant="ghost"
+                variant="secondary"
                 .label=${__('Chiudi')}
                 @click=${() => (this.roleAssignmentModalOpen = false)}
               ></ui-button>

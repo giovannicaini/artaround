@@ -3,15 +3,61 @@ import { NAVIGATOR_FONT_OPTIONS, type AppLanguage } from '@artaround/shared';
 import { isLanguageFullyTranslated, buildTranslationLanguageOptions } from './translation-fields';
 import { __ } from '../services/i18n.service';
 import { translationService } from '../services/translation.service';
+import type { TourSlide } from '../components/ui/ui-tour';
 
 /**
- * Forma "piatta" di una NavigatorConfig usata dai form di editing lato marketplace
- * (traduzioni espanse come proprietà dirette invece che annidate come nello schema server).
- *
- * Condivisa tra navigator-default-config-page.ts (l'unica config globale) e la
- * sezione "Configurazioni Navigator" di museums-management-page.ts (le config
- * di un singolo museo, gestibili anche dal suo curatore).
+ * Helper condivisi tra i due editor di NavigatorConfig (globale e per museo): tour,
+ * opzioni font, editor immagini, campo colore e sezione traduzioni.
  */
+// Tour dell'editor NavigatorConfig, condiviso tra config globale e "Configurazioni Navigator" per museo.
+export function getNavigatorConfigTourSlides(): TourSlide[] {
+  return [
+    {
+      icon: 'cog',
+      title: __('Globale o per museo'),
+      description: __(
+        'Una configurazione "globale" vale per tutto l\'ecosistema quando un museo non ne ha una propria; una "per museo" si applica solo a quel museo — un museo può averne più di una, raggiungibili con link/QR diversi.',
+      ),
+    },
+    {
+      icon: 'location',
+      title: __('Slug e link/QR'),
+      description: __(
+        "Lo slug è l'identificatore nel link (?ncfg=slug) o nel QR distribuito ai visitatori — cambiarlo dopo la pubblicazione invalida tutto ciò che è già stato stampato o condiviso.",
+      ),
+    },
+    {
+      icon: 'image',
+      title: __('Colori e font'),
+      description: __(
+        "Colore primario/secondario, sfondo dell'app e font di titoli/testo definiscono l'aspetto del Navigator per questa configurazione — cambiano solo quella, non le altre.",
+      ),
+    },
+    {
+      icon: 'document',
+      title: __('Immagini e icone'),
+      description: __(
+        'Logo, immagine di apertura e le icone PWA (192/512/maskable/Apple) — ognuna ha un uso specifico spiegato dalla sua (i): non sono intercambiabili.',
+      ),
+    },
+    {
+      icon: 'check',
+      title: __('Impostazioni PWA'),
+      description: __(
+        "Visualizzazione, orientamento, URL iniziale e ambito riguardano solo l'app una volta installata sulla schermata Home — non incidono su come appare nel browser normale.",
+      ),
+    },
+    {
+      icon: 'euro',
+      title: __('Anteprima prima di pubblicare'),
+      description: __(
+        '"Apri Navigator" e "Anteprima manifest" mostrano subito l\'effetto delle modifiche già salvate, senza dover distribuire link o QR per verificarle.',
+      ),
+    },
+  ];
+}
+
+// Forma "piatta" di una NavigatorConfig usata dai form di editing lato marketplace (traduzioni espanse come proprietà dirette…
 export interface NavigatorConfigFormData {
   id: string; // vuoto per una config non ancora salvata
   name: string;
@@ -59,9 +105,7 @@ export type NavigatorTranslationFieldKey =
   | 'welcomeTextTranslations'
   | 'manifestDescriptionTranslations';
 
-// Opzioni per i due <ui-select> font (titoli/testo) — riusate identiche da
-// navigator-default-config-page.ts e museums-management-page.ts, un solo
-// posto invece di duplicare la lista.
+// Opzioni per i due <ui-select> font (titoli/testo) — un solo posto invece di duplicare la lista.
 export const NAVIGATOR_FONT_SELECT_OPTIONS = NAVIGATOR_FONT_OPTIONS.map((f) => ({
   value: f.id,
   label: f.label,
@@ -122,11 +166,7 @@ export function updateNavigatorConfigTranslationField(
 }
 
 // ─── Editor di immagini (branding + PWA icons) ─────────────────────
-//
-// Condiviso tra museums-management-page.ts (editor per museo) e
-// navigator-default-config-page.ts (l'unica config globale): entrambi
-// mostrano lo stesso set di upload/crop widget (<image-editor>), quindi le
-// definizioni (dimensioni, formato) vivono qui una sola volta.
+// Condiviso tra editor per museo e config globale: stesso set di upload/crop widget.
 export type NavigatorImageFieldKey =
   | 'logo'
   | 'splashImage'
@@ -139,6 +179,7 @@ export type NavigatorImageFieldKey =
 export interface NavigatorImageEditorDefinition {
   key: NavigatorImageFieldKey;
   label: string;
+  help?: string;
   maxWidth: number;
   maxHeight: number;
   defaultFormat: 'png' | 'webp';
@@ -148,10 +189,22 @@ export interface NavigatorImageEditorDefinition {
 // momento in cui vengono richieste, non al primo import del modulo.
 export function getNavigatorImageEditorDefinitions(): NavigatorImageEditorDefinition[] {
   return [
-    { key: 'logo', label: __('Logo'), maxWidth: 512, maxHeight: 512, defaultFormat: 'png' },
+    {
+      key: 'logo',
+      label: __('Logo'),
+      help: __(
+        "Icona quadrata mostrata nell'header del Navigator e come icona dell'app una volta installata sulla schermata Home.",
+      ),
+      maxWidth: 512,
+      maxHeight: 512,
+      defaultFormat: 'png',
+    },
     {
       key: 'splashImage',
       label: __('Immagine di apertura'),
+      help: __(
+        'Sfondo a schermo intero mostrato nella schermata di benvenuto, prima che il visitatore entri nel Navigator.',
+      ),
       maxWidth: 1440,
       maxHeight: 2560,
       defaultFormat: 'webp',
@@ -159,6 +212,9 @@ export function getNavigatorImageEditorDefinitions(): NavigatorImageEditorDefini
     {
       key: 'icon192',
       label: __('Icon 192x192'),
+      help: __(
+        "Icona dell'app richiesta dal manifest PWA per Android/Chrome — dimensione fissa, non modificabile.",
+      ),
       maxWidth: 192,
       maxHeight: 192,
       defaultFormat: 'png',
@@ -166,6 +222,9 @@ export function getNavigatorImageEditorDefinitions(): NavigatorImageEditorDefini
     {
       key: 'icon512',
       label: __('Icon 512x512'),
+      help: __(
+        'Versione ad alta risoluzione della stessa icona, usata dal manifest PWA per schermate/splash più grandi.',
+      ),
       maxWidth: 512,
       maxHeight: 512,
       defaultFormat: 'png',
@@ -173,6 +232,9 @@ export function getNavigatorImageEditorDefinitions(): NavigatorImageEditorDefini
     {
       key: 'iconMaskable',
       label: __('Icon maskable'),
+      help: __(
+        "Variante dell'icona con margini di sicurezza extra: alcuni launcher Android la ritagliano in forme diverse (cerchio, squircle...) — senza margine rischia di essere tagliata.",
+      ),
       maxWidth: 512,
       maxHeight: 512,
       defaultFormat: 'png',
@@ -180,6 +242,9 @@ export function getNavigatorImageEditorDefinitions(): NavigatorImageEditorDefini
     {
       key: 'appleTouchIcon',
       label: __('Apple touch icon'),
+      help: __(
+        "Icona usata da iOS quando l'app viene aggiunta alla schermata Home da Safari — Android/Chrome usano invece le icon192/icon512 sopra.",
+      ),
       maxWidth: 180,
       maxHeight: 180,
       defaultFormat: 'png',
@@ -187,13 +252,7 @@ export function getNavigatorImageEditorDefinitions(): NavigatorImageEditorDefini
   ];
 }
 
-/**
- * Renderizza un `<image-editor>` per ciascun campo immagine della config
- * (logo, splash, opening image, icone PWA). Il chiamante fornisce le
- * definizioni (vedi getNavigatorImageEditorDefinitions) e un setter che
- * applica il patch al proprio stato (editingNavigatorConfig / config).
- * Richiede che il chiamante importi '../ui/image-editor' (side-effect).
- */
+// Renderizza un `<image-editor>` per ciascun campo immagine della config (logo, splash, opening image, icone PWA).
 export function renderNavigatorImageEditors(
   config: NavigatorConfigFormData,
   definitions: NavigatorImageEditorDefinition[],
@@ -203,6 +262,7 @@ export function renderNavigatorImageEditors(
     (definition) => html`
       <image-editor
         label=${definition.label}
+        help=${definition.help || ''}
         category="misc"
         .value=${config[definition.key]}
         maxWidth=${definition.maxWidth}
@@ -214,12 +274,7 @@ export function renderNavigatorImageEditors(
   );
 }
 
-/**
- * Renderizza un campo colore (swatch <ui-color-input> + <ui-input> testuale
- * per l'hex) condiviso tra i due editor di NavigatorConfig. Richiede che il
- * chiamante importi '../ui/ui-color-input' e, se passa `help`, '../ui/ui-info-tip'
- * (side-effect).
- */
+// Campo colore condiviso tra i due editor di NavigatorConfig — richiede import '../ui/ui-color-input'.
 export function renderNavigatorColorField(
   config: NavigatorConfigFormData,
   key: NavigatorColorFieldKey,
@@ -229,27 +284,14 @@ export function renderNavigatorColorField(
   help = '',
 ) {
   return html`
-    <div class="space-y-1.5">
-      <label
-        class="flex items-center gap-1.5 text-sm font-medium text-surface-700 dark:text-surface-300"
-      >
-        ${label} ${help ? html`<ui-info-tip text=${help}></ui-info-tip>` : nothing}
-      </label>
-      <div class="flex items-center gap-2">
-        <ui-color-input
-          .value=${normalizeHexColor(config[key], fallback)}
-          @input-change=${(e: CustomEvent) =>
-            onUpdate({ [key]: e.detail.value } as Partial<NavigatorConfigFormData>)}
-        ></ui-color-input>
-        <div class="flex-1">
-          <ui-input
-            .value=${config[key]}
-            @input-change=${(e: CustomEvent) =>
-              onUpdate({ [key]: e.detail.value } as Partial<NavigatorConfigFormData>)}
-          ></ui-input>
-        </div>
-      </div>
-    </div>
+    <ui-color-input
+      hex
+      .label=${label}
+      .help=${help}
+      .value=${normalizeHexColor(config[key], fallback)}
+      @input-change=${(e: CustomEvent) =>
+        onUpdate({ [key]: e.detail.value } as Partial<NavigatorConfigFormData>)}
+    ></ui-color-input>
   `;
 }
 
@@ -273,20 +315,13 @@ export interface NavigatorTranslationsSectionOptions {
     language: AppLanguage,
     value: string,
   ) => void;
-  /** Messaggio mostrato quando non ci sono lingue di destinazione disponibili. */
+  // Messaggio mostrato quando non ci sono lingue di destinazione disponibili.
   emptyTargetsMessage?: string;
-  /** Se presente, mostra il bottone "Traduci campi mancanti con AI". */
+  // Se presente, mostra il bottone "Traduci campi mancanti con AI".
   translateMissing?: NavigatorTranslateMissingOptions;
 }
 
-/**
- * Renderizza il riquadro "Traduzioni navigator" (selettore lingua + campi
- * tradotti) condiviso tra museums-management-page.ts e
- * navigator-default-config-page.ts. Richiede che il chiamante importi
- * '../ui/ui-select', '../ui/ui-input', '../ui/ui-textarea', '../ui/ui-badge'
- * e, se usa translateMissing, '../ui/ui-button' (tutti già importati da
- * entrambi i file).
- */
+// Riquadro "Traduzioni navigator" condiviso tra museums-management-page.ts e navigator-default-config-page.ts.
 export function renderNavigatorTranslationsSection(options: NavigatorTranslationsSectionOptions) {
   const {
     config,
@@ -408,15 +443,7 @@ export function renderNavigatorTranslationsSection(options: NavigatorTranslation
   `;
 }
 
-/**
- * Calcola le traduzioni mancanti per i campi navigator (homeTitle,
- * welcomeText, manifestDescription) verso le lingue target, e
- * ne richiede la traduzione automatica via /api/utils/translate-batch.
- * Ritorna `null` se non c'è nulla da tradurre (tutto già completo), oppure
- * il patch da applicare alla NavigatorConfigFormData. Condivisa tra i due
- * editor: ciascuno gestisce il proprio stato di loading/error/success
- * attorno alla chiamata.
- */
+// Calcola e traduce automaticamente i campi navigator mancanti; ritorna null se non c'è nulla da tradurre.
 export async function computeNavigatorMissingTranslations(
   config: NavigatorConfigFormData,
   sourceLanguage: AppLanguage,

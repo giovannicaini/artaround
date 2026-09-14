@@ -12,8 +12,7 @@ interface ModalOptions {
 }
 
 /**
- * Servizio Modal
- * Fornisce metodi simili ad alert() e confirm() ma usando il componente ui-modal
+ * Modali di alert/conferma pilotati via Promise, senza montare <ui-modal> a mano in ogni pagina.
  */
 class ModalService {
   private modalElement: HTMLElement | null = null;
@@ -48,10 +47,7 @@ class ModalService {
     }, ModalService.CLOSE_ANIMATION_MS);
   }
 
-  /**
-   * Mostra un modal di alert (come alert() ma con stile)
-   * Restituisce una promise che si risolve alla chiusura
-   */
+  // Mostra un modal di alert (come alert() ma con stile) Restituisce una promise che si risolve alla chiusura
   alert(options: ModalOptions | string): Promise<void> {
     return new Promise((resolve) => {
       const modal = this.createModal();
@@ -98,10 +94,7 @@ class ModalService {
     });
   }
 
-  /**
-   * Mostra un modal di conferma (come confirm() ma con stile)
-   * Restituisce una promise che si risolve in true/false
-   */
+  // Mostra un modal di conferma (come confirm() ma con stile) Restituisce una promise che si risolve in true/false
   confirm(options: ModalOptions | string): Promise<boolean> {
     return new Promise((resolve) => {
       const modal = this.createModal();

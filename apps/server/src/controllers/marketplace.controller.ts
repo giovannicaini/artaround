@@ -13,6 +13,7 @@ import { AuthRequest } from '../middleware/auth.middleware.js';
 import { buildMuseumIdFilterValue } from '../utils/museum-id.util.js';
 import { parsePagination, buildPaginationMeta } from '../utils/pagination.util.js';
 import { applyCoverImageFallback } from '../utils/visit-cover-image.util.js';
+import { attachAuthorNames } from '../utils/author-name.util.js';
 import { CreditTransactionType } from '@artaround/shared';
 
 // Arrotonda ai centesimi: i saldi/importi sono euro come float (stessa
@@ -26,13 +27,34 @@ function round2(amount: number): number {
 export class MarketplaceController {
   // GET /api/marketplace/items — catalogo item con filtri e ordinamento
   static getItems = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const { museumId, isFree, minRating, sortBy = 'createdAt' } = req.query;
+    const {
+      museumId,
+      isFree,
+      minRating,
+      referenceType,
+      duration,
+      languageLevel,
+      search,
+      sortBy = 'createdAt',
+    } = req.query;
 
     const filter: Record<string, unknown> = {};
     const museumIdFilter = await buildMuseumIdFilterValue(museumId as string | undefined);
     if (museumIdFilter !== undefined) filter.museumId = museumIdFilter;
     if (isFree !== undefined) filter.isFree = isFree === 'true';
     if (minRating) filter.rating = { $gte: parseFloat(minRating as string) };
+    if (referenceType) filter.referenceType = referenceType;
+    if (duration) filter.duration = duration;
+    if (languageLevel) filter.languageLevel = languageLevel;
+    if (search) {
+      const q = String(search).trim();
+      if (q) {
+        filter.$or = [
+          { title: { $regex: q, $options: 'i' } },
+          { text: { $regex: q, $options: 'i' } },
+        ];
+      }
+    }
 
     const { page, limit, skip } = parsePagination(req.query, 20);
 
@@ -42,9 +64,10 @@ export class MarketplaceController {
     if (sortBy === 'usage') sort = { usageCount: -1 };
 
     const [items, total] = await Promise.all([
-      ItemModel.find(filter).sort(sort).skip(skip).limit(limit),
+      ItemModel.find(filter).sort(sort).skip(skip).limit(limit).lean(),
       ItemModel.countDocuments(filter),
     ]);
+    await attachAuthorNames(items);
 
     res.json({
       success: true,
@@ -55,12 +78,22 @@ export class MarketplaceController {
 
   // GET /api/marketplace/visits — catalogo delle visite pubblicate, con filtri e ordinamento
   static getVisits = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const { museumId, isFree, sortBy = 'createdAt' } = req.query;
+    const { museumId, isFree, languageLevel, search, sortBy = 'createdAt' } = req.query;
 
     const filter: Record<string, unknown> = { isPublished: true };
     const museumIdFilter = await buildMuseumIdFilterValue(museumId as string | undefined);
     if (museumIdFilter !== undefined) filter.museumId = museumIdFilter;
     if (isFree !== undefined) filter['metadata.isFree'] = isFree === 'true';
+    if (languageLevel) filter['targetAudience.languageLevels'] = languageLevel;
+    if (search) {
+      const q = String(search).trim();
+      if (q) {
+        filter.$or = [
+          { title: { $regex: q, $options: 'i' } },
+          { description: { $regex: q, $options: 'i' } },
+        ];
+      }
+    }
 
     const { page, limit, skip } = parsePagination(req.query, 20);
 
@@ -70,9 +103,10 @@ export class MarketplaceController {
     if (sortBy === 'downloads') sort = { 'metadata.downloadsCount': -1 };
 
     const [visits, total] = await Promise.all([
-      VisitModel.find(filter).sort(sort).skip(skip).limit(limit),
+      VisitModel.find(filter).sort(sort).skip(skip).limit(limit).lean(),
       VisitModel.countDocuments(filter),
     ]);
+    await attachAuthorNames(visits);
 
     res.json({
       success: true,
@@ -220,16 +254,20 @@ export class MarketplaceController {
 
     const purchases = await VisitPurchase.find({ userId: req.user.id })
       .sort({ purchasedAt: -1 })
-      .populate('visitId');
+      .populate('visitId')
+      .lean();
 
     // I sotto-documenti popolati sono referenziati dagli stessi oggetti in
-    // `purchases`: applyCoverImageFallback li muta in place, quindi basta
-    // passarli, senza dover ricostruire la risposta.
+    // `purchases`: applyCoverImageFallback/attachAuthorNames li mutano
+    // in place, quindi basta passarli, senza dover ricostruire la risposta.
     const populatedVisits = purchases.map((p) => p.visitId).filter(Boolean) as unknown as Array<{
       museumId: string;
       coverImage?: string;
+      authorId: string;
+      authorName?: string;
     }>;
     await applyCoverImageFallback(populatedVisits);
+    await attachAuthorNames(populatedVisits);
 
     res.json({
       success: true,
@@ -246,7 +284,14 @@ export class MarketplaceController {
 
       const purchases = await ItemPurchase.find({ userId: req.user.id })
         .sort({ purchasedAt: -1 })
-        .populate('itemId');
+        .populate('itemId')
+        .lean();
+
+      const populatedItems = purchases.map((p) => p.itemId).filter(Boolean) as unknown as Array<{
+        authorId: string;
+        authorName?: string;
+      }>;
+      await attachAuthorNames(populatedItems);
 
       res.json({
         success: true,

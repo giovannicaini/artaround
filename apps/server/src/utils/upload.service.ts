@@ -59,6 +59,40 @@ export const upload = multer({
   },
 });
 
+// Multer separato per l'audio caricato a mano (item.controller.ts,
+// uploadAudio): niente elaborazione con sharp, solo tipi audio, limite più
+// alto di un'immagine tipica (un audio di qualche minuto pesa di più).
+const ALLOWED_AUDIO_MIME_TYPES = [
+  'audio/mpeg',
+  'audio/mp3',
+  'audio/wav',
+  'audio/x-wav',
+  'audio/ogg',
+  'audio/mp4',
+  'audio/webm',
+  'audio/aac',
+];
+
+const audioFileFilter = (
+  _req: Express.Request,
+  file: Express.Multer.File,
+  cb: multer.FileFilterCallback,
+) => {
+  if (ALLOWED_AUDIO_MIME_TYPES.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`Tipo file non supportato: ${file.mimetype}. Usa MP3, WAV, OGG, M4A o AAC.`));
+  }
+};
+
+export const audioUpload = multer({
+  storage,
+  fileFilter: audioFileFilter,
+  limits: {
+    fileSize: 30 * 1024 * 1024,
+  },
+});
+
 export class UploadService {
   /**
    * Elabora e salva un file immagine caricato

@@ -3,20 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import './ui-button';
 
 /**
- * UI Pagination
- *
- * Un componente di paginazione coerente.
- *
- * @fires page-change - Emette il nuovo numero di pagina quando ne viene selezionata una
- *
- * @example
- * ```html
- * <ui-pagination
- *   .page=${1}
- *   .totalPages=${10}
- *   @page-change=${(e) => this.page = e.detail.page}
- * ></ui-pagination>
- * ```
+ * Controlli di paginazione con numeri di pagina ed ellissi.
  */
 @customElement('ui-pagination')
 export class UiPagination extends LitElement {
@@ -93,7 +80,7 @@ export class UiPagination extends LitElement {
     return html`
       <div class="flex justify-center items-center gap-1 mt-6">
         <ui-button
-          variant="ghost"
+          variant="secondary"
           icon="arrow-left"
           size="sm"
           ?disabled=${this.page === 1}
@@ -105,7 +92,7 @@ export class UiPagination extends LitElement {
             ? html`<span class="px-2 text-surface-400">...</span>`
             : html`
                 <ui-button
-                  variant=${p === this.page ? 'primary' : 'ghost'}
+                  variant=${p === this.page ? 'primary' : 'secondary'}
                   size="sm"
                   label="${p}"
                   @click=${() => this.handlePageChange(p)}
@@ -114,7 +101,7 @@ export class UiPagination extends LitElement {
         )}
 
         <ui-button
-          variant="ghost"
+          variant="secondary"
           icon="arrow-right"
           size="sm"
           ?disabled=${this.page === this.totalPages}

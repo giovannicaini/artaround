@@ -7,24 +7,7 @@ export interface FilterTab {
 }
 
 /**
- * UI Filter Tabs
- *
- * Un gruppo di bottoni segmentati per filtrare i contenuti.
- *
- * @fires filter-change - Emette il valore del filtro selezionato
- *
- * @example
- * ```html
- * <ui-filter-tabs
- *   .tabs=${[
- *     { value: 'all', label: 'Tutti' },
- *     { value: 'active', label: 'Attivi' },
- *     { value: 'inactive', label: 'Inattivi' }
- *   ]}
- *   .value=${'all'}
- *   @filter-change=${(e) => this.filter = e.detail.value}
- * ></ui-filter-tabs>
- * ```
+ * Barra di filtri a pillola, scorribile su schermi stretti.
  */
 @customElement('ui-filter-tabs')
 export class UiFilterTabs extends LitElement {
@@ -40,11 +23,8 @@ export class UiFilterTabs extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.style.display = 'block';
-    // Come figlio di un contenitore flex (praticamente ovunque venga usato),
-    // di default un elemento block non si restringe sotto la larghezza
-    // intrinseca del suo contenuto (min-width:auto) — l'overflow-x-auto
-    // interno restava quindi sempre più largo del viewport invece di
-    // diventare scorribile, e le ultime tab finivano tagliate via.
+    // Senza min-width:0 un figlio flex non si restringe sotto la sua larghezza intrinseca,
+    // e l'overflow-x-auto interno non diventa mai scorribile.
     this.style.minWidth = '0';
   }
 
@@ -68,10 +48,8 @@ export class UiFilterTabs extends LitElement {
     };
     const paddingClass = sizeClasses[this.size];
 
-    // overflow-x-auto sul contenitore esterno invece che sull'inline-flex
-    // stesso: con molte tab (es. i 5 filtri per ruolo) su schermi stretti il
-    // gruppo non entrava e overflow-hidden tagliava via l'ultima voce invece
-    // di renderla scorribile — restava anche inutilizzabile, non solo tagliata.
+    // overflow-x-auto sul contenitore esterno, non sull'inline-flex: con molte tab
+    // su schermi stretti l'ultima voce resta scorribile invece che tagliata via.
     return html`
       <div class="overflow-x-auto">
         <div

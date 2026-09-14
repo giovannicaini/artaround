@@ -19,6 +19,9 @@ import '../ui/ui-search-bar';
 import '../ui/ui-language-select';
 import './accessibility-panel';
 
+/**
+ * Header fisso: titolo pagina, selettore museo, notifiche, lingua e menu utente.
+ */
 @customElement('admin-header')
 export class AdminHeader extends LitElement {
   @property({ type: String }) title = 'Dashboard';
@@ -203,9 +206,7 @@ export class AdminHeader extends LitElement {
 
   private jobProgressSummary(job: Job): string {
     const { items, visitSteps } = job.progress;
-    // Il campo Mongo "visitSteps" è condiviso tra i due tipi di job — per la
-    // generazione audio conta tappe (logistic/navigation), per la
-    // sincronizzazione lingue conta visite intere: solo l'etichetta cambia.
+    // "visitSteps" è condiviso tra i due job: conta tappe per l'audio, visite intere per le lingue.
     const secondBucketLabel = job.type === 'sync-languages' ? 'Visite' : 'Tappe';
     return `Contenuti: ${items.generated}/${items.scanned} generati (${items.failed} falliti) — ${secondBucketLabel}: ${visitSteps.generated}/${visitSteps.scanned}`;
   }
@@ -220,10 +221,7 @@ export class AdminHeader extends LitElement {
     return `${hours}h ${rest}min`;
   }
 
-  // Chiama direttamente la history vera del browser: il conseguente evento
-  // `popstate` arriva al router (vedi router.service.ts) che si occupa da
-  // solo di applicare il nuovo stato — non serve più far risalire un evento
-  // custom fino ad app-root per il "cosa mostrare".
+  // Chiama la history vera del browser: il popstate arriva al router che applica lo stato da sé.
   private handleHistoryBack() {
     window.history.back();
   }
@@ -237,11 +235,8 @@ export class AdminHeader extends LitElement {
     preferencesService.setTheme(newTheme);
   }
 
-  // Apre/chiude in blocco tutti i box informativi "inline" (titoli di
-  // pagina/sezione) presenti nella pagina corrente — le singole istanze
-  // restano comunque apribili/chiudibili una per una col proprio bottone,
-  // questo controllo serve solo a impostarle tutte allo stesso stato in un
-  // colpo solo. Vedi ui-info-tip.ts.
+  // Apre/chiude in blocco tutti i box informativi "inline" della pagina — le singole
+  // istanze restano comunque apribili una per una. Vedi ui-info-tip.ts.
   private toggleAllInfoTips() {
     this.infoTipsExpanded = !this.infoTipsExpanded;
     window.dispatchEvent(
@@ -333,17 +328,13 @@ export class AdminHeader extends LitElement {
         class="fixed top-0 right-0 left-0 ${marginLeft} z-20 h-16 bg-white dark:bg-surface-900 border-b border-surface-200 dark:border-surface-800 transition-all duration-300"
       >
         <div class="flex items-center justify-between h-full px-4 lg:px-6">
-          <!-- Left Section -->
           <div class="flex items-center gap-4">
-            <!-- Mobile Menu Button -->
             <ui-icon-button
               @click=${this.handleMenuToggle}
               class="lg:hidden"
               icon="menu"
               .title=${__('Apri/chiudi menu')}
             ></ui-icon-button>
-
-            <!-- Sidebar Collapse Button (Desktop) -->
             <ui-icon-button
               @click=${this.handleSidebarToggle}
               class="hidden lg:inline-flex"
@@ -351,9 +342,6 @@ export class AdminHeader extends LitElement {
               .title=${__('Comprimi/espandi sidebar')}
             ></ui-icon-button>
 
-            <!-- History Navigation: solo desktop, sul cellulare si torna
-                 indietro col gesto/tasto nativo del sistema, non c'è spazio
-                 per due bottoni dedicati nella topbar. -->
             <div class="hidden lg:flex items-center gap-1">
               <ui-icon-button
                 @click=${this.handleHistoryBack}
@@ -371,8 +359,6 @@ export class AdminHeader extends LitElement {
               ></ui-icon-button>
             </div>
           </div>
-
-          <!-- Right Section -->
           <div class="flex items-center gap-2">
             <div class="hidden lg:flex items-center gap-1">
               <ui-button
@@ -410,10 +396,6 @@ export class AdminHeader extends LitElement {
                 : nothing}
             </div>
 
-            <!-- Credito: solo desktop (su mobile è nel menu utente, vedi
-                 sotto, per non affollare la topbar) — click porta a "Il mio
-                 account" per ricaricare, stesso posto dove si gestisce il
-                 resto del profilo. -->
             ${this.user
               ? html`
                   <button
@@ -427,13 +409,6 @@ export class AdminHeader extends LitElement {
                 `
               : nothing}
 
-            <!-- Notifiche: due sezioni, "Processi in background" (job —
-                 avanzamento e bottone "Ferma", vedi jobsService, polling 5s
-                 finché c'è almeno un job attivo) e "Notifiche" (richieste di
-                 ruolo museo, vedi notificationsService, polling fisso 20s).
-                 Badge = job attivi + notifiche non lette. Trigger su
-                 ui-icon-button (non un <button> a mano) per lo stesso
-                 spessore/hover delle icone vicine. -->
             <div class="relative jobs-menu">
               <div class="relative">
                 <ui-icon-button
@@ -456,7 +431,7 @@ export class AdminHeader extends LitElement {
               ${this.jobsPanelOpen
                 ? html`
                     <div
-                      class="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] max-h-[28rem] overflow-y-auto rounded-lg bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 shadow-strong animate-scale-in origin-top-right"
+                      class="fixed inset-x-4 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 max-w-[calc(100vw-2rem)] max-h-[28rem] overflow-y-auto rounded-lg bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 shadow-strong animate-scale-in origin-top-right"
                     >
                       <div class="p-3 border-b border-surface-200 dark:border-surface-700">
                         <p class="text-sm font-medium text-surface-900 dark:text-white">
@@ -598,38 +573,28 @@ export class AdminHeader extends LitElement {
                 : nothing}
             </div>
 
-            <!-- Info Tips Toggle: solo desktop, sul cellulare si raggiunge dal
-                 menu utente (vedi dropdown più sotto) per non affollare la
-                 topbar — stesso motivo per Tema/Accessibilità qui sotto. -->
             <ui-icon-button
               @click=${this.toggleAllInfoTips}
               icon="info"
               variant=${this.infoTipsExpanded ? 'brand' : 'default'}
               .title=${this.infoTipsExpanded
-                ? __('Nascondi tutte le info di pagina')
-                : __('Mostra tutte le info di pagina')}
+                ? __('Nascondi tutte le info')
+                : __('Mostra tutte le info')}
               class="hidden lg:inline-flex"
             ></ui-icon-button>
 
-            <!-- Theme Toggle: solo desktop, sul cellulare si raggiunge dal
-                 menu utente (vedi dropdown più sotto) per non affollare la
-                 topbar — stesso motivo per Accessibilità qui sotto. -->
             <ui-icon-button
               @click=${this.toggleDarkMode}
               icon="${this.darkMode ? 'sun' : 'moon'}"
               .title=${__('Cambia tema')}
               class="hidden lg:inline-flex"
             ></ui-icon-button>
-
-            <!-- Accessibility -->
             <ui-icon-button
               @click=${() => (this.a11yPanelOpen = true)}
               icon="accessibility"
               .title=${__('Impostazioni accessibilità')}
               class="hidden lg:inline-flex"
             ></ui-icon-button>
-
-            <!-- Language Selector -->
             <ui-language-select
               compact
               align="right"
@@ -637,8 +602,6 @@ export class AdminHeader extends LitElement {
               @select-change=${(e: CustomEvent) =>
                 i18nService.setLanguage((e.detail.value || 'it') as AppLanguage)}
             ></ui-language-select>
-
-            <!-- User Menu -->
             <div class="relative user-menu">
               <button
                 @click=${() => (this.userMenuOpen = !this.userMenuOpen)}
@@ -658,8 +621,6 @@ export class AdminHeader extends LitElement {
                 </span>
                 <ui-icon name="chevron-down" size="xs" class="text-surface-400"></ui-icon>
               </button>
-
-              <!-- Dropdown -->
               ${this.userMenuOpen
                 ? html`
                     <div
@@ -672,14 +633,11 @@ export class AdminHeader extends LitElement {
                         <p class="text-xs text-surface-500">${this.user?.email}</p>
                       </div>
                       <div class="p-1.5">
-                        <!-- Credito: su desktop ha già il suo indicatore dedicato
-                             in topbar, qui compare solo sul cellulare per non
-                             affollarla — stesso motivo di tema/accessibilità sotto. -->
                         ${this.user
                           ? html`
                               <button
                                 @click=${this.handleGoToAccount}
-                                class="lg:hidden flex items-center gap-2 w-full px-3 py-2 text-sm text-success-700 dark:text-success-500 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-md transition-colors"
+                                class="lg:hidden flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-success-700 dark:text-success-500 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-md transition-colors"
                               >
                                 <ui-icon name="euro" size="xs"></ui-icon>
                                 ${__('Credito')}: €${(this.user.creditBalance ?? 0).toFixed(2)}
@@ -688,27 +646,24 @@ export class AdminHeader extends LitElement {
                           : nothing}
                         <button
                           @click=${this.handleGoToAccount}
-                          class="flex items-center gap-2 w-full px-3 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-md transition-colors"
+                          class="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-md transition-colors"
                         >
                           <ui-icon name="cog" size="xs"></ui-icon>
                           ${__('Il mio account')}
                         </button>
 
-                        <!-- Info Tips, Tema e Accessibilità: su desktop hanno
-                             già le loro icone dedicate in topbar, qui
-                             compaiono solo sul cellulare per non affollarla. -->
                         <button
                           @click=${this.toggleAllInfoTips}
-                          class="lg:hidden flex items-center gap-2 w-full px-3 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-md transition-colors"
+                          class="lg:hidden flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-md transition-colors"
                         >
                           <ui-icon name="info" size="xs"></ui-icon>
                           ${this.infoTipsExpanded
-                            ? __('Nascondi tutte le info di pagina')
-                            : __('Mostra tutte le info di pagina')}
+                            ? __('Nascondi tutte le info')
+                            : __('Mostra tutte le info')}
                         </button>
                         <button
                           @click=${this.toggleDarkMode}
-                          class="lg:hidden flex items-center gap-2 w-full px-3 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-md transition-colors"
+                          class="lg:hidden flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-md transition-colors"
                         >
                           <ui-icon name="${this.darkMode ? 'sun' : 'moon'}" size="xs"></ui-icon>
                           ${this.darkMode ? __('Tema chiaro') : __('Tema scuro')}
@@ -718,7 +673,7 @@ export class AdminHeader extends LitElement {
                             this.userMenuOpen = false;
                             this.a11yPanelOpen = true;
                           }}
-                          class="lg:hidden flex items-center gap-2 w-full px-3 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-md transition-colors"
+                          class="lg:hidden flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-md transition-colors"
                         >
                           <ui-icon name="accessibility" size="xs"></ui-icon>
                           ${__('Accessibilità')}
@@ -729,7 +684,7 @@ export class AdminHeader extends LitElement {
                             this.dispatchEvent(
                               new CustomEvent('logout', { bubbles: true, composed: true }),
                             )}
-                          class="flex items-center gap-2 w-full px-3 py-2 text-sm text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-900/20 rounded-md transition-colors"
+                          class="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-900/20 rounded-md transition-colors"
                         >
                           <ui-icon name="logout" size="xs"></ui-icon>
                           ${__('Esci')}
@@ -742,8 +697,6 @@ export class AdminHeader extends LitElement {
           </div>
         </div>
       </header>
-
-      <!-- Accessibility Panel (rendered outside header for z-index stacking) -->
       <accessibility-panel
         .open=${this.a11yPanelOpen}
         @panel-close=${() => (this.a11yPanelOpen = false)}

@@ -3,27 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import './ui-icon';
 
 /**
- * UI Icon Button
- *
- * Un piccolo bottone che contiene solo un'icona, usato per le azioni in card/tabelle.
- *
- * @fires click - Evento click standard
- *
- * @example
- * ```html
- * <ui-icon-button
- *   icon="edit"
- *   title="Modifica"
- *   @click=${this.handleEdit}
- * ></ui-icon-button>
- *
- * <ui-icon-button
- *   icon="trash"
- *   variant="danger"
- *   title="Elimina"
- *   @click=${this.handleDelete}
- * ></ui-icon-button>
- * ```
+ * Bottone icona-soltanto con varianti di colore all'hover.
  */
 @customElement('ui-icon-button')
 export class UiIconButton extends LitElement {
@@ -42,7 +22,7 @@ export class UiIconButton extends LitElement {
   private getVariantClasses(): string {
     const variants = {
       default:
-        'text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800',
+        'text-surface-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20',
       danger:
         'text-surface-400 hover:text-danger-600 dark:hover:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-900/20',
       success:

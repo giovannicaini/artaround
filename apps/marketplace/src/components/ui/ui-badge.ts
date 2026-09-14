@@ -2,6 +2,9 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './ui-icon';
 
+/**
+ * Etichetta colorata compatta per stato o categoria.
+ */
 @customElement('ui-badge')
 export class UiBadge extends LitElement {
   @property({ type: String }) variant:

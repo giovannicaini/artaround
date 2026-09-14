@@ -26,6 +26,9 @@ type GeocodeResult = {
   placeId?: number;
 };
 
+/**
+ * CRUD di musei, piani, marker, sale e delle relative azioni AI in background.
+ */
 export class MuseumService {
   async getMuseums(): Promise<Museum[]> {
     const response = await apiService.get<Museum[]>('/museums');
@@ -72,10 +75,8 @@ export class MuseumService {
     };
   }
 
-  // Aggiorna subito le lingue attive, poi avvia in background la
-  // rigenerazione delle traduzioni mancanti (vedi MuseumController.syncLanguages).
-  // Risponde subito col jobId, l'avanzamento si segue da jobsService (GET
-  // /api/jobs) — non aspetta la fine.
+  // Aggiorna subito le lingue attive, poi avvia in background la rigenerazione
+  // delle traduzioni mancanti — risponde subito col jobId, non aspetta la fine.
   async syncMuseumLanguages(
     id: string,
     activeLanguages: string[],
@@ -94,11 +95,8 @@ export class MuseumService {
     };
   }
 
-  // Avvia in background la generazione con OpenAI dell'audio mancante di
-  // contenuti e tappe delle visite del museo — azione esplicita, separata da
-  // syncMuseumLanguages per il costo/tempo che comporta (vedi
-  // MuseumController.generateAudio). Risponde subito col jobId, l'avanzamento
-  // si segue da jobsService (GET /api/jobs) — non aspetta la fine.
+  // Avvia in background la generazione con OpenAI dell'audio mancante del museo —
+  // azione esplicita, separata da syncMuseumLanguages per costo/tempo.
   async generateMuseumAudio(
     id: string,
   ): Promise<{ data: MuseumJobStarted | null; error?: string }> {

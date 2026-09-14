@@ -3,6 +3,9 @@ import { customElement, property, state } from 'lit/decorators.js';
 import './ui-info-tip';
 import { __ } from '../../services/i18n.service';
 
+/**
+ * Slider numerico con etichetta e valore corrente.
+ */
 @customElement('ui-range-slider')
 export class UiRangeSlider extends LitElement {
   @property({ type: Number }) min = 0;

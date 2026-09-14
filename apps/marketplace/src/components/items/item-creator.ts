@@ -1,10 +1,6 @@
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
-  CONTENT_DURATION_OPTIONS_IT,
-  ITEM_REFERENCE_TYPE_OPTIONS_IT,
-  LANGUAGE_LEVEL_OPTIONS_IT,
-  LICENSE_TYPE_OPTIONS_IT,
   LicenseType,
   ItemReferenceType,
   ContentDuration,
@@ -12,20 +8,32 @@ import {
   type CreateItemData,
   type UpdateItemData,
   type AppLanguage,
+  type GeneratedAudio,
   isSupportedAppLanguage,
   BCP47_BY_LANGUAGE,
 } from '@artaround/shared';
 import { itemService } from '../../services/item.service';
 import { museumService } from '../../services/museum.service';
-import { translationService } from '../../services/translation.service';
+import { modalService } from '../../services/modal.service';
 import { __ } from '../../services/i18n.service';
+import { renderFeedbackAlerts } from '../../utils/feedback-alerts';
+import { renderStackedTranslations } from '../../utils/translation-panel';
+import { runBatchTranslation } from '../../utils/translation-batch';
+import {
+  getReferenceTypeOptions,
+  getContentDurationOptions,
+  getLanguageLevelOptions,
+  getLicenseTypeOptions,
+} from '../../utils/enum-labels';
 import { MuseumAwareMixin, AppBaseElement } from '../../base';
 import './wikidata-autocomplete';
+import './item-audio-panel';
 import '../ui/image-editor';
 import '../ui/ui-input';
 import '../ui/ui-select';
 import '../ui/ui-language-select';
 import '../ui/ui-button';
+import '../ui/ui-form-actions';
 import '../ui/ui-textarea';
 import '../ui/ui-alert';
 import '../ui/ui-badge';
@@ -34,6 +42,9 @@ import '../ui/ui-tag-input';
 import '../ui/ui-museum-required-notice';
 import '../ui/ui-loading';
 
+/**
+ * Form di creazione/modifica di un contenuto (item) collegato a opera, autore, movimento o museo.
+ */
 @customElement('item-creator')
 export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
   @property({ type: String }) itemId = ''; // For edit mode
@@ -58,6 +69,10 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
   @state() private translatedTexts: Partial<Record<AppLanguage, string>> = {};
   @state() private translationModeByLang: Partial<Record<AppLanguage, 'ai' | 'manual'>> = {};
   @state() private isSpeaking = false;
+  @state() private audio: Partial<Record<AppLanguage, GeneratedAudio>> = {};
+  // Testo/titolo al caricamento — confrontati al salvataggio per capire se avvisare della perdita di traduzioni/audio.
+  private originalTitle = '';
+  private originalText = '';
 
   // Characteristics
   @state() private duration: ContentDuration = ContentDuration.MEDIUM;
@@ -70,31 +85,19 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
   @state() private image = '';
 
   private get referenceTypeOptions() {
-    return ITEM_REFERENCE_TYPE_OPTIONS_IT.map((option) => ({
-      ...option,
-      label: __(option.label),
-    }));
+    return getReferenceTypeOptions();
   }
 
   private get durationOptions() {
-    return CONTENT_DURATION_OPTIONS_IT.map((option) => ({
-      ...option,
-      label: __(option.label),
-    }));
+    return getContentDurationOptions();
   }
 
   private get languageLevelOptions() {
-    return LANGUAGE_LEVEL_OPTIONS_IT.map((option) => ({
-      ...option,
-      label: __(option.label),
-    }));
+    return getLanguageLevelOptions();
   }
 
   private get licenseOptions() {
-    return LICENSE_TYPE_OPTIONS_IT.map((option) => ({
-      ...option,
-      label: __(option.label),
-    }));
+    return getLicenseTypeOptions();
   }
 
   // ─── Ciclo di vita ───────────────────────────────────────────
@@ -124,9 +127,12 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
       this.referenceTitle = item.referenceTitle || '';
       this.itemTitle = item.title;
       this.text = item.text;
+      this.originalTitle = item.title;
+      this.originalText = item.text;
       this.sourceLanguage = item.sourceLanguage;
       this.translatedTitles = item.translatedTitles || {};
       this.translatedTexts = item.translatedTexts || {};
+      this.audio = item.audio || {};
       this.translationModeByLang = Object.fromEntries(
         Object.keys(item.translatedTexts || {}).map((lang) => [lang, 'manual' as const]),
       );
@@ -205,66 +211,37 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
   }
 
   private async translateMissingLanguages(): Promise<void> {
-    if (!this.itemTitle.trim() || !this.text.trim()) {
-      this.error = __('Compila titolo e testo nella lingua sorgente prima di tradurre');
-      return;
-    }
-
-    this.translating = true;
-    this.error = '';
-
-    try {
-      const targets = this.getTargetLanguages();
-      const batchItems: Array<{ key: string; text: string; targetLang: AppLanguage }> = [];
-
-      for (const lang of targets) {
-        if (!this.translatedTitles[lang]?.trim()) {
-          batchItems.push({ key: `${lang}:title`, text: this.itemTitle, targetLang: lang });
+    await runBatchTranslation({
+      sourceLanguage: this.sourceLanguage,
+      targetLanguages: this.getTargetLanguages(),
+      validationErrorMessage: __('Compila titolo e testo nella lingua sorgente prima di tradurre'),
+      getFields: (lang) => [
+        {
+          key: 'title',
+          sourceValue: this.itemTitle,
+          currentValue: this.translatedTitles[lang] || '',
+        },
+        { key: 'text', sourceValue: this.text, currentValue: this.translatedTexts[lang] || '' },
+      ],
+      onFieldTranslated: (lang, key, value) => {
+        if (key === 'title') {
+          this.translatedTitles = { ...this.translatedTitles, [lang]: value };
+        } else {
+          this.translatedTexts = { ...this.translatedTexts, [lang]: value };
         }
-        if (!this.translatedTexts[lang]?.trim()) {
-          batchItems.push({ key: `${lang}:text`, text: this.text, targetLang: lang });
+      },
+      onLanguageTranslatedByAI: (lang) => {
+        if (this.translationModeByLang[lang] !== 'manual') {
+          this.translationModeByLang = { ...this.translationModeByLang, [lang]: 'ai' };
         }
-      }
-
-      if (batchItems.length === 0) {
-        return;
-      }
-
-      const translations = await translationService.translateBatch(this.sourceLanguage, batchItems);
-
-      for (const lang of targets) {
-        let translatedByAI = false;
-        const titleKey = `${lang}:title`;
-        const textKey = `${lang}:text`;
-
-        if (translations[titleKey]) {
-          this.translatedTitles = {
-            ...this.translatedTitles,
-            [lang]: translations[titleKey],
-          };
-          translatedByAI = true;
-        }
-
-        if (translations[textKey]) {
-          this.translatedTexts = {
-            ...this.translatedTexts,
-            [lang]: translations[textKey],
-          };
-          translatedByAI = true;
-        }
-
-        if (translatedByAI && this.translationModeByLang[lang] !== 'manual') {
-          this.translationModeByLang = {
-            ...this.translationModeByLang,
-            [lang]: 'ai',
-          };
-        }
-      }
-    } catch (err) {
-      this.error = err instanceof Error ? err.message : __('Traduzione automatica non riuscita');
-    } finally {
-      this.translating = false;
-    }
+      },
+      onError: (message) => {
+        this.error = message;
+      },
+      onTranslatingChange: (translating) => {
+        this.translating = translating;
+      },
+    });
   }
 
   // ─── Azioni (aggiornamento campi) ─────────────────────────────
@@ -298,9 +275,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
   }
 
   // ─── Text-to-Speech Preview ──────────────────────────────
-  // Anteprima con l'API Web Speech nativa del browser (nessun servizio esterno,
-  // nessuna chiamata al server): fa sentire all'autore come suonerebbe il testo
-  // letto ad alta voce nel Navigator, prima ancora di salvare l'item.
+  // Anteprima con l'API Web Speech del browser: come suonerebbe il testo nel Navigator.
   private toggleSpeechPreview() {
     if (!window.speechSynthesis) return;
 
@@ -373,6 +348,29 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
       return;
     }
 
+    const isEditMode = Boolean(this.itemId);
+    const textChanged =
+      isEditMode &&
+      (this.itemTitle.trim() !== this.originalTitle || this.text.trim() !== this.originalText);
+
+    if (textChanged) {
+      const confirmed = await modalService.confirm({
+        title: __('Testo modificato'),
+        message: __(
+          'Modificando titolo o testo, tutte le traduzioni e tutti gli audio (caricati o generati) di questo contenuto verranno eliminati, per evitare che restino disallineati dal nuovo testo. Vuoi continuare?',
+        ),
+        variant: 'danger',
+        confirmLabel: __('Continua ed elimina'),
+        cancelLabel: __('Annulla'),
+      });
+      if (!confirmed) return;
+
+      this.translatedTitles = {};
+      this.translatedTexts = {};
+      this.translationModeByLang = {};
+      this.audio = {};
+    }
+
     this.loading = true;
     this.error = '';
     this.success = '';
@@ -396,10 +394,10 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
         image: this.image || undefined,
       };
 
-      const isEditMode = Boolean(this.itemId);
-
       if (isEditMode) {
         await itemService.updateItem(this.itemId, itemData);
+        this.originalTitle = this.itemTitle.trim();
+        this.originalText = this.text.trim();
         this.success = __('Contenuto aggiornato con successo!');
       } else {
         await itemService.createItem(itemData as CreateItemData);
@@ -486,6 +484,24 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
     return this.translationModeByLang[lang] === 'ai' ? 'ai' : 'manual';
   }
 
+  // Una riga per lingua con testo scritto: la sorgente sempre, le traduzioni solo se compilate.
+  private getAudioEntries() {
+    const entries = [
+      {
+        language: this.sourceLanguage,
+        label: this.getLanguageLabel(this.sourceLanguage),
+        text: this.text,
+      },
+    ];
+    for (const lang of this.getTargetLanguages()) {
+      const text = this.translatedTexts[lang];
+      if (text?.trim()) {
+        entries.push({ language: lang, label: this.getLanguageLabel(lang), text });
+      }
+    }
+    return entries;
+  }
+
   // ─── Render principale ────────────────────────────────────────
   render() {
     const needsWikidataRef = [
@@ -501,19 +517,13 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
 
     return html`
       <form @submit=${this.handleSubmit} class="space-y-8">
-        <!-- Messaggi di successo/errore -->
         ${!this.selectedMuseumId
           ? html`<ui-museum-required-notice
               subject="contenuti"
               @select-museum=${this.emitSelectMuseum}
             ></ui-museum-required-notice>`
           : nothing}
-        ${this.success
-          ? html`<ui-alert variant="success" .message=${this.success}></ui-alert>`
-          : nothing}
-        ${this.error
-          ? html`<ui-alert variant="danger" .message=${this.error}></ui-alert>`
-          : nothing}
+        ${renderFeedbackAlerts({ error: this.error, success: this.success })}
 
         <ui-panel-section
           .title=${__('Tipo di Contenuto')}
@@ -622,7 +632,7 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
                   <span>${__('Tempo stimato')}: ${this.getEstimatedReadTime()}</span>
                   <ui-button
                     size="sm"
-                    variant="ghost"
+                    variant="secondary"
                     icon=${this.isSpeaking ? 'pause' : 'play'}
                     .label=${this.isSpeaking ? __('Interrompi') : __('Ascolta anteprima')}
                     ?disabled=${!this.text.trim()}
@@ -631,79 +641,55 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
                 </div>
               </div>
 
-              ${this.getTargetLanguages().length > 0
-                ? html`
-                    <div
-                      class="p-4 rounded-xl border border-surface-200 dark:border-surface-700 space-y-4"
-                    >
-                      <div class="flex items-center justify-between gap-3">
-                        <h4 class="text-sm font-semibold text-surface-800 dark:text-surface-100">
-                          ${__('Traduzioni richieste')} (${this.getTargetLanguages().length})
-                        </h4>
-                        <ui-button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          .label=${__('Traduci mancanti con AI')}
-                          icon="sparkles"
-                          .loading=${this.translating}
-                          @click=${() => this.translateMissingLanguages()}
-                        ></ui-button>
-                      </div>
-
-                      ${this.getTargetLanguages().map((lang) => {
-                        const label = this.getLanguageLabel(lang);
-
-                        return html`
-                          <div class="space-y-3 p-3 rounded-lg bg-surface-50 dark:bg-surface-800">
-                            <div class="flex items-center justify-between gap-2">
-                              <p
-                                class="text-xs font-semibold text-surface-600 dark:text-surface-300"
-                              >
-                                ${label}
-                              </p>
-                              <ui-badge
-                                size="sm"
-                                variant=${this.getTranslationStatus(lang) === 'ai'
-                                  ? 'info'
-                                  : 'secondary'}
-                                .label=${this.getTranslationStatus(lang) === 'ai'
-                                  ? __('AI')
-                                  : __('Manuale')}
-                              ></ui-badge>
-                            </div>
-                            <ui-input
-                              .label=${`${__('Titolo')} (${lang.toUpperCase()})`}
-                              .value=${this.translatedTitles[lang] || ''}
-                              @input-change=${(e: CustomEvent) => {
-                                this.translatedTitles = {
-                                  ...this.translatedTitles,
-                                  [lang]: e.detail.value,
-                                };
-                                this.markLanguageAsManual(lang);
-                              }}
-                              required
-                            ></ui-input>
-                            <ui-textarea
-                              .label=${`${__('Testo')} (${lang.toUpperCase()})`}
-                              .value=${this.translatedTexts[lang] || ''}
-                              @input=${(e: InputEvent) => {
-                                this.translatedTexts = {
-                                  ...this.translatedTexts,
-                                  [lang]: (e.target as HTMLTextAreaElement).value,
-                                };
-                                this.markLanguageAsManual(lang);
-                              }}
-                              rows="4"
-                              required
-                            ></ui-textarea>
-                          </div>
-                        `;
-                      })}
-                    </div>
-                  `
-                : nothing}
+              ${renderStackedTranslations({
+                targetLanguages: this.getTargetLanguages(),
+                getLanguageLabel: (lang) => this.getLanguageLabel(lang),
+                getTranslationStatus: (lang) => this.getTranslationStatus(lang),
+                translating: this.translating,
+                onTranslateMissing: () => this.translateMissingLanguages(),
+                getFields: (lang) => [
+                  {
+                    label: `${__('Titolo')} (${lang.toUpperCase()})`,
+                    value: this.translatedTitles[lang] || '',
+                    kind: 'input',
+                    onUpdate: (value) => {
+                      this.translatedTitles = { ...this.translatedTitles, [lang]: value };
+                      this.markLanguageAsManual(lang);
+                    },
+                  },
+                  {
+                    label: `${__('Testo')} (${lang.toUpperCase()})`,
+                    value: this.translatedTexts[lang] || '',
+                    kind: 'textarea',
+                    rows: 4,
+                    onUpdate: (value) => {
+                      this.translatedTexts = { ...this.translatedTexts, [lang]: value };
+                      this.markLanguageAsManual(lang);
+                    },
+                  },
+                ],
+              })}
             </div>
+          `}
+        ></ui-panel-section>
+
+        <ui-panel-section
+          .title=${__('Audio')}
+          icon="microphone"
+          .help=${__(
+            'Per ogni lingua con un testo scritto: carica un file audio o generalo con OpenAI. Finché manca, il Navigator legge il testo con la sintesi vocale del browser.',
+          )}
+          .renderContent=${() => html`
+            <item-audio-panel
+              .itemId=${this.itemId}
+              .entries=${this.getAudioEntries()}
+              .audio=${this.audio}
+              @audio-changed=${(
+                e: CustomEvent<{ audio: Partial<Record<AppLanguage, GeneratedAudio>> }>,
+              ) => {
+                this.audio = e.detail.audio;
+              }}
+            ></item-audio-panel>
           `}
         ></ui-panel-section>
 
@@ -771,25 +757,11 @@ export class ItemCreator extends MuseumAwareMixin(AppBaseElement) {
             ></ui-tag-input>
           `}
         ></ui-panel-section>
-
-        <!-- Actions -->
-        <div
-          class="flex items-center justify-end gap-3 pt-6 border-t border-surface-200 dark:border-surface-700"
-        >
-          <ui-button
-            type="button"
-            variant="secondary"
-            .label=${__('Annulla')}
-            @click=${this.handleCancel}
-          ></ui-button>
-          <ui-button
-            type="submit"
-            variant="primary"
-            .label=${this.itemId ? __('Salva modifiche') : __('Crea Contenuto')}
-            icon="save"
-            .loading=${this.loading}
-          ></ui-button>
-        </div>
+        <ui-form-actions
+          .submitLabel=${this.itemId ? __('Salva modifiche') : __('Crea Contenuto')}
+          .loading=${this.loading}
+          @cancel=${this.handleCancel}
+        ></ui-form-actions>
       </form>
     `;
   }

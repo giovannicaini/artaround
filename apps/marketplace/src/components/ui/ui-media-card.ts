@@ -3,6 +3,9 @@ import { customElement, property, state } from 'lit/decorators.js';
 import './ui-card';
 import './ui-image-placeholder';
 
+/**
+ * Card con immagine in alto e contenuto sotto, base di ogni card entità.
+ */
 @customElement('ui-media-card')
 export class UiMediaCard extends LitElement {
   @property({ type: String }) imageSrc = '';
@@ -46,7 +49,7 @@ export class UiMediaCard extends LitElement {
     const showImage = Boolean(this.imageSrc) && !this.imageFailed;
 
     return html`
-      <ui-card padding="none" ?hover=${this.hover}>
+      <ui-card padding="none" ?hover=${this.hover} ?hoverGlow=${this.hover}>
         <div
           class="${this
             .aspectClass} bg-surface-100 dark:bg-surface-800 relative overflow-hidden rounded-t-xl"

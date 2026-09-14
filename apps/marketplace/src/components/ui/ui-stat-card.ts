@@ -3,6 +3,9 @@ import { customElement, property } from 'lit/decorators.js';
 import './ui-card';
 import './ui-icon';
 
+/**
+ * Card con un numero in evidenza, icona ed etichetta.
+ */
 @customElement('ui-stat-card')
 export class UiStatCard extends LitElement {
   @property({ type: String }) label = '';

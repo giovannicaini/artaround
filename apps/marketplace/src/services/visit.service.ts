@@ -11,6 +11,9 @@ export interface VisitsResponse {
   };
 }
 
+/**
+ * CRUD delle visite e delle relative azioni AI in background.
+ */
 export class VisitService {
   async getVisits(filters: VisitFilters = {}): Promise<VisitsResponse> {
     const params = new URLSearchParams();
@@ -130,10 +133,8 @@ export class VisitService {
     return response.data;
   }
 
-  // Avvia in background la generazione audio OpenAI limitata a questa
-  // visita — equivalente di museumService.generateMuseumAudio ma scoped
-  // (vedi VisitController.generateAudio). Risponde subito col jobId,
-  // l'avanzamento si segue da jobsService (GET /api/jobs).
+  // Avvia in background la generazione audio OpenAI per questa visita — risponde
+  // subito col jobId, l'avanzamento si segue da jobsService.
   async generateVisitAudio(id: string): Promise<{ jobId: string | null; error?: string }> {
     const response = await apiService.post<{ jobId: string }>(`/visits/${id}/generate-audio`, {});
     if (response.success && response.data) {
@@ -145,11 +146,8 @@ export class VisitService {
     };
   }
 
-  // Avvia in background la sincronizzazione delle traduzioni limitata a
-  // questa visita (lei stessa + gli item che referenzia), con le lingue
-  // attive già impostate sul museo — equivalente di
-  // museumService.syncMuseumLanguages ma scoped (vedi VisitController.syncLanguages).
-  // Risponde subito col jobId, l'avanzamento si segue da jobsService (GET /api/jobs).
+  // Avvia in background la sincronizzazione traduzioni di questa visita (lei stessa
+  // + item referenziati) — risponde subito col jobId, l'avanzamento si segue da jobsService.
   async syncVisitLanguages(id: string): Promise<{ jobId: string | null; error?: string }> {
     const response = await apiService.post<{ jobId: string }>(`/visits/${id}/sync-languages`, {});
     if (response.success && response.data) {

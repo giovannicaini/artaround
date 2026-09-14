@@ -28,14 +28,7 @@ export interface Job {
 const POLL_INTERVAL_MS = 5000;
 
 /**
- * Job in background (oggi solo generazione audio, vedi jobs.service.ts lato
- * server) — un solo fetch condiviso invece che uno per componente: chi ha
- * bisogno della lista attuale legge getJobs(), chi vuole restare aggiornato
- * si iscrive a 'jobs-changed' su window (stesso pattern di router.service.ts/
- * preferences.service.ts, non un registro di subscribe/unsubscribe a parte).
- * Il polling (ogni 5s) parte/si ferma da solo in base a se l'ultimo fetch
- * conteneva almeno un job "running": nessun bisogno di farlo girare quando
- * non c'è nulla in corso.
+ * Job in background (oggi solo generazione audio e sincronizzazione traduzioni).
  */
 class JobsService {
   private jobs: Job[] = [];
@@ -45,9 +38,7 @@ class JobsService {
     return this.jobs;
   }
 
-  // Senza `type`: c'è un job attivo di qualunque tipo (usato per decidere se
-  // il polling deve girare). Con `type`: solo di quel tipo — l'esclusione
-  // reciproca è per-tipo (audio e traduzioni possono girare insieme).
+  // Senza `type`: job attivo di qualunque tipo. Con `type`: solo quel tipo (audio/traduzioni girano insieme).
   hasActiveJob(type?: JobType): boolean {
     return this.jobs.some(
       (job) => job.status === 'running' && (type === undefined || job.type === type),

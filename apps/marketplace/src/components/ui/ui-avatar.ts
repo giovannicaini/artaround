@@ -1,6 +1,9 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
+/**
+ * Avatar circolare con iniziali o immagine, opzionale indicatore online.
+ */
 @customElement('ui-avatar')
 export class UiAvatar extends LitElement {
   @property({ type: String }) src = '';

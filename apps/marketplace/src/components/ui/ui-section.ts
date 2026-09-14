@@ -3,19 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import './ui-icon';
 
 /**
- * UI Section
- *
- * Una sezione form/pagina con titolo e icona opzionale.
- * Usata per raggruppare contenuti correlati con uno stile di intestazione coerente.
- *
- * @example
- * ```html
- * <ui-section
- *   title="Informazioni base"
- *   icon="document"
- *   .renderContent=${() => html`<ui-card>...</ui-card>`}
- * ></ui-section>
- * ```
+ * Sezione di contenuto con titolo e icona, senza il wrapper a card.
  */
 @customElement('ui-section')
 export class UiSection extends LitElement {

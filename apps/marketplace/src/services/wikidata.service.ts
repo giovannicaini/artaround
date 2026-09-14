@@ -1,6 +1,9 @@
 import { apiService } from './api.service';
 import type { WikidataEntity, WikidataSearchResult } from '@artaround/shared';
 
+/**
+ * Ricerca di opere, autori, movimenti e musei su Wikidata.
+ */
 export class WikidataService {
   async search(
     query: string,

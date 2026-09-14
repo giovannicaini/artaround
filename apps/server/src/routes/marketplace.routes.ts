@@ -22,6 +22,26 @@ const router = Router();
  *         schema:
  *           type: boolean
  *       - in: query
+ *         name: referenceType
+ *         schema:
+ *           type: string
+ *           enum: [artwork, author, movement, period, museum]
+ *       - in: query
+ *         name: duration
+ *         schema:
+ *           type: string
+ *           enum: ['3s', '15s', '1min', '4min']
+ *       - in: query
+ *         name: languageLevel
+ *         schema:
+ *           type: string
+ *           enum: [infantile, elementare, medio, specialistico]
+ *       - in: query
+ *         name: search
+ *         description: Ricerca testuale (case-insensitive) su titolo e testo
+ *         schema:
+ *           type: string
+ *       - in: query
  *         name: minRating
  *         schema:
  *           type: number
@@ -59,21 +79,35 @@ router.get('/items', MarketplaceController.getItems);
  *         schema:
  *           type: string
  *       - in: query
- *         name: targetAudience
+ *         name: isFree
+ *         schema:
+ *           type: boolean
+ *       - in: query
+ *         name: languageLevel
+ *         description: Solo visite che supportano questo livello (targetAudience.languageLevels)
+ *         schema:
+ *           type: string
+ *           enum: [infantile, elementare, medio, specialistico]
+ *       - in: query
+ *         name: search
+ *         description: Ricerca testuale (case-insensitive) su titolo e descrizione
  *         schema:
  *           type: string
  *       - in: query
- *         name: difficulty
+ *         name: sortBy
  *         schema:
  *           type: string
+ *           enum: [createdAt, price, downloads]
  *       - in: query
- *         name: minPrice
+ *         name: page
  *         schema:
- *           type: number
+ *           type: integer
+ *           default: 1
  *       - in: query
- *         name: maxPrice
+ *         name: limit
  *         schema:
- *           type: number
+ *           type: integer
+ *           default: 20
  *     responses:
  *       200:
  *         description: Catalogo visite

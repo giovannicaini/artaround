@@ -4,17 +4,16 @@ import './ui-button';
 import './ui-icon';
 import { __ } from '../../services/i18n.service';
 
+/**
+ * Modale di conferma/messaggio, pilotato da modalService.
+ */
 @customElement('ui-modal')
 export class UiModal extends LitElement {
   @property({ type: Boolean }) open = false;
   @property({ type: String }) title = '';
   @property({ type: String }) message = '';
   @property({ type: String }) variant: 'default' | 'danger' | 'success' | 'info' = 'default';
-  // Nome attributo esplicito: il default di Lit per una proprietà camelCase
-  // è tutto minuscolo senza trattino (es. "confirmlabel"), ma modalService.ts
-  // scrive gli attributi in kebab-case ("confirm-label") — senza specificarlo
-  // qui il binding non avviene mai e il modale mostra sempre l'etichetta di
-  // default, qualunque valore passi il chiamante.
+  // Nome attributo esplicito: modalService.ts scrive kebab-case, il default di Lit sarebbe tutto minuscolo senza trattino.
   @property({ type: String, attribute: 'confirm-label' }) confirmLabel = '';
   @property({ type: String, attribute: 'cancel-label' }) cancelLabel = '';
   @property({ type: Boolean }) loading = false;
@@ -106,7 +105,6 @@ export class UiModal extends LitElement {
           aria-modal="true"
           aria-labelledby="modal-title"
         >
-          <!-- Header -->
           <div class="flex items-start gap-4 p-6 pb-0">
             <div
               class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${iconBg}"
@@ -120,8 +118,6 @@ export class UiModal extends LitElement {
               <div class="mt-2 text-sm text-surface-600 dark:text-surface-400">${this.message}</div>
             </div>
           </div>
-
-          <!-- Actions -->
           <div class="flex items-center justify-end gap-3 p-6 pt-6">
             ${!this.hideCancel
               ? html`

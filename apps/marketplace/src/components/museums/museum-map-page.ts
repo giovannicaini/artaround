@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { HistorySyncMixin } from '../../base';
 import { museumService } from '../../services/museum.service';
 import { artworkService } from '../../services/artwork.service';
 import { modalService } from '../../services/modal.service';
@@ -26,12 +27,10 @@ import '../ui/ui-info-tip';
 import { __ } from '../../services/i18n.service';
 
 /**
- * Pagina Piantina Museo
- *
- * Pagina completa per gestire piantine, marker e posizioni delle opere del museo
+ * Pagina Piantina Museo: piani, sale e marker in un unico editor.
  */
 @customElement('museum-map-page')
-export class MuseumMapPage extends LitElement {
+export class MuseumMapPage extends HistorySyncMixin(LitElement) {
   // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
@@ -114,12 +113,8 @@ export class MuseumMapPage extends LitElement {
     return counts;
   }
 
-  // La primissima volta che piano/marker vengono impostati (il default
-  // scelto da loadData() se non arriva nulla da fuori, o il ripristino di un
-  // deep-link) corregge solo l'URL corrente (replace); da lì in poi ogni
-  // cambio è una vera selezione dell'utente e aggiunge un passo di history —
-  // altrimenti aprire la pagina produrrebbe da sola un secondo passo (route+
-  // museo, poi route+museo+piano) da un unico click.
+  // La primissima volta che piano/marker vengono impostati corregge solo l'URL
+  // (replace), poi ogni cambio è una vera selezione e aggiunge un passo di history.
   private hasEmittedStateOnce = false;
 
   async connectedCallback() {
@@ -128,10 +123,8 @@ export class MuseumMapPage extends LitElement {
   }
 
   updated(changedProps: Map<string, unknown>) {
-    // Piano/marker richiesti da fuori sono cambiati (avanti/indietro del
-    // browser rimasto dentro questa stessa pagina, cambiando solo piano o
-    // marker): la pagina persiste come istanza unica per tutta la route, va
-    // aggiornata a mano perché non viene mai ricreata da zero.
+    // Piano/marker richiesti da fuori sono cambiati: la pagina persiste come istanza
+    // unica per tutta la route, va aggiornata a mano perché non viene mai ricreata.
     if (
       changedProps.has('openingFloorId') &&
       this.openingFloorId &&
@@ -147,10 +140,7 @@ export class MuseumMapPage extends LitElement {
         : null;
     }
 
-    // this.selectedFloorId ancora null: è il primissimo giro di updated(),
-    // prima che loadData() risolva — selectedFloorId/selectedMarker
-    // "cambiano" solo perché passano da undefined al loro valore iniziale
-    // (null), non c'è ancora nulla di vero da riportare nell'URL.
+    // selectedFloorId ancora null: primissimo giro di updated(), niente da riportare nell'URL.
     if (
       (changedProps.has('selectedFloorId') || changedProps.has('selectedMarker')) &&
       this.selectedFloorId
@@ -161,26 +151,13 @@ export class MuseumMapPage extends LitElement {
     }
   }
 
-  /**
-   * Stato granulare (piano + marker selezionati) verso app-root, per la
-   * history — stesso schema di artworks-page.ts. `replace` sostituisce la
-   * voce di history corrente invece di aggiungerne una nuova: usato solo per
-   * la primissima emissione di questa istanza (il piano scelto o ripristinato
-   * da loadData() al caricamento), mai per una vera selezione dell'utente —
-   * vedi hasEmittedStateOnce.
-   */
+  // Stato granulare (piano + marker selezionati) verso app-root, per la history — stesso schema di artworks-page.ts.
   private emitStateChange(replace = false): void {
-    this.dispatchEvent(
-      new CustomEvent('page-state-changed', {
-        detail: {
-          floorId: this.selectedFloorId || '',
-          markerId: this.selectedMarker?.id || '',
-          replace,
-        },
-        bubbles: true,
-        composed: true,
-      }),
-    );
+    this.emitPageStateChange({
+      floorId: this.selectedFloorId || '',
+      markerId: this.selectedMarker?.id || '',
+      replace,
+    });
   }
 
   // ─── Caricamento dati ────────────────────────────────────────
@@ -239,10 +216,12 @@ export class MuseumMapPage extends LitElement {
   render() {
     if (this.loading) {
       return html`
-        <div class="min-h-screen bg-surface-950 flex items-center justify-center">
+        <div
+          class="min-h-screen bg-surface-50 dark:bg-surface-950 flex items-center justify-center"
+        >
           <div class="text-center">
             <div class="animate-spin text-4xl mb-4">🔄</div>
-            <p class="text-surface-400">${__('Caricamento...')}</p>
+            <p class="text-surface-500 dark:text-surface-400">${__('Caricamento...')}</p>
           </div>
         </div>
       `;
@@ -250,10 +229,12 @@ export class MuseumMapPage extends LitElement {
 
     if (this.error) {
       return html`
-        <div class="min-h-screen bg-surface-950 flex items-center justify-center">
+        <div
+          class="min-h-screen bg-surface-50 dark:bg-surface-950 flex items-center justify-center"
+        >
           <div class="text-center">
             <div class="text-4xl mb-4">❌</div>
-            <p class="text-red-400">${this.error}</p>
+            <p class="text-danger-600 dark:text-danger-400">${this.error}</p>
             <ui-button
               variant="primary"
               .label=${__('Riprova')}
@@ -266,19 +247,19 @@ export class MuseumMapPage extends LitElement {
     }
 
     return html`
-      <div class="min-h-screen bg-surface-950 ${this.isFullscreen ? 'fixed inset-0 z-50' : ''}">
-        <!-- Header -->
+      <div
+        class="min-h-screen bg-surface-50 dark:bg-surface-950 ${this.isFullscreen
+          ? 'fixed inset-0 z-50'
+          : ''}"
+      >
         <div
-          class="flex flex-wrap items-start justify-between gap-3 p-4 bg-surface-900 border-b border-surface-800"
+          class="flex flex-wrap items-start justify-between gap-3 p-4 bg-white dark:bg-surface-900 border-b border-surface-200 dark:border-surface-800"
         >
           <div class="flex items-start gap-4">
-            <ui-button
-              variant="secondary"
-              .label=${`← ${__('Indietro')}`}
-              @click=${this.goBack}
-            ></ui-button>
             <div>
-              <h1 class="flex items-center gap-1.5 flex-wrap text-xl font-semibold text-white m-0">
+              <h1
+                class="flex items-center gap-1.5 flex-wrap text-xl font-semibold text-surface-900 dark:text-white m-0"
+              >
                 🗺️ ${__('Gestione Mappe')}
                 <ui-info-tip
                   variant="inline"
@@ -287,14 +268,18 @@ export class MuseumMapPage extends LitElement {
                   )}
                 ></ui-info-tip>
               </h1>
-              <p class="text-sm text-surface-400 m-0">${this.museum?.name || __('Museo')}</p>
+              <p class="text-sm text-surface-500 dark:text-surface-400 m-0">
+                ${this.museum?.name || __('Museo')}
+              </p>
             </div>
           </div>
 
           <div class="flex flex-wrap items-center gap-3">
             ${this.hasChanges
               ? html`
-                  <span class="text-yellow-400 text-sm">● ${__('Modifiche non salvate')}</span>
+                  <span class="text-warning-600 dark:text-warning-400 text-sm"
+                    >● ${__('Modifiche non salvate')}</span
+                  >
                 `
               : nothing}
             <ui-button
@@ -311,13 +296,10 @@ export class MuseumMapPage extends LitElement {
             ></ui-button>
           </div>
         </div>
-
-        <!-- Main Content -->
         <div
           class="grid grid-cols-1 lg:grid-cols-12 gap-4 p-4"
           style="min-height: calc(100vh - 80px);"
         >
-          <!-- Left Panel: Floors, Rooms & Artworks -->
           <div class="lg:col-span-3 xl:col-span-2 space-y-4 overflow-y-auto order-2 lg:order-1">
             <floor-manager
               class="block"
@@ -345,18 +327,18 @@ export class MuseumMapPage extends LitElement {
               @room-outline-remove=${this.handleRoomOutlineRemove}
               @room-generate-markers=${this.handleGenerateRoomMarkers}
             ></room-outline-editor>
-
-            <!-- Artworks List -->
-            <div class="bg-surface-800 rounded-lg overflow-hidden border border-surface-700">
+            <div
+              class="bg-white dark:bg-surface-800 rounded-lg overflow-hidden border border-surface-200 dark:border-surface-700"
+            >
               <button
                 type="button"
-                class="w-full flex justify-between items-center p-4 bg-surface-700 ${this
+                class="w-full flex justify-between items-center p-4 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors ${this
                   .artworksListCollapsed
                   ? ''
-                  : 'border-b border-surface-600'}"
+                  : 'border-b border-surface-200 dark:border-surface-600'}"
                 @click=${() => (this.artworksListCollapsed = !this.artworksListCollapsed)}
               >
-                <h3 class="text-white font-medium text-base m-0">
+                <h3 class="text-surface-900 dark:text-white font-medium text-base m-0">
                   🖼️ ${__('Opere')} (${this.artworks.length})
                 </h3>
                 <ui-icon
@@ -372,7 +354,7 @@ export class MuseumMapPage extends LitElement {
                       ${this.artworks.length > 0
                         ? this.artworks.map((artwork) => this.renderArtworkItem(artwork))
                         : html`
-                            <div class="p-4 text-center text-surface-400">
+                            <div class="p-4 text-center text-surface-500 dark:text-surface-400">
                               <p class="m-0">${__('Nessuna opera nel museo')}</p>
                             </div>
                           `}
@@ -380,8 +362,6 @@ export class MuseumMapPage extends LitElement {
                   `}
             </div>
           </div>
-
-          <!-- Center: Map Editor -->
           <div class="lg:col-span-5 xl:col-span-7 order-1 lg:order-2">
             <svg-map-editor
               .floors=${this.floors}
@@ -400,8 +380,6 @@ export class MuseumMapPage extends LitElement {
               @room-point-add=${this.handleRoomPointAdd}
             ></svg-map-editor>
           </div>
-
-          <!-- Right Panel: Marker Editor -->
           <div class="lg:col-span-4 xl:col-span-3 overflow-y-auto order-3">
             <marker-editor
               .markers=${this.currentMarkers}
@@ -428,9 +406,11 @@ export class MuseumMapPage extends LitElement {
 
     return html`
       <div
-        class="flex items-center gap-3 p-3 border-b border-surface-600 hover:bg-surface-700 transition-colors"
+        class="flex items-center gap-3 p-3 border-b border-surface-100 dark:border-surface-600 hover:bg-surface-50 dark:hover:bg-surface-700 transition-colors"
       >
-        <div class="w-10 h-10 rounded bg-surface-600 overflow-hidden flex-shrink-0 relative">
+        <div
+          class="w-10 h-10 rounded bg-surface-100 dark:bg-surface-600 overflow-hidden flex-shrink-0 relative"
+        >
           ${artwork.image
             ? html`
                 <img
@@ -455,41 +435,23 @@ export class MuseumMapPage extends LitElement {
             : html`<ui-image-placeholder type="artwork" size="xs"></ui-image-placeholder>`}
         </div>
         <div class="flex-1 min-w-0">
-          <div class="text-white text-sm font-medium truncate">${artwork.title}</div>
-          <div class="text-surface-400 text-xs">${artwork.author || __('Artista sconosciuto')}</div>
+          <div class="text-surface-900 dark:text-white text-sm font-medium truncate">
+            ${artwork.title}
+          </div>
+          <div class="text-surface-500 dark:text-surface-400 text-xs">
+            ${artwork.author || __('Artista sconosciuto')}
+          </div>
         </div>
         <div class="flex-shrink-0">
           ${hasPosition
-            ? html`<span class="text-green-400 text-xs">📍</span>`
-            : html`<span class="text-surface-500 text-xs">—</span>`}
+            ? html`<span class="text-success-600 dark:text-success-400 text-xs">📍</span>`
+            : html`<span class="text-surface-400 dark:text-surface-500 text-xs">—</span>`}
         </div>
       </div>
     `;
   }
 
   // ─── Azioni (piani / marker / salvataggio) ──────────────────
-  private async goBack() {
-    if (this.hasChanges) {
-      const confirmed = await modalService.confirm({
-        title: __('Modifiche non salvate'),
-        message: __('Hai modifiche non salvate. Sei sicuro di voler uscire?'),
-        confirmLabel: __('Esci'),
-        cancelLabel: __('Rimani'),
-        variant: 'danger',
-      });
-      if (!confirmed) {
-        return;
-      }
-    }
-
-    this.dispatchEvent(
-      new CustomEvent('navigate-back', {
-        bubbles: true,
-        composed: true,
-      }),
-    );
-  }
-
   private handleFloorSelect(e: CustomEvent) {
     const floor = e.detail as MuseumFloor;
     this.selectedFloorId = floor.id;
@@ -505,10 +467,7 @@ export class MuseumMapPage extends LitElement {
       if (result.data) {
         this.floors = [...this.floors, result.data];
         this.selectedFloorId = result.data.id;
-        // Nota: NON resettare hasChanges qui. Il piano è già stato salvato,
-        // ma potrebbero esserci marker trascinati/modificati su altri piani
-        // ancora in attesa di "Salva Tutto": azzerare il flag li farebbe
-        // perdere silenziosamente (bottone disabilitato, nessun salvataggio).
+        // Non resettare hasChanges: potrebbero esserci marker non ancora salvati su altri piani.
       } else {
         await modalService.error(result.error || __("Errore durante l'aggiunta del piano"));
       }
@@ -523,10 +482,8 @@ export class MuseumMapPage extends LitElement {
 
     try {
       await museumService.updateFloor(this.museumId, floorData.id, floorData);
-      // Aggiorna solo i campi del piano modificati nel form (nome/livello/svg/dimensioni):
-      // floorData.markers/connections sono uno snapshot preso all'apertura del form e
-      // potrebbero essere superati se nel frattempo si sono trascinati dei marker sullo
-      // stesso piano. Manteniamo i marker/connections correnti dallo stato locale.
+      // Aggiorna solo i campi del form: markers/connections restano quelli correnti,
+      // lo snapshot del form potrebbe essere superato da un drag nel frattempo.
       this.floors = this.floors.map((f) =>
         f.id === floorData.id
           ? { ...floorData, markers: f.markers, connections: f.connections }
@@ -664,9 +621,7 @@ export class MuseumMapPage extends LitElement {
     const room = e.detail as MuseumRoom;
     this.roomDrawMode = true;
     this.drawingRoomId = room.id;
-    // Si riparte sempre da zero: "Disegna"/"Ridisegna" sostituisce l'eventuale
-    // contorno precedente invece di continuare a modificarlo, per evitare
-    // ambiguità su dove si trova il "primo punto" di chiusura.
+    // "Disegna"/"Ridisegna" sostituisce l'eventuale contorno precedente, mai lo modifica.
     this.roomDrawPoints = [];
     this.selectedMarker = null;
     this.clickPosition = null;

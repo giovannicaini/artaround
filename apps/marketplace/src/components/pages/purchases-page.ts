@@ -1,7 +1,15 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { Item, User, Visit } from '@artaround/shared';
 import { marketplaceService } from '../../services/marketplace.service';
+import { getLocalizedText } from '../../utils/localized-text';
+import { renderMetaRow } from '../../utils/render-meta-row';
+import {
+  getReferenceTypeLabel,
+  getContentDurationLabel,
+  getLanguageLevelLabel,
+  getLicenseLabel,
+} from '../../utils/enum-labels';
 import '../ui/ui-page-header';
 import '../ui/ui-filter-tabs';
 import '../ui/ui-loading';
@@ -11,9 +19,13 @@ import '../ui/ui-data-grid';
 import '../ui/ui-media-card';
 import '../ui/ui-badge';
 import { __ } from '../../services/i18n.service';
+import { renderFeedbackAlerts } from '../../utils/feedback-alerts';
 
 type PurchaseTab = 'items' | 'visits';
 
+/**
+ * I propri acquisti: item e visite comprati nel marketplace.
+ */
 @customElement('purchases-page')
 export class PurchasesPage extends LitElement {
   @property({ type: Object }) user: User | null = null;
@@ -51,10 +63,13 @@ export class PurchasesPage extends LitElement {
   }
 
   private renderPurchasedItem(item: Item) {
+    const title = getLocalizedText(item.title, item.translatedTitles);
+    const text = getLocalizedText(item.text, item.translatedTexts);
+
     return html`
       <ui-media-card
         .imageSrc=${item.image || ''}
-        .imageAlt=${item.title}
+        .imageAlt=${title}
         placeholderType="content"
         placeholderSize="md"
         aspectClass="aspect-video"
@@ -62,20 +77,29 @@ export class PurchasesPage extends LitElement {
         .renderTopRight=${() =>
           html`<ui-badge variant="primary" size="sm" .label=${__('Acquistato')}></ui-badge>`}
         .renderContent=${() => html`
-          <h3 class="font-semibold text-surface-900 dark:text-white mb-1 line-clamp-1">
-            ${item.title}
-          </h3>
-          <p class="text-sm text-surface-500 dark:text-surface-400 line-clamp-2">${item.text}</p>
+          <h3 class="font-semibold text-surface-900 dark:text-white mb-1 line-clamp-1">${title}</h3>
+          ${renderMetaRow([
+            item.authorName ? `${__('di')} ${item.authorName}` : undefined,
+            getReferenceTypeLabel(item.referenceType),
+            getContentDurationLabel(item.duration),
+            getLanguageLevelLabel(item.languageLevel),
+            item.license ? getLicenseLabel(item.license) : undefined,
+          ])}
+          <p class="text-sm text-surface-500 dark:text-surface-400 line-clamp-2">${text}</p>
         `}
       ></ui-media-card>
     `;
   }
 
   private renderPurchasedVisit(visit: Visit) {
+    const title = getLocalizedText(visit.title, visit.titleTranslations);
+    const description = getLocalizedText(visit.description, visit.descriptionTranslations);
+    const levels = visit.targetAudience?.languageLevels || [];
+
     return html`
       <ui-media-card
         .imageSrc=${visit.coverImage || ''}
-        .imageAlt=${visit.title}
+        .imageAlt=${title}
         placeholderType="museum"
         placeholderSize="md"
         aspectClass="aspect-video"
@@ -83,12 +107,34 @@ export class PurchasesPage extends LitElement {
         .renderTopRight=${() =>
           html`<ui-badge variant="primary" size="sm" .label=${__('Acquistata')}></ui-badge>`}
         .renderContent=${() => html`
-          <h3 class="font-semibold text-surface-900 dark:text-white mb-1 line-clamp-1">
-            ${visit.title}
-          </h3>
-          <p class="text-sm text-surface-500 dark:text-surface-400 line-clamp-2">
-            ${visit.description}
+          <h3 class="font-semibold text-surface-900 dark:text-white mb-1 line-clamp-1">${title}</h3>
+          ${renderMetaRow([
+            visit.authorName ? `${__('di')} ${visit.authorName}` : undefined,
+            visit.targetAudience?.estimatedDuration
+              ? `${visit.targetAudience.estimatedDuration} ${__('min')}`
+              : undefined,
+            visit.metadata?.artworksCount
+              ? `${visit.metadata.artworksCount} ${__('tappe')}`
+              : undefined,
+            visit.metadata?.license ? getLicenseLabel(visit.metadata.license) : undefined,
+          ])}
+          <p class="text-sm text-surface-500 dark:text-surface-400 line-clamp-2 mb-2">
+            ${description}
           </p>
+          ${levels.length > 0
+            ? html`
+                <div class="flex flex-wrap gap-1">
+                  ${levels.map(
+                    (level) =>
+                      html`<ui-badge
+                        variant="secondary"
+                        size="sm"
+                        .label=${getLanguageLevelLabel(level)}
+                      ></ui-badge>`,
+                  )}
+                </div>
+              `
+            : nothing}
         `}
       ></ui-media-card>
     `;
@@ -114,7 +160,7 @@ export class PurchasesPage extends LitElement {
           @filter-change=${(e: CustomEvent) => (this.tab = e.detail.value as PurchaseTab)}
         ></ui-filter-tabs>
 
-        ${this.error ? html`<ui-alert variant="danger" .message=${this.error}></ui-alert>` : ''}
+        ${renderFeedbackAlerts({ error: this.error })}
         ${this.loading
           ? html`<ui-loading .text=${__('Caricamento acquisti...')}></ui-loading>`
           : this.tab === 'items'

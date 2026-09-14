@@ -1,6 +1,9 @@
 import { apiService, getErrorMessage } from './api.service';
 import type { CreditTransaction, TopUpCreditResponse } from '@artaround/shared';
 
+/**
+ * Ricarica e saldo del credito marketplace dell'utente.
+ */
 export class CreditService {
   async topUp(amount: number): Promise<{ balance: number; error?: string }> {
     const response = await apiService.post<TopUpCreditResponse>('/marketplace/credit/topup', {

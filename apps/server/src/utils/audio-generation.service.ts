@@ -87,7 +87,7 @@ export async function generateAudioForText(
   const transcribedWords = await AIService.transcribeWordTimestamps(audioBuffer, language);
   const words = alignWordsToText(text, transcribedWords);
 
-  return { url: `/uploads/${AUDIO_DIR}/${filename}`, words };
+  return { url: `/uploads/${AUDIO_DIR}/${filename}`, words, source: 'ai' };
 }
 
 /** Elimina il file audio su disco di una GeneratedAudio, se presente — usata
@@ -96,4 +96,25 @@ export async function deleteGeneratedAudioFile(audio: GeneratedAudio | undefined
   if (audio?.url) {
     await UploadService.deleteFile(audio.url);
   }
+}
+
+/**
+ * Salva su disco un file audio caricato a mano da un autore (nessuna sintesi
+ * OpenAI, quindi nessuna trascrizione/allineamento parole — `words` resta
+ * vuoto, il Navigator mostra il testo senza evidenziazione parola-per-parola
+ * per questa lingua). Stessa cartella usata da generateAudioForText; `source`
+ * distingue le due provenienze per l'interfaccia (vedi item-audio-panel.ts),
+ * ma per chi ascolta il file è identico.
+ */
+export async function saveUploadedAudioFile(
+  buffer: Buffer,
+  originalName: string,
+): Promise<GeneratedAudio> {
+  const audioDir = path.join(UploadService.getUploadsDir(), AUDIO_DIR);
+  await fs.mkdir(audioDir, { recursive: true });
+  const ext = path.extname(originalName).toLowerCase() || '.mp3';
+  const filename = `${crypto.randomBytes(12).toString('hex')}${ext}`;
+  await fs.writeFile(path.join(audioDir, filename), buffer);
+
+  return { url: `/uploads/${AUDIO_DIR}/${filename}`, words: [], source: 'manual' };
 }

@@ -5,10 +5,7 @@ type PlaceholderType = 'artwork' | 'museum' | 'content' | 'user' | 'default';
 type PlaceholderSize = 'xs' | 'sm' | 'md' | 'lg' | 'full';
 
 /**
- * Componente Image Placeholder
- *
- * Mostra un placeholder stilizzato quando un'immagine non carica o non è disponibile.
- * Usa icone SVG inline per i diversi tipi di contenuto.
+ * Segnaposto per immagine mancante, per tipo di entità.
  */
 @customElement('ui-image-placeholder')
 export class UiImagePlaceholder extends LitElement {

@@ -1,13 +1,15 @@
-/*
- * Tipo usato come result nel service di Wikidata
- *
- */
-
+// Tipo usato come result nel service di Wikidata
 export interface WikidataSearchResult {
   id: string;
   label: string;
   description?: string;
   imageUrl?: string;
+  // Solo per i musei (searchMuseums), se disponibili su Wikidata.
+  address?: string;
+  postalCode?: string;
+  city?: string;
+  country?: string;
+  coordinates?: { lat: number; lng: number };
   author?: string;
   authorId?: string;
   movement?: string;

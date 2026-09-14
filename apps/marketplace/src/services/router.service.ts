@@ -1,21 +1,4 @@
-/**
- * Router Service
- *
- * Sostituisce il vecchio history.service.ts (stack in localStorage, nessuna
- * vera URL): qui la history reale del browser (`pushState`/`popstate`) è
- * l'unica fonte di verità, così avanti/indietro funzionano anche con i
- * bottoni nativi del browser, e ogni stato granulare (non solo le
- * macro-pagine) ha un vero passo di history — stesso approccio già usato da
- * apps/navigator con react-router. Il fallback SPA per i deep-link sotto
- * `/marketplace/*` esiste già lato server (apps/server/src/index.ts).
- *
- * Gli URL sono path "ad hoc" per ogni route (es. `/artworks/:id/edit`), non
- * query string generiche (`?id=...&view=edit`): più leggibili e più vicini
- * alle convenzioni REST già usate da apps/navigator. Ogni route con
- * parametri ha un adattatore dedicato in `routeAdapters` che sa tradurre
- * route+params ↔ segmenti di path; le route senza adattatore non hanno
- * parametri da mettere in URL.
- */
+// Router Service
 
 export interface RouteState {
   route: string;
@@ -36,13 +19,8 @@ interface RouteAdapter {
 
 const BASE_PATH = '/marketplace';
 
-// Rimuove chiavi con valore vuoto/undefined prima di passarle a un adattatore
-// — altrimenti finirebbero nell'URL come segmenti letterali "undefined".
-// 'list' è il viewMode implicito quando assente (ogni pagina lo assume come
-// fallback): non va trattato come un valore diverso da "nessun viewMode",
-// altrimenti una navigazione con params vuoti (es. da un click di menu),
-// seguita dalla pagina stessa che rispecchia il proprio 'list' di default,
-// risulterebbe in due voci di history invece di una.
+// Rimuove chiavi vuote/undefined (altrimenti finirebbero nell'URL come
+// "undefined") e il viewMode 'list' implicito, per non duplicare la history.
 function cleanParams(params: Record<string, string | undefined>): ParamsRecord {
   const result: ParamsRecord = {};
   for (const [key, value] of Object.entries(params)) {
@@ -53,13 +31,7 @@ function cleanParams(params: Record<string, string | undefined>): ParamsRecord {
   return result;
 }
 
-/**
- * Adattatore per le pagine con lo schema "lista di entità, ognuna apribile
- * in vista/modifica": artworks, contents, users. Tutte e tre condividono lo
- * stesso ViewMode ('list' | 'create' | 'edit' | 'view') e lo stesso schema
- * di URL: `/new` per la creazione, `/:id` per la vista, `/:id/edit` per la
- * modifica.
- */
+// Adattatore per le pagine con lo schema "lista di entità, ognuna apribile in vista/modifica": artworks, contents, users.
 function entityViewEditAdapter(idKey: string): RouteAdapter {
   return {
     toSegments(params) {
@@ -125,9 +97,7 @@ const routeAdapters: Record<string, RouteAdapter> = {
     },
   },
 
-  // Mappa museo: nessun ViewMode, solo museo/piano/marker selezionati —
-  // ognuno opzionale ma richiede il precedente (non ha senso un marker senza
-  // un piano).
+  // Mappa museo: solo museo/piano/marker selezionati, ognuno opzionale ma richiede il precedente.
   'museum-maps': {
     toSegments(params) {
       if (!params.museumId) return [];
@@ -170,12 +140,12 @@ function paramsEqual(a: ParamsRecord, b: ParamsRecord): boolean {
   return keysA.every((key) => a[key] === b[key]);
 }
 
+/**
+ * Router basato sulla history del browser, con adattatori per route/parametri di ogni pagina.
+ */
 class RouterService {
-  // seq cresce a ogni pushState di questa sessione di tab; usato solo per
-  // sapere se "avanti" ha senso (non c'è modo standard di chiederlo al
-  // browser). Non persiste da solo: dopo un refresh a metà stack riparte da
-  // qui, "avanti" può risultare disabilitato finché non si ripassa di lì —
-  // il bottone nativo del browser resta comunque sempre funzionante.
+  // seq cresce ad ogni pushState, usato solo per sapere se "avanti" ha senso —
+  // non persiste da solo, dopo un refresh a metà stack riparte da qui.
   private currentSeq = 0;
   private maxSeqSeen = 0;
   private initialized = false;
@@ -188,21 +158,13 @@ class RouterService {
       return;
     }
 
-    // Nessuno stato (raro: navigazione manuale nella barra indirizzi, o
-    // stato salvato da una versione precedente dell'app) — si riparte dal
-    // parsing dell'URL corrente.
+    // Nessuno stato (navigazione manuale nella barra indirizzi) — si riparte dal parsing dell'URL.
     const { route, params } = parseLocation();
     this.currentSeq = 0;
     this.notify({ route, params, title: '', seq: 0 });
   };
 
-  /**
-   * Da chiamare una volta sola all'avvio (connectedCallback di app-root).
-   * Ritorna lo stato iniziale (da `history.state` se già presente — utente
-   * arrivato con back/forward o refresh — altrimenti dal parsing dell'URL,
-   * per un deep-link diretto) e comincia ad ascoltare i bottoni reali del
-   * browser.
-   */
+  // Da chiamare una volta sola all'avvio: ricava lo stato iniziale (history.state se presente, altrimenti dall'URL) e ascolta i bottoni del browser.
   init(): RouteState {
     if (this.initialized) return this.getCurrentState();
     this.initialized = true;
@@ -224,12 +186,7 @@ class RouterService {
     return state;
   }
 
-  /**
-   * Naviga verso una route+parametri. `replace: true` aggiorna la voce di
-   * history corrente invece di aggiungerne una nuova — da usare per i
-   * redirect di permesso (es. accesso negato → dashboard), mai per una vera
-   * navigazione scelta dall'utente.
-   */
+  // `replace: true` aggiorna la voce di history corrente invece di aggiungerne una nuova — solo per redirect di permesso, mai per una navigazione scelta dall'utente.
   navigate(
     route: string,
     params: Record<string, string | undefined> = {},
@@ -238,14 +195,8 @@ class RouterService {
     const cleanedParams = cleanParams(params);
     const title = options.title ?? '';
 
-    // Un cambio di prop innescato dal risultato di una navigazione (es. una
-    // pagina reagisce a `openingViewMode` e ri-emette il proprio stato) può
-    // richiamare navigate() con lo stesso identico route+params appena
-    // applicato: senza questo controllo diventerebbe un passo di history
-    // duplicato, invisibile ma capace di rompere "indietro" (due click
-    // necessari per uscire da uno stato che ne ha richiesto uno solo per
-    // entrarci). Non si applica a un `replace` esplicito, che è comunque
-    // innocuo (sovrascrive la stessa voce).
+    // Una pagina può richiamare navigate() con lo stesso route+params appena applicato: senza
+    // questo controllo diventerebbe un passo di history duplicato.
     if (!options.replace) {
       const current = this.getCurrentState();
       if (route === current.route && paramsEqual(cleanedParams, current.params)) {
@@ -266,14 +217,7 @@ class RouterService {
     this.notify(this.getCurrentState());
   }
 
-  /**
-   * Da chiamare a un login fresco: a differenza del vecchio stack in
-   * localStorage, la vera history del browser non si può svuotare via JS —
-   * qui si azzera solo il contatore avanti/indietro di questa sessione di
-   * tab e si sostituisce la voce corrente con la dashboard, così i due
-   * bottoni disegnati ripartono puliti (il bottone nativo del browser può
-   * comunque tornare a una pagina precedente al login, come qualunque sito).
-   */
+  // Da chiamare a un login fresco: azzera il contatore avanti/indietro e sostituisce la voce corrente con la dashboard.
   reset(): void {
     this.currentSeq = 0;
     this.maxSeqSeen = 0;

@@ -25,6 +25,10 @@ const generatedAudioSchema = new Schema(
         charIndex: { type: Number, required: true },
       },
     ],
+    // Assente sui documenti creati prima della sua introduzione: trattato
+    // come 'ai' in quel caso (era l'unico modo di produrne uno) — vedi
+    // GeneratedAudio in item.types.ts.
+    source: { type: String, enum: ['ai', 'manual'] },
   },
   { _id: false },
 );
@@ -92,14 +96,15 @@ const itemSchema = new Schema<ItemDocument>(
       required: true,
     },
 
-    // Autore
+    // Autore — il nome visualizzato si risolve sempre da authorId al momento
+    // della risposta (vedi author-name.util.ts), mai salvato qui: niente
+    // cache da tenere allineata se l'autore cambia username.
     authorId: {
       type: String,
       required: true,
       ref: 'User',
       index: true,
     },
-    authorName: String,
 
     // Licenza e prezzo
     license: {

@@ -4,23 +4,7 @@ import './ui-button';
 import { __ } from '../../services/i18n.service';
 
 /**
- * UI Form Actions
- *
- * Un footer form coerente con bottoni annulla e invia.
- *
- * @fires cancel - Emesso quando si clicca il bottone annulla
- * @fires submit - Emesso quando si clicca il bottone invia
- *
- * @example
- * ```html
- * <ui-form-actions
- *   submitLabel="Crea Contenuto"
- *   submitIcon="save"
- *   .loading=${this.saving}
- *   @cancel=${() => this.viewMode = 'list'}
- *   @submit=${this.handleSubmit}
- * ></ui-form-actions>
- * ```
+ * Coppia di bottoni Annulla/Salva a fondo form.
  */
 @customElement('ui-form-actions')
 export class UiFormActions extends LitElement {
@@ -31,6 +15,7 @@ export class UiFormActions extends LitElement {
   @property({ type: Boolean }) disabled = false;
   @property({ type: Boolean }) hideCancel = false;
   @property({ type: String }) submitVariant: 'primary' | 'danger' = 'primary';
+  @property({ type: String }) cancelVariant: 'secondary' | 'ghost' = 'secondary';
   @property({ type: String }) align: 'left' | 'center' | 'right' | 'between' = 'right';
 
   // ─── Ciclo di vita ───────────────────────────────────────────
@@ -74,7 +59,7 @@ export class UiFormActions extends LitElement {
           ? html`
               <ui-button
                 type="button"
-                variant="secondary"
+                variant=${this.cancelVariant}
                 .label=${resolvedCancelLabel}
                 @click=${this.handleCancel}
                 ?disabled=${this.loading}

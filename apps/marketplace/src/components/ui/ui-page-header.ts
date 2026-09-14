@@ -5,23 +5,7 @@ import './ui-button';
 import './ui-info-tip';
 
 /**
- * UI Page Header
- *
- * Un'intestazione di pagina coerente con titolo, descrizione e slot azioni.
- *
- * @slot actions - Slot per i bottoni d'azione
- *
- * @example
- * ```html
- * <ui-page-header
- *   title="Contents"
- *   .description=${__('Gestisci i tuoi contenuti')}
- *   .count=${100}
- *   .countLabel=${__('contenuti totali')}
- * >
- *   <ui-button slot="actions" variant="primary" icon="plus" label="Nuovo"></ui-button>
- * </ui-page-header>
- * ```
+ * Intestazione di pagina con titolo, descrizione e bottone indietro opzionali.
  */
 @customElement('ui-page-header')
 export class UiPageHeader extends LitElement {

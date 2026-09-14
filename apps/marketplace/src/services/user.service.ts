@@ -9,6 +9,9 @@ import type {
 } from '@artaround/shared';
 import { __ } from './i18n.service';
 
+/**
+ * CRUD utenti e assegnazione di ruoli museo (curatore/autore).
+ */
 class UserService {
   async getUsers(params: GetUsersParams = {}): Promise<UsersResponse> {
     const searchParams = new URLSearchParams();
@@ -69,9 +72,7 @@ class UserService {
     return { message: response.message || 'Utente disattivato' };
   }
 
-  // Ruolo globale: è solo un booleano (User.isAdmin). Curatore/autore non
-  // sono ruoli globali: si è curatore o autore solo di uno o più musei
-  // specifici — vedi museumService.getCurators/addCurator/addAuthor.
+  // Ruolo globale: è solo User.isAdmin. Curatore/autore non sono globali, sempre relativi a un museo.
   getRoleLabel(isAdmin: boolean): string {
     return isAdmin ? __('Amministratore') : __('Utente');
   }

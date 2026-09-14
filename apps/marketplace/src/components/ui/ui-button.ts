@@ -2,6 +2,9 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './ui-icon';
 
+/**
+ * Bottone con varianti, dimensioni e stato di caricamento.
+ */
 @customElement('ui-button')
 export class UiButton extends LitElement {
   @property({ type: String }) variant: 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline' =
@@ -37,16 +40,14 @@ export class UiButton extends LitElement {
 
   private get variantClasses() {
     const variants: Record<string, string> = {
-      primary:
-        'bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500 active:bg-brand-800',
+      primary: 'gradient-aurora text-white shadow-glow hover:brightness-110 focus:ring-brand-500',
       secondary:
-        'bg-white text-surface-700 border border-surface-300 hover:bg-surface-50 focus:ring-brand-500 dark:bg-surface-800 dark:text-surface-100 dark:border-surface-600 dark:hover:bg-surface-700',
+        'bg-white text-brand-700 border border-brand-200 hover:border-brand-400 hover:bg-brand-50/60 focus:ring-brand-500 dark:bg-surface-800 dark:text-brand-300 dark:border-brand-800/70 dark:hover:border-brand-600 dark:hover:bg-brand-900/20',
       ghost:
         'text-surface-600 hover:bg-surface-100 focus:ring-brand-500 dark:text-surface-300 dark:hover:bg-surface-800',
       danger:
         'bg-danger-600 text-white hover:bg-danger-700 focus:ring-danger-500 active:bg-danger-800',
-      outline:
-        'bg-transparent text-brand-600 border border-brand-300 hover:bg-brand-50 focus:ring-brand-500 dark:text-brand-400 dark:border-brand-600 dark:hover:bg-brand-900/20',
+      outline: 'btn-gradient-outline text-brand-700 dark:text-brand-300 focus:ring-brand-500',
     };
     return variants[this.variant];
   }

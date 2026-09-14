@@ -14,8 +14,12 @@ export type UpdateProfileData = {
   preferences?: Partial<UserPreferences>;
 };
 
+/**
+ * Login, registrazione, sessione utente e preferenze legate all'account.
+ */
 export class AuthService {
-  private static readonly PRESERVED_STORAGE_KEYS = ['theme', 'accessibility'];
+  // "seenTours" è una preferenza di dispositivo: deve sopravvivere a logout/login.
+  private static readonly PRESERVED_STORAGE_KEYS = ['theme', 'accessibility', 'seenTours'];
 
   private resetStorageForFreshLogin(): void {
     try {
@@ -53,15 +57,18 @@ export class AuthService {
     return null;
   }
 
-  async register(data: RegisterRequest): Promise<User | null> {
+  async register(data: RegisterRequest): Promise<{ user: User | null; error?: string }> {
     const response = await apiService.post<{ user: User; token: string }>('/auth/register', data);
 
     if (response.success && response.data) {
+      // Come login(): un account appena creato è una sessione nuova a tutti
+      // gli effetti, stesso reset di router/museo selezionato.
+      this.resetStorageForFreshLogin();
       localStorage.setItem('authToken', response.data.token);
-      return response.data.user;
+      return { user: response.data.user };
     }
 
-    return null;
+    return { user: null, error: getErrorMessage(response, 'Registrazione non riuscita') };
   }
 
   async getCurrentUser(): Promise<User | null> {

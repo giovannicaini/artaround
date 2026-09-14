@@ -28,10 +28,17 @@ export interface AudioWordTiming {
   charIndex: number; // posizione di questa parola nel testo originale
 }
 
-/** Audio generato con OpenAI per un testo in una lingua specifica. */
+/**
+ * Audio (generato con OpenAI o caricato a mano) per un testo in una lingua
+ * specifica. `source` manca sui documenti creati prima della sua
+ * introduzione: sempre 'ai' in quel caso (era l'unico modo di produrne uno),
+ * quindi il client la tratta come 'ai' quando assente — vedi
+ * item-audio-panel.ts.
+ */
 export interface GeneratedAudio {
   url: string;
   words: AudioWordTiming[];
+  source?: 'ai' | 'manual';
 }
 
 // ========================================
@@ -67,7 +74,9 @@ export interface Item {
 
   // Autore
   authorId: string; // ID dell'utente che ha creato questo contenuto
-  authorName?: string; // Nome autore in cache
+  // Mai salvato: risolto dall'authorId al momento della risposta, vedi
+  // author-name.util.ts lato server.
+  authorName?: string;
 
   // Licenza e prezzo
   license: LicenseType;
@@ -164,6 +173,13 @@ export interface WikidataEntity {
   dimensionDepth?: number;
   dimensionUnit?: 'cm' | 'm';
   properties?: Record<string, unknown>; // Proprietà raw per eventuali ricerche aggiuntive
+
+  // Solo per i musei (WikidataService.searchMuseums), se disponibili.
+  address?: string;
+  postalCode?: string;
+  city?: string;
+  country?: string;
+  coordinates?: { lat: number; lng: number };
 }
 
 // ========================================

@@ -8,21 +8,7 @@ import './ui-icon';
 import './ui-icon-button';
 
 /**
- * Riga compatta per un'azione AI a lungo termine tracciata come Job (audio
- * generato, sincronizzazione traduzioni — vedi jobs.service.ts): icona,
- * etichetta, spiegazione dietro un'icona "ⓘ" invece di un paragrafo sempre
- * visibile, bottone che passa da un modale di conferma prima di emettere
- * 'start' (chi la usa fa la vera chiamata API al conferma, poi passa
- * `.loading`). Calcola da sé, da `.jobs` (l'intera lista, così il chiamante
- * non deve ricalcolare filtri ripetuti in ogni pagina):
- * - un job di questo `jobType` già attivo per QUESTA risorsa (`museumId`/
- *   `visitId`, se dati) → banner inline al posto del bottone;
- * - un job dello stesso `jobType` attivo altrove → bottone disabilitato con
- *   nota (l'esclusione reciproca è per-tipo, non per risorsa: vedi
- *   jobs.service.ts lato server).
- *
- * @fires start - L'utente ha confermato nel modale: il chiamante esegue la
- *   vera chiamata API e imposta `.loading` finché non risponde.
+ * Azione AI a lungo termine tracciata come Job (audio, traduzioni), con conferma prima di avviarla.
  */
 @customElement('ai-job-action')
 export class AiJobAction extends LitElement {

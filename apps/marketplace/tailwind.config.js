@@ -5,18 +5,22 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Stessa scala viola di apps/navigator (main.css, --color-brand-*):
+        // il marketplace riprende l'accento del Navigator per pulsanti,
+        // titoli e link, restando però chiaro di default (solo l'accento
+        // cambia, non la scala surface che regola chiaro/scuro).
         brand: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
-          950: '#172554',
+          50: '#f5f1ff',
+          100: '#ebe1ff',
+          200: '#d7c4ff',
+          300: '#b894ff',
+          400: '#9d6bff',
+          500: '#8b3ffc',
+          600: '#7623e0',
+          700: '#5f1abd',
+          800: '#4a1494',
+          900: '#380f70',
+          950: '#22083f',
         },
         surface: {
           50: '#fafafa',
@@ -71,6 +75,9 @@ export default {
         soft: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
         medium: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
         strong: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+        // Stesso alone viola di apps/navigator (tailwind.config.ts, "glow"),
+        // sul pulsante primario in gradiente.
+        glow: '0 8px 32px -8px rgb(139 63 252 / 0.45)',
       },
       borderRadius: {
         xl: '0.75rem',

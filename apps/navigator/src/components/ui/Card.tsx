@@ -35,7 +35,7 @@ interface BaseProps {
   className?: string;
 }
 
-/** Card statiche (info, testo)*/
+// Card statiche (info, testo).
 export function Card({
   children,
   className = '',
@@ -48,7 +48,7 @@ export function Card({
   );
 }
 
-/** Card cliccabile */
+// Card cliccabile.
 export function PressableCard({
   children,
   className = '',

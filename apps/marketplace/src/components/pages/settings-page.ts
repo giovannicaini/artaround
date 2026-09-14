@@ -36,10 +36,7 @@ const TIME_LABELS: Record<TimePreference, string> = {
 };
 
 /**
- * Pagina "Impostazioni": self-service profilo + password per QUALSIASI utente
- * loggato (a differenza di users-page.ts, che è la gestione utenti riservata
- * agli admin). Usa PUT /api/auth/me e /api/auth/me/password, non
- * PUT /api/users/:id (che richiede ruolo admin).
+ * Impostazioni account: profilo, password e credito, per qualunque utente loggato.
  */
 @customElement('settings-page')
 export class SettingsPage extends LitElement {
@@ -169,12 +166,7 @@ export class SettingsPage extends LitElement {
     }
   }
 
-  /**
-   * Ricarica simulata: nessun pagamento reale, l'importo scelto viene
-   * accreditato subito. Il saldo aggiornato arriva dal backend e viene
-   * propagato con lo stesso evento "user-updated" già usato dal salvataggio
-   * profilo, così l'header (che mostra il saldo) si aggiorna da solo.
-   */
+  // Ricarica simulata: nessun pagamento reale, l'importo scelto viene accreditato subito.
   private async handleTopUp(amount: number) {
     this.topUpError = '';
     this.topUpSuccess = '';

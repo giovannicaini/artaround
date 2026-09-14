@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { ItemController } from '../controllers/item.controller.js';
 import { authMiddleware as authenticate } from '../middleware/index.js';
 import { authorizeCreate } from '../utils/policy.util.js';
+import { audioUpload } from '../utils/upload.service.js';
 
 const router = Router();
 
@@ -358,6 +359,93 @@ router.post(
  *         description: Item aggiornato
  */
 router.put('/:id', authenticate, ItemController.updateValidation, ItemController.update);
+
+/**
+ * @swagger
+ * /api/items/{id}/audio:
+ *   post:
+ *     tags: [Items]
+ *     summary: Carica l'audio di una lingua (owner, admin o curatore)
+ *     description: >
+ *       Sostituisce l'audio esistente di quella lingua, se presente (file
+ *       precedente eliminato). A differenza dell'audio generato con
+ *       "genera-audio", un audio caricato non ha evidenziazione parola per
+ *       parola nel Navigator.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *               language:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Audio caricato
+ */
+router.post('/:id/audio', authenticate, audioUpload.single('file'), ItemController.uploadAudio);
+
+/**
+ * @swagger
+ * /api/items/{id}/audio/{language}:
+ *   delete:
+ *     tags: [Items]
+ *     summary: Elimina l'audio di una lingua (owner, admin o curatore)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: language
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Audio eliminato
+ */
+router.delete('/:id/audio/:language', authenticate, ItemController.deleteAudio);
+
+/**
+ * @swagger
+ * /api/items/{id}/generate-audio:
+ *   post:
+ *     tags: [Items]
+ *     summary: Genera con OpenAI l'audio mancante di questo item (owner, admin o curatore)
+ *     description: >
+ *       Genera l'audio (voce + evidenziazione parola per parola) per la
+ *       lingua sorgente e ogni traduzione già scritta che non ha ancora un
+ *       audio (caricato o generato) — sincrono, risponde solo a fine
+ *       generazione.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Audio generato
+ */
+router.post('/:id/generate-audio', authenticate, ItemController.generateAudio);
 
 /**
  * @swagger

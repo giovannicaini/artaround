@@ -2,6 +2,9 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './ui-info-tip';
 
+/**
+ * Area di testo multi-riga con etichetta e aiuto.
+ */
 @customElement('ui-textarea')
 export class UiTextarea extends LitElement {
   @property({ type: String }) label = '';

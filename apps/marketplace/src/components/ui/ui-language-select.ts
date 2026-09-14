@@ -4,6 +4,9 @@ import { APP_LANGUAGE_META, type AppLanguage } from '@artaround/shared';
 import { __ } from '../../services/i18n.service';
 import './ui-icon';
 
+/**
+ * Select delle lingue attive, con bandiera ed etichetta.
+ */
 @customElement('ui-language-select')
 export class UiLanguageSelect extends LitElement {
   @property({ type: String }) label = '';

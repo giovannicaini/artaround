@@ -8,6 +8,9 @@ export interface SearchListPickerOption {
   label: string;
 }
 
+/**
+ * Selettore con ricerca per scegliere una o più entità da una lista.
+ */
 @customElement('ui-search-list-picker')
 export class UiSearchListPicker extends LitElement {
   @property({ type: String }) label = '';

@@ -1,37 +1,37 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state, property } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
+import { DeletableMixin, HistorySyncMixin } from '../../base';
+import { renderControlsSummaryBadge } from '../../utils/list-controls';
+import { renderFeedbackAlerts } from '../../utils/feedback-alerts';
 import type { TableColumn, TableAction } from '../ui/ui-table';
 import type { CircleMarker as LeafletCircleMarker, Map as LeafletMap } from 'leaflet';
 import { museumService } from '../../services/museum.service';
-import { userService } from '../../services/user.service';
 import { uploadService } from '../../services/upload.service';
 import { translationService } from '../../services/translation.service';
 import { modalService } from '../../services/modal.service';
-import { navigatorConfigService } from '../../services/navigator-config.service';
 import { jobsService, type Job } from '../../services/jobs.service';
 import type {
   Museum,
   User,
   CreateMuseumData,
-  MuseumCurator,
   MuseumRoom,
   MuseumService,
   MapMarker,
   MarkerType,
   AppLanguage,
-  NavigatorConfig,
-  CreateNavigatorConfigData,
 } from '@artaround/shared';
 import { MUSEUM_SERVICE_TYPE_OPTIONS, MARKER_TYPE_META } from '@artaround/shared';
 
 import { isMuseumCurator } from '../../services/permissions.service';
 import '../ui/ui-button';
+import '../ui/ui-form-actions';
+import '../ui/ui-view-toggle';
 import '../ui/ai-job-action';
-import '../ui/ui-card';
+import '../ui/ui-panel-section';
 import '../ui/ui-icon';
 import '../ui/ui-input';
 import '../ui/ui-select';
+import '../ui/ui-language-select';
 import '../ui/ui-badge';
 import '../ui/ui-modal';
 import '../ui/ui-image-placeholder';
@@ -43,33 +43,25 @@ import '../ui/ui-icon-button';
 import '../ui/ui-textarea';
 import '../ui/ui-checkbox';
 import '../ui/ui-data-grid';
+import '../ui/ui-media-card';
 import '../ui/ui-table';
 import '../ui/ui-list-controls';
-import '../ui/ui-color-input';
 import '../ui/ui-info-tip';
 import '../ui/image-editor';
 import '../items/wikidata-autocomplete';
+import './museum-navigator-configs-panel';
+import './museum-curators-page';
+import './museum-rooms-panel';
+import './museum-languages-panel';
+import { type TranslatableService } from './museum-translations-panel';
+import './museum-translations-panel';
 import { __, i18nService } from '../../services/i18n.service';
 import {
   buildTranslationLanguageOptions,
   isLanguageFullyTranslated,
+  cleanTranslationMap,
 } from '../../utils/translation-fields';
-import {
-  HEX_COLOR_REGEX,
-  SLUG_REGEX,
-  sanitizeSlug,
-  updateNavigatorConfigTranslationField,
-  getNavigatorImageEditorDefinitions,
-  renderNavigatorImageEditors,
-  renderNavigatorColorField,
-  renderNavigatorTranslationsSection,
-  computeNavigatorMissingTranslations,
-  NAVIGATOR_FONT_SELECT_OPTIONS,
-  type NavigatorConfigFormData,
-  type NavigatorColorFieldKey,
-  type NavigatorTranslationFieldKey,
-  type NavigatorImageFieldKey,
-} from '../../utils/navigator-config';
+import { getAppLanguageLabel } from '../../utils/language-label';
 import 'leaflet/dist/leaflet.css';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'view' | 'curators';
@@ -102,23 +94,14 @@ interface MuseumFormData {
 }
 
 /**
- * Pagina Gestione Musei
- *
- * Interfaccia admin per gestire musei e assegnazioni curatori.
- * Solo gli admin possono creare/eliminare musei.
- * Admin e curatori possono modificare i musei a cui hanno accesso.
+ * Gestione musei: lista e form di modifica/creazione (solo admin crea/elimina).
  */
 @customElement('museums-management-page')
-export class MuseumsManagementPage extends LitElement {
-  private readonly navigatorImageEditors = getNavigatorImageEditorDefinitions();
-
+export class MuseumsManagementPage extends DeletableMixin(HistorySyncMixin(LitElement)) {
   @property({ type: Object }) currentUser: User | null = null;
   @property({ type: String }) selectedMuseumId = '';
   @property({ type: String }) configMode: 'full' | 'museum' | 'navigator' = 'full';
-  // Solo per configMode 'full' (la lista "Gestione Musei"): quale museo/vista
-  // aprire, per la history granulare — l'omologo di selectedMuseumId sopra
-  // serve invece al caso configMode !== 'full', dove non c'è una lista da cui
-  // tornare (vedi loadSelectedMuseumForConfigMode).
+  // Solo per configMode 'full': quale museo/vista aprire, per la history granulare.
   @property({ type: String }) openingMuseumId = '';
   @property({ type: String }) openingViewMode: ViewMode = 'list';
 
@@ -129,9 +112,7 @@ export class MuseumsManagementPage extends LitElement {
   @state() private saving = false;
   @state() private syncingLanguages = false;
   @state() private generatingAudio = false;
-  // Rispecchia jobsService.getJobs() (vedi handleJobsChanged) — reattivo qui
-  // solo per far ridisegnare bottone/banner "Genera audio mancante" quando
-  // un job parte/avanza/finisce, non è la fonte di verità (quella resta jobsService).
+  // Rispecchia jobsService.getJobs() solo per ridisegnare bottone/banner quando un job avanza.
   @state() private jobs: Job[] = jobsService.getJobs();
   @state() private translatingMuseumFields = false;
   @state() private error = '';
@@ -158,32 +139,9 @@ export class MuseumsManagementPage extends LitElement {
   // Form data
   @state() private formData: MuseumFormData = this.getEmptyFormData();
 
-  // Delete modal
-  @state() private deleteModalOpen = false;
-  @state() private museumToDelete: Museum | null = null;
-  @state() private deleting = false;
-
-  // Curator management
-  @state() private curators: MuseumCurator[] = [];
-  @state() private loadingCurators = false;
-  @state() private availableUsers: User[] = [];
-  @state() private loadingUsers = false;
-  @state() private selectedUserId = '';
-  @state() private addingCurator = false;
-  @state() private removingCuratorId: string | null = null;
   @state() private geocodingLocation = false;
   @state() private geocodingStatus = '';
   @state() private museumTranslationLanguage: AppLanguage | null = null;
-
-  // Configurazioni Navigator del museo: documenti separati, CRUD via
-  // /api/navigator-configs — vedi loadNavigatorConfigs/saveNavigatorConfig.
-  @state() private navigatorConfigs: NavigatorConfigFormData[] = [];
-  @state() private loadingNavigatorConfigs = false;
-  @state() private editingNavigatorConfig: NavigatorConfigFormData | null = null;
-  @state() private savingNavigatorConfig = false;
-  @state() private deletingNavigatorConfigId: string | null = null;
-  @state() private translatingNavigatorConfig = false;
-  @state() private navigatorConfigTranslationLanguage: AppLanguage | null = null;
 
   private leafletModule: typeof import('leaflet') | null = null;
   private locationMap: LeafletMap | null = null;
@@ -211,16 +169,6 @@ export class MuseumsManagementPage extends LitElement {
 
   private readonly defaultVisibleColumns = ['name', 'city', 'country', 'status'];
 
-  private get languageOptions(): Array<{ value: AppLanguage; label: string }> {
-    return [
-      { value: 'it', label: `🇮🇹 ${__('Italiano')}` },
-      { value: 'en', label: `🇬🇧 ${__('English')}` },
-      { value: 'fr', label: `🇫🇷 ${__('Français')}` },
-      { value: 'de', label: `🇩🇪 ${__('Deutsch')}` },
-      { value: 'es', label: `🇪🇸 ${__('Español')}` },
-    ];
-  }
-
   // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
     return this;
@@ -238,9 +186,7 @@ export class MuseumsManagementPage extends LitElement {
     void jobsService.refresh();
   }
 
-  // this.jobs (non jobsService.getJobs() direttamente) è anche il motivo per
-  // cui Lit ridisegna quando jobsService avanza — i due ai-job-action nel
-  // template leggono `.jobs` e calcolano da sé banner/disabled per tipo.
+  // this.jobs (non jobsService.getJobs() diretto) è il motivo per cui Lit ridisegna.
   private handleJobsChanged = (e: Event): void => {
     this.jobs = (e as CustomEvent<Job[]>).detail;
   };
@@ -266,9 +212,7 @@ export class MuseumsManagementPage extends LitElement {
         } else if (this.openingViewMode === 'create') {
           this.viewMode = 'create';
         }
-        // 'edit'/'curators' li applica loadOpeningMuseum una volta arrivati i
-        // dati del museo (vedi sotto): impostarli qui, subito, mostrerebbe il
-        // form/la vista curatori con selectedMuseum ancora null.
+        // 'edit'/'curators' li applica loadOpeningMuseum, o mostrerebbero il form con selectedMuseum null.
       }
     }
 
@@ -297,25 +241,14 @@ export class MuseumsManagementPage extends LitElement {
     }
   }
 
-  /**
-   * Stato granulare (viewMode + museo selezionato) verso app-root, per la
-   * history — stesso schema di artworks-page.ts. Attivo solo in modalità
-   * 'full': in 'museum'/'navigator' non c'è una lista, e backToList() già
-   * gestisce quel caso a parte (navigate verso dashboard).
-   */
+  // Stato granulare (viewMode + museo) verso app-root, per la history —
+  // solo in modalità 'full', dove esiste una lista da cui tornare.
   private emitStateChange(): void {
     if (this.configMode !== 'full') return;
 
     const hasMuseumContext = this.viewMode === 'edit' || this.viewMode === 'curators';
     const museumId = hasMuseumContext ? this.selectedMuseum?._id || this.openingMuseumId || '' : '';
-
-    this.dispatchEvent(
-      new CustomEvent('page-state-changed', {
-        detail: { viewMode: this.viewMode, museumId },
-        bubbles: true,
-        composed: true,
-      }),
-    );
+    this.emitPageStateChange({ viewMode: this.viewMode, museumId });
   }
 
   disconnectedCallback() {
@@ -362,118 +295,6 @@ export class MuseumsManagementPage extends LitElement {
       coverImage: '',
       services: [],
     };
-  }
-
-  // Form vuoto per una nuova NavigatorConfig di questo museo (applicability
-  // 'museum'), salvata via navigatorConfigService.create.
-  private getEmptyNavigatorConfigFormData(): NavigatorConfigFormData {
-    return {
-      id: '',
-      name: '',
-      slug: '',
-      applicability: 'museum',
-      museumId: this.selectedMuseumId,
-      logo: '',
-      splashImage: '',
-      primaryColor: '#0ea5e9',
-      secondaryColor: '#1f2937',
-      appBackgroundColor: '',
-      displayFont: '',
-      bodyFont: '',
-      homeTitle: '',
-      homeTitleTranslations: {},
-      welcomeText: '',
-      welcomeTextTranslations: {},
-      openingImage: '',
-      featuredMuseumId: '',
-      manifestName: '',
-      shortName: '',
-      manifestDescription: '',
-      manifestDescriptionTranslations: {},
-      themeColor: '#0ea5e9',
-      backgroundColor: '#ffffff',
-      display: 'standalone',
-      orientation: 'portrait',
-      startUrl: '/',
-      scope: '/',
-      icon192: '',
-      icon512: '',
-      iconMaskable: '',
-      appleTouchIcon: '',
-    };
-  }
-
-  private normalizeIncomingNavigatorTranslations(
-    value: Partial<Record<AppLanguage, string>> | Map<string, string> | undefined,
-  ): Partial<Record<AppLanguage, string>> {
-    if (!value) return {};
-    if (value instanceof Map) {
-      return Object.fromEntries(value.entries()) as Partial<Record<AppLanguage, string>>;
-    }
-    return value;
-  }
-
-  private mapNavigatorConfigToFormData(config: NavigatorConfig): NavigatorConfigFormData {
-    return {
-      id: config._id,
-      name: config.name,
-      slug: config.slug,
-      applicability: config.applicability,
-      museumId: config.museumId || '',
-      logo: config.branding.logo || '',
-      splashImage: config.branding.splashImage || '',
-      primaryColor: config.branding.primaryColor,
-      secondaryColor: config.branding.secondaryColor || '',
-      appBackgroundColor: config.branding.backgroundColor || '',
-      displayFont: config.branding.displayFont || '',
-      bodyFont: config.branding.bodyFont || '',
-      homeTitle: config.content?.homeTitle || '',
-      homeTitleTranslations: this.normalizeIncomingNavigatorTranslations(
-        config.content?.homeTitleTranslations,
-      ),
-      welcomeText: config.content?.welcomeText || '',
-      welcomeTextTranslations: this.normalizeIncomingNavigatorTranslations(
-        config.content?.welcomeTextTranslations,
-      ),
-      openingImage: config.content?.openingImage || '',
-      featuredMuseumId: config.content?.featuredMuseumId || '',
-      manifestName: config.pwa.manifestName,
-      shortName: config.pwa.shortName,
-      manifestDescription: config.pwa.description || '',
-      manifestDescriptionTranslations: this.normalizeIncomingNavigatorTranslations(
-        config.pwa.descriptionTranslations,
-      ),
-      themeColor: config.pwa.themeColor,
-      backgroundColor: config.pwa.backgroundColor,
-      display: config.pwa.display,
-      orientation: config.pwa.orientation,
-      startUrl: config.pwa.startUrl,
-      scope: config.pwa.scope,
-      icon192: config.pwa.icon192 || '',
-      icon512: config.pwa.icon512 || '',
-      iconMaskable: config.pwa.iconMaskable || '',
-      appleTouchIcon: config.pwa.appleTouchIcon || '',
-    };
-  }
-
-  private async loadNavigatorConfigs() {
-    if (!this.selectedMuseumId) return;
-
-    this.loadingNavigatorConfigs = true;
-    try {
-      const all = await navigatorConfigService.list();
-      // list() è già filtrata dal server per i curatori; per un admin include
-      // le config di TUTTI i musei, quindi il filtro per museumId qui serve
-      // comunque a mostrare solo quelle di questo museo.
-      this.navigatorConfigs = all
-        .filter((c) => c.applicability === 'museum' && c.museumId === this.selectedMuseumId)
-        .map((c) => this.mapNavigatorConfigToFormData(c));
-    } catch (e) {
-      console.error('Error loading navigator configs:', e);
-      this.error = __('Errore nel caricamento delle configurazioni navigator');
-    } finally {
-      this.loadingNavigatorConfigs = false;
-    }
   }
 
   private hasRequiredLocationForGeocoding(): boolean {
@@ -677,22 +498,11 @@ export class MuseumsManagementPage extends LitElement {
   private normalizeTranslationMap(
     values: Partial<Record<AppLanguage, string>>,
   ): Partial<Record<AppLanguage, string>> | undefined {
-    const source = this.getActiveSourceLanguage();
-    const targets = new Set(this.getMuseumTargetLanguages());
-    const cleaned: Partial<Record<AppLanguage, string>> = {};
-
-    for (const [langRaw, valueRaw] of Object.entries(values)) {
-      const lang = langRaw as AppLanguage;
-      const value = String(valueRaw || '').trim();
-
-      if (!value) continue;
-      if (lang === source) continue;
-      if (!targets.has(lang)) continue;
-
-      cleaned[lang] = value;
-    }
-
-    return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+    return cleanTranslationMap(
+      values,
+      this.getActiveSourceLanguage(),
+      this.getMuseumTargetLanguages(),
+    );
   }
 
   private getLocalizedMuseumName(museum: Museum | null): string {
@@ -826,234 +636,6 @@ export class MuseumsManagementPage extends LitElement {
   }
 
   // ─── Configurazioni Navigator (CRUD via /api/navigator-configs) ────
-  private openNewNavigatorConfig() {
-    this.editingNavigatorConfig = this.getEmptyNavigatorConfigFormData();
-    this.navigatorConfigTranslationLanguage = null;
-    this.error = '';
-    this.success = '';
-  }
-
-  private openEditNavigatorConfig(config: NavigatorConfigFormData) {
-    this.editingNavigatorConfig = { ...config };
-    this.navigatorConfigTranslationLanguage = null;
-    this.error = '';
-    this.success = '';
-  }
-
-  private cancelEditNavigatorConfig() {
-    this.editingNavigatorConfig = null;
-  }
-
-  private updateEditingNavigatorConfig(patch: Partial<NavigatorConfigFormData>) {
-    if (!this.editingNavigatorConfig) return;
-    this.editingNavigatorConfig = { ...this.editingNavigatorConfig, ...patch };
-  }
-
-  private updateEditingNavigatorTranslationField(
-    field: NavigatorTranslationFieldKey,
-    language: AppLanguage,
-    value: string,
-  ) {
-    if (!this.editingNavigatorConfig) return;
-    const [updated] = updateNavigatorConfigTranslationField(
-      [this.editingNavigatorConfig],
-      this.editingNavigatorConfig.id,
-      field,
-      language,
-      value,
-    );
-    this.editingNavigatorConfig = updated;
-  }
-
-  private async translateMissingNavigatorFields() {
-    const config = this.editingNavigatorConfig;
-    if (!config) return;
-
-    const sourceLanguage = this.getActiveSourceLanguage();
-    const targets = this.getMuseumTargetLanguages();
-
-    if (targets.length === 0) {
-      this.error = __('Seleziona almeno una lingua aggiuntiva per tradurre il navigator');
-      return;
-    }
-
-    this.translatingNavigatorConfig = true;
-    this.error = '';
-
-    try {
-      const patch = await computeNavigatorMissingTranslations(config, sourceLanguage, targets);
-      if (!patch) {
-        this.success = __('Le traduzioni navigator sono già complete');
-        return;
-      }
-
-      this.editingNavigatorConfig = { ...config, ...patch };
-      this.success = __('Traduzioni navigator generate con successo');
-    } catch {
-      this.error = __('Traduzione automatica non riuscita');
-    } finally {
-      this.translatingNavigatorConfig = false;
-    }
-  }
-
-  private validateNavigatorConfigBeforeSave(): string | null {
-    const config = this.editingNavigatorConfig;
-    if (!config) return __('Nessuna configurazione da salvare');
-
-    if (!config.name.trim()) return __('Il nome è obbligatorio');
-
-    const slug = sanitizeSlug(config.slug);
-    if (!slug || !SLUG_REGEX.test(slug)) return __('Slug non valido');
-
-    if (!config.manifestName.trim() || !config.shortName.trim()) {
-      return __('Nome manifest e nome breve manifest sono obbligatori');
-    }
-
-    const colors = [
-      config.primaryColor,
-      config.themeColor,
-      config.backgroundColor,
-      config.secondaryColor,
-      config.appBackgroundColor,
-    ].filter(Boolean);
-
-    for (const color of colors) {
-      if (!HEX_COLOR_REGEX.test(color.trim())) {
-        return `${__('Colore non valido')}. ${__('Usa formato HEX (es. #0ea5e9)')}`;
-      }
-    }
-
-    return null;
-  }
-
-  private toNavigatorConfigPayload(): CreateNavigatorConfigData {
-    const config = this.editingNavigatorConfig!;
-    return {
-      name: config.name,
-      slug: sanitizeSlug(config.slug),
-      applicability: 'museum',
-      museumId: this.selectedMuseumId,
-      branding: {
-        logo: config.logo || undefined,
-        splashImage: config.splashImage || undefined,
-        primaryColor: config.primaryColor,
-        secondaryColor: config.secondaryColor || undefined,
-        backgroundColor: config.appBackgroundColor || undefined,
-        displayFont: (config.displayFont ||
-          undefined) as CreateNavigatorConfigData['branding']['displayFont'],
-        bodyFont: (config.bodyFont ||
-          undefined) as CreateNavigatorConfigData['branding']['bodyFont'],
-      },
-      content: {
-        homeTitle: config.homeTitle || undefined,
-        homeTitleTranslations: this.normalizeTranslationMap(config.homeTitleTranslations),
-        welcomeText: config.welcomeText || undefined,
-        welcomeTextTranslations: this.normalizeTranslationMap(config.welcomeTextTranslations),
-        openingImage: config.openingImage || undefined,
-      },
-      pwa: {
-        manifestName: config.manifestName,
-        shortName: config.shortName,
-        description: config.manifestDescription || undefined,
-        descriptionTranslations: this.normalizeTranslationMap(
-          config.manifestDescriptionTranslations,
-        ),
-        themeColor: config.themeColor,
-        backgroundColor: config.backgroundColor,
-        display: config.display,
-        orientation: config.orientation,
-        startUrl: config.startUrl || '/',
-        scope: config.scope || '/',
-        icon192: config.icon192 || undefined,
-        icon512: config.icon512 || undefined,
-        iconMaskable: config.iconMaskable || undefined,
-        appleTouchIcon: config.appleTouchIcon || undefined,
-      },
-    };
-  }
-
-  private async saveNavigatorConfig() {
-    this.error = '';
-    this.success = '';
-
-    const validationError = this.validateNavigatorConfigBeforeSave();
-    if (validationError) {
-      this.error = validationError;
-      return;
-    }
-
-    this.savingNavigatorConfig = true;
-    try {
-      const payload = this.toNavigatorConfigPayload();
-      const isNew = !this.editingNavigatorConfig!.id;
-      // applicability/museumId sono immutabili dopo la creazione: in update
-      // non vanno inviati (UpdateNavigatorConfigData non li accetta nemmeno).
-      const result = isNew
-        ? await navigatorConfigService.create(payload)
-        : await navigatorConfigService.update(this.editingNavigatorConfig!.id, {
-            name: payload.name,
-            slug: payload.slug,
-            branding: payload.branding,
-            content: payload.content,
-            pwa: payload.pwa,
-          });
-
-      if (result.error || !result.data) {
-        this.error = result.error || __('Errore durante il salvataggio della configurazione');
-      } else {
-        this.success = __('Configurazione salvata con successo');
-        this.editingNavigatorConfig = null;
-        await this.loadNavigatorConfigs();
-      }
-    } finally {
-      this.savingNavigatorConfig = false;
-    }
-  }
-
-  private async deleteNavigatorConfig(config: NavigatorConfigFormData) {
-    const confirmed = await modalService.confirm({
-      title: __('Elimina configurazione'),
-      message: `${__('Sei sicuro di voler eliminare la configurazione')} "${config.name}"? ${__('Questa azione è irreversibile.')}`,
-      confirmLabel: __('Elimina'),
-      variant: 'danger',
-    });
-    if (!confirmed) return;
-
-    this.deletingNavigatorConfigId = config.id;
-    this.error = '';
-    try {
-      const result = await navigatorConfigService.delete(config.id);
-      if (result.success) {
-        this.success = __('Configurazione eliminata con successo');
-        if (this.editingNavigatorConfig?.id === config.id) {
-          this.editingNavigatorConfig = null;
-        }
-        await this.loadNavigatorConfigs();
-      } else {
-        this.error = result.error || __("Errore durante l'eliminazione della configurazione");
-      }
-    } catch {
-      this.error = __("Errore durante l'eliminazione della configurazione");
-    } finally {
-      this.deletingNavigatorConfigId = null;
-    }
-  }
-
-  private openNavigatorManifestPreview(config: NavigatorConfigFormData) {
-    if (!config.slug) return;
-    window.open(
-      `/api/navigator-configs/manifest?slug=${encodeURIComponent(config.slug)}`,
-      '_blank',
-    );
-  }
-
-  // Apre l'app Navigator vera e propria con questa config attiva (?ncfg=slug,
-  // stesso parametro letto da navigatorConfigStore.ts lato Navigator) — a
-  // differenza dell'anteprima manifest, qui si vede davvero l'app.
-  private openNavigatorPreview(config: NavigatorConfigFormData) {
-    if (!config.slug) return;
-    window.open(`/navigator/?ncfg=${encodeURIComponent(config.slug)}`, '_blank');
-  }
 
   private get isAdmin(): boolean {
     return !!this.currentUser?.isAdmin;
@@ -1149,15 +731,6 @@ export class MuseumsManagementPage extends LitElement {
     this.visibleColumns = [...this.defaultVisibleColumns];
   }
 
-  private renderListControlsSummary() {
-    return html`
-      <ui-badge
-        variant=${this.activeFilterCount > 0 ? 'primary' : 'secondary'}
-        .label=${`${this.activeFilterCount} ${__('filtri')}`}
-      ></ui-badge>
-    `;
-  }
-
   private renderListControlsContent() {
     return html`
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1188,25 +761,12 @@ export class MuseumsManagementPage extends LitElement {
             (this.sortDirection = e.detail.value)}
         ></ui-select>
 
-        <div>
-          <p class="text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-            ${__('Vista')}
-          </p>
-          <div class="flex items-center gap-2">
-            <ui-button
-              size="xs"
-              .variant=${this.listLayout === 'grid' ? 'primary' : 'secondary'}
-              .label=${__('Griglia')}
-              @click=${() => (this.listLayout = 'grid')}
-            ></ui-button>
-            <ui-button
-              size="xs"
-              .variant=${this.listLayout === 'table' ? 'primary' : 'secondary'}
-              .label=${__('Tabella')}
-              @click=${() => (this.listLayout = 'table')}
-            ></ui-button>
-          </div>
-        </div>
+        <ui-view-toggle
+          .value=${this.listLayout}
+          @layout-change=${(e: CustomEvent<{ value: MuseumListLayout }>) => {
+            this.listLayout = e.detail.value;
+          }}
+        ></ui-view-toggle>
       </div>
 
       <div class="space-y-2">
@@ -1406,11 +966,6 @@ export class MuseumsManagementPage extends LitElement {
     this.viewMode = 'edit';
     this.error = '';
     this.success = '';
-
-    if (this.configMode === 'navigator') {
-      this.editingNavigatorConfig = null;
-      void this.loadNavigatorConfigs();
-    }
   }
 
   private toggleActiveLanguage(lang: AppLanguage, checked: boolean) {
@@ -1521,84 +1076,9 @@ export class MuseumsManagementPage extends LitElement {
     }
   }
 
-  private async openCuratorsView(museum: Museum) {
+  private openCuratorsView(museum: Museum) {
     this.selectedMuseum = museum;
     this.viewMode = 'curators';
-    this.error = '';
-    this.success = '';
-    await this.loadCurators(museum._id);
-    await this.loadAvailableUsers();
-  }
-
-  private async loadCurators(museumId: string) {
-    this.loadingCurators = true;
-    try {
-      this.curators = await museumService.getCurators(museumId);
-    } catch (e) {
-      console.error('Error loading curators:', e);
-      this.error = __('Errore nel caricamento dei curatori');
-    } finally {
-      this.loadingCurators = false;
-    }
-  }
-
-  private async loadAvailableUsers() {
-    this.loadingUsers = true;
-    try {
-      const response = await userService.getUsers({ limit: 100, isActive: true });
-      // Esclude gli utenti già curatori
-      const curatorIds = new Set(this.curators.map((c) => c._id));
-      this.availableUsers = response.users.filter((u) => !curatorIds.has(u._id));
-    } catch (e) {
-      console.error('Error loading users:', e);
-    } finally {
-      this.loadingUsers = false;
-    }
-  }
-
-  private async handleAddCurator() {
-    if (!this.selectedUserId || !this.selectedMuseum) return;
-
-    this.addingCurator = true;
-    this.error = '';
-
-    try {
-      const result = await museumService.addCurator(this.selectedMuseum._id, this.selectedUserId);
-      if (result.success) {
-        this.success = __('Curatore aggiunto con successo');
-        this.selectedUserId = '';
-        await this.loadCurators(this.selectedMuseum._id);
-        await this.loadAvailableUsers();
-      } else {
-        this.error = result.error || "Errore durante l'aggiunta del curatore";
-      }
-    } catch {
-      this.error = __("Errore durante l'aggiunta del curatore");
-    } finally {
-      this.addingCurator = false;
-    }
-  }
-
-  private async handleRemoveCurator(userId: string) {
-    if (!this.selectedMuseum) return;
-
-    this.removingCuratorId = userId;
-    this.error = '';
-
-    try {
-      const result = await museumService.removeCurator(this.selectedMuseum._id, userId);
-      if (result.success) {
-        this.success = __('Curatore rimosso con successo');
-        await this.loadCurators(this.selectedMuseum._id);
-        await this.loadAvailableUsers();
-      } else {
-        this.error = result.error || 'Errore durante la rimozione del curatore';
-      }
-    } catch {
-      this.error = __('Errore durante la rimozione del curatore');
-    } finally {
-      this.removingCuratorId = null;
-    }
   }
 
   private backToList() {
@@ -1689,11 +1169,7 @@ export class MuseumsManagementPage extends LitElement {
       } else if (this.viewMode === 'edit' && this.selectedMuseum) {
         const result = await museumService.updateMuseum(this.selectedMuseum._id, data);
         if (result.data) {
-          // Resta sul form (mostra "Museo aggiornato con successo"): un curatore
-          // in configMode "museum"/"navigator" non ha altrove dove andare, e chi
-          // è in "full" spesso deve modificare più sezioni in sequenza. Si esce
-          // solo con "Indietro"/"Annulla" (@back/@click sopra), che restano su
-          // backToList().
+          // Resta sul form dopo il salvataggio: si esce solo con "Indietro"/"Annulla".
           this.success = __('Museo aggiornato con successo');
           await this.loadMuseums();
         } else {
@@ -1708,7 +1184,8 @@ export class MuseumsManagementPage extends LitElement {
   }
 
   private handleWikidataSelect(e: CustomEvent) {
-    const { id, label, description, imageUrl } = e.detail;
+    const { id, label, description, imageUrl, address, postalCode, city, country, coordinates } =
+      e.detail;
     this.formData = {
       ...this.formData,
       wikidataId: id,
@@ -1718,27 +1195,31 @@ export class MuseumsManagementPage extends LitElement {
       nameTranslations: {},
       descriptionTranslations: {},
       coverImage: imageUrl || '',
+      // Da Wikidata solo se assenti in un campo già compilato a mano.
+      address: this.formData.address.trim() || address || '',
+      city: this.formData.city.trim() || city || '',
+      nation: this.formData.nation.trim() || country || '',
+      postalCode: this.formData.postalCode.trim() || postalCode || '',
+      latitude: coordinates?.lat ?? this.formData.latitude,
+      longitude: coordinates?.lng ?? this.formData.longitude,
     };
-  }
 
-  private openDeleteModal(museum: Museum) {
-    this.museumToDelete = museum;
-    this.deleteModalOpen = true;
-  }
-
-  private closeDeleteModal() {
-    this.deleteModalOpen = false;
-    this.museumToDelete = null;
+    // Coordinate già note da Wikidata: niente bisogno di geocodificare
+    // dall'indirizzo, altrimenti lo sovrascriverebbe con quelle stimate.
+    if (!coordinates && this.hasRequiredLocationForGeocoding()) {
+      this.scheduleGeocodeFromLocation();
+    }
   }
 
   private async confirmDelete() {
-    if (!this.museumToDelete) return;
+    const museum = this.entityToDelete as Museum | null;
+    if (!museum) return;
 
     this.deleting = true;
     this.error = '';
 
     try {
-      const result = await museumService.deleteMuseum(this.museumToDelete._id);
+      const result = await museumService.deleteMuseum(museum._id);
       if (result.success) {
         this.success = __('Museo eliminato con successo');
         await this.loadMuseums();
@@ -1751,65 +1232,6 @@ export class MuseumsManagementPage extends LitElement {
     } finally {
       this.deleting = false;
     }
-  }
-
-  // ─── Helper di render ──────────────────────────────────────
-  private renderNavigatorColorField(
-    config: NavigatorConfigFormData,
-    key: NavigatorColorFieldKey,
-    label: string,
-    fallback: string,
-    help = '',
-  ) {
-    return renderNavigatorColorField(
-      config,
-      key,
-      label,
-      fallback,
-      (patch) => this.updateEditingNavigatorConfig(patch),
-      help,
-    );
-  }
-
-  private updateNavigatorImageField(key: NavigatorImageFieldKey, path: string | undefined) {
-    this.updateEditingNavigatorConfig({
-      [key]: path || '',
-    } as Partial<NavigatorConfigFormData>);
-  }
-
-  private renderNavigatorImageEditors(config: NavigatorConfigFormData) {
-    return renderNavigatorImageEditors(config, this.navigatorImageEditors, (key, path) =>
-      this.updateNavigatorImageField(key, path),
-    );
-  }
-
-  private renderNavigatorTranslationsForConfig(
-    config: NavigatorConfigFormData,
-    sourceLanguageLabel: string,
-  ) {
-    const targetLanguages = this.getMuseumTargetLanguages();
-    return renderNavigatorTranslationsSection({
-      config,
-      sourceLanguageLabel,
-      targetLanguages,
-      selectedLanguage: this.navigatorConfigTranslationLanguage || targetLanguages[0] || null,
-      getLanguageLabel: (lang) =>
-        this.languageOptions.find((option) => option.value === lang)?.label || lang.toUpperCase(),
-      onSelectLanguage: (lang) => {
-        this.navigatorConfigTranslationLanguage = lang;
-      },
-      onUpdateField: (field, lang, value) =>
-        this.updateEditingNavigatorTranslationField(field, lang, value),
-      emptyTargetsMessage: __(
-        'Aggiungi almeno una lingua aggiuntiva nelle Lingue attive del museo per gestire le traduzioni navigator.',
-      ),
-      translateMissing: {
-        label: __('Traduci campi navigator mancanti con AI'),
-        loading: this.translatingNavigatorConfig,
-        disabled: targetLanguages.length === 0,
-        onClick: () => this.translateMissingNavigatorFields(),
-      },
-    });
   }
 
   // ─── Sale (gestione parallela ai marker) ─────────────────
@@ -1907,435 +1329,128 @@ export class MuseumsManagementPage extends LitElement {
 
   private renderRoomsSection() {
     return html`
-      <section>
-        <h3
-          class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-        >
-          <ui-icon name="grid" size="sm" class="text-indigo-500"></ui-icon>
-          ${__('Sale')}
-        </h3>
-        <ui-card padding="none">
-          <div class="p-6 space-y-4">
-            <p class="text-sm text-surface-500 dark:text-surface-400">
-              ${__(
-                'Crea qui le sale del museo: un titolo (es. "Sala I") e un sottotitolo facoltativo (es. "Sala del Gladiatore"). Il contorno sulla piantina si disegna dopo, in "Piantina e mappa". Ogni opera va assegnata a una di queste sale.',
-              )}
-            </p>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-              <ui-input
-                .label=${__('Titolo sala')}
-                .placeholder=${__('Es. Sala I')}
-                .value=${this.newRoomTitle}
-                @input-change=${(e: CustomEvent) => (this.newRoomTitle = e.detail.value)}
-                @keydown=${(e: KeyboardEvent) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    this.handleAddRoom();
-                  }
-                }}
-              ></ui-input>
-              <ui-input
-                .label=${__('Sottotitolo (facoltativo)')}
-                .placeholder=${__('Es. Sala del Gladiatore')}
-                .value=${this.newRoomSubtitle}
-                @input-change=${(e: CustomEvent) => (this.newRoomSubtitle = e.detail.value)}
-                @keydown=${(e: KeyboardEvent) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    this.handleAddRoom();
-                  }
-                }}
-              ></ui-input>
-            </div>
-            <div class="flex justify-end">
-              <ui-button
-                type="button"
-                variant="primary"
-                icon="plus"
-                .label=${__('Aggiungi sala')}
-                ?disabled=${!this.newRoomTitle.trim()}
-                .loading=${this.savingRoom}
-                @click=${this.handleAddRoom}
-              ></ui-button>
-            </div>
-
-            ${this.rooms.length === 0
-              ? html`
-                  <p class="text-sm text-surface-400 dark:text-surface-500 italic">
-                    ${__('Nessuna sala creata')}
-                  </p>
-                `
-              : html`
-                  <ul
-                    class="max-h-[28rem] overflow-y-auto divide-y divide-surface-200 dark:divide-surface-700"
-                  >
-                    ${this.rooms.map(
-                      (room) => html`
-                        <li class="flex items-center justify-between gap-3 py-2.5">
-                          ${this.renamingRoomId === room.id
-                            ? html`
-                                <div class="flex-1 grid grid-cols-2 gap-2 items-center">
-                                  <ui-input
-                                    .label=${__('Titolo')}
-                                    .value=${this.renameRoomTitle}
-                                    @input-change=${(e: CustomEvent) =>
-                                      (this.renameRoomTitle = e.detail.value)}
-                                  ></ui-input>
-                                  <ui-input
-                                    .label=${__('Sottotitolo')}
-                                    .value=${this.renameRoomSubtitle}
-                                    @input-change=${(e: CustomEvent) =>
-                                      (this.renameRoomSubtitle = e.detail.value)}
-                                  ></ui-input>
-                                </div>
-                                <ui-icon-button
-                                  icon="check"
-                                  variant="brand"
-                                  .title=${__('Salva')}
-                                  .loading=${this.savingRoom}
-                                  @click=${() => this.handleRenameRoom(room.id)}
-                                ></ui-icon-button>
-                                <ui-icon-button
-                                  icon="x"
-                                  .title=${__('Annulla')}
-                                  @click=${this.cancelRenameRoom}
-                                ></ui-icon-button>
-                              `
-                            : html`
-                                <div class="min-w-0">
-                                  <div class="flex items-center gap-2">
-                                    <span class="font-medium text-surface-900 dark:text-white"
-                                      >${room.title}</span
-                                    >
-                                    ${room.polygon && room.polygon.length > 0
-                                      ? html`<ui-badge
-                                          variant="success"
-                                          size="sm"
-                                          .label=${__('Contornata')}
-                                        ></ui-badge>`
-                                      : html`<ui-badge
-                                          variant="secondary"
-                                          size="sm"
-                                          .label=${__('Da contornare')}
-                                        ></ui-badge>`}
-                                  </div>
-                                  ${room.subtitle
-                                    ? html`<p
-                                        class="text-sm text-surface-500 dark:text-surface-400 truncate m-0"
-                                      >
-                                        ${room.subtitle}
-                                      </p>`
-                                    : nothing}
-                                </div>
-                                <div class="flex items-center gap-1 flex-shrink-0">
-                                  <ui-icon-button
-                                    icon="edit"
-                                    size="sm"
-                                    .title=${__('Rinomina')}
-                                    @click=${() => this.startRenameRoom(room)}
-                                  ></ui-icon-button>
-                                  <ui-icon-button
-                                    icon="trash"
-                                    size="sm"
-                                    variant="danger"
-                                    .title=${__('Elimina')}
-                                    @click=${() => this.handleDeleteRoom(room)}
-                                  ></ui-icon-button>
-                                </div>
-                              `}
-                        </li>
-                      `,
-                    )}
-                  </ul>
-                `}
-          </div>
-        </ui-card>
-      </section>
+      <museum-rooms-panel
+        .rooms=${this.rooms}
+        .newRoomTitle=${this.newRoomTitle}
+        .newRoomSubtitle=${this.newRoomSubtitle}
+        .savingRoom=${this.savingRoom}
+        .renamingRoomId=${this.renamingRoomId}
+        .renameRoomTitle=${this.renameRoomTitle}
+        .renameRoomSubtitle=${this.renameRoomSubtitle}
+        @new-room-title-change=${(e: CustomEvent) => (this.newRoomTitle = e.detail.value)}
+        @new-room-subtitle-change=${(e: CustomEvent) => (this.newRoomSubtitle = e.detail.value)}
+        @add-room=${() => this.handleAddRoom()}
+        @start-rename-room=${(e: CustomEvent) => this.startRenameRoom(e.detail.room)}
+        @cancel-rename-room=${() => this.cancelRenameRoom()}
+        @rename-room-title-change=${(e: CustomEvent) => (this.renameRoomTitle = e.detail.value)}
+        @rename-room-subtitle-change=${(e: CustomEvent) =>
+          (this.renameRoomSubtitle = e.detail.value)}
+        @rename-room=${(e: CustomEvent) => this.handleRenameRoom(e.detail.roomId)}
+        @delete-room=${(e: CustomEvent) => this.handleDeleteRoom(e.detail.room)}
+      ></museum-rooms-panel>
     `;
   }
 
   private renderActiveLanguagesSection() {
     return html`
-      <section>
-        <h3
-          class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-        >
-          <ui-icon name="globe" size="sm" class="text-indigo-500"></ui-icon>
-          ${__('Lingue attive')}
-        </h3>
-        <ui-card padding="none">
-          <div class="p-6 space-y-4">
-            <ui-select
-              .label=${__('Lingua principale del museo')}
-              .value=${this.formData.primaryLanguage}
-              .options=${this.languageOptions}
-              @select-change=${(e: CustomEvent<{ value: AppLanguage }>) =>
-                this.setPrimaryLanguage(e.detail.value)}
-            ></ui-select>
-
-            <label class="block text-sm font-medium text-surface-700 dark:text-surface-300"
-              >${__('Lingue aggiuntive del museo')}</label
-            >
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-              ${this.languageOptions
-                .filter((option) => option.value !== this.formData.primaryLanguage)
-                .map(
-                  (option) => html`
-                    <ui-checkbox
-                      .label=${option.label}
-                      .checked=${this.formData.activeLanguages.includes(option.value)}
-                      @checkbox-change=${(e: CustomEvent) =>
-                        this.toggleActiveLanguage(option.value, Boolean(e.detail.checked))}
-                    ></ui-checkbox>
-                  `,
-                )}
-            </div>
-            <p class="text-xs text-surface-500 dark:text-surface-400">
-              ${__(
-                'La lingua principale è quella usata per scrivere i contenuti di base. Le lingue aggiuntive saranno usate per traduzioni e contenuti multilingua.',
-              )}
-            </p>
-
-            ${this.viewMode === 'edit' && this.selectedMuseum
-              ? html`
-                  <div class="pt-2 border-t border-surface-200 dark:border-surface-700">
-                    <h4
-                      class="text-xs font-semibold uppercase tracking-wide text-surface-400 dark:text-surface-500"
-                    >
-                      ${__('Strumenti AI')}
-                    </h4>
-                    <div class="divide-y divide-surface-100 dark:divide-surface-800">
-                      <ai-job-action
-                        icon="translate"
-                        jobType="sync-languages"
-                        .museumId=${this.selectedMuseum._id}
-                        .jobs=${this.jobs}
-                        .loading=${this.syncingLanguages}
-                        .label=${__('Sincronizza traduzioni esistenti')}
-                        .description=${__(
-                          'Applica le lingue attive ai contenuti e visite già presenti: rimuove traduzioni non richieste e genera con AI quelle mancanti.',
-                        )}
-                        .confirmTitle=${__('Sincronizzare le traduzioni?')}
-                        .confirmMessage=${__(
-                          "Applica le lingue attive ai contenuti e visite già presenti: rimuove traduzioni non richieste e genera con AI quelle mancanti. Può richiedere qualche minuto su un catalogo grande — segui l'avanzamento dalle notifiche.",
-                        )}
-                        @start=${this.syncMuseumLanguages}
-                      ></ai-job-action>
-                      <ai-job-action
-                        icon="sparkles"
-                        jobType="generate-audio"
-                        .museumId=${this.selectedMuseum._id}
-                        .jobs=${this.jobs}
-                        .loading=${this.generatingAudio}
-                        .label=${__('Genera audio mancante')}
-                        .description=${__(
-                          "Genera con OpenAI (voce naturale + evidenziazione sincronizzata nel Navigator) l'audio mancante degli item davvero usati nelle visite del museo e delle tappe Info/Indicazioni — non tutto il catalogo, solo ciò che i visitatori ascoltano davvero.",
-                        )}
-                        .confirmTitle=${__("Generare l'audio mancante?")}
-                        .confirmMessage=${__(
-                          "Genera con OpenAI l'audio mancante degli item davvero usati nelle visite del museo. Operazione lunga e a pagamento (chiama OpenAI per ogni testo): non rigenera l'audio già presente. Segui l'avanzamento dalle notifiche.",
-                        )}
-                        @start=${this.generateMuseumAudio}
-                      ></ai-job-action>
-                    </div>
-                  </div>
-                `
-              : nothing}
-          </div>
-        </ui-card>
-      </section>
+      <museum-languages-panel
+        .primaryLanguage=${this.formData.primaryLanguage}
+        .activeLanguages=${this.formData.activeLanguages}
+        .showAiTools=${this.viewMode === 'edit' && !!this.selectedMuseum}
+        .museumId=${this.selectedMuseum?._id || ''}
+        .jobs=${this.jobs}
+        .syncingLanguages=${this.syncingLanguages}
+        .generatingAudio=${this.generatingAudio}
+        @primary-language-change=${(e: CustomEvent) => this.setPrimaryLanguage(e.detail.value)}
+        @active-language-toggle=${(e: CustomEvent) =>
+          this.toggleActiveLanguage(e.detail.lang, e.detail.checked)}
+        @sync-languages=${() => this.syncMuseumLanguages()}
+        @generate-audio=${() => this.generateMuseumAudio()}
+      ></museum-languages-panel>
     `;
   }
 
   private renderMuseumTranslationsSection(sourceLanguageLabel: string) {
     const targetLanguages = this.getMuseumTargetLanguages();
     const selectedLanguage = this.museumTranslationLanguage || targetLanguages[0] || null;
-    const selectedLanguageLabel = selectedLanguage
-      ? this.languageOptions.find((option) => option.value === selectedLanguage)?.label
-      : null;
+    const selectedLanguageLabel = selectedLanguage ? getAppLanguageLabel(selectedLanguage) : null;
     const translationLanguageOptions = buildTranslationLanguageOptions(
       targetLanguages,
-      (lang) =>
-        this.languageOptions.find((option) => option.value === lang)?.label || lang.toUpperCase(),
+      (lang) => getAppLanguageLabel(lang),
       (lang) => this.isMuseumLanguageFullyTranslated(lang),
       {
         translated: __('Tradotta'),
         toTranslate: __('Da tradurre'),
       },
     );
+    const translatableServices: TranslatableService[] = selectedLanguage
+      ? this.formData.services
+          .filter((service) => service.active && service.description?.trim())
+          .map((service) => ({
+            type: service.type,
+            label: MARKER_TYPE_META[service.type].label,
+            value: service.descriptionTranslations?.[selectedLanguage] || '',
+          }))
+      : [];
 
     return html`
-      <section>
-        <h3
-          class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-        >
-          <ui-icon name="languages" size="sm" class="text-violet-500"></ui-icon>
-          ${__('Traduzioni museo')}
-        </h3>
-        <ui-card padding="none">
-          <div
-            class="p-6 space-y-5 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-100/80 dark:bg-violet-900/25"
-          >
-            <div
-              class="flex flex-wrap items-center gap-3 p-3 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/30"
-            >
-              <ui-button
-                type="button"
-                variant="secondary"
-                icon="sparkles"
-                .label=${__('Traduci campi mancanti con AI')}
-                .loading=${this.translatingMuseumFields}
-                .disabled=${this.getMuseumTargetLanguages().length === 0}
-                @click=${this.translateMissingMuseumFields}
-              ></ui-button>
-              <ui-badge
-                variant="secondary"
-                .label=${`${__('Lingua sorgente')}: ${sourceLanguageLabel}`}
-              ></ui-badge>
-              <p class="text-xs text-surface-500 dark:text-surface-400">
-                ${__(
-                  'Compila automaticamente nome, descrizione, orari e biglietti per le lingue aggiuntive non ancora tradotte.',
-                )}
-              </p>
-            </div>
-
-            ${targetLanguages.length === 0
-              ? html`<p class="text-sm text-surface-600 dark:text-surface-300">
-                  ${__(
-                    'Aggiungi almeno una lingua aggiuntiva per inserire o generare traduzioni del museo.',
-                  )}
-                </p>`
-              : nothing}
-            ${targetLanguages.length > 0
-              ? html`
-                  <div class="space-y-3">
-                    <ui-select
-                      .label=${__('Lingua traduzione')}
-                      .value=${selectedLanguage || ''}
-                      .options=${translationLanguageOptions}
-                      @select-change=${(e: CustomEvent<{ value: AppLanguage }>) =>
-                        (this.museumTranslationLanguage = e.detail.value)}
-                    ></ui-select>
-
-                    ${selectedLanguage
-                      ? html`
-                          <div
-                            class="p-4 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/30 space-y-4"
-                          >
-                            <h4 class="font-medium text-surface-900 dark:text-white">
-                              ${__('Traduzioni in')}
-                              ${selectedLanguageLabel || selectedLanguage.toUpperCase()}
-                            </h4>
-
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <ui-input
-                                .label=${__('Nome museo')}
-                                .value=${this.formData.nameTranslations[selectedLanguage] || ''}
-                                @input-change=${(e: CustomEvent) =>
-                                  (this.formData = {
-                                    ...this.formData,
-                                    nameTranslations: {
-                                      ...this.formData.nameTranslations,
-                                      [selectedLanguage]: e.detail.value,
-                                    },
-                                  })}
-                              ></ui-input>
-                            </div>
-
-                            <ui-textarea
-                              .label=${__('Descrizione')}
-                              .value=${this.formData.descriptionTranslations[selectedLanguage] ||
-                              ''}
-                              @textarea-change=${(e: CustomEvent) =>
-                                (this.formData = {
-                                  ...this.formData,
-                                  descriptionTranslations: {
-                                    ...this.formData.descriptionTranslations,
-                                    [selectedLanguage]: e.detail.value,
-                                  },
-                                })}
-                              rows="3"
-                            ></ui-textarea>
-
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <ui-textarea
-                                .label=${__('Orari di apertura')}
-                                .value=${this.formData.openingHoursTranslations[selectedLanguage] ||
-                                ''}
-                                @textarea-change=${(e: CustomEvent) =>
-                                  (this.formData = {
-                                    ...this.formData,
-                                    openingHoursTranslations: {
-                                      ...this.formData.openingHoursTranslations,
-                                      [selectedLanguage]: e.detail.value,
-                                    },
-                                  })}
-                                rows="3"
-                              ></ui-textarea>
-
-                              <ui-textarea
-                                .label=${__('Informazioni biglietti')}
-                                .value=${this.formData.ticketInfoTranslations[selectedLanguage] ||
-                                ''}
-                                @textarea-change=${(e: CustomEvent) =>
-                                  (this.formData = {
-                                    ...this.formData,
-                                    ticketInfoTranslations: {
-                                      ...this.formData.ticketInfoTranslations,
-                                      [selectedLanguage]: e.detail.value,
-                                    },
-                                  })}
-                                rows="3"
-                              ></ui-textarea>
-                            </div>
-
-                            ${(() => {
-                              const translatableServices = this.formData.services.filter(
-                                (service) => service.active && service.description?.trim(),
-                              );
-                              return translatableServices.length > 0
-                                ? html`
-                                    <div
-                                      class="space-y-3 pt-3 border-t border-violet-300 dark:border-violet-700"
-                                    >
-                                      <h5
-                                        class="text-sm font-medium text-surface-900 dark:text-white"
-                                      >
-                                        ${__('Servizi del museo')}
-                                      </h5>
-                                      ${translatableServices.map(
-                                        (service) => html`
-                                          <ui-textarea
-                                            .label=${MARKER_TYPE_META[service.type].label}
-                                            .value=${service.descriptionTranslations?.[
-                                              selectedLanguage
-                                            ] || ''}
-                                            @textarea-change=${(e: CustomEvent) =>
-                                              this.updateService(service.type, {
-                                                descriptionTranslations: {
-                                                  ...service.descriptionTranslations,
-                                                  [selectedLanguage]: e.detail.value,
-                                                },
-                                              })}
-                                            rows="2"
-                                          ></ui-textarea>
-                                        `,
-                                      )}
-                                    </div>
-                                  `
-                                : nothing;
-                            })()}
-                          </div>
-                        `
-                      : nothing}
-                  </div>
-                `
-              : nothing}
-          </div>
-        </ui-card>
-      </section>
+      <museum-translations-panel
+        .targetLanguages=${targetLanguages}
+        .selectedLanguage=${selectedLanguage}
+        .selectedLanguageLabel=${selectedLanguageLabel}
+        .languageOptions=${translationLanguageOptions}
+        .sourceLanguageLabel=${sourceLanguageLabel}
+        .translating=${this.translatingMuseumFields}
+        .nameValue=${(selectedLanguage && this.formData.nameTranslations[selectedLanguage]) || ''}
+        .descriptionValue=${(selectedLanguage &&
+          this.formData.descriptionTranslations[selectedLanguage]) ||
+        ''}
+        .openingHoursValue=${(selectedLanguage &&
+          this.formData.openingHoursTranslations[selectedLanguage]) ||
+        ''}
+        .ticketInfoValue=${(selectedLanguage &&
+          this.formData.ticketInfoTranslations[selectedLanguage]) ||
+        ''}
+        .translatableServices=${translatableServices}
+        @translate-missing=${() => this.translateMissingMuseumFields()}
+        @language-change=${(e: CustomEvent) => (this.museumTranslationLanguage = e.detail.value)}
+        @field-change=${(e: CustomEvent) => this.handleMuseumTranslationFieldChange(e)}
+        @service-translation-change=${(e: CustomEvent) =>
+          this.handleServiceTranslationChange(e, selectedLanguage)}
+      ></museum-translations-panel>
     `;
+  }
+
+  private handleMuseumTranslationFieldChange(
+    e: CustomEvent<{
+      field: 'name' | 'description' | 'openingHours' | 'ticketInfo';
+      value: string;
+    }>,
+  ) {
+    const selectedLanguage = this.museumTranslationLanguage || this.getMuseumTargetLanguages()[0];
+    if (!selectedLanguage) return;
+    const { field, value } = e.detail;
+    const mapKey = `${field}Translations` as
+      | 'nameTranslations'
+      | 'descriptionTranslations'
+      | 'openingHoursTranslations'
+      | 'ticketInfoTranslations';
+    this.formData = {
+      ...this.formData,
+      [mapKey]: { ...this.formData[mapKey], [selectedLanguage]: value },
+    };
+  }
+
+  private handleServiceTranslationChange(
+    e: CustomEvent<{ type: MarkerType; value: string }>,
+    selectedLanguage: AppLanguage | null,
+  ) {
+    if (!selectedLanguage) return;
+    const { type, value } = e.detail;
+    const service = this.getService(type);
+    this.updateService(type, {
+      descriptionTranslations: { ...service.descriptionTranslations, [selectedLanguage]: value },
+    });
   }
 
   // ─── Render principale ────────────────────────────────────────
@@ -2344,37 +1459,33 @@ export class MuseumsManagementPage extends LitElement {
 
     return html`
       <div class="space-y-6 animate-fade-in">
-        ${this.error
-          ? html`<ui-alert
-              variant="error"
-              message=${this.error}
-              dismissible
-              @dismiss=${() => (this.error = '')}
-            ></ui-alert>`
-          : nothing}
-        ${this.success
-          ? html`<ui-alert
-              variant="success"
-              message=${this.success}
-              dismissible
-              @dismiss=${() => (this.success = '')}
-            ></ui-alert>`
-          : nothing}
+        ${renderFeedbackAlerts({
+          error: this.error,
+          success: this.success,
+          dismissible: true,
+          onDismissError: () => (this.error = ''),
+          onDismissSuccess: () => (this.success = ''),
+        })}
         ${!isFocusedConfigMode && this.viewMode === 'list' ? this.renderList() : nothing}
         ${this.viewMode === 'create' || this.viewMode === 'edit' ? this.renderForm() : nothing}
-        ${this.viewMode === 'curators' ? this.renderCurators() : nothing}
-
-        <!-- Delete Modal -->
+        ${this.viewMode === 'curators'
+          ? html`
+              <museum-curators-page
+                .museum=${this.selectedMuseum}
+                @back=${this.backToList}
+              ></museum-curators-page>
+            `
+          : nothing}
         <ui-modal
           .open=${this.deleteModalOpen}
           .title=${__('Elimina Museo')}
-          message="Sei sicuro di voler eliminare ${this.museumToDelete
+          message="Sei sicuro di voler eliminare ${(this.entityToDelete as Museum | null)
             ?.name}? Questa azione è irreversibile."
           variant="danger"
           .confirmLabel=${__('Elimina')}
           .loading=${this.deleting}
           @confirm=${this.confirmDelete}
-          @cancel=${this.closeDeleteModal}
+          @cancel=${() => this.closeDeleteModal()}
         ></ui-modal>
       </div>
     `;
@@ -2409,13 +1520,11 @@ export class MuseumsManagementPage extends LitElement {
         .title=${__('Filtri e visualizzazione')}
         .description=${__('Espandi per cercare, ordinare e cambiare layout')}
         .collapsed=${this.controlsCollapsed}
-        .renderSummary=${() => this.renderListControlsSummary()}
+        .renderSummary=${() => renderControlsSummaryBadge(this.activeFilterCount)}
         .renderContent=${() => this.renderListControlsContent()}
         @collapsed-change=${(e: CustomEvent<{ collapsed: boolean }>) =>
           (this.controlsCollapsed = e.detail.collapsed)}
       ></ui-list-controls>
-
-      <!-- Museums Content -->
       ${this.loading
         ? html`<ui-loading></ui-loading>`
         : museums.length === 0
@@ -2446,75 +1555,80 @@ export class MuseumsManagementPage extends LitElement {
           sizes: '(max-width: 1024px) 50vw, 33vw',
         })
       : null;
+    const location = [
+      this.hasVisibleColumn('city') ? museum.location?.city : '',
+      this.hasVisibleColumn('country') ? museum.location?.nation || museum.location?.country : '',
+    ]
+      .filter(Boolean)
+      .join(', ');
 
     return html`
-      <ui-card class="overflow-hidden">
-        <!-- Cover Image -->
-        <div class="aspect-video bg-surface-100 dark:bg-surface-800 relative">
-          ${museum.coverImage
-            ? html`<img
-                src=${imageAttrs?.src}
-                srcset=${ifDefined(imageAttrs?.srcset)}
-                sizes=${ifDefined(imageAttrs?.sizes)}
-                alt=${museum.name}
-                class="w-full h-full object-cover"
-              />`
-            : html`<div class="w-full h-full flex items-center justify-center">
-                <ui-icon name="image" size="xl" class="text-surface-300"></ui-icon>
-              </div>`}
-        </div>
-
-        <div class="p-4">
-          <h3 class="font-semibold text-surface-900 dark:text-white text-lg mb-1">
+      <ui-media-card
+        .imageSrc=${imageAttrs?.src || ''}
+        .imageSrcset=${imageAttrs?.srcset || ''}
+        .imageSizes=${imageAttrs?.sizes || ''}
+        .imageAlt=${museum.name}
+        aspectClass="aspect-video"
+        placeholderType="museum"
+        placeholderSize="lg"
+        bodyClass="p-4"
+        .renderTopLeft=${museum.wikidataId
+          ? () =>
+              html`<a
+                href="https://www.wikidata.org/wiki/${museum.wikidataId}"
+                target="_blank"
+                rel="noopener noreferrer"
+                @click=${(e: Event) => e.stopPropagation()}
+                title=${__('Vedi su Wikidata')}
+              >
+                <ui-badge variant="primary" size="sm" .label=${museum.wikidataId}></ui-badge>
+              </a>`
+          : null}
+        .renderTopRight=${this.hasVisibleColumn('status')
+          ? () =>
+              museum.isActive
+                ? html`<ui-badge variant="success" size="sm" .label=${__('Attivo')}></ui-badge>`
+                : html`<ui-badge variant="secondary" size="sm" .label=${__('Inattivo')}></ui-badge>`
+          : null}
+        .renderContent=${() => html`
+          <h3 class="font-semibold text-surface-900 dark:text-white mb-1 line-clamp-2">
             ${museum.name}
           </h3>
-          ${this.hasVisibleColumn('city') || this.hasVisibleColumn('country')
-            ? html`
-                <p class="text-sm text-surface-500 dark:text-surface-400 mb-3">
-                  ${this.hasVisibleColumn('city') ? museum.location?.city || '' : ''}
-                  ${this.hasVisibleColumn('city') && this.hasVisibleColumn('country') ? ', ' : ''}
-                  ${this.hasVisibleColumn('country')
-                    ? museum.location?.nation || museum.location?.country || ''
-                    : ''}
-                </p>
-              `
+
+          ${location
+            ? html`<p class="text-sm text-surface-500 dark:text-surface-400 mb-2">${location}</p>`
             : nothing}
 
-          <div class="flex items-center justify-between">
-            <div class="flex gap-1">
-              ${canEdit
-                ? html`
-                    <ui-icon-button
-                      icon="edit"
-                      .title=${__('Modifica')}
-                      @click=${() => this.openEditForm(museum)}
-                    ></ui-icon-button>
-                  `
-                : nothing}
-              ${this.isAdmin
-                ? html`
-                    <ui-icon-button
-                      icon="users"
-                      .title=${__('Gestisci Curatori')}
-                      @click=${() => this.openCuratorsView(museum)}
-                    ></ui-icon-button>
-                    <ui-icon-button
-                      icon="trash"
-                      variant="danger"
-                      .title=${__('Elimina')}
-                      @click=${() => this.openDeleteModal(museum)}
-                    ></ui-icon-button>
-                  `
-                : nothing}
-            </div>
-            ${this.hasVisibleColumn('status')
-              ? museum.isActive
-                ? html`<ui-badge variant="success" .label=${__('Attivo')}></ui-badge>`
-                : html`<ui-badge variant="secondary" .label=${__('Inattivo')}></ui-badge>`
+          <div
+            class="flex items-center justify-end gap-1 pt-3 border-t border-surface-100 dark:border-surface-800"
+          >
+            ${canEdit
+              ? html`
+                  <ui-icon-button
+                    icon="edit"
+                    .title=${__('Modifica')}
+                    @click=${() => this.openEditForm(museum)}
+                  ></ui-icon-button>
+                `
+              : nothing}
+            ${this.isAdmin
+              ? html`
+                  <ui-icon-button
+                    icon="users"
+                    .title=${__('Gestisci Curatori')}
+                    @click=${() => this.openCuratorsView(museum)}
+                  ></ui-icon-button>
+                  <ui-icon-button
+                    icon="trash"
+                    variant="danger"
+                    .title=${__('Elimina')}
+                    @click=${() => this.openDeleteModal(museum)}
+                  ></ui-icon-button>
+                `
               : nothing}
           </div>
-        </div>
-      </ui-card>
+        `}
+      ></ui-media-card>
     `;
   }
 
@@ -2525,9 +1639,7 @@ export class MuseumsManagementPage extends LitElement {
     const showBaseSections = !isNavigatorOnlyMode;
     const showNavigatorSection = isNavigatorOnlyMode;
     const sourceLanguage = this.getActiveSourceLanguage();
-    const sourceLanguageLabel =
-      this.languageOptions.find((option) => option.value === sourceLanguage)?.label ||
-      sourceLanguage.toUpperCase();
+    const sourceLanguageLabel = getAppLanguageLabel(sourceLanguage);
     const localizedMuseumName = this.getLocalizedMuseumName(this.selectedMuseum);
     const formTitle = isCreate
       ? __('Nuovo Museo')
@@ -2557,20 +1669,6 @@ export class MuseumsManagementPage extends LitElement {
         ></ui-empty>
       `;
     }
-    const navigatorDisplayOptions = [
-      { value: 'standalone', label: __('Standalone') },
-      { value: 'fullscreen', label: __('Fullscreen') },
-      { value: 'minimal-ui', label: __('Minimal UI') },
-      { value: 'browser', label: __('Browser') },
-    ];
-
-    const navigatorOrientationOptions = [
-      { value: 'portrait', label: __('Portrait') },
-      { value: 'landscape', label: __('Landscape') },
-      { value: 'natural', label: __('Natural') },
-      { value: 'any', label: __('Any') },
-    ];
-
     return html`
       <ui-page-header
         title=${formTitle}
@@ -2581,334 +1679,309 @@ export class MuseumsManagementPage extends LitElement {
 
       <form @submit=${this.handleSubmit} class="space-y-6">
         <section ?hidden=${!showBaseSections}>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="link" size="sm" class="text-blue-500"></ui-icon>
-            ${__('Riferimento Wikidata')}
-          </h3>
-          <ui-card padding="none">
-            <div class="p-6 space-y-4">
-              ${isCreate
-                ? html`
-                    <wikidata-autocomplete
-                      .label=${__('Cerca museo su Wikidata')}
-                      .placeholder=${__('Cerca il museo su Wikidata...')}
-                      searchType="museum"
-                      required
-                      @wikidata-select=${this.handleWikidataSelect}
-                    ></wikidata-autocomplete>
-                  `
-                : html`
-                    <div
-                      class="p-3 rounded-lg bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700"
-                    >
-                      <label
-                        class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1"
-                        >${__('ID Wikidata')}</label
+          <ui-panel-section
+            icon="link"
+            iconColor="text-blue-500"
+            cardPadding="lg"
+            .title=${__('Riferimento Wikidata')}
+            .renderContent=${() => html`
+              <div class="space-y-4">
+                ${isCreate
+                  ? html`
+                      <wikidata-autocomplete
+                        .label=${__('Cerca museo su Wikidata')}
+                        .placeholder=${__('Cerca il museo su Wikidata...')}
+                        searchType="museum"
+                        required
+                        @wikidata-select=${this.handleWikidataSelect}
+                      ></wikidata-autocomplete>
+                    `
+                  : html`
+                      <div
+                        class="p-3 rounded-lg bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700"
                       >
-                      <div class="flex items-center gap-2">
-                        <ui-badge variant="secondary" .label=${this.formData.wikidataId}></ui-badge>
+                        <label
+                          class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1"
+                          >${__('ID Wikidata')}</label
+                        >
+                        <div class="flex items-center gap-2">
+                          <ui-badge
+                            variant="secondary"
+                            .label=${this.formData.wikidataId}
+                          ></ui-badge>
+                          <a
+                            href="https://www.wikidata.org/wiki/${this.formData.wikidataId}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="text-sm text-brand-600 dark:text-brand-400 hover:underline"
+                          >
+                            ${__('Vedi su Wikidata')} →
+                          </a>
+                          <span class="text-xs text-surface-500">(${__('non modificabile')})</span>
+                        </div>
+                      </div>
+                    `}
+                ${this.formData.wikidataId
+                  ? html`
+                      <div
+                        class="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg"
+                      >
+                        <ui-badge variant="outline" .label=${this.formData.wikidataId}></ui-badge>
+                        <span class="text-sm text-blue-700 dark:text-blue-300"
+                          >${this.formData.name}</span
+                        >
                         <a
                           href="https://www.wikidata.org/wiki/${this.formData.wikidataId}"
                           target="_blank"
                           rel="noopener noreferrer"
-                          class="text-sm text-brand-600 dark:text-brand-400 hover:underline"
+                          class="text-sm text-blue-600 dark:text-blue-400 hover:underline ml-auto"
                         >
                           ${__('Vedi su Wikidata')} →
                         </a>
-                        <span class="text-xs text-surface-500">(${__('non modificabile')})</span>
                       </div>
-                    </div>
-                  `}
-              ${this.formData.wikidataId
-                ? html`
-                    <div
-                      class="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg"
-                    >
-                      <ui-badge variant="outline" .label=${this.formData.wikidataId}></ui-badge>
-                      <span class="text-sm text-blue-700 dark:text-blue-300"
-                        >${this.formData.name}</span
-                      >
-                      <a
-                        href="https://www.wikidata.org/wiki/${this.formData.wikidataId}"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="text-sm text-blue-600 dark:text-blue-400 hover:underline ml-auto"
-                      >
-                        ${__('Vedi su Wikidata')} →
-                      </a>
-                    </div>
-                  `
-                : nothing}
-            </div>
-          </ui-card>
-        </section>
-
-        <section ?hidden=${!showBaseSections}>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="image" size="sm" class="text-brand-500"></ui-icon>
-            ${__('Informazioni Base')}
-          </h3>
-          <ui-card padding="none">
-            <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ui-input
-                .label=${__('Nome *')}
-                .placeholder=${__('Nome del museo')}
-                .value=${this.formData.name}
-                @input-change=${(e: CustomEvent) =>
-                  (this.formData = { ...this.formData, name: e.detail.value })}
-                required
-              ></ui-input>
-
-              <image-editor
-                .label=${__('Immagine di copertina')}
-                category="museums"
-                .value=${this.formData.coverImage}
-                maxWidth=${1200}
-                maxHeight=${800}
-                .maxOutputSizeMb=${3}
-                defaultFormat="webp"
-                @image-saved=${(e: CustomEvent) => {
-                  this.formData = { ...this.formData, coverImage: e.detail.path || '' };
-                }}
-              ></image-editor>
-
-              <div class="lg:col-span-2">
-                <ui-textarea
-                  .label=${__('Descrizione')}
-                  .placeholder=${__('Descrizione del museo...')}
-                  .value=${this.formData.description}
-                  @textarea-change=${(e: CustomEvent) =>
-                    (this.formData = { ...this.formData, description: e.detail.value })}
-                  rows="4"
-                ></ui-textarea>
+                    `
+                  : nothing}
               </div>
-            </div>
-          </ui-card>
+            `}
+          ></ui-panel-section>
         </section>
 
         <section ?hidden=${!showBaseSections}>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="location" size="sm" class="text-emerald-500"></ui-icon>
-            ${__('Posizione')}
-          </h3>
-          <ui-card padding="none">
-            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <ui-input
-                .label=${__('Indirizzo *')}
-                .placeholder=${__('Via...')}
-                .value=${this.formData.address}
-                @input-change=${(e: CustomEvent) =>
-                  this.updateLocationField('address', e.detail.value)}
-                required
-              ></ui-input>
+          <ui-panel-section
+            icon="image"
+            iconColor="text-brand-500"
+            cardPadding="lg"
+            .title=${__('Informazioni Base')}
+            .renderContent=${() => html`
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <ui-input
+                  .label=${__('Nome *')}
+                  .placeholder=${__('Nome del museo')}
+                  .value=${this.formData.name}
+                  @input-change=${(e: CustomEvent) =>
+                    (this.formData = { ...this.formData, name: e.detail.value })}
+                  required
+                ></ui-input>
 
-              <ui-input
-                .label=${__('Città *')}
-                .placeholder=${__('Città')}
-                .value=${this.formData.city}
-                @input-change=${(e: CustomEvent) =>
-                  this.updateLocationField('city', e.detail.value)}
-                required
-              ></ui-input>
+                <image-editor
+                  .label=${__('Immagine di copertina')}
+                  category="museums"
+                  .value=${this.formData.coverImage}
+                  maxWidth=${1200}
+                  maxHeight=${800}
+                  .maxOutputSizeMb=${3}
+                  defaultFormat="webp"
+                  @image-saved=${(e: CustomEvent) => {
+                    this.formData = { ...this.formData, coverImage: e.detail.path || '' };
+                  }}
+                ></image-editor>
 
-              <ui-input
-                .label=${__('CAP')}
-                .placeholder=${__('00000')}
-                .value=${this.formData.postalCode}
-                @input-change=${(e: CustomEvent) =>
-                  this.updateLocationField('postalCode', e.detail.value)}
-              ></ui-input>
-
-              <ui-input
-                .label=${__('Nazione *')}
-                .placeholder=${__('Italia')}
-                .value=${this.formData.nation}
-                @input-change=${(e: CustomEvent) =>
-                  this.updateLocationField('nation', e.detail.value)}
-                required
-              ></ui-input>
-
-              <div class="md:col-span-2 space-y-2">
-                <div
-                  id="museum-location-map"
-                  class="h-72 rounded-lg border border-surface-200 dark:border-surface-700 overflow-hidden"
-                ></div>
-                <div
-                  class="flex flex-wrap items-center justify-between gap-2 text-xs text-surface-500 dark:text-surface-400"
-                >
-                  <span>
-                    ${this.formData.latitude !== null && this.formData.longitude !== null
-                      ? `${__('Coordinate')}: ${this.formData.latitude.toFixed(6)}, ${this.formData.longitude.toFixed(6)}`
-                      : __('Inserisci indirizzo, città, CAP e nazione per aggiornare la mappa')}
-                  </span>
-                  <span>
-                    ${this.geocodingLocation
-                      ? __('Aggiornamento mappa in corso...')
-                      : this.geocodingStatus}
-                  </span>
+                <div class="lg:col-span-2">
+                  <ui-textarea
+                    .label=${__('Descrizione')}
+                    .placeholder=${__('Descrizione del museo...')}
+                    .value=${this.formData.description}
+                    @textarea-change=${(e: CustomEvent) =>
+                      (this.formData = { ...this.formData, description: e.detail.value })}
+                    rows="4"
+                  ></ui-textarea>
                 </div>
               </div>
-            </div>
-          </ui-card>
+            `}
+          ></ui-panel-section>
         </section>
 
         <section ?hidden=${!showBaseSections}>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2 flex-wrap"
-          >
-            <ui-icon name="globe" size="sm" class="text-amber-500"></ui-icon>
-            ${__('Contatti e Servizi')}
-            <ui-info-tip
-              variant="inline"
-              text=${__(
-                'Solo informazioni di contatto testuali. Per i servizi mostrati come schede nel Navigator (bagni, bar, uscite...) vedi la sezione "Servizi del museo" qui sotto.',
-              )}
-            ></ui-info-tip>
-          </h3>
-          <ui-card padding="none">
-            <div class="p-6 space-y-4">
+          <ui-panel-section
+            icon="location"
+            iconColor="text-emerald-500"
+            cardPadding="lg"
+            .title=${__('Posizione')}
+            .help=${__(
+              'La mappa qui sotto si aggiorna da sola cercando le coordinate di Indirizzo+Città+CAP+Nazione (geocoding automatico) qualche istante dopo aver smesso di digitare — non serve inserire le coordinate a mano.',
+            )}
+            .renderContent=${() => html`
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <ui-input
-                  .label=${__('Sito Web')}
-                  .placeholder=${__('https://...')}
-                  .value=${this.formData.website}
+                  .label=${__('Indirizzo *')}
+                  .placeholder=${__('Via...')}
+                  .value=${this.formData.address}
                   @input-change=${(e: CustomEvent) =>
-                    (this.formData = { ...this.formData, website: e.detail.value })}
+                    this.updateLocationField('address', e.detail.value)}
+                  required
                 ></ui-input>
+
                 <ui-input
-                  .label=${__('Telefono')}
-                  .placeholder=${__('+39...')}
-                  .value=${this.formData.phone}
+                  .label=${__('Città *')}
+                  .placeholder=${__('Città')}
+                  .value=${this.formData.city}
                   @input-change=${(e: CustomEvent) =>
-                    (this.formData = { ...this.formData, phone: e.detail.value })}
+                    this.updateLocationField('city', e.detail.value)}
+                  required
                 ></ui-input>
+
                 <ui-input
-                  .label=${__('Email')}
-                  type="email"
-                  .placeholder=${__('info@museo.it')}
-                  .value=${this.formData.email}
+                  .label=${__('CAP')}
+                  .placeholder=${__('00000')}
+                  .value=${this.formData.postalCode}
                   @input-change=${(e: CustomEvent) =>
-                    (this.formData = { ...this.formData, email: e.detail.value })}
+                    this.updateLocationField('postalCode', e.detail.value)}
                 ></ui-input>
+
+                <ui-input
+                  .label=${__('Nazione *')}
+                  .placeholder=${__('Italia')}
+                  .value=${this.formData.nation}
+                  @input-change=${(e: CustomEvent) =>
+                    this.updateLocationField('nation', e.detail.value)}
+                  required
+                ></ui-input>
+
+                <div class="md:col-span-2 space-y-2">
+                  <div
+                    id="museum-location-map"
+                    class="h-72 rounded-lg border border-surface-200 dark:border-surface-700 overflow-hidden"
+                  ></div>
+                  <div
+                    class="flex flex-wrap items-center justify-between gap-2 text-xs text-surface-500 dark:text-surface-400"
+                  >
+                    <span>
+                      ${this.formData.latitude !== null && this.formData.longitude !== null
+                        ? `${__('Coordinate')}: ${this.formData.latitude.toFixed(6)}, ${this.formData.longitude.toFixed(6)}`
+                        : __('Inserisci indirizzo, città, CAP e nazione per aggiornare la mappa')}
+                    </span>
+                    <span>
+                      ${this.geocodingLocation
+                        ? __('Aggiornamento mappa in corso...')
+                        : this.geocodingStatus}
+                    </span>
+                  </div>
+                </div>
               </div>
-
-              <ui-textarea
-                .label=${__('Orari di apertura')}
-                .placeholder=${__('Lun-Ven: 9-18...')}
-                .value=${this.formData.openingHours}
-                @textarea-change=${(e: CustomEvent) =>
-                  (this.formData = { ...this.formData, openingHours: e.detail.value })}
-                rows="3"
-              ></ui-textarea>
-
-              <ui-textarea
-                .label=${__('Informazioni biglietti')}
-                .placeholder=${__('Prezzo intero, ridotto...')}
-                .value=${this.formData.ticketInfo}
-                @textarea-change=${(e: CustomEvent) =>
-                  (this.formData = { ...this.formData, ticketInfo: e.detail.value })}
-                rows="3"
-              ></ui-textarea>
-            </div>
-          </ui-card>
+            `}
+          ></ui-panel-section>
         </section>
 
         <section ?hidden=${!showBaseSections}>
-          <h3
-            class="text-lg font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"
-          >
-            <ui-icon name="map-pin" size="sm" class="text-emerald-500"></ui-icon>
-            ${__('Servizi del museo')}
-          </h3>
-          <ui-card padding="none">
-            <div class="p-6 space-y-3">
-              <p class="text-xs text-surface-500 dark:text-surface-400">
-                ${__(
-                  'Solo i servizi attivati qui compaiono nel Navigator. Collegali a un punto già inserito in Piantina e mappa per mostrare "Vedi sulla mappa".',
-                )}
-              </p>
-              ${MUSEUM_SERVICE_TYPE_OPTIONS.map((option) => {
-                const service = this.getService(option.type);
-                return html`
-                  <div
-                    class="border border-surface-200 dark:border-surface-700 rounded-lg p-4 space-y-3"
-                  >
-                    <ui-checkbox
-                      .label=${`${option.icon} ${option.label}`}
-                      .checked=${service.active}
-                      @checkbox-change=${(e: CustomEvent) =>
-                        this.updateService(option.type, { active: Boolean(e.detail.checked) })}
-                    ></ui-checkbox>
-                    ${service.active
-                      ? html`
-                          <ui-textarea
-                            .label=${__('Descrizione (opzionale)')}
-                            .value=${service.description || ''}
-                            rows="2"
-                            @textarea-change=${(e: CustomEvent) =>
-                              this.updateService(option.type, { description: e.detail.value })}
-                          ></ui-textarea>
-                          <ui-select
-                            .label=${__('Punto sulla mappa (opzionale)')}
-                            .value=${service.mapMarkerId || ''}
-                            .options=${this.markerOptionsForType(option.type)}
-                            @select-change=${(e: CustomEvent<{ value: string }>) =>
-                              this.updateService(option.type, {
-                                mapMarkerId: e.detail.value || undefined,
-                              })}
-                          ></ui-select>
-                        `
-                      : nothing}
-                  </div>
-                `;
-              })}
-            </div>
-          </ui-card>
+          <ui-panel-section
+            icon="globe"
+            iconColor="text-amber-500"
+            cardPadding="lg"
+            .title=${__('Contatti e Servizi')}
+            .help=${__(
+              'Solo informazioni di contatto testuali. Per i servizi mostrati come schede nel Navigator (bagni, bar, uscite...) vedi la sezione "Servizi del museo" qui sotto.',
+            )}
+            .renderContent=${() => html`
+              <div class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <ui-input
+                    .label=${__('Sito Web')}
+                    .placeholder=${__('https://...')}
+                    .value=${this.formData.website}
+                    @input-change=${(e: CustomEvent) =>
+                      (this.formData = { ...this.formData, website: e.detail.value })}
+                  ></ui-input>
+                  <ui-input
+                    .label=${__('Telefono')}
+                    .placeholder=${__('+39...')}
+                    .value=${this.formData.phone}
+                    @input-change=${(e: CustomEvent) =>
+                      (this.formData = { ...this.formData, phone: e.detail.value })}
+                  ></ui-input>
+                  <ui-input
+                    .label=${__('Email')}
+                    type="email"
+                    .placeholder=${__('info@museo.it')}
+                    .value=${this.formData.email}
+                    @input-change=${(e: CustomEvent) =>
+                      (this.formData = { ...this.formData, email: e.detail.value })}
+                  ></ui-input>
+                </div>
+
+                <ui-textarea
+                  .label=${__('Orari di apertura')}
+                  .placeholder=${__('Lun-Ven: 9-18...')}
+                  .value=${this.formData.openingHours}
+                  @textarea-change=${(e: CustomEvent) =>
+                    (this.formData = { ...this.formData, openingHours: e.detail.value })}
+                  rows="3"
+                ></ui-textarea>
+
+                <ui-textarea
+                  .label=${__('Informazioni biglietti')}
+                  .placeholder=${__('Prezzo intero, ridotto...')}
+                  .value=${this.formData.ticketInfo}
+                  @textarea-change=${(e: CustomEvent) =>
+                    (this.formData = { ...this.formData, ticketInfo: e.detail.value })}
+                  rows="3"
+                ></ui-textarea>
+              </div>
+            `}
+          ></ui-panel-section>
+        </section>
+
+        <section ?hidden=${!showBaseSections}>
+          <ui-panel-section
+            icon="map-pin"
+            iconColor="text-emerald-500"
+            cardPadding="lg"
+            .title=${__('Servizi del museo')}
+            .renderContent=${() => html`
+              <div class="space-y-3">
+                <p class="text-xs text-surface-500 dark:text-surface-400">
+                  ${__(
+                    'Solo i servizi attivati qui compaiono nel Navigator. Collegali a un punto già inserito in Piantina e mappa per mostrare "Vedi sulla mappa".',
+                  )}
+                </p>
+                ${MUSEUM_SERVICE_TYPE_OPTIONS.map((option) => {
+                  const service = this.getService(option.type);
+                  return html`
+                    <div
+                      class="border border-surface-200 dark:border-surface-700 rounded-lg p-4 space-y-3"
+                    >
+                      <ui-checkbox
+                        .label=${`${option.icon} ${option.label}`}
+                        .checked=${service.active}
+                        @checkbox-change=${(e: CustomEvent) =>
+                          this.updateService(option.type, { active: Boolean(e.detail.checked) })}
+                      ></ui-checkbox>
+                      ${service.active
+                        ? html`
+                            <ui-textarea
+                              .label=${__('Descrizione (opzionale)')}
+                              .value=${service.description || ''}
+                              rows="2"
+                              @textarea-change=${(e: CustomEvent) =>
+                                this.updateService(option.type, { description: e.detail.value })}
+                            ></ui-textarea>
+                            <ui-select
+                              .label=${__('Punto sulla mappa (opzionale)')}
+                              .value=${service.mapMarkerId || ''}
+                              .options=${this.markerOptionsForType(option.type)}
+                              @select-change=${(e: CustomEvent<{ value: string }>) =>
+                                this.updateService(option.type, {
+                                  mapMarkerId: e.detail.value || undefined,
+                                })}
+                            ></ui-select>
+                          `
+                        : nothing}
+                    </div>
+                  `;
+                })}
+              </div>
+            `}
+          ></ui-panel-section>
         </section>
 
         <section ?hidden=${!showNavigatorSection}>
-          <div class="flex items-start justify-between mb-4">
-            <h3
-              class="text-lg font-semibold text-surface-900 dark:text-white flex items-center gap-2 flex-wrap"
-            >
-              <ui-icon name="cog" size="sm" class="text-purple-500"></ui-icon>
-              ${__('Configurazioni Navigator')}
-              <ui-info-tip
-                variant="inline"
-                text=${__(
-                  'Branding e manifest del Navigator specifici per questo museo (colori, font, icone, testo di benvenuto). Se non ne crei una, il museo usa la Configurazione globale Navigator. Un museo può averne più di una, raggiungibili con link/QR diversi (?ncfg=slug).',
-                )}
-              ></ui-info-tip>
-            </h3>
-            ${!this.editingNavigatorConfig
-              ? html`<ui-button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  icon="plus"
-                  .label=${__('Nuova configurazione')}
-                  @click=${this.openNewNavigatorConfig}
-                ></ui-button>`
-              : nothing}
-          </div>
-
-          ${this.loadingNavigatorConfigs ? html`<ui-loading></ui-loading>` : nothing}
-          ${!this.loadingNavigatorConfigs && !this.editingNavigatorConfig
-            ? this.renderNavigatorConfigsList()
-            : nothing}
-          ${this.editingNavigatorConfig
-            ? this.renderNavigatorConfigEditor(
-                this.editingNavigatorConfig,
-                sourceLanguageLabel,
-                navigatorDisplayOptions,
-                navigatorOrientationOptions,
-              )
+          ${showNavigatorSection
+            ? html`
+                <museum-navigator-configs-panel
+                  .museumId=${this.selectedMuseumId}
+                  .sourceLanguage=${sourceLanguage}
+                  .targetLanguages=${this.getMuseumTargetLanguages()}
+                ></museum-navigator-configs-panel>
+              `
             : nothing}
         </section>
 
@@ -2917,393 +1990,15 @@ export class MuseumsManagementPage extends LitElement {
         ${showBaseSections ? this.renderMuseumTranslationsSection(sourceLanguageLabel) : nothing}
         ${!isNavigatorOnlyMode
           ? html`
-              <div class="flex justify-end gap-3">
-                <ui-button
-                  variant="secondary"
-                  .label=${__('Annulla')}
-                  @click=${this.backToList}
-                ></ui-button>
-                <ui-button
-                  type="submit"
-                  variant="primary"
-                  .label=${isCreate ? __('Crea Museo') : __('Salva Modifiche')}
-                  icon="check"
-                  .loading=${this.saving}
-                ></ui-button>
-              </div>
+              <ui-form-actions
+                .submitLabel=${isCreate ? __('Crea Museo') : __('Salva Modifiche')}
+                submitIcon="check"
+                .loading=${this.saving}
+                @cancel=${this.backToList}
+              ></ui-form-actions>
             `
           : nothing}
       </form>
-    `;
-  }
-
-  // ─── Configurazioni Navigator (lista + editor) ─────────────
-  private renderNavigatorConfigsList() {
-    if (this.navigatorConfigs.length === 0) {
-      return html`<ui-empty
-        .title=${__('Nessuna personalizzazione navigator')}
-        .description=${__(
-          'Questo museo non ha configurazioni navigator personalizzate. Usa "Nuova configurazione" per crearne una.',
-        )}
-        icon="cog"
-      ></ui-empty>`;
-    }
-
-    return html`
-      <div class="space-y-3">
-        ${this.navigatorConfigs.map(
-          (config) => html`
-            <ui-card padding="none">
-              <div class="p-4 flex items-center justify-between gap-3 flex-wrap">
-                <div class="flex items-center gap-3 flex-wrap">
-                  <span class="font-medium text-surface-900 dark:text-white">${config.name}</span>
-                  <ui-badge variant="secondary" .label=${config.slug}></ui-badge>
-                </div>
-                <div class="flex items-center gap-2">
-                  <ui-button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    icon="download"
-                    .label=${__('Anteprima manifest')}
-                    @click=${() => this.openNavigatorManifestPreview(config)}
-                  ></ui-button>
-                  <ui-button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    icon="link"
-                    .label=${__('Apri Navigator')}
-                    @click=${() => this.openNavigatorPreview(config)}
-                  ></ui-button>
-                  <ui-icon-button
-                    icon="edit"
-                    .title=${__('Modifica')}
-                    @click=${() => this.openEditNavigatorConfig(config)}
-                  ></ui-icon-button>
-                  <ui-icon-button
-                    icon="trash"
-                    variant="danger"
-                    .title=${__('Elimina')}
-                    .loading=${this.deletingNavigatorConfigId === config.id}
-                    @click=${() => this.deleteNavigatorConfig(config)}
-                  ></ui-icon-button>
-                </div>
-              </div>
-            </ui-card>
-          `,
-        )}
-      </div>
-    `;
-  }
-
-  private renderNavigatorConfigEditor(
-    config: NavigatorConfigFormData,
-    sourceLanguageLabel: string,
-    displayOptions: Array<{ value: string; label: string }>,
-    orientationOptions: Array<{ value: string; label: string }>,
-  ) {
-    return html`
-      <ui-card padding="none">
-        <div class="p-6 space-y-5">
-          <div class="flex items-center justify-between">
-            <h4 class="font-semibold text-surface-900 dark:text-white">
-              ${config.id ? __('Modifica configurazione') : __('Nuova configurazione')}
-            </h4>
-            <div class="flex items-center gap-2">
-              <ui-button
-                type="button"
-                variant="secondary"
-                size="sm"
-                icon="download"
-                .label=${__('Anteprima manifest')}
-                ?disabled=${!config.id}
-                @click=${() => this.openNavigatorManifestPreview(config)}
-              ></ui-button>
-              <ui-button
-                type="button"
-                variant="secondary"
-                size="sm"
-                icon="link"
-                .label=${__('Apri Navigator')}
-                ?disabled=${!config.id}
-                @click=${() => this.openNavigatorPreview(config)}
-              ></ui-button>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <ui-input
-              .label=${__('Nome Config *')}
-              .value=${config.name}
-              @input-change=${(e: CustomEvent) =>
-                this.updateEditingNavigatorConfig({ name: e.detail.value })}
-              required
-            ></ui-input>
-            <ui-input
-              .label=${__('Slug *')}
-              .value=${config.slug}
-              @input-change=${(e: CustomEvent) =>
-                this.updateEditingNavigatorConfig({ slug: sanitizeSlug(e.detail.value) })}
-              required
-            ></ui-input>
-            <ui-input
-              .label=${__('Titolo di benvenuto')}
-              .value=${config.homeTitle}
-              @input-change=${(e: CustomEvent) =>
-                this.updateEditingNavigatorConfig({ homeTitle: e.detail.value })}
-            ></ui-input>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ui-input
-              .label=${__('Nome manifest *')}
-              .value=${config.manifestName}
-              @input-change=${(e: CustomEvent) =>
-                this.updateEditingNavigatorConfig({ manifestName: e.detail.value })}
-              required
-            ></ui-input>
-            <ui-input
-              .label=${__('Nome breve manifest *')}
-              .value=${config.shortName}
-              @input-change=${(e: CustomEvent) =>
-                this.updateEditingNavigatorConfig({ shortName: e.detail.value })}
-              required
-            ></ui-input>
-            ${this.renderNavigatorColorField(
-              config,
-              'primaryColor',
-              __('Colore primario'),
-              '#0ea5e9',
-              __(
-                'Accento principale del Navigator per questo museo: pulsanti, gradiente, elementi in evidenza.',
-              ),
-            )}
-            ${this.renderNavigatorColorField(
-              config,
-              'secondaryColor',
-              __('Colore secondario'),
-              '#1f2937',
-              __("Estremità opposta del gradiente firma dell'app, insieme al colore primario."),
-            )}
-            ${this.renderNavigatorColorField(
-              config,
-              'appBackgroundColor',
-              __('Colore sfondo app'),
-              '#0b0813',
-              __(
-                'Sfondo di tutte le schermate del Navigator: da questo colore vengono derivate automaticamente le sue sfumature (card, bordi, testo).',
-              ),
-            )}
-            ${this.renderNavigatorColorField(
-              config,
-              'themeColor',
-              __('Colore tema'),
-              '#0ea5e9',
-              __(
-                "Colore della barra di stato/indirizzo del browser e della splash screen quando l'app è installata sul telefono.",
-              ),
-            )}
-            ${this.renderNavigatorColorField(
-              config,
-              'backgroundColor',
-              __('Colore sfondo manifest/splash'),
-              '#ffffff',
-              __(
-                "Sfondo mostrato per una frazione di secondo all'avvio dell'app installata, prima che venga caricata la vera schermata.",
-              ),
-            )}
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ui-select
-              .label=${__('Font titoli')}
-              .value=${config.displayFont}
-              .options=${NAVIGATOR_FONT_SELECT_OPTIONS}
-              placeholder=${__('Predefinito')}
-              @select-change=${(e: CustomEvent) =>
-                this.updateEditingNavigatorConfig({ displayFont: e.detail.value })}
-            ></ui-select>
-            <ui-select
-              .label=${__('Font testo')}
-              .value=${config.bodyFont}
-              .options=${NAVIGATOR_FONT_SELECT_OPTIONS}
-              placeholder=${__('Predefinito')}
-              @select-change=${(e: CustomEvent) =>
-                this.updateEditingNavigatorConfig({ bodyFont: e.detail.value })}
-            ></ui-select>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ui-select
-              .label=${__('Visualizzazione')}
-              .value=${config.display}
-              .options=${displayOptions}
-              @select-change=${(e: CustomEvent) =>
-                this.updateEditingNavigatorConfig({
-                  display: e.detail.value as NavigatorConfigFormData['display'],
-                })}
-            ></ui-select>
-            <ui-select
-              .label=${__('Orientamento')}
-              .value=${config.orientation}
-              .options=${orientationOptions}
-              @select-change=${(e: CustomEvent) =>
-                this.updateEditingNavigatorConfig({
-                  orientation: e.detail.value as NavigatorConfigFormData['orientation'],
-                })}
-            ></ui-select>
-            <ui-input
-              .label=${__('URL iniziale')}
-              .value=${config.startUrl}
-              @input-change=${(e: CustomEvent) =>
-                this.updateEditingNavigatorConfig({ startUrl: e.detail.value || '/' })}
-            ></ui-input>
-            <ui-input
-              .label=${__('Ambito')}
-              .value=${config.scope}
-              @input-change=${(e: CustomEvent) =>
-                this.updateEditingNavigatorConfig({ scope: e.detail.value || '/' })}
-            ></ui-input>
-          </div>
-
-          <ui-textarea
-            .label=${__('Testo di benvenuto')}
-            .value=${config.welcomeText}
-            @textarea-change=${(e: CustomEvent) =>
-              this.updateEditingNavigatorConfig({ welcomeText: e.detail.value })}
-            rows="3"
-          ></ui-textarea>
-
-          <ui-textarea
-            .label=${__('Descrizione manifest')}
-            .value=${config.manifestDescription}
-            @textarea-change=${(e: CustomEvent) =>
-              this.updateEditingNavigatorConfig({ manifestDescription: e.detail.value })}
-            rows="2"
-          ></ui-textarea>
-
-          ${this.renderNavigatorTranslationsForConfig(config, sourceLanguageLabel)}
-
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            ${this.renderNavigatorImageEditors(config)}
-          </div>
-
-          <div
-            class="flex justify-end gap-3 pt-4 border-t border-surface-200 dark:border-surface-700"
-          >
-            <ui-button
-              type="button"
-              variant="secondary"
-              .label=${__('Annulla')}
-              @click=${this.cancelEditNavigatorConfig}
-            ></ui-button>
-            <ui-button
-              type="button"
-              variant="primary"
-              icon="check"
-              .label=${__('Salva configurazione')}
-              .loading=${this.savingNavigatorConfig}
-              @click=${this.saveNavigatorConfig}
-            ></ui-button>
-          </div>
-        </div>
-      </ui-card>
-    `;
-  }
-
-  private renderCurators() {
-    return html`
-      <ui-page-header
-        title="${__('Curatori')} - ${this.selectedMuseum?.name}"
-        .description=${__('Gestisci i curatori che possono modificare questo museo')}
-        .help=${__(
-          'Solo il ruolo Curatore si assegna da qui. Per assegnare il ruolo Autore (che può creare item/visite ma non gestire il museo) usa la pagina Utenti.',
-        )}
-        showBack
-        @back=${this.backToList}
-      ></ui-page-header>
-
-      <ui-card padding="none">
-        <div class="p-6 space-y-6">
-          <!-- Add Curator -->
-          <ui-section
-            .title=${__('Aggiungi Curatore')}
-            .description=${__('Assegna un nuovo curatore a questo museo')}
-            .renderContent=${() => html`
-              <div class="flex gap-3 items-end">
-                <div class="flex-1">
-                  <ui-select
-                    .label=${__('Seleziona utente')}
-                    placeholder=${this.loadingUsers ? __('Caricamento...') : __('Scegli un utente')}
-                    .value=${this.selectedUserId}
-                    .options=${this.availableUsers.map((u) => ({
-                      value: u._id,
-                      label: `${u.username} (${u.email})`,
-                    }))}
-                    @select-change=${(e: CustomEvent) => (this.selectedUserId = e.detail.value)}
-                    ?disabled=${this.loadingUsers}
-                  ></ui-select>
-                </div>
-                <ui-button
-                  variant="primary"
-                  .label=${__('Aggiungi')}
-                  icon="plus"
-                  .loading=${this.addingCurator}
-                  ?disabled=${!this.selectedUserId}
-                  @click=${() => this.handleAddCurator()}
-                ></ui-button>
-              </div>
-            `}
-          ></ui-section>
-
-          <!-- Curators List -->
-          <ui-section
-            .title=${__('Curatori Attuali')}
-            .description=${__('Utenti con permesso di modifica')}
-            .renderContent=${() =>
-              this.loadingCurators
-                ? html`<ui-loading></ui-loading>`
-                : this.curators.length === 0
-                  ? html`<p class="text-surface-500 text-sm">${__('Nessun curatore assegnato')}</p>`
-                  : html`
-                      <div class="space-y-3">
-                        ${this.curators.map(
-                          (curator) => html`
-                            <div
-                              class="flex items-center justify-between p-3 rounded-lg bg-surface-50 dark:bg-surface-800"
-                            >
-                              <div class="flex items-center gap-3">
-                                <div
-                                  class="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center"
-                                >
-                                  <span class="text-brand-700 dark:text-brand-300 font-medium">
-                                    ${curator.username.charAt(0).toUpperCase()}
-                                  </span>
-                                </div>
-                                <div>
-                                  <p class="font-medium text-surface-900 dark:text-white">
-                                    ${curator.username}
-                                  </p>
-                                  <p class="text-sm text-surface-500">${curator.email}</p>
-                                </div>
-                              </div>
-                              <ui-button
-                                variant="ghost"
-                                size="sm"
-                                .label=${__('Rimuovi')}
-                                icon="trash"
-                                .loading=${this.removingCuratorId === curator._id}
-                                @click=${() => this.handleRemoveCurator(curator._id)}
-                              ></ui-button>
-                            </div>
-                          `,
-                        )}
-                      </div>
-                    `}
-          ></ui-section>
-        </div>
-      </ui-card>
     `;
   }
 }

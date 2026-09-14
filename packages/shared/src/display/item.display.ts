@@ -104,3 +104,7 @@ export function getContentDurationLabel(duration: ContentDuration | string): str
 export function getLanguageLevelLabel(level: LanguageLevel | string): string {
   return LANGUAGE_LEVEL_LABELS_IT[level as LanguageLevel] ?? level;
 }
+
+export function getLicenseLabel(license: LicenseType | string): string {
+  return LICENSE_TYPE_LABELS_IT[license as LicenseType] ?? license;
+}

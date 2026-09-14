@@ -1,5 +1,17 @@
-import { apiService, type PaginatedApiResponse, getErrorMessage } from './api.service';
-import type { Item, ItemFilters, CreateItemData, UpdateItemData } from '@artaround/shared';
+import {
+  apiService,
+  type ApiResponse,
+  type PaginatedApiResponse,
+  getErrorMessage,
+} from './api.service';
+import type {
+  Item,
+  ItemFilters,
+  CreateItemData,
+  UpdateItemData,
+  AppLanguage,
+} from '@artaround/shared';
+import { __ } from './i18n.service';
 
 export interface ItemsResponse {
   items: Item[];
@@ -11,6 +23,9 @@ export interface ItemsResponse {
   };
 }
 
+/**
+ * CRUD dei contenuti (item) e ricerca di quelli usabili in una tappa.
+ */
 export class ItemService {
   async getItems(filters: ItemFilters = {}): Promise<ItemsResponse> {
     const params = new URLSearchParams();
@@ -77,11 +92,7 @@ export class ItemService {
     return [];
   }
 
-  // Come getItemsForArtwork, ma ristretto a ciò che l'utente autenticato può
-  // abbinare a una tappa che sta costruendo: propri contenuti, gratuiti, o
-  // già acquistati (vedi ItemController.getUsableItemsForArtwork) — a
-  // differenza del catalogo pubblico, dove si vede tutto per valutare
-  // l'acquisto.
+  // Come getItemsForArtwork, ma ristretto a ciò che l'utente può abbinare: propri, gratuiti o già acquistati.
   async getUsableItemsForArtwork(
     artworkWikidataId: string,
     options?: { duration?: string; languageLevel?: string },
@@ -176,6 +187,40 @@ export class ItemService {
   async deleteItem(id: string): Promise<boolean> {
     const response = await apiService.delete<void>(`/items/${id}`);
     return response.success;
+  }
+
+  // multipart/form-data: apiService forza sempre JSON, serve una fetch a mano
+  // (stesso pattern di upload.service.ts).
+  async uploadAudio(id: string, language: AppLanguage, file: File): Promise<Item> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('language', language);
+
+    const token = localStorage.getItem('authToken');
+    const headers: HeadersInit = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`/api/items/${id}/audio`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    const body = (await response.json()) as ApiResponse<Item>;
+
+    if (body.success && body.data) return body.data;
+    throw new Error(getErrorMessage(body, __("Errore durante il caricamento dell'audio")));
+  }
+
+  async deleteAudio(id: string, language: AppLanguage): Promise<Item> {
+    const response = await apiService.delete<Item>(`/items/${id}/audio/${language}`);
+    if (response.success && response.data) return response.data;
+    throw new Error(getErrorMessage(response, __("Errore durante l'eliminazione dell'audio")));
+  }
+
+  async generateAudio(id: string): Promise<Item> {
+    const response = await apiService.post<Item>(`/items/${id}/generate-audio`, {});
+    if (response.success && response.data) return response.data;
+    throw new Error(getErrorMessage(response, __("Errore durante la generazione dell'audio")));
   }
 }
 

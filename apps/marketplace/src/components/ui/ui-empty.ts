@@ -3,22 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import './ui-icon';
 
 /**
- * UI Empty State
- *
- * Uno stato vuoto coerente con icona, titolo, descrizione e azione opzionale.
- *
- * @slot action - Slot per il bottone d'azione
- *
- * @example
- * ```html
- * <ui-empty
- *   icon="document"
- *   .title=${__('Nessun contenuto')}
- *   .description=${__('Non ci sono ancora contenuti')}
- * >
- *   <ui-button slot="action" variant="primary" icon="plus" .label=${__('Crea il primo')}></ui-button>
- * </ui-empty>
- * ```
+ * Stato vuoto a piena pagina con icona, titolo/descrizione e azione opzionale.
  */
 @customElement('ui-empty')
 export class UiEmpty extends LitElement {

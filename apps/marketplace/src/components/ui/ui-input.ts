@@ -2,6 +2,9 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './ui-info-tip';
 
+/**
+ * Campo di testo con etichetta, aiuto ed errore.
+ */
 @customElement('ui-input')
 export class UiInput extends LitElement {
   @property({ type: String }) type = 'text';
@@ -13,6 +16,9 @@ export class UiInput extends LitElement {
   @property({ type: String }) hint = '';
   @property({ type: Boolean }) required = false;
   @property({ type: Boolean }) disabled = false;
+  // Passato al nativo così com'è (es. "new-password" per un campo password che
+  // NON deve suggerire/autocompilare credenziali salvate — vedi users-page.ts).
+  @property({ type: String }) autocomplete = 'on';
 
   // ─── Ciclo di vita ───────────────────────────────────────────
   createRenderRoot() {
@@ -72,6 +78,7 @@ export class UiInput extends LitElement {
           type="${this.type}"
           class="${inputClasses}"
           placeholder="${this.placeholder}"
+          autocomplete="${this.autocomplete}"
           .value="${this.value}"
           ?required="${this.required}"
           ?disabled="${this.disabled}"

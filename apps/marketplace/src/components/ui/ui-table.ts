@@ -21,29 +21,7 @@ export interface TableAction {
 }
 
 /**
- * UI Data Table
- *
- * Una tabella dati coerente con ordinamento e azioni.
- *
- * @fires row-action - Emette { action: string, row: object } quando si clicca un'azione
- * @fires row-click - Emette { row: object } quando si clicca una riga
- *
- * @example
- * ```html
- * <ui-table
- *   .columns=${[
- *     { key: 'name', label: 'Nome' },
- *     { key: 'email', label: 'Email' },
- *     { key: 'role', label: 'Ruolo' }
- *   ]}
- *   .data=${this.users}
- *   .actions=${[
- *     { icon: 'edit', label: 'Modifica', action: 'edit' },
- *     { icon: 'trash', label: 'Elimina', action: 'delete', variant: 'danger' }
- *   ]}
- *   @row-action=${this.handleRowAction}
- * ></ui-table>
- * ```
+ * Tabella con colonne configurabili e azioni per riga.
  */
 @customElement('ui-table')
 export class UiTable extends LitElement {

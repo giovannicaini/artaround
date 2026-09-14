@@ -1,5 +1,33 @@
 import { apiService, type PaginatedApiResponse, getErrorMessage } from './api.service';
-import type { Item, Visit } from '@artaround/shared';
+import type {
+  Item,
+  Visit,
+  ItemReferenceType,
+  ContentDuration,
+  LanguageLevel,
+} from '@artaround/shared';
+
+export interface MarketplaceItemFilters {
+  museumId?: string;
+  referenceType?: ItemReferenceType;
+  duration?: ContentDuration;
+  languageLevel?: LanguageLevel;
+  isFree?: boolean;
+  search?: string;
+  sortBy?: 'createdAt' | 'price' | 'usage';
+  page?: number;
+  limit?: number;
+}
+
+export interface MarketplaceVisitFilters {
+  museumId?: string;
+  languageLevel?: LanguageLevel;
+  isFree?: boolean;
+  search?: string;
+  sortBy?: 'createdAt' | 'price' | 'downloads';
+  page?: number;
+  limit?: number;
+}
 
 type PurchaseRecord<T> = {
   _id: string;
@@ -9,9 +37,9 @@ type PurchaseRecord<T> = {
   visitId?: T;
 };
 
-// Porta con sé il codice errore del server (es. INSUFFICIENT_CREDIT) oltre al
-// messaggio, così chi chiama può offrire un'azione mirata (es. un pulsante
-// "Ricarica credito") invece di un semplice testo d'errore.
+/**
+ * Catalogo e acquisto di item/visite di altri autori nel marketplace.
+ */
 export class PurchaseError extends Error {
   constructor(
     message: string,
@@ -23,13 +51,15 @@ export class PurchaseError extends Error {
 }
 
 export class MarketplaceService {
-  async getItems(params?: {
-    museumId?: string;
-    page?: number;
-    limit?: number;
-  }): Promise<{ items: Item[]; total: number }> {
+  async getItems(params?: MarketplaceItemFilters): Promise<{ items: Item[]; total: number }> {
     const query = new URLSearchParams();
     if (params?.museumId) query.append('museumId', params.museumId);
+    if (params?.referenceType) query.append('referenceType', params.referenceType);
+    if (params?.duration) query.append('duration', params.duration);
+    if (params?.languageLevel) query.append('languageLevel', params.languageLevel);
+    if (params?.isFree !== undefined) query.append('isFree', String(params.isFree));
+    if (params?.search) query.append('search', params.search);
+    if (params?.sortBy) query.append('sortBy', params.sortBy);
     if (params?.page) query.append('page', String(params.page));
     if (params?.limit) query.append('limit', String(params.limit));
 
@@ -49,13 +79,13 @@ export class MarketplaceService {
     };
   }
 
-  async getVisits(params?: {
-    museumId?: string;
-    page?: number;
-    limit?: number;
-  }): Promise<{ visits: Visit[]; total: number }> {
+  async getVisits(params?: MarketplaceVisitFilters): Promise<{ visits: Visit[]; total: number }> {
     const query = new URLSearchParams();
     if (params?.museumId) query.append('museumId', params.museumId);
+    if (params?.languageLevel) query.append('languageLevel', params.languageLevel);
+    if (params?.isFree !== undefined) query.append('isFree', String(params.isFree));
+    if (params?.search) query.append('search', params.search);
+    if (params?.sortBy) query.append('sortBy', params.sortBy);
     if (params?.page) query.append('page', String(params.page));
     if (params?.limit) query.append('limit', String(params.limit));
 

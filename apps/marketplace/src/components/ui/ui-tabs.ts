@@ -10,23 +10,7 @@ export interface TabItem {
 }
 
 /**
- * UI Tabs
- *
- * Un componente di navigazione a tab coerente.
- *
- * @fires tab-change - Emette l'id della tab selezionata
- *
- * @example
- * ```html
- * <ui-tabs
- *   .tabs=${[
- *     { id: 'info', label: 'Informazioni', icon: 'document' },
- *     { id: 'steps', label: 'Percorso', icon: 'list', badge: 5 }
- *   ]}
- *   .activeTab=${'info'}
- *   @tab-change=${(e) => this.activeTab = e.detail.id}
- * ></ui-tabs>
- * ```
+ * Barra di tab con badge opzionali, scorribile su schermi stretti.
  */
 @customElement('ui-tabs')
 export class UiTabs extends LitElement {
@@ -42,10 +26,7 @@ export class UiTabs extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.style.display = 'block';
-    // Come per ui-filter-tabs: senza min-width:0 questo elemento non si
-    // restringe mai sotto la larghezza naturale del suo contenuto, quindi
-    // con abbastanza tab (es. le 5 dell'editor visite) la riga usciva dalla
-    // pagina invece di diventare scorribile su schermi stretti.
+    // Come per ui-filter-tabs: senza min-width:0 la riga usciva dalla pagina invece di diventare scorribile.
     this.style.minWidth = '0';
   }
 

@@ -2,6 +2,9 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './ui-info-tip';
 
+/**
+ * Titolo di sezione con descrizione e tooltip di aiuto opzionali.
+ */
 @customElement('ui-section-header')
 export class UiSectionHeader extends LitElement {
   @property({ type: String }) title = '';

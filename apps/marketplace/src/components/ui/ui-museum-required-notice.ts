@@ -4,6 +4,9 @@ import './ui-alert';
 import './ui-button';
 import { __ } from '../../services/i18n.service';
 
+/**
+ * Avviso quando manca un museo attivo selezionato.
+ */
 @customElement('ui-museum-required-notice')
 export class UiMuseumRequiredNotice extends LitElement {
   @property({ type: String }) subject = 'risorse';

@@ -5,6 +5,9 @@ import type {
 } from '@artaround/shared';
 import { apiService, getErrorMessage } from './api.service';
 
+/**
+ * CRUD delle configurazioni Navigator (globale e per museo).
+ */
 export class NavigatorConfigService {
   // Admin: tutte le config. Curatore: solo quelle dei musei di cui è curatore.
   async list(): Promise<NavigatorConfig[]> {

@@ -22,6 +22,9 @@ export interface ArtworksResponse {
   };
 }
 
+/**
+ * CRUD e ricerca delle opere.
+ */
 export class ArtworkService {
   async getArtworks(filters: ArtworkFilters = {}): Promise<ArtworksResponse> {
     const params = new URLSearchParams();

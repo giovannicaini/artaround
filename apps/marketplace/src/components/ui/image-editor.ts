@@ -9,6 +9,7 @@ import '../ui/ui-input';
 import '../ui/ui-select';
 import '../ui/ui-badge';
 import '../ui/ui-image-placeholder';
+import '../ui/ui-info-tip';
 import { __ } from '../../services/i18n.service';
 
 interface CropRegion {
@@ -22,46 +23,35 @@ type SourceMode = 'file' | 'url';
 type EditorStep = 'source' | 'edit' | 'uploading';
 
 /**
- * Componente Image Editor riutilizzabile
- *
- * Funzionalità:
- * - Carica immagine da file o URL
- * - Anteprima con controlli di ridimensionamento
- * - Selezione di ritaglio visuale
- * - Selezione formato e qualità
- * - Upload al server con elaborazione
- *
- * Uso:
- * <image-editor
- *   category="museums"
- *   .value=${museum.coverImage}
- *   @image-saved=${(e) => handle(e.detail.path)}
- * ></image-editor>
+ * Upload/ritaglio di un'immagine con anteprima e ridimensionamento lato client.
  */
 @customElement('image-editor')
 export class ImageEditor extends LitElement {
-  /** Categoria di upload (determina la sottocartella sul server) */
+  // Categoria di upload (determina la sottocartella sul server)
   @property({ type: String }) category: UploadCategory = 'misc';
 
-  /** Percorso/URL dell'immagine attuale (per mostrarla e sostituirla) */
+  // Percorso/URL dell'immagine attuale (per mostrarla e sostituirla)
   @property({ type: String }) value = '';
 
-  /** Etichetta mostrata sopra il componente */
+  // Etichetta mostrata sopra il componente
   @property({ type: String }) label = '';
 
-  /** Se il campo è obbligatorio */
+  // Testo del box informativo accanto all'etichetta (vuoto = nessuno)
+  @property({ type: String }) help = '';
+
+  // Se il campo è obbligatorio
   @property({ type: Boolean }) required = false;
 
-  /** Larghezza massima suggerita per l'output */
+  // Larghezza massima suggerita per l'output
   @property({ type: Number }) maxWidth = 1200;
 
-  /** Altezza massima suggerita per l'output */
+  // Altezza massima suggerita per l'output
   @property({ type: Number }) maxHeight = 1200;
 
-  /** Formato di output di default */
+  // Formato di output di default
   @property({ type: String }) defaultFormat: 'webp' | 'jpeg' | 'png' = 'webp';
 
-  /** Dimensione massima output in MB (0 = nessun limite) */
+  // Dimensione massima output in MB (0 = nessun limite)
   @property({ type: Number }) maxOutputSizeMb = 0;
 
   // Stato interno
@@ -628,9 +618,12 @@ export class ImageEditor extends LitElement {
 
     return html`
       <div class="space-y-1.5">
-        <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">
+        <label
+          class="flex items-center gap-1.5 text-sm font-medium text-surface-700 dark:text-surface-300"
+        >
           ${resolvedLabel}
           ${this.required ? html`<span class="text-danger-500 ml-0.5">*</span>` : nothing}
+          ${this.help ? html`<ui-info-tip text=${this.help}></ui-info-tip>` : nothing}
         </label>
 
         ${this.value && this.step === 'source' && !this.showSourcePicker
@@ -719,7 +712,6 @@ export class ImageEditor extends LitElement {
       <div
         class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 overflow-hidden"
       >
-        <!-- Tab: File / URL -->
         <div class="flex border-b border-surface-200 dark:border-surface-700">
           <button
             type="button"
@@ -847,7 +839,6 @@ export class ImageEditor extends LitElement {
       <div
         class="rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 overflow-hidden"
       >
-        <!-- Area di anteprima -->
         <div
           class="relative bg-[repeating-conic-gradient(#e5e7eb_0%_25%,transparent_0%_50%)_0_0/20px_20px] dark:bg-[repeating-conic-gradient(#374151_0%_25%,transparent_0%_50%)_0_0/20px_20px] flex items-center justify-center p-4"
         >
@@ -861,10 +852,7 @@ export class ImageEditor extends LitElement {
             ${this.cropEnabled ? this.renderCropOverlay() : nothing}
           </div>
         </div>
-
-        <!-- Controlli -->
         <div class="p-4 space-y-4 border-t border-surface-200 dark:border-surface-700">
-          <!-- Barra info originale -->
           <div class="flex items-center gap-2 flex-wrap">
             <ui-badge
               variant="secondary"
@@ -905,8 +893,6 @@ export class ImageEditor extends LitElement {
                 `
               : nothing}
           </div>
-
-          <!-- Controlli di ridimensionamento -->
           <div class="flex items-end gap-3 flex-wrap">
             <div class="w-28">
               <ui-input
@@ -977,8 +963,6 @@ export class ImageEditor extends LitElement {
               </div>
             </div>
           </div>
-
-          <!-- Toggle ritaglio -->
           <div class="flex items-center gap-3">
             <ui-button
               variant=${this.cropEnabled ? 'primary' : 'outline'}
@@ -998,8 +982,6 @@ export class ImageEditor extends LitElement {
                 `
               : nothing}
           </div>
-
-          <!-- Bottoni azione -->
           <div
             class="flex items-center gap-3 pt-2 border-t border-surface-200 dark:border-surface-700"
           >
@@ -1039,7 +1021,6 @@ export class ImageEditor extends LitElement {
     const handleSize = 10;
 
     return html`
-      <!-- Overlay scuro fuori dal ritaglio -->
       <div
         class="absolute inset-0 pointer-events-none"
         style="background:
@@ -1054,14 +1035,11 @@ export class ImageEditor extends LitElement {
         class="absolute pointer-events-none"
         style="left:${cx}px; top:${cy + ch}px; width:${cw}px; bottom:0; background:rgba(0,0,0,0.5)"
       ></div>
-
-      <!-- Regione di ritaglio (trascinabile) -->
       <div
         class="absolute border-2 border-white cursor-move"
         style="left:${cx}px; top:${cy}px; width:${cw}px; height:${ch}px; box-shadow: 0 0 0 9999px rgba(0,0,0,0);"
         @mousedown=${(e: MouseEvent) => this.startCropDrag(e, 'move')}
       >
-        <!-- Guide regola dei terzi -->
         <div class="absolute inset-0 pointer-events-none">
           <div
             class="absolute"
@@ -1080,8 +1058,6 @@ export class ImageEditor extends LitElement {
             style="top:66.66%; left:0; right:0; height:1px; background:rgba(255,255,255,0.3)"
           ></div>
         </div>
-
-        <!-- Maniglie di ridimensionamento -->
         <div
           class="absolute bg-white border border-surface-400 rounded-sm cursor-nw-resize"
           style="top:-${handleSize / 2}px; left:-${handleSize /
