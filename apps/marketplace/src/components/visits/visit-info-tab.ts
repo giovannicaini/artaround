@@ -64,16 +64,15 @@ export class VisitInfoTab extends LitElement {
           .title=${__('Museo')}
           icon="location"
           .help=${__(
-            'Il museo in cui si svolge la visita: determina quali opere, piante e marker sono disponibili nelle tappe del Percorso. Cambiarlo dopo aver già aggiunto delle tappe non le rimuove automaticamente, ma i riferimenti a opere/waypoint del museo precedente restano non validi.',
+            'La visita appartiene al museo attivo in quel momento e non è modificabile da qui: determina quali opere, piante e marker sono disponibili nelle tappe del Percorso. Per crearla in un altro museo, cambia prima il museo attivo dalla barra in alto.',
           )}
           .renderContent=${() => html`
             <ui-select
-              .label=${__('Seleziona il museo')}
+              .label=${__('Museo')}
               .value=${this.museumId}
               .options=${this.museums.map((m) => ({ value: m._id, label: m.name }))}
               placeholder=${this.loadingMuseums ? __('Caricamento...') : __('Seleziona il museo')}
-              ?disabled=${this.loadingMuseums}
-              @select-change=${(e: CustomEvent) => this.emitChange({ museumId: e.detail.value })}
+              ?disabled=${true}
               required
             ></ui-select>
           `}
