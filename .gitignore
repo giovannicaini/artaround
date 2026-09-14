@@ -1,3 +1,12 @@
+/*
+ * Filename: /var/www/vhosts/artaround.giovannicaini.it/httpdocs/artaround/.gitignore
+ * Path: /var/www/vhosts/artaround.giovannicaini.it/httpdocs/artaround
+ * Created Date: Tuesday, February 10th 2026, 3:25:34 pm
+ * Author: Giovanni Caini
+ * 
+ * Copyright (c) 2026 Giovanni Caini
+ */
+
 # Dependencies
 node_modules/
 .pnp
@@ -56,3 +65,4 @@ SpecificheProgetto.txt
 STRUTTURA_PROGETTO.txt
 
 docs/
+backups/
