@@ -33,6 +33,7 @@ const PAGE_LOADERS: Record<string, () => Promise<unknown>> = {
   visits: () => import('./components/visits/visits-page'),
   users: () => import('./components/pages/users-page'),
   settings: () => import('./components/pages/settings-page'),
+  backups: () => import('./components/pages/backups-page'),
 };
 
 /**
@@ -127,6 +128,7 @@ export class AppRoot extends LitElement {
       visits: 'Visite',
       users: 'Gestione Utenti',
       settings: 'Il mio account',
+      backups: 'Backup',
     };
 
     const label = labelByRoute[route] || 'Homepage';
@@ -366,6 +368,8 @@ export class AppRoot extends LitElement {
         ></users-page>`;
       case 'settings':
         return html`<settings-page .user=${this.currentUser}></settings-page>`;
+      case 'backups':
+        return html`<backups-page></backups-page>`;
       default:
         return html`
           <div class="flex items-center justify-center min-h-[400px]">
@@ -636,6 +640,15 @@ export class AppRoot extends LitElement {
     }
 
     if (route === 'navigator-default-config' && !this.currentUser?.isAdmin) {
+      routerService.navigate(
+        'dashboard',
+        {},
+        { replace: true, title: this.getRouteTitle('dashboard') },
+      );
+      return;
+    }
+
+    if (route === 'backups' && !this.currentUser?.isAdmin) {
       routerService.navigate(
         'dashboard',
         {},

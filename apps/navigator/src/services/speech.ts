@@ -274,6 +274,32 @@ export function parseVoiceCommand(text: string): VoiceCommandId | null {
     shop: ["dov'è lo shop", "dov'è il negozio", 'shop', 'negozio', 'souvenir'],
     obstacles: ['ci sono ostacoli', "c'è un ostacolo", 'è accessibile', 'ostacoli'],
     help: ['aiuto', 'help', 'cosa posso dire'],
+    speedUp: [
+      'più veloce',
+      'parla più veloce',
+      'parla più in fretta',
+      'aumenta la velocità',
+      'aumenta velocità',
+      'velocizza',
+      'speed up',
+      'faster',
+    ],
+    speedDown: [
+      'più lento',
+      'più lenta',
+      'parla più piano',
+      'rallenta',
+      'diminuisci la velocità',
+      'diminuisci velocità',
+      'slow down',
+      'slower',
+    ],
+    speedNormal: [
+      'velocità normale',
+      'velocità predefinita',
+      'torna alla velocità normale',
+      'normal speed',
+    ],
   };
 
   for (const command of Object.keys(commands) as VoiceCommandId[]) {

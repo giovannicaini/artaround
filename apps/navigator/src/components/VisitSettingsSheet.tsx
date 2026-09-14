@@ -33,6 +33,7 @@ import { useLanguageLevelMeta } from '../services/useLanguageLevelMeta';
 import { useT } from '../services/useT';
 import { Chip, Sheet } from './ui';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { PLAYBACK_RATES } from '../services/audioPlayback';
 
 interface VisitSettingsSheetProps {
   open: boolean;
@@ -42,6 +43,8 @@ interface VisitSettingsSheetProps {
   setLanguageLevel: (level: LanguageLevel) => void;
   contentDuration: ContentDuration;
   setContentDuration: (duration: ContentDuration) => void;
+  playbackRate: number;
+  setPlaybackRate: (rate: number) => void;
 }
 
 //Modale con le impostazioni della visita
@@ -53,6 +56,8 @@ export function VisitSettingsSheet({
   setLanguageLevel,
   contentDuration,
   setContentDuration,
+  playbackRate,
+  setPlaybackRate,
 }: VisitSettingsSheetProps) {
   const t = useT();
   const LEVEL_META = useLanguageLevelMeta();
@@ -102,6 +107,17 @@ export function VisitSettingsSheet({
         </div>
       </div>
 
+      <div className="mb-5">
+        <p className="text-sm font-medium text-surface-300 mb-2">{t('Velocità lettura')}</p>
+        <div className="flex flex-wrap gap-2">
+          {PLAYBACK_RATES.map((rate) => (
+            <Chip key={rate} selected={playbackRate === rate} onClick={() => setPlaybackRate(rate)}>
+              {rate}×
+            </Chip>
+          ))}
+        </div>
+      </div>
+
       <div>
         <p className="text-sm font-medium text-surface-300 mb-2">
           {t('Comandi vocali disponibili')}
@@ -139,6 +155,18 @@ export function VisitSettingsSheet({
             <p>
               <span className="font-semibold text-surface-200">{t('"Stop"')}</span> —{' '}
               {t('Ferma audio')}
+            </p>
+            <p>
+              <span className="font-semibold text-surface-200">{t('"Più veloce"')}</span> —{' '}
+              {t('Aumenta velocità')}
+            </p>
+            <p>
+              <span className="font-semibold text-surface-200">{t('"Più lento"')}</span> —{' '}
+              {t('Diminuisci velocità')}
+            </p>
+            <p>
+              <span className="font-semibold text-surface-200">{t('"Velocità normale"')}</span> —{' '}
+              {t('Ripristina 1×')}
             </p>
           </div>
         </div>

@@ -29,6 +29,17 @@ export class UiAlert extends LitElement {
     this.style.display = 'block';
   }
 
+  // Un nuovo messaggio porta il focus (e lo scroll) sull'alert: altrimenti,
+  // fuori dallo schermo o senza screen reader, passerebbe inosservato.
+  updated(changed: Map<string, unknown>) {
+    if (!this.visible || !this.message) return;
+    if (!changed.has('message')) return;
+
+    const el = this.querySelector('[role="alert"]') as HTMLElement | null;
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el?.focus();
+  }
+
   // ─── Azioni ──────────────────────────────────────────────
   private get variantConfig() {
     const configs = {
@@ -85,8 +96,9 @@ export class UiAlert extends LitElement {
 
     return html`
       <div
-        class="p-4 rounded-lg ${config.bg} border ${config.border} flex items-start gap-3"
+        class="p-4 rounded-lg ${config.bg} border ${config.border} flex items-start gap-3 focus-glow"
         role="alert"
+        tabindex="-1"
       >
         <ui-icon
           name="${config.icon}"

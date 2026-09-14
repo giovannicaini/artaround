@@ -1,7 +1,7 @@
 /*
- * File: visitAccess.ts                                                                  *
+ * File: playbackRateStore.ts                                                            *
  * Project: @artaround/navigator                                                         *
- * Last Modified: 09/09/2026                                                             *
+ * Last Modified: 14/09/2026                                                             *
  * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
  * -----                                                                                 *
  * MIT License                                                                           *
@@ -28,28 +28,20 @@
  * ************************************************************************************* *
  */
 
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import type { Visit } from '@artaround/shared';
-import { api } from './apiClient';
-import { useAuthStore } from '../context/authStore';
+import { create } from 'zustand';
+import { audioPlaybackService, loadStoredPlaybackRate } from '../services/audioPlayback';
 
-// Id delle visite già acquistate dall'utente connesso
-export function useOwnedVisitIds(): Set<string> {
-  const user = useAuthStore((state) => state.user);
-  const { data: purchases } = useQuery({
-    queryKey: ['my-purchases'],
-    queryFn: () => api.getMyPurchases(),
-    enabled: !!user,
-  });
-  // getMyPurchases popola visitId con la visita intera (VisitPurchaseWithVisit).
-  return useMemo(
-    () => new Set((purchases || []).filter((p) => p.visitId).map((p) => p.visitId._id)),
-    [purchases],
-  );
+interface PlaybackRateState {
+  playbackRate: number;
+  setPlaybackRate: (rate: number) => void;
 }
 
-// Visita gratis o già acquistata
-export function canStartVisit(visit: Visit, ownedVisitIds: Set<string>): boolean {
-  return !!visit.metadata?.isFree || ownedVisitIds.has(visit._id);
-}
+// Velocità della lettura ad alta voce (audio generato e sintesi vocale del
+// browser): preferenza di dispositivo, persiste tra una visita e l'altra.
+export const usePlaybackRateStore = create<PlaybackRateState>((set) => ({
+  playbackRate: loadStoredPlaybackRate(),
+  setPlaybackRate: (playbackRate) => {
+    audioPlaybackService.setPlaybackRate(playbackRate);
+    set({ playbackRate });
+  },
+}));

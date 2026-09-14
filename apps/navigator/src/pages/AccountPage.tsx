@@ -383,8 +383,11 @@ function PurchasesList({
   const t = useT();
   const navigate = useNavigate();
 
-  // visitId è già un documento visita completo
-  const resolved = useMemo(() => (purchases || []).map((p) => p.visitId), [purchases]);
+  // visitId è già un documento visita completo (assente se la visita acquistata è stata eliminata nel frattempo)
+  const resolved = useMemo(
+    () => (purchases || []).map((p) => p.visitId).filter(Boolean),
+    [purchases],
+  );
 
   if (loading) return <LoadingState fullHeight={false} message={t('Cerco i tuoi acquisti...')} />;
 

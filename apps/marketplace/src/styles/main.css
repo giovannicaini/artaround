@@ -10,6 +10,15 @@
   background-image: linear-gradient(135deg, #8b3ffc 0%, #f59e0b 100%);
 }
 
+/* Stesso gradiente ma applicato al testo (logo "ArtAround") invece che allo
+   sfondo — uguale in chiaro e scuro, resta leggibile su entrambi. */
+.gradient-aurora-text {
+  background-image: linear-gradient(100deg, #8b3ffc, #f59e0b);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
 /* Bordo in gradiente (stesso gradient-aurora) sul pulsante "outline", sfondo
    tonale pieno dietro — border-image non rispetta il border-radius, quindi
    uso il trucco del doppio background (padding-box per il riempimento,

@@ -32,6 +32,20 @@ const VOICE_COMMAND_DESCRIPTIONS: { id: VoiceCommandId; description: string }[] 
   { id: 'shop', description: "chiede dov'è il negozio/shop" },
   { id: 'obstacles', description: 'chiede se il percorso ha ostacoli o è accessibile' },
   { id: 'help', description: 'chiede quali comandi vocali sono disponibili' },
+  {
+    id: 'speedUp',
+    description:
+      'vuole che la lettura ad alta voce sia più veloce (es. "più veloce", "aumenta la velocità", "parla più in fretta")',
+  },
+  {
+    id: 'speedDown',
+    description:
+      'vuole che la lettura ad alta voce sia più lenta (es. "più lento", "rallenta", "diminuisci la velocità")',
+  },
+  {
+    id: 'speedNormal',
+    description: 'vuole che la lettura ad alta voce torni alla velocità normale/predefinita',
+  },
 ];
 
 export class UtilsController {

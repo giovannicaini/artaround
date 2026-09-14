@@ -39,6 +39,7 @@ import {
 } from '@artaround/shared';
 import { api } from './apiClient';
 import { voiceRecognitionService, parseVoiceCommand } from './speech';
+import { PLAYBACK_RATES } from './audioPlayback';
 import { pickItemForPreferences, localizedItemText } from './content';
 import { format, localizedField } from './i18n';
 import { useT } from './useT';
@@ -65,6 +66,8 @@ interface UseVoiceCommandsOptions {
   setInsightType: (type: 'author' | 'movement' | null) => void;
   setShowSettings: (value: boolean) => void;
   setShowQuickActions: (value: boolean) => void;
+  playbackRate: number;
+  setPlaybackRate: (rate: number) => void;
 }
 /**
  * Gestisce i comandi vocali da parte dell'utente. Tenta di categorizzarli localmente,
@@ -92,6 +95,8 @@ export function useVoiceCommands({
   setInsightType,
   setShowSettings,
   setShowQuickActions,
+  playbackRate,
+  setPlaybackRate,
 }: UseVoiceCommandsOptions) {
   const t = useT();
 
@@ -229,6 +234,24 @@ export function useVoiceCommands({
         case 'help':
           setShowSettings(true);
           break;
+        case 'speedUp': {
+          const idx = PLAYBACK_RATES.indexOf(playbackRate);
+          const next = PLAYBACK_RATES[Math.min(PLAYBACK_RATES.length - 1, idx + 1)];
+          setPlaybackRate(next);
+          speak(format(t('Velocità: {rate}×.'), { rate: String(next) }), undefined, 'aside');
+          break;
+        }
+        case 'speedDown': {
+          const idx = PLAYBACK_RATES.indexOf(playbackRate);
+          const next = PLAYBACK_RATES[Math.max(0, idx - 1)];
+          setPlaybackRate(next);
+          speak(format(t('Velocità: {rate}×.'), { rate: String(next) }), undefined, 'aside');
+          break;
+        }
+        case 'speedNormal':
+          setPlaybackRate(1);
+          speak(t('Velocità normale.'), undefined, 'aside');
+          break;
         default:
           setShowQuickActions(true);
       }
@@ -253,6 +276,8 @@ export function useVoiceCommands({
       setInsightType,
       setShowSettings,
       setShowQuickActions,
+      playbackRate,
+      setPlaybackRate,
     ],
   );
 

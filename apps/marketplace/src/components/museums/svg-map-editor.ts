@@ -188,8 +188,8 @@ export class SvgMapEditor extends LitElement {
           </div>
         </div>
         <div
-          class="relative overflow-hidden bg-surface-100 dark:bg-surface-950 ${this.editMode ||
-          this.routeBuildMode
+          class="map-viewport relative overflow-hidden bg-surface-100 dark:bg-surface-950 ${this
+            .editMode || this.routeBuildMode
             ? 'cursor-crosshair'
             : 'cursor-grab'}"
           style="height: 500px;"
@@ -501,8 +501,23 @@ export class SvgMapEditor extends LitElement {
     );
   }
 
-  private setZoom(newZoom: number) {
-    this.zoom = Math.max(0.25, Math.min(3, newZoom));
+  // pivot: punto (in coordinate del riquadro visibile) che deve restare fermo
+  // sullo schermo mentre lo zoom cambia — il cursore per la rotellina, il
+  // centro del riquadro di default per i pulsanti (altrimenti lo zoom cresce
+  // dall'angolo in alto a sinistra e il contenuto "salta" via dalla vista).
+  private setZoom(newZoom: number, pivot?: { x: number; y: number }) {
+    const clamped = Math.max(0.25, Math.min(3, newZoom));
+    if (clamped === this.zoom) return;
+
+    const rect = this.mapViewport?.getBoundingClientRect();
+    const pivotX = pivot?.x ?? (rect ? rect.width / 2 : 0);
+    const pivotY = pivot?.y ?? (rect ? rect.height / 2 : 0);
+
+    const contentX = (pivotX - this.panX) / this.zoom;
+    const contentY = (pivotY - this.panY) / this.zoom;
+    this.panX = pivotX - contentX * clamped;
+    this.panY = pivotY - contentY * clamped;
+    this.zoom = clamped;
   }
 
   private resetView() {
@@ -513,8 +528,14 @@ export class SvgMapEditor extends LitElement {
 
   private handleWheel(e: WheelEvent) {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    this.setZoom(this.zoom + delta);
+    const rect = this.mapViewport?.getBoundingClientRect();
+    const pivot = rect ? { x: e.clientX - rect.left, y: e.clientY - rect.top } : undefined;
+    // deltaY scala già con l'intensità del gesto: un passo fisso per evento
+    // (indipendente dal delta reale) faceva accumulare zoom troppo in fretta
+    // con trackpad/mouse che emettono molti eventi piccoli per un solo gesto,
+    // "sparando" quasi subito al minimo o al massimo.
+    const delta = -e.deltaY * 0.001;
+    this.setZoom(this.zoom + delta, pivot);
   }
 
   private handleMouseDown(e: MouseEvent) {
@@ -548,6 +569,13 @@ export class SvgMapEditor extends LitElement {
 
   private get mapSvgContainer(): HTMLElement | null {
     return this.querySelector('.map-svg-container');
+  }
+
+  // Riquadro visibile non trasformato (a differenza di .map-svg-container,
+  // che porta già translate/scale) — serve come riferimento fisso per i
+  // calcoli di zoom-verso-un-punto.
+  private get mapViewport(): HTMLElement | null {
+    return this.querySelector('.map-viewport');
   }
 
   // Con Ctrl/Cmd premuto, il segmento dall'ultimo vertice al punto dato

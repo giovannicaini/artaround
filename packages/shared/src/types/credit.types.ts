@@ -7,6 +7,7 @@
 export enum CreditTransactionType {
   TOPUP = 'topup', // Ricarica scelta dall'utente
   PURCHASE = 'purchase', // Acquisto di un item o una visita a pagamento
+  EARNING = 'earning', // Incasso dell'autore per la vendita di un proprio item/visita
 }
 
 export interface CreditTransaction {

@@ -94,25 +94,13 @@ export class VisitMapTab extends LitElement {
           .selectedFloorId=${floorId}
           .artworks=${this.artworks}
           .routeStops=${floorPoints}
-          ?editMode=${false}
+          .editMode=${false}
           routeBuildMode
-          @route-point-add=${(e: CustomEvent) =>
-            this.dispatchEvent(
-              new CustomEvent('route-point-add', {
-                detail: e.detail,
-                bubbles: true,
-                composed: true,
-              }),
-            )}
-          @route-marker-add=${(e: CustomEvent) =>
-            this.dispatchEvent(
-              new CustomEvent('route-marker-add', {
-                detail: e.detail,
-                bubbles: true,
-                composed: true,
-              }),
-            )}
         ></svg-map-editor>
+        <!-- route-point-add/route-marker-add arrivano già a visit-editor (che li
+             ascolta su <visit-map-tab>) per bubbling naturale: nessuno di questi
+             componenti usa lo shadow DOM. Ridispatcharli qui li faceva arrivare
+             due volte, aggiungendo ogni tappa due volte. -->
 
         ${this.routePoints.length < 2
           ? html`

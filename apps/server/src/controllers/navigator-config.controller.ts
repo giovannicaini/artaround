@@ -226,6 +226,17 @@ export class NavigatorConfigController {
     return { _id: '', createdAt: new Date(0), updatedAt: new Date(0), ...DEFAULT_NAVIGATOR_CONFIG };
   }
 
+  // GET /api/navigator-configs/public — pubblico, elenco minimale (nessun campo
+  // sensibile) usato dalla landing page per linkare tutti i Navigator esistenti,
+  // non solo quello risolto per un museo (resolve ne restituisce uno solo).
+  static publicList = asyncHandler(async (_req: Request, res: Response): Promise<void> => {
+    const configs = await NavigatorConfigModel.find()
+      .select('name slug applicability museumId branding.primaryColor')
+      .sort({ createdAt: 1 })
+      .lean();
+    res.json({ success: true, data: configs });
+  });
+
   // GET /api/navigator-configs/resolve?museumId=&slug= — pubblico, usato dal Navigator
   static resolve = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const museumId = typeof req.query.museumId === 'string' ? req.query.museumId : undefined;

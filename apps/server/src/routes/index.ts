@@ -17,6 +17,7 @@ import userRoutes from './user.routes.js';
 import navigatorConfigRoutes from './navigator-config.routes.js';
 import jobRoutes from './job.routes.js';
 import notificationRoutes from './notification.routes.js';
+import backupRoutes from './backup.routes.js';
 
 const router = Router();
 
@@ -129,5 +130,6 @@ router.use('/users', userRoutes);
 router.use('/navigator-configs', navigatorConfigRoutes);
 router.use('/jobs', jobRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/admin/backups', backupRoutes);
 
 export default router;

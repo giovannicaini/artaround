@@ -25,6 +25,9 @@ export const VOICE_COMMAND_IDS = [
   'shop',
   'obstacles',
   'help',
+  'speedUp',
+  'speedDown',
+  'speedNormal',
 ] as const;
 
 export type VoiceCommandId = (typeof VOICE_COMMAND_IDS)[number];

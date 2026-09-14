@@ -12,6 +12,7 @@ import routes from './routes/index.js';
 import { swaggerSpec } from './config/swagger.js';
 import { UploadService } from './utils/upload.service.js';
 import { reconcileOnStartup } from './utils/jobs.service.js';
+import { reconcileOnStartup as reconcileBackupsOnStartup } from './utils/backup.service.js';
 
 // Equivalente ESM di __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -111,6 +112,9 @@ const startServer = async () => {
     // Chiude come falliti eventuali Job rimasti "running" da prima di questo
     // boot (es. un deploy a metà di una generazione audio) — vedi jobs.service.
     await reconcileOnStartup();
+
+    // Stesso motivo, per i backup manuali (vedi backup.service.ts).
+    await reconcileBackupsOnStartup();
 
     // Seed di avvio opzionale
     if (config.seed.onStart) {

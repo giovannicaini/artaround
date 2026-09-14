@@ -311,14 +311,24 @@ export class ArtworksPage extends DeletableMixin(
         filters.floor = this.filterFloor.trim();
       }
 
-      if (this.filterYearFrom.trim()) {
+      // filterYearFrom/To partono già valorizzati con l'intero range disponibile
+      // (vedi loadArtworkFilterOptions): li manda al server solo se l'utente li
+      // ha davvero ristretti, altrimenti un'opera senza anno verrebbe esclusa
+      // da un filtro "range intero" pensato per non filtrare nulla.
+      if (
+        this.filterYearFrom.trim() &&
+        (this.availableYearMin === null || this.filterYearFrom !== String(this.availableYearMin))
+      ) {
         const yearFrom = Number(this.filterYearFrom.trim());
         if (!Number.isNaN(yearFrom)) {
           filters.yearFrom = yearFrom;
         }
       }
 
-      if (this.filterYearTo.trim()) {
+      if (
+        this.filterYearTo.trim() &&
+        (this.availableYearMax === null || this.filterYearTo !== String(this.availableYearMax))
+      ) {
         const yearTo = Number(this.filterYearTo.trim());
         if (!Number.isNaN(yearTo)) {
           filters.yearTo = yearTo;

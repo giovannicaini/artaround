@@ -64,8 +64,14 @@ export class MarkerEditor extends LitElement {
   }
 
   updated(changedProperties: Map<string, unknown>) {
-    // Quando si seleziona un marker, passa alla tab lista e porta a fuoco la sua riga
+    // Quando si seleziona un NUOVO marker (non quando i suoi dati cambiano,
+    // es. trascinando il punto focale) passa alla tab lista e porta a fuoco
+    // la sua riga — altrimenti ogni tick di drag/zoom del ritaglio immagine
+    // riportava lo scroll sulla riga, impedendo di fatto la modifica.
     if (changedProperties.has('selectedMarker') && this.selectedMarker) {
+      const previous = changedProperties.get('selectedMarker') as { id: string } | null | undefined;
+      if (previous?.id === this.selectedMarker.id) return;
+
       this.activeTab = 'list';
       const markerId = this.selectedMarker.id;
       this.updateComplete.then(() => {

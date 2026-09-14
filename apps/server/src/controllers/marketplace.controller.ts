@@ -158,6 +158,7 @@ export class MarketplaceController {
     if (visit.metadata.price > 0) {
       await MarketplaceController.chargeCredit(
         req.user.id,
+        visit.authorId,
         visit.metadata.price,
         'visit',
         String(visitId),
@@ -221,6 +222,7 @@ export class MarketplaceController {
     if (item.price > 0) {
       await MarketplaceController.chargeCredit(
         req.user.id,
+        item.authorId,
         item.price,
         'item',
         String(itemId),
@@ -252,15 +254,21 @@ export class MarketplaceController {
       throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
-    const purchases = await VisitPurchase.find({ userId: req.user.id })
+    const rawPurchases = await VisitPurchase.find({ userId: req.user.id })
       .sort({ purchasedAt: -1 })
       .populate('visitId')
       .lean();
 
+    // Se la visita acquistata è stata eliminata, populate lascia visitId a
+    // null: il tipo VisitPurchaseWithVisit promette una visita sempre
+    // presente, quindi questi acquisti orfani vanno scartati qui piuttosto
+    // che lasciarli rompere i client che si fidano del tipo.
+    const purchases = rawPurchases.filter((p) => p.visitId);
+
     // I sotto-documenti popolati sono referenziati dagli stessi oggetti in
     // `purchases`: applyCoverImageFallback/attachAuthorNames li mutano
     // in place, quindi basta passarli, senza dover ricostruire la risposta.
-    const populatedVisits = purchases.map((p) => p.visitId).filter(Boolean) as unknown as Array<{
+    const populatedVisits = purchases.map((p) => p.visitId) as unknown as Array<{
       museumId: string;
       coverImage?: string;
       authorId: string;
@@ -282,12 +290,16 @@ export class MarketplaceController {
         throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
       }
 
-      const purchases = await ItemPurchase.find({ userId: req.user.id })
+      const rawPurchases = await ItemPurchase.find({ userId: req.user.id })
         .sort({ purchasedAt: -1 })
         .populate('itemId')
         .lean();
 
-      const populatedItems = purchases.map((p) => p.itemId).filter(Boolean) as unknown as Array<{
+      // Stesso motivo di getMyPurchases: item eliminato dopo l'acquisto ->
+      // populate lascia itemId a null, va scartato invece di rompere i client.
+      const purchases = rawPurchases.filter((p) => p.itemId);
+
+      const populatedItems = purchases.map((p) => p.itemId) as unknown as Array<{
         authorId: string;
         authorName?: string;
       }>;
@@ -302,13 +314,16 @@ export class MarketplaceController {
 
   // ─── Credito ────────────────────────────────────────────
   /**
-   * Addebita `price` euro sul saldo dell'utente e registra il movimento.
-   * Lancia INSUFFICIENT_CREDIT se il saldo non basta — va chiamata PRIMA di
-   * creare il record di acquisto, così un saldo insufficiente blocca
-   * l'acquisto invece di crearlo comunque "gratis".
+   * Addebita `price` euro sul saldo dell'acquirente e li accredita all'autore
+   * del contenuto: è una transazione tra due utenti, non un pagamento verso
+   * la piattaforma — nessuna commissione trattenuta. Lancia INSUFFICIENT_CREDIT
+   * se il saldo dell'acquirente non basta — va chiamata PRIMA di creare il
+   * record di acquisto, così un saldo insufficiente blocca l'acquisto invece
+   * di crearlo comunque "gratis".
    */
   private static async chargeCredit(
     userId: string,
+    sellerId: string,
     price: number,
     relatedType: 'item' | 'visit',
     relatedId: string,
@@ -337,6 +352,25 @@ export class MarketplaceController {
       type: CreditTransactionType.PURCHASE,
       amount: round2(-price),
       balanceAfter: user.creditBalance,
+      description,
+      relatedType,
+      relatedId,
+    }).save();
+
+    // Accredita il venditore. Se per qualche motivo non esiste più (utente
+    // eliminato) l'acquisto resta valido comunque: l'addebito sopra è già
+    // stato registrato, non va annullato solo perché l'incasso non trova casa.
+    const seller = await User.findById(sellerId);
+    if (!seller) return;
+
+    seller.creditBalance = round2(seller.creditBalance + price);
+    await seller.save();
+
+    await new CreditTransaction({
+      userId: sellerId,
+      type: CreditTransactionType.EARNING,
+      amount: round2(price),
+      balanceAfter: seller.creditBalance,
       description,
       relatedType,
       relatedId,

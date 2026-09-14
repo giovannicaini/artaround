@@ -38,6 +38,7 @@ import { useAuthStore } from '../context/authStore';
 import { useI18nStore } from '../context/i18nStore';
 import { useT } from '../services/useT';
 import { useVisitSessionStore, type PlayerStep } from '../context/visitSessionStore';
+import { usePlaybackRateStore } from '../context/playbackRateStore';
 import { speechService, voiceRecognitionService } from '../services/speech';
 import { audioPlaybackService } from '../services/audioPlayback';
 import {
@@ -100,6 +101,8 @@ export default function VisitPlayerPage() {
   const { visitId } = useParams();
   const user = useAuthStore((state) => state.user);
   const language = useI18nStore((state) => state.language);
+  const playbackRate = usePlaybackRateStore((state) => state.playbackRate);
+  const setPlaybackRate = usePlaybackRateStore((state) => state.setPlaybackRate);
   const t = useT();
   const {
     visit,
@@ -244,12 +247,13 @@ export default function VisitPlayerPage() {
         speechService.onEnd(handleEnd);
         speechService.speak(text, {
           lang: toSpeechLocale(language),
+          rate: playbackRate,
           onBoundary: setSpokenCharIndex,
         });
       }
       setSpeaking(true);
     },
-    [setSpeaking, language, stopBackends],
+    [setSpeaking, language, playbackRate, stopBackends],
   );
 
   // Se si cambia tappa mentre l'audioguida sta ancora leggendo, riparte subito sulla nuova tappa.
@@ -336,6 +340,8 @@ export default function VisitPlayerPage() {
     setInsightType,
     setShowSettings,
     setShowQuickActions,
+    playbackRate,
+    setPlaybackRate,
   });
 
   useEffect(() => {
@@ -532,6 +538,8 @@ export default function VisitPlayerPage() {
         setLanguageLevel={setLanguageLevel}
         contentDuration={contentDuration}
         setContentDuration={setContentDuration}
+        playbackRate={playbackRate}
+        setPlaybackRate={setPlaybackRate}
       />
 
       <InsightSheet

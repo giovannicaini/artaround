@@ -9,3 +9,4 @@ export * from './upload.types';
 export * from './wikidata.types';
 export * from './i18n.types';
 export * from './voice-command.types';
+export * from './backup.types';

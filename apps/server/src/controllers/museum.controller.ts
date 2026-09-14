@@ -869,7 +869,7 @@ export class MuseumController {
       throw new AppError(400, 'VALIDATION_ERROR', 'activeLanguages è obbligatorio');
     }
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -971,7 +971,7 @@ export class MuseumController {
       throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');
     }
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1014,7 +1014,7 @@ export class MuseumController {
   static getFloors = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1029,7 +1029,7 @@ export class MuseumController {
   static getFloor = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { id, floorId } = req.params;
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1059,7 +1059,7 @@ export class MuseumController {
       connections: req.body.connections || [],
     };
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1092,7 +1092,7 @@ export class MuseumController {
   static updateFloor = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id, floorId } = req.params;
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1133,7 +1133,7 @@ export class MuseumController {
   static deleteFloor = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id, floorId } = req.params;
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1181,7 +1181,7 @@ export class MuseumController {
   static getRooms = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1206,7 +1206,7 @@ export class MuseumController {
       subtitle: req.body.subtitle || undefined,
     };
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1237,7 +1237,7 @@ export class MuseumController {
 
     const { id, roomId } = req.params;
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1269,7 +1269,7 @@ export class MuseumController {
 
     const { id, roomId } = req.params;
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1301,7 +1301,7 @@ export class MuseumController {
     async (req: AuthRequest, res: Response): Promise<void> => {
       const { id, roomId } = req.params;
 
-      const museum = await MuseumModel.findById(id);
+      const museum = await findMuseumByAnyId(id);
       if (!museum) {
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
       }
@@ -1327,7 +1327,7 @@ export class MuseumController {
   static deleteRoom = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id, roomId } = req.params;
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1354,7 +1354,7 @@ export class MuseumController {
   static getMarkers = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { id, floorId } = req.params;
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1384,7 +1384,7 @@ export class MuseumController {
       isVisible: req.body.isVisible !== false,
     };
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1417,7 +1417,7 @@ export class MuseumController {
   static updateMarker = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id, floorId, markerId } = req.params;
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1452,7 +1452,7 @@ export class MuseumController {
   static deleteMarker = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id, floorId, markerId } = req.params;
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1486,7 +1486,7 @@ export class MuseumController {
       throw new AppError(400, 'VALIDATION_ERROR', 'Markers deve essere un array');
     }
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1528,7 +1528,7 @@ export class MuseumController {
     const { id, floorId } = req.params;
     const connectionData: FloorConnection = { ...req.body };
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1561,7 +1561,7 @@ export class MuseumController {
   static deleteConnection = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id, floorId, connectionId } = req.params;
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1596,7 +1596,7 @@ export class MuseumController {
     const { id } = req.params;
     const { User } = await import('../models/index.js');
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1621,7 +1621,7 @@ export class MuseumController {
       throw new AppError(400, 'VALIDATION_ERROR', "L'ID utente è obbligatorio");
     }
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1669,7 +1669,7 @@ export class MuseumController {
     const { id, userId } = req.params;
     const { User } = await import('../models/index.js');
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1711,7 +1711,7 @@ export class MuseumController {
       throw new AppError(400, 'VALIDATION_ERROR', "L'ID utente è obbligatorio");
     }
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1759,7 +1759,7 @@ export class MuseumController {
     const { id, userId } = req.params;
     const { User } = await import('../models/index.js');
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1811,7 +1811,7 @@ export class MuseumController {
     const { id } = req.params;
     const { role } = req.body as { role: MuseumRole };
 
-    const museum = await MuseumModel.findById(id);
+    const museum = await findMuseumByAnyId(id);
     if (!museum) {
       throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');
     }
@@ -1943,7 +1943,7 @@ export class MuseumController {
         'Non hai i permessi per approvare questa richiesta',
       );
 
-      const museum = await MuseumModel.findById(id);
+      const museum = await findMuseumByAnyId(id);
       if (!museum) {
         await request.deleteOne();
         throw new AppError(404, 'MUSEUM_NOT_FOUND', 'Museo non trovato');

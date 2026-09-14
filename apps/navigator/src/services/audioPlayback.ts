@@ -30,6 +30,30 @@
 
 import type { AudioWordTiming, GeneratedAudio } from '@artaround/shared';
 
+// Stessa chiave usata dal Chip "Velocità lettura" nelle impostazioni della visita.
+const PLAYBACK_RATE_KEY = 'audioPlaybackRate';
+
+// Valori selezionabili dal Chip delle impostazioni e passi dei comandi vocali "più veloce"/"più lento".
+export const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 1.75];
+
+export function loadStoredPlaybackRate(): number {
+  try {
+    const saved = Number(localStorage.getItem(PLAYBACK_RATE_KEY));
+    if (saved && saved > 0) return saved;
+  } catch {
+    // storage non disponibile: si resta sul default
+  }
+  return 1;
+}
+
+export function storePlaybackRate(rate: number): void {
+  try {
+    localStorage.setItem(PLAYBACK_RATE_KEY, String(rate));
+  } catch {
+    // ignorato
+  }
+}
+
 /**
  * Riproduce un MP3 con i timing delle parole e chiama callback (onBoundary, onEnd) per
  * evidenziare il testo sincronizzato durante la riproduzione. Usa un loop basato su
@@ -45,6 +69,10 @@ class AudioPlaybackService {
   private onBoundaryCallback: ((charIndex: number) => void) | null = null;
   private onEndCallback: (() => void) | null = null;
   private rafId: number | null = null;
+  // I timing delle parole (words[].start/end) sono calcolati a velocità 1x:
+  // il RAF loop li confronta con currentTime, che avanza già più veloce/lento
+  // da solo quando playbackRate cambia — non serve altro per restare sincronizzati.
+  private playbackRate = loadStoredPlaybackRate();
 
   // Loop per-frame, con RAF
   private tick = (): void => {
@@ -87,6 +115,7 @@ class AudioPlaybackService {
     if (typeof window === 'undefined') return null;
     if (!this.audio) {
       this.audio = new Audio();
+      this.audio.playbackRate = this.playbackRate;
       this.audio.addEventListener('ended', this.handleEnded);
     }
     return this.audio;
@@ -94,6 +123,17 @@ class AudioPlaybackService {
 
   isSupported(): boolean {
     return typeof window !== 'undefined' && typeof Audio !== 'undefined';
+  }
+
+  getPlaybackRate(): number {
+    return this.playbackRate;
+  }
+
+  // Si applica subito all'audio in corso (se c'è) e resta valida per le prossime riproduzioni.
+  setPlaybackRate(rate: number): void {
+    this.playbackRate = rate;
+    storePlaybackRate(rate);
+    if (this.audio) this.audio.playbackRate = rate;
   }
 
   play(
@@ -109,6 +149,8 @@ class AudioPlaybackService {
     this.onBoundaryCallback = options?.onBoundary ?? null;
     this.onEndCallback = options?.onEnd ?? null;
     el.src = audio.url;
+    // Cambiare src resetta playbackRate a 1 in alcuni browser: va riapplicata ad ogni riproduzione, non solo alla creazione dell'elemento.
+    el.playbackRate = this.playbackRate;
     void el.play();
     this.startTicking();
   }

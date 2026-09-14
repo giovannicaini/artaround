@@ -6,6 +6,19 @@ const router = Router();
 
 /**
  * @swagger
+ * /api/navigator-configs/public:
+ *   get:
+ *     tags: [Navigator]
+ *     summary: Elenco pubblico delle configurazioni Navigator
+ *     description: Pubblico — nome, slug, applicability, museumId e colore primario di ogni configurazione (globale e di museo), usato per linkare tutti i Navigator esistenti (es. dalla landing page).
+ *     responses:
+ *       200:
+ *         description: Elenco delle configurazioni
+ */
+router.get('/public', NavigatorConfigController.publicList);
+
+/**
+ * @swagger
  * /api/navigator-configs/resolve:
  *   get:
  *     tags: [Navigator]

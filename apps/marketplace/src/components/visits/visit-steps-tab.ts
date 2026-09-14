@@ -82,6 +82,24 @@ export class VisitStepsTab extends LitElement {
     this.style.display = 'block';
   }
 
+  // Un'opera senza marker su nessun piano non compare sulla mappa del percorso
+  // (tab Mappa) — segnalarlo qui evita di scoprirlo solo quando il percorso
+  // sembra "sparire".
+  private artworkHasMarker(wikidataId?: string): boolean {
+    if (!wikidataId) return false;
+    return this.floors.some((floor) => floor.markers?.some((m) => m.artworkId === wikidataId));
+  }
+
+  private goToFloorplan() {
+    this.dispatchEvent(
+      new CustomEvent('navigate', {
+        detail: { route: 'museum-maps', params: { museumId: this.museumId } },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
   private emit(name: string, detail?: Record<string, unknown>) {
     this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
   }
@@ -174,8 +192,33 @@ export class VisitStepsTab extends LitElement {
       });
     }
 
+    const missingMarkerCount = this.steps.filter((step) => {
+      if (step.type !== VisitStepType.ARTWORK) return false;
+      const artwork = this.artworks.find((a) => a.wikidataId === step.artworkId);
+      return !!artwork && !this.artworkHasMarker(artwork.wikidataId);
+    }).length;
+
     return html`
       <div class="space-y-3">
+        ${missingMarkerCount > 0
+          ? html`
+              <div
+                class="flex items-center gap-2 p-3 rounded-lg bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800 text-sm text-warning-800 dark:text-warning-300"
+              >
+                <ui-icon name="warning" size="sm" class="flex-shrink-0"></ui-icon>
+                <span
+                  >${missingMarkerCount}
+                  ${missingMarkerCount === 1
+                    ? __(
+                        'opera del percorso non ha un marker sulla piantina: non comparirà sulla mappa (tab Mappa).',
+                      )
+                    : __(
+                        'opere del percorso non hanno un marker sulla piantina: non compariranno sulla mappa (tab Mappa).',
+                      )}</span
+                >
+              </div>
+            `
+          : nothing}
         ${repeat(
           this.steps,
           (step) => step.id,
@@ -309,6 +352,7 @@ export class VisitStepsTab extends LitElement {
     switch (step.type) {
       case VisitStepType.ARTWORK: {
         const artwork = this.artworks.find((a) => a.wikidataId === step.artworkId);
+        const missingMarker = !!artwork && !this.artworkHasMarker(artwork.wikidataId);
         return html`
           <div class="flex items-center gap-3">
             <div
@@ -337,12 +381,38 @@ export class VisitStepsTab extends LitElement {
                   `
                 : html`<ui-image-placeholder type="artwork" size="sm"></ui-image-placeholder>`}
             </div>
-            <div>
+            <div class="min-w-0 flex-1">
               <p class="font-medium text-surface-900 dark:text-white">
                 ${artwork?.title || __("Seleziona un'opera")}
               </p>
               ${artwork?.author
                 ? html`<p class="text-sm text-surface-500">${artwork.author}</p>`
+                : nothing}
+              ${missingMarker
+                ? html`
+                    <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                      <ui-badge
+                        variant="warning"
+                        .label=${__('Senza marker sulla piantina')}
+                      ></ui-badge>
+                      <ui-info-tip
+                        variant="inline"
+                        text=${__(
+                          'Questa opera non è collegata a nessun punto sulla piantina del museo: non comparirà sulla mappa del percorso (tab Mappa). Aggiungile un marker in Piantina e mappa.',
+                        )}
+                      ></ui-info-tip>
+                      <button
+                        type="button"
+                        class="focus-glow text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
+                        @click=${(e: Event) => {
+                          e.stopPropagation();
+                          this.goToFloorplan();
+                        }}
+                      >
+                        ${__('Vai alla piantina →')}
+                      </button>
+                    </div>
+                  `
                 : nothing}
             </div>
           </div>

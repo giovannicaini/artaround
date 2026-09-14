@@ -273,6 +273,17 @@ export class AdminHeader extends LitElement {
     );
   }
 
+  private handleGoToBackups() {
+    this.userMenuOpen = false;
+    this.dispatchEvent(
+      new CustomEvent('navigate', {
+        detail: { route: 'backups' },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
   private async hydrateSelectedMuseumLocalization() {
     if (!this.selectedMuseum?._id) {
       return;
@@ -651,6 +662,18 @@ export class AdminHeader extends LitElement {
                           <ui-icon name="cog" size="xs"></ui-icon>
                           ${__('Il mio account')}
                         </button>
+
+                        ${this.user?.isAdmin
+                          ? html`
+                              <button
+                                @click=${this.handleGoToBackups}
+                                class="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-md transition-colors"
+                              >
+                                <ui-icon name="save" size="xs"></ui-icon>
+                                ${__('Backup')}
+                              </button>
+                            `
+                          : nothing}
 
                         <button
                           @click=${this.toggleAllInfoTips}

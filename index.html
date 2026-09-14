@@ -1,3 +1,12 @@
+<!--
+Filename: /var/www/vhosts/artaround.giovannicaini.it/httpdocs/artaround/index.html
+Path: /var/www/vhosts/artaround.giovannicaini.it/httpdocs/artaround
+Created Date: Monday, September 14th 2026, 4:27:56 pm
+Author: Giovanni Caini
+
+Copyright (c) 2026 Giovanni Caini
+-->
+
 <!doctype html>
 <html lang="it">
   <head>
@@ -5,16 +14,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="ArtAround - Piattaforma completa per l'esperienza museale digitale"
+      content="ArtAround: la piattaforma che collega musei, curatori, autori di contenuti e visitatori. Gestione museale in Marketplace, guide interattive in Navigator, dati aperti via API."
     />
-    <title>ArtAround - Digital Museum Experience</title>
+    <meta name="theme-color" content="#0b0813" />
+    <title>ArtAround — La piattaforma museale digitale</title>
+    <link rel="icon" href="/navigator/icons/icon-192.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
       tailwind.config = {
         darkMode: 'class',
@@ -22,17 +34,22 @@
           extend: {
             colors: {
               brand: {
-                50: '#eff6ff',
-                100: '#dbeafe',
-                200: '#bfdbfe',
-                300: '#93c5fd',
-                400: '#60a5fa',
-                500: '#3b82f6',
-                600: '#2563eb',
-                700: '#1d4ed8',
-                800: '#1e40af',
-                900: '#1e3a8a',
-                950: '#172554',
+                50: '#f5f1ff',
+                100: '#ebe1ff',
+                200: '#d7c4ff',
+                300: '#b894ff',
+                400: '#9d6bff',
+                500: '#8b3ffc',
+                600: '#7623e0',
+                700: '#5f1abd',
+                800: '#4a1494',
+                900: '#380f70',
+                950: '#22083f',
+              },
+              ember: {
+                400: '#fb923c',
+                500: '#f59e0b',
+                600: '#d97706',
               },
               surface: {
                 50: '#fafafa',
@@ -49,7 +66,12 @@
               },
             },
             fontFamily: {
-              sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+              display: ['"Unbounded"', 'system-ui', 'sans-serif'],
+              sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+            },
+            boxShadow: {
+              glow: '0 8px 32px -8px rgb(139 63 252 / 0.45)',
+              'glow-lg': '0 20px 60px -12px rgb(139 63 252 / 0.5)',
             },
           },
         },
@@ -57,156 +79,302 @@
     </script>
     <style>
       * {
-        margin: 0;
-        padding: 0;
         box-sizing: border-box;
       }
+      html {
+        scroll-behavior: smooth;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+      }
       body {
-        font-family:
-          'Inter',
-          system-ui,
-          -apple-system,
-          sans-serif;
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
       }
+      h1,
+      h2,
+      h3,
+      .font-display {
+        font-family: 'Unbounded', system-ui, sans-serif;
+      }
+
+      /* Stesso gradiente "aurora" di Navigator/Marketplace: brand-500 -> ember-500,
+         riservato a pochi elementi ad alto significato (non come sfondo diffuso). */
+      .gradient-aurora {
+        background-image: linear-gradient(135deg, #8b3ffc 0%, #f59e0b 100%);
+      }
+      .gradient-aurora-text {
+        background-image: linear-gradient(100deg, #b894ff, #f59e0b);
+        background-clip: text;
+        -webkit-background-clip: text;
+        color: transparent;
+      }
+
+      /* Bordo in gradiente per il pulsante secondario, stesso trucco a doppio
+         background-image usato in Marketplace (border-image ignora il radius). */
+      .btn-gradient-outline {
+        border: 1px solid transparent;
+        background-image:
+          linear-gradient(var(--outline-fill, #fff), var(--outline-fill, #fff)),
+          linear-gradient(135deg, #8b3ffc 0%, #f59e0b 100%);
+        background-origin: border-box;
+        background-clip: padding-box, border-box;
+      }
+      .dark .btn-gradient-outline {
+        --outline-fill: rgb(139 63 252 / 0.14);
+      }
+
+      .focus-glow:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 4px rgb(139 63 252 / 0.35);
+      }
+
       @keyframes fadeInUp {
         from {
           opacity: 0;
-          transform: translateY(20px);
+          transform: translateY(16px);
         }
         to {
           opacity: 1;
           transform: translateY(0);
         }
       }
-      .animate-fade-in-up {
+      .reveal {
+        opacity: 0;
+      }
+      .reveal.in-view {
         animation: fadeInUp 0.6s ease-out forwards;
       }
-      .animate-delay-100 {
-        animation-delay: 0.1s;
-      }
-      .animate-delay-200 {
-        animation-delay: 0.2s;
-      }
-      .animate-delay-300 {
-        animation-delay: 0.3s;
-      }
-      .animate-delay-400 {
-        animation-delay: 0.4s;
-      }
       .card-hover {
-        transition: all 0.3s ease;
+        transition:
+          transform 0.25s ease,
+          box-shadow 0.25s ease,
+          border-color 0.25s ease;
       }
       .card-hover:hover {
         transform: translateY(-4px);
-        box-shadow:
-          0 20px 25px -5px rgb(0 0 0 / 0.1),
-          0 8px 10px -6px rgb(0 0 0 / 0.1);
+      }
+
+      /* Sfondo "aurora" del hero: alone radiale sui due colori del brand su base
+         quasi nera, sempre scuro indipendentemente dal tema pagina — è la stessa
+         identità visiva di Navigator, che è un'app scura di default. */
+      .hero-aurora {
+        background-color: #0b0813;
+        background-image:
+          radial-gradient(60% 50% at 20% 0%, rgb(139 63 252 / 0.35), transparent 60%),
+          radial-gradient(50% 45% at 85% 15%, rgb(245 158 11 / 0.25), transparent 60%);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .reveal,
+        .reveal.in-view {
+          animation: none;
+          opacity: 1;
+        }
+        .card-hover:hover {
+          transform: none;
+        }
       }
     </style>
   </head>
-  <body class="min-h-screen bg-gradient-to-br from-surface-50 via-white to-brand-50">
+  <body class="min-h-screen bg-white dark:bg-surface-950 text-surface-900 dark:text-surface-50">
     <!-- Header -->
     <header
-      class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-surface-200"
+      class="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-surface-950/80 backdrop-blur-md border-b border-surface-200 dark:border-surface-800"
     >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
-          <div class="flex items-center gap-3">
-            <div
-              class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-lg shadow-brand-500/30"
+          <a href="/" class="flex items-center gap-2.5">
+            <span
+              class="gradient-aurora w-9 h-9 rounded-lg flex items-center justify-center shadow-glow overflow-hidden shrink-0"
             >
-              <span class="text-white font-bold text-lg">A</span>
-            </div>
-            <span class="font-semibold text-xl text-surface-900">ArtAround</span>
-          </div>
-          <nav class="hidden md:flex items-center gap-6">
+              <svg viewBox="0 0 100 100" class="w-5 h-5" fill="white" aria-hidden="true">
+                <polygon
+                  points="50,2 53.83,40.76 71.21,28.79 59.24,46.17 98,50 59.24,53.83 71.21,71.21 53.83,59.24 50,98 46.17,59.24 28.79,71.21 40.76,53.83 2,50 40.76,46.17 28.79,28.79 46.17,40.76"
+                />
+              </svg>
+            </span>
+            <span class="font-display font-bold text-lg text-surface-900 dark:text-white"
+              >ArtAround</span
+            >
+          </a>
+          <nav class="hidden md:flex items-center gap-7">
             <a
-              href="#features"
-              class="text-sm font-medium text-surface-600 hover:text-brand-600 transition-colors"
-              >Features</a
+              href="#per-chi"
+              data-i18n="nav-perche"
+              class="text-sm font-medium text-surface-600 dark:text-surface-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+              >Perché ArtAround</a
             >
             <a
-              href="#apps"
-              class="text-sm font-medium text-surface-600 hover:text-brand-600 transition-colors"
+              href="#applicazioni"
+              data-i18n="nav-app"
+              class="text-sm font-medium text-surface-600 dark:text-surface-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
               >Applicazioni</a
             >
             <a
+              href="#tecnologia"
+              data-i18n="nav-tech"
+              class="text-sm font-medium text-surface-600 dark:text-surface-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+              >Tecnologia</a
+            >
+          </nav>
+          <div class="flex items-center gap-2">
+            <select
+              id="lang-switcher"
+              aria-label="Lingua"
+              class="focus-glow text-xs font-semibold bg-transparent border border-surface-200 dark:border-surface-700 rounded-lg pl-2 pr-1 py-1.5 text-surface-600 dark:text-surface-300 hover:border-brand-400 dark:hover:border-brand-500 transition-colors cursor-pointer"
+            >
+              <option value="it">IT</option>
+              <option value="en">EN</option>
+              <option value="fr">FR</option>
+              <option value="de">DE</option>
+              <option value="es">ES</option>
+            </select>
+            <button
+              type="button"
+              id="theme-toggle"
+              data-i18n-attr="aria-label:theme-toggle-aria"
+              aria-label="Cambia tema chiaro/scuro"
+              class="focus-glow w-9 h-9 rounded-lg flex items-center justify-center text-surface-500 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+            >
+              <svg
+                id="icon-sun"
+                class="w-5 h-5 hidden"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.36 6.36l-.7-.7M6.34 6.34l-.7-.7m12.02 0l-.7.7M6.34 17.66l-.7.7M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                ></path>
+              </svg>
+              <svg
+                id="icon-moon"
+                class="w-5 h-5 hidden"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                ></path>
+              </svg>
+            </button>
+            <a
               href="/marketplace/"
-              class="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition-colors shadow-md shadow-brand-500/30"
+              data-i18n="header-accedi"
+              class="focus-glow px-4 py-2 text-sm font-semibold text-white gradient-aurora rounded-lg shadow-glow hover:brightness-110 transition-all"
             >
               Accedi
             </a>
-          </nav>
+          </div>
         </div>
       </div>
     </header>
 
-    <!-- Hero Section -->
     <main class="pt-16">
-      <section class="relative overflow-hidden">
-        <div
-          class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-100/40 via-transparent to-transparent"
-        ></div>
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
-          <div class="text-center max-w-4xl mx-auto opacity-0 animate-fade-in-up">
+      <!-- Hero -->
+      <section class="hero-aurora relative overflow-hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32 relative">
+          <div class="text-center max-w-3xl mx-auto reveal in-view">
             <span
-              class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-brand-100 text-brand-700 mb-6"
+              class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/10 text-brand-200 border border-white/10 mb-6"
             >
-              🎨 Piattaforma per l'esperienza museale
+              🎨 <span data-i18n="hero-badge">Piattaforma per l'esperienza museale digitale</span>
             </span>
             <h1
-              class="text-4xl sm:text-5xl lg:text-6xl font-bold text-surface-900 tracking-tight mb-6"
+              class="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-white tracking-tight mb-6 text-balance"
             >
-              Scopri l'arte in modo
-              <span
-                class="bg-gradient-to-r from-brand-600 to-brand-400 bg-clip-text text-transparent"
-              >
-                completamente nuovo</span
-              >
+              <span data-i18n="hero-h1-lead">I musei raccontati come</span>
+              <span class="gradient-aurora-text" data-i18n="hero-h1-word">meritano</span>
             </h1>
-            <p class="text-lg sm:text-xl text-surface-600 max-w-2xl mx-auto mb-10">
-              ArtAround è una piattaforma completa che connette musei, opere d'arte e visitatori
-              attraverso esperienze digitali innovative e contenuti multimediali ricchi.
+            <p class="text-lg sm:text-xl text-surface-300 max-w-2xl mx-auto mb-10" data-i18n="hero-sub">
+              ArtAround collega chi gestisce un museo, chi ne racconta le opere e chi lo visita in
+              un'unica piattaforma: dati collegati a Wikidata, traduzioni assistite dall'AI e
+              guide audio installabili, brandizzate museo per museo.
             </p>
-            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-14">
+              <a
+                href="#navigators"
+                data-i18n="hero-cta-navigator"
+                class="focus-glow w-full sm:w-auto px-8 py-3.5 text-base font-semibold text-white gradient-aurora rounded-xl shadow-glow-lg hover:brightness-110 transition-all"
+              >
+                Esplora il Navigator
+              </a>
               <a
                 href="/marketplace/"
-                class="w-full sm:w-auto px-8 py-3.5 text-base font-semibold text-white bg-brand-600 rounded-xl hover:bg-brand-700 transition-all shadow-lg shadow-brand-500/30 hover:shadow-xl hover:shadow-brand-500/40"
+                data-i18n="hero-cta-marketplace"
+                class="btn-gradient-outline focus-glow w-full sm:w-auto px-8 py-3.5 text-base font-semibold text-white rounded-xl transition-all"
+                style="--outline-fill: rgb(20 14 30 / 0.85)"
               >
                 Accedi al Marketplace
               </a>
-              <a
-                href="/navigator/"
-                class="w-full sm:w-auto px-8 py-3.5 text-base font-semibold text-surface-700 bg-white border border-surface-300 rounded-xl hover:bg-surface-50 hover:border-surface-400 transition-all"
-              >
-                Esplora Navigator
-              </a>
+            </div>
+            <div
+              class="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 text-surface-400"
+            >
+              <div class="text-center">
+                <div class="font-display text-2xl font-bold text-white" id="stat-museums">2</div>
+                <div class="text-xs uppercase tracking-wider" data-i18n="stat-museums-label">Musei attivi</div>
+              </div>
+              <div class="text-center">
+                <div class="font-display text-2xl font-bold text-white" id="stat-artworks">
+                  141
+                </div>
+                <div class="text-xs uppercase tracking-wider" data-i18n="stat-artworks-label">Opere digitalizzate</div>
+              </div>
+              <div class="text-center">
+                <div class="font-display text-2xl font-bold text-white" id="stat-visits">7</div>
+                <div class="text-xs uppercase tracking-wider" data-i18n="stat-visits-label">Visite guidate</div>
+              </div>
+              <div class="text-center">
+                <div class="font-display text-2xl font-bold text-white" id="stat-content">3409</div>
+                <div class="text-xs uppercase tracking-wider" data-i18n="stat-content-label">Contenuti creati</div>
+              </div>
+              <div class="text-center">
+                <div class="font-display text-2xl font-bold text-white" id="stat-langs">5</div>
+                <div class="text-xs uppercase tracking-wider" data-i18n="stat-langs-label">Lingue supportate</div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Features Section -->
-      <section id="features" class="py-20 bg-white">
+      <!-- Per chi è ArtAround -->
+      <section id="per-chi" class="scroll-mt-24 py-20 bg-white dark:bg-surface-950">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="text-center mb-16 opacity-0 animate-fade-in-up animate-delay-100">
-            <h2 class="text-3xl sm:text-4xl font-bold text-surface-900 mb-4">
-              Cosa offre ArtAround?
+          <div class="text-center mb-16 reveal">
+            <h2
+              class="font-display text-3xl sm:text-4xl font-bold text-surface-900 dark:text-white mb-4"
+              data-i18n="perchi-title"
+            >
+              Perché usare ArtAround
             </h2>
-            <p class="text-lg text-surface-600 max-w-2xl mx-auto">
-              Una suite completa di strumenti per digitalizzare e potenziare l'esperienza museale
+            <p class="text-lg text-surface-600 dark:text-surface-400 max-w-2xl mx-auto" data-i18n="perchi-sub">
+              Tre punti di vista, una sola piattaforma: quello che cambia è cosa vedi, non dove i
+              dati vivono.
             </p>
           </div>
 
           <div class="grid md:grid-cols-3 gap-8">
+            <!-- Curatori -->
             <div
-              class="p-6 rounded-2xl bg-surface-50 border border-surface-200 opacity-0 animate-fade-in-up animate-delay-200"
+              class="reveal p-7 rounded-2xl bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800"
             >
-              <div class="w-12 h-12 rounded-xl bg-brand-100 flex items-center justify-center mb-4">
+              <div
+                class="w-12 h-12 rounded-xl bg-brand-100 dark:bg-brand-500/15 flex items-center justify-center mb-5"
+              >
                 <svg
-                  class="w-6 h-6 text-brand-600"
+                  class="w-6 h-6 text-brand-600 dark:text-brand-400"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -219,121 +387,55 @@
                   ></path>
                 </svg>
               </div>
-              <h3 class="text-xl font-semibold text-surface-900 mb-2">Gestione Musei</h3>
-              <p class="text-surface-600">
-                Crea e gestisci i profili dei musei, con informazioni dettagliate, orari, prezzi e
-                molto altro.
-              </p>
-            </div>
-
-            <div
-              class="p-6 rounded-2xl bg-surface-50 border border-surface-200 opacity-0 animate-fade-in-up animate-delay-300"
-            >
-              <div class="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center mb-4">
-                <svg
-                  class="w-6 h-6 text-green-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  ></path>
-                </svg>
-              </div>
-              <h3 class="text-xl font-semibold text-surface-900 mb-2">Catalogo Opere</h3>
-              <p class="text-surface-600">
-                Digitalizza le opere d'arte con contenuti multimediali ricchi, descrizioni
-                multilingua e metadati Wikidata.
-              </p>
-            </div>
-
-            <div
-              class="p-6 rounded-2xl bg-surface-50 border border-surface-200 opacity-0 animate-fade-in-up animate-delay-400"
-            >
-              <div class="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center mb-4">
-                <svg
-                  class="w-6 h-6 text-purple-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  ></path>
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                  ></path>
-                </svg>
-              </div>
-              <h3 class="text-xl font-semibold text-surface-900 mb-2">Visite Guidate</h3>
-              <p class="text-surface-600">
-                Crea percorsi di visita interattivi con audioguide, contenuti esclusivi e acquisti
-                in-app.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Apps Section -->
-      <section id="apps" class="py-20 bg-gradient-to-b from-surface-50 to-white">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="text-center mb-16">
-            <h2 class="text-3xl sm:text-4xl font-bold text-surface-900 mb-4">
-              Le nostre applicazioni
-            </h2>
-            <p class="text-lg text-surface-600 max-w-2xl mx-auto">
-              Accedi alle diverse parti della piattaforma ArtAround
-            </p>
-          </div>
-
-          <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <!-- Marketplace Card -->
-            <a
-              href="/marketplace/"
-              class="group card-hover block p-6 rounded-2xl bg-white border border-surface-200 shadow-sm"
-            >
-              <div
-                class="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center mb-4 shadow-lg shadow-brand-500/30 group-hover:shadow-xl group-hover:shadow-brand-500/40 transition-shadow"
-              >
-                <svg
-                  class="w-7 h-7 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-                  ></path>
-                </svg>
-              </div>
-              <h3
-                class="text-lg font-semibold text-surface-900 mb-2 group-hover:text-brand-600 transition-colors"
-              >
-                Marketplace
+              <h3 class="text-xl font-semibold text-surface-900 dark:text-white mb-2" data-i18n="curatori-title">
+                Per i curatori
               </h3>
-              <p class="text-sm text-surface-600 mb-4">
-                Pannello di amministrazione per gestire musei, opere e contenuti.
+              <p class="text-surface-600 dark:text-surface-400 mb-4" data-i18n="curatori-desc">
+                Il museo digitale si gestisce da un unico pannello, senza reinserire a mano quello
+                che esiste già.
               </p>
-              <span
-                class="inline-flex items-center text-sm font-medium text-brand-600 group-hover:text-brand-700"
+              <ul class="space-y-2.5 text-sm text-surface-700 dark:text-surface-300">
+                <li class="flex gap-2">
+                  <span class="text-brand-500 mt-0.5">✓</span>
+                  <span data-i18n="curatori-li1"
+                    >Piantine interattive: piani, sale e marker su SVG, con generazione assistita
+                    dei punti opera dentro un contorno di sala</span
+                  >
+                </li>
+                <li class="flex gap-2">
+                  <span class="text-brand-500 mt-0.5">✓</span>
+                  <span data-i18n="curatori-li2"
+                    >Ruoli granulari: admin di piattaforma o curatore di uno specifico museo,
+                    ognuno vede solo ciò che gli compete</span
+                  >
+                </li>
+                <li class="flex gap-2">
+                  <span class="text-brand-500 mt-0.5">✓</span>
+                  <span data-i18n="curatori-li3"
+                    >Traduzioni assistite dall'AI in 5 lingue, con badge "AI/Manuale" sempre
+                    visibile su ogni campo</span
+                  >
+                </li>
+                <li class="flex gap-2">
+                  <span class="text-brand-500 mt-0.5">✓</span>
+                  <span data-i18n="curatori-li4"
+                    >Navigator brandizzato per il proprio museo — colori, font e icone propri,
+                    senza toccare una riga di codice</span
+                  >
+                </li>
+              </ul>
+            </div>
+
+            <!-- Autori -->
+            <div
+              class="reveal p-7 rounded-2xl bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800"
+              style="animation-delay: 0.1s"
+            >
+              <div
+                class="w-12 h-12 rounded-xl bg-ember-500/15 flex items-center justify-center mb-5"
               >
-                Vai al Marketplace
                 <svg
-                  class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform"
+                  class="w-6 h-6 text-ember-600 dark:text-ember-400"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -342,22 +444,67 @@
                     stroke-linecap="round"
                     stroke-linejoin="round"
                     stroke-width="2"
-                    d="M9 5l7 7-7 7"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                   ></path>
                 </svg>
-              </span>
-            </a>
+              </div>
+              <h3 class="text-xl font-semibold text-surface-900 dark:text-white mb-2" data-i18n="autori-title">
+                Per gli autori di contenuti
+              </h3>
+              <p class="text-surface-600 dark:text-surface-400 mb-4" data-i18n="autori-desc">
+                Da un'opera su Wikidata a una tappa di visita pronta, senza scrivere metadati a
+                memoria.
+              </p>
+              <ul class="space-y-2.5 text-sm text-surface-700 dark:text-surface-300">
+                <li class="flex gap-2">
+                  <span class="text-ember-500 mt-0.5">✓</span>
+                  <span data-i18n="autori-li1"
+                    >Ricerca su Wikidata che precompila titolo, autore, movimento, tecnica,
+                    materiali e dimensioni — resta tutto modificabile</span
+                  >
+                </li>
+                <li class="flex gap-2">
+                  <span class="text-ember-500 mt-0.5">✓</span>
+                  <span data-i18n="autori-li2"
+                    >Editor di percorso a tappe: opere, approfondimenti, indicazioni e svolte, con
+                    audio generato o caricato per ognuna</span
+                  >
+                </li>
+                <li class="flex gap-2">
+                  <span class="text-ember-500 mt-0.5">✓</span>
+                  <span data-i18n="autori-li3"
+                    >Contenuti profilati per pubblico e livello di linguaggio, non un solo testo
+                    uguale per tutti</span
+                  >
+                </li>
+                <li class="flex gap-2">
+                  <span class="text-ember-500 mt-0.5">✓</span>
+                  <span data-i18n="autori-li4"
+                    >Pubblicazione reversibile: una visita torna in bozza con un click, senza
+                    perdere il lavoro fatto</span
+                  >
+                </li>
+                <li class="flex gap-2">
+                  <span class="text-ember-500 mt-0.5">✓</span>
+                  <span data-i18n="autori-li5"
+                    >Il credito guadagnato vendendo le proprie visite e i propri contenuti si può
+                    spendere per acquistare quelli di altri autori — un'economia vera tra
+                    creator</span
+                  >
+                </li>
+              </ul>
+            </div>
 
-            <!-- Navigator Card -->
-            <a
-              href="/navigator/"
-              class="group card-hover block p-6 rounded-2xl bg-white border border-surface-200 shadow-sm"
+            <!-- Visitatori -->
+            <div
+              class="reveal p-7 rounded-2xl bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800"
+              style="animation-delay: 0.2s"
             >
               <div
-                class="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center mb-4 shadow-lg shadow-green-500/30 group-hover:shadow-xl group-hover:shadow-green-500/40 transition-shadow"
+                class="w-12 h-12 rounded-xl bg-brand-100 dark:bg-brand-500/15 flex items-center justify-center mb-5"
               >
                 <svg
-                  class="w-7 h-7 text-white"
+                  class="w-6 h-6 text-brand-600 dark:text-brand-400"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -370,18 +517,104 @@
                   ></path>
                 </svg>
               </div>
-              <h3
-                class="text-lg font-semibold text-surface-900 mb-2 group-hover:text-green-600 transition-colors"
-              >
-                Navigator
+              <h3 class="text-xl font-semibold text-surface-900 dark:text-white mb-2" data-i18n="visitatori-title">
+                Per i visitatori
               </h3>
-              <p class="text-sm text-surface-600 mb-4">
-                App per i visitatori per esplorare musei e opere d'arte.
+              <p class="text-surface-600 dark:text-surface-400 mb-4" data-i18n="visitatori-desc">
+                Un'audioguida che si installa come un'app, capisce la lingua e si adatta a come
+                vuoi visitare.
+              </p>
+              <ul class="space-y-2.5 text-sm text-surface-700 dark:text-surface-300">
+                <li class="flex gap-2">
+                  <span class="text-brand-500 mt-0.5">✓</span>
+                  <span data-i18n="visitatori-li1"
+                    >Nessun app store: si installa dal browser come PWA in pochi secondi, con la
+                    sua icona sulla schermata home come un'app vera</span
+                  >
+                </li>
+                <li class="flex gap-2">
+                  <span class="text-brand-500 mt-0.5">✓</span>
+                  <span data-i18n="visitatori-li2"
+                    >Comandi vocali hands-free: "avanti", "ripeti", "cos'è questo" — utile con le
+                    mani occupate da borsa e biglietti</span
+                  >
+                </li>
+                <li class="flex gap-2">
+                  <span class="text-brand-500 mt-0.5">✓</span>
+                  <span data-i18n="visitatori-li3"
+                    >Accessibilità reale: alto contrasto, font per dislessia, animazioni
+                    riducibili, focus da tastiera sempre visibile</span
+                  >
+                </li>
+                <li class="flex gap-2">
+                  <span class="text-brand-500 mt-0.5">✓</span>
+                  <span data-i18n="visitatori-li4"
+                    >Mappa del museo sempre a portata, con la propria posizione nel percorso in
+                    tempo reale</span
+                  >
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Applicazioni -->
+      <section
+        id="applicazioni"
+        class="scroll-mt-24 py-20 bg-surface-50 dark:bg-surface-900/40 border-y border-surface-200 dark:border-surface-800"
+      >
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center mb-14 reveal">
+            <h2
+              class="font-display text-3xl sm:text-4xl font-bold text-surface-900 dark:text-white mb-4"
+              data-i18n="app-title"
+            >
+              Le applicazioni
+            </h2>
+            <p class="text-lg text-surface-600 dark:text-surface-400 max-w-2xl mx-auto" data-i18n="app-sub">
+              Tre superfici, un solo backend: quello che si crea in Marketplace appare subito in
+              Navigator.
+            </p>
+          </div>
+
+          <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            <!-- Marketplace -->
+            <a
+              href="/marketplace/"
+              class="group card-hover reveal block p-6 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 shadow-sm"
+            >
+              <div
+                class="w-14 h-14 rounded-2xl gradient-aurora flex items-center justify-center mb-4 shadow-glow"
+              >
+                <svg viewBox="0 0 32 32" fill="none" class="w-7 h-7">
+                  <path
+                    d="M10.5 9 L8.5 13 V23.5 Q8.5 25 10 25 H22 Q23.5 25 23.5 23.5 V13 L21.5 9 Z"
+                    fill="white"
+                  />
+                  <path
+                    d="M12.5 13a3.5 3.5 0 0 0 7 0"
+                    stroke="#8b3ffc"
+                    stroke-width="1.7"
+                    stroke-linecap="round"
+                    fill="none"
+                  />
+                </svg>
+              </div>
+              <h3
+                class="text-lg font-semibold text-surface-900 dark:text-white mb-2 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors"
+                data-i18n="card-mkt-title"
+              >
+                Marketplace
+              </h3>
+              <p class="text-sm text-surface-600 dark:text-surface-400 mb-4" data-i18n="card-mkt-desc">
+                Pannello di amministrazione per musei, opere, visite e contenuti — anche il
+                marketplace dove si acquistano visite e contenuti di altri autori.
               </p>
               <span
-                class="inline-flex items-center text-sm font-medium text-green-600 group-hover:text-green-700"
+                class="inline-flex items-center text-sm font-medium text-brand-600 dark:text-brand-400"
               >
-                Vai al Navigator
+                <span data-i18n="card-mkt-cta">Vai al Marketplace</span>
                 <svg
                   class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform"
                   fill="none"
@@ -398,13 +631,58 @@
               </span>
             </a>
 
-            <!-- API Card -->
+            <!-- Navigator -->
             <a
-              href="/api/"
-              class="group card-hover block p-6 rounded-2xl bg-white border border-surface-200 shadow-sm"
+              href="#navigators"
+              class="group card-hover reveal block p-6 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 shadow-sm"
+              style="animation-delay: 0.05s"
             >
               <div
-                class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center mb-4 shadow-lg shadow-purple-500/30 group-hover:shadow-xl group-hover:shadow-purple-500/40 transition-shadow"
+                class="w-14 h-14 rounded-2xl gradient-aurora flex items-center justify-center mb-4 shadow-glow overflow-hidden"
+              >
+                <svg viewBox="0 0 100 100" class="w-8 h-8" fill="white">
+                  <polygon
+                    points="50,2 53.83,40.76 71.21,28.79 59.24,46.17 98,50 59.24,53.83 71.21,71.21 53.83,59.24 50,98 46.17,59.24 28.79,71.21 40.76,53.83 2,50 40.76,46.17 28.79,28.79 46.17,40.76"
+                  />
+                </svg>
+              </div>
+              <h3
+                class="text-lg font-semibold text-surface-900 dark:text-white mb-2 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors"
+                data-i18n="card-nav-title"
+              >
+                Navigator
+              </h3>
+              <p class="text-sm text-surface-600 dark:text-surface-400 mb-4" data-i18n="card-nav-desc">
+                App per i visitatori: guide audio, mappe e percorsi museo per museo.
+              </p>
+              <span
+                class="inline-flex items-center text-sm font-medium text-brand-600 dark:text-brand-400"
+              >
+                <span data-i18n="card-nav-cta">Apri il Navigator</span>
+                <svg
+                  class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 5l7 7-7 7"
+                  ></path>
+                </svg>
+              </span>
+            </a>
+
+            <!-- API -->
+            <a
+              href="/api/"
+              class="group card-hover reveal block p-6 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 shadow-sm"
+              style="animation-delay: 0.1s"
+            >
+              <div
+                class="w-14 h-14 rounded-2xl bg-surface-800 dark:bg-surface-800 flex items-center justify-center mb-4 shadow-lg"
               >
                 <svg
                   class="w-7 h-7 text-white"
@@ -421,17 +699,18 @@
                 </svg>
               </div>
               <h3
-                class="text-lg font-semibold text-surface-900 mb-2 group-hover:text-purple-600 transition-colors"
+                class="text-lg font-semibold text-surface-900 dark:text-white mb-2 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors"
+                data-i18n="card-api-title"
               >
                 API Server
               </h3>
-              <p class="text-sm text-surface-600 mb-4">
-                Backend RESTful per tutte le operazioni della piattaforma.
+              <p class="text-sm text-surface-600 dark:text-surface-400 mb-4" data-i18n="card-api-desc">
+                Backend REST su cui girano Marketplace e Navigator, dati aperti alle integrazioni.
               </p>
               <span
-                class="inline-flex items-center text-sm font-medium text-purple-600 group-hover:text-purple-700"
+                class="inline-flex items-center text-sm font-medium text-brand-600 dark:text-brand-400"
               >
-                Vai alle API
+                <span data-i18n="card-api-cta">Vai alle API</span>
                 <svg
                   class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform"
                   fill="none"
@@ -448,13 +727,14 @@
               </span>
             </a>
 
-            <!-- API Docs Card -->
+            <!-- API Docs -->
             <a
               href="/api-docs"
-              class="group card-hover block p-6 rounded-2xl bg-white border border-surface-200 shadow-sm"
+              class="group card-hover reveal block p-6 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 shadow-sm"
+              style="animation-delay: 0.15s"
             >
               <div
-                class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center mb-4 shadow-lg shadow-amber-500/30 group-hover:shadow-xl group-hover:shadow-amber-500/40 transition-shadow"
+                class="w-14 h-14 rounded-2xl bg-surface-600 dark:bg-surface-700 flex items-center justify-center mb-4 shadow-lg"
               >
                 <svg
                   class="w-7 h-7 text-white"
@@ -471,17 +751,17 @@
                 </svg>
               </div>
               <h3
-                class="text-lg font-semibold text-surface-900 mb-2 group-hover:text-amber-600 transition-colors"
+                class="text-lg font-semibold text-surface-900 dark:text-white mb-2 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors"
               >
                 API Docs
               </h3>
-              <p class="text-sm text-surface-600 mb-4">
-                Documentazione Swagger interattiva per le API REST.
+              <p class="text-sm text-surface-600 dark:text-surface-400 mb-4" data-i18n="card-docs-desc">
+                Documentazione Swagger interattiva, per esplorare ogni endpoint.
               </p>
               <span
-                class="inline-flex items-center text-sm font-medium text-amber-600 group-hover:text-amber-700"
+                class="inline-flex items-center text-sm font-medium text-brand-600 dark:text-brand-400"
               >
-                Vai alla documentazione
+                <span data-i18n="card-docs-cta">Vai alla documentazione</span>
                 <svg
                   class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform"
                   fill="none"
@@ -498,57 +778,401 @@
               </span>
             </a>
           </div>
+
+          <!-- Navigator per museo -->
+          <div
+            id="navigators"
+            class="reveal scroll-mt-24 rounded-2xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 p-6 sm:p-8"
+          >
+            <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
+              <div>
+                <h3 class="text-lg font-semibold text-surface-900 dark:text-white mb-1" data-i18n="navbox-title">
+                  Navigator per museo
+                </h3>
+                <p class="text-sm text-surface-600 dark:text-surface-400 max-w-xl" data-i18n="navbox-desc">
+                  Il Navigator universale funziona per qualunque museo su ArtAround. I musei che
+                  hanno personalizzato la propria guida hanno anche un link dedicato, con colori,
+                  nome e icona propri. Ma c'è molto di più: ogni museo può creare tanti navigator diversi,
+                  adatti a pubblico diverso, con colori, font e icone personalizzate, percorsi diversi e contenuti specifici.
+                  Il tutto con solo qualche click nel Marketplace, senza scrivere una riga di codice, file di configurazione o altro.
+                </p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <a
+                  href="/navigator?ncfg=default"
+                  class="focus-glow inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white gradient-aurora rounded-lg shadow-glow hover:brightness-110 transition-all"
+                >
+                  <span data-i18n="navbox-universal-cta">Navigator universale</span> →
+                </a>
+                <button
+                  type="button"
+                  id="qr-universal-trigger"
+                  class="qr-trigger focus-glow w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-surface-500 dark:text-surface-400 border border-surface-200 dark:border-surface-700 hover:border-brand-400 dark:hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                  data-qr-url="/navigator?ncfg=default"
+                  data-qr-name="Navigator universale"
+                  data-i18n-attr="aria-label:navbox-qr-aria-universal"
+                  aria-label="Mostra il QR code del Navigator universale"
+                  title="QR code"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M4 4h6v6H4V4zm0 10h6v6H4v-6zm10-10h6v6h-6V4zm0 10h2v2m4 0h-2m-2 4h4v-4m-6-2h2m2 2v2"
+                    ></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div
+              id="museum-navigators-loading"
+              class="text-sm text-surface-500 dark:text-surface-400"
+              data-i18n="navbox-loading"
+            >
+              Caricamento musei…
+            </div>
+            <div
+              id="museum-navigators-empty"
+              class="hidden text-sm text-surface-500 dark:text-surface-400"
+              data-i18n="navbox-empty"
+            >
+              Nessun museo ha ancora una guida personalizzata: usa il Navigator universale qui
+              sopra, funziona comunque per tutti i musei attivi.
+            </div>
+            <div id="museum-navigators-list" class="space-y-5"></div>
+          </div>
         </div>
       </section>
 
-      <!-- Tech Stack Section -->
-      <section class="py-16 bg-white border-t border-surface-200">
+      <!-- Tecnologia -->
+      <section id="tecnologia" class="scroll-mt-24 py-20 bg-white dark:bg-surface-950">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="text-center">
-            <p class="text-sm font-medium text-surface-500 uppercase tracking-wider mb-6">
-              Tecnologie utilizzate
+          <div class="text-center mb-16 reveal">
+            <h2
+              class="font-display text-3xl sm:text-4xl font-bold text-surface-900 dark:text-white mb-4"
+              data-i18n="tech-title"
+            >
+              Tecnologia e cosa ci rende diversi
+            </h2>
+            <p class="text-lg text-surface-600 dark:text-surface-400 max-w-2xl mx-auto" data-i18n="tech-sub">
+              Non la solita "app museo": ecco cosa c'è sotto il cofano, componente per componente.
             </p>
-            <div class="flex flex-wrap items-center justify-center gap-8 text-surface-400">
-              <div class="flex items-center gap-2">
-                <svg class="w-8 h-8" viewBox="0 0 256 256" fill="currentColor">
-                  <path
-                    d="M119.617 200.8v-85.8L41.7 71.5v84.7l77.9 44.6zm8.8 0l77.9-44.6V71.5l-77.9 43.5v85.8zm-4.4-92.8l76.8-43.2L128 22l-72.8 42.8 76.8 43.2z"
-                  />
-                </svg>
-                <span class="font-medium">Lit</span>
+          </div>
+
+          <div class="space-y-6">
+            <!-- Marketplace tech -->
+            <div
+              class="reveal grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-8 p-6 sm:p-8 rounded-2xl border border-surface-200 dark:border-surface-800"
+            >
+              <div>
+                <div class="flex items-center gap-3 mb-3">
+                  <span
+                    class="gradient-aurora w-9 h-9 rounded-lg shrink-0 flex items-center justify-center"
+                  >
+                    <svg viewBox="0 0 32 32" fill="none" class="w-5 h-5">
+                      <path
+                        d="M10.5 9 L8.5 13 V23.5 Q8.5 25 10 25 H22 Q23.5 25 23.5 23.5 V13 L21.5 9 Z"
+                        fill="white"
+                      />
+                      <path
+                        d="M12.5 13a3.5 3.5 0 0 0 7 0"
+                        stroke="#8b3ffc"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                        fill="none"
+                      />
+                    </svg>
+                  </span>
+                  <h3 class="text-xl font-semibold text-surface-900 dark:text-white" data-i18n="card-mkt-title">
+                    Marketplace
+                  </h3>
+                </div>
+                <p class="text-sm text-surface-600 dark:text-surface-400 mb-4" data-i18n="tech-mkt-desc">
+                  Web component nativi (Lit), niente framework pesante da scaricare: il pannello
+                  si carica a pagine, non tutto insieme.
+                </p>
+                <div class="flex flex-wrap gap-2">
+                  <span
+                    class="px-2.5 py-1 rounded-md text-xs font-medium bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300"
+                    >Lit + TypeScript</span
+                  >
+                  <span
+                    class="px-2.5 py-1 rounded-md text-xs font-medium bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300"
+                    >Vite</span
+                  >
+                  <span
+                    class="px-2.5 py-1 rounded-md text-xs font-medium bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300"
+                    >Tailwind CSS</span
+                  >
+                  <span
+                    class="px-2.5 py-1 rounded-md text-xs font-medium bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300"
+                    data-i18n="tech-mkt-tag-svg"
+                    >SVG editor nativo</span
+                  >
+                </div>
               </div>
-              <div class="flex items-center gap-2">
-                <svg class="w-8 h-8" viewBox="0 0 256 256" fill="currentColor">
-                  <path
-                    d="M128 0C57.3 0 0 57.3 0 128s57.3 128 128 128 128-57.3 128-128S198.7 0 128 0zm0 234.7c-58.9 0-106.7-47.8-106.7-106.7S69.1 21.3 128 21.3 234.7 69.1 234.7 128 186.9 234.7 128 234.7z"
-                  />
-                </svg>
-                <span class="font-medium">TypeScript</span>
+              <ul class="space-y-3 text-sm text-surface-700 dark:text-surface-300">
+                <li class="flex gap-2.5">
+                  <span class="text-brand-500 shrink-0">→</span>
+                  <span
+                    ><strong class="text-surface-900 dark:text-white" data-i18n="tech-mkt-li1-strong">Editor di piantine SVG</strong>
+                    <span data-i18n="tech-mkt-li1-rest">con piani, contorni di sala disegnati a mano libera e generazione assistita dei
+                    marker opera al loro interno — la maggior parte dei concorrenti si ferma a un
+                    elenco senza posizione reale sulla mappa.</span></span
+                  >
+                </li>
+                <li class="flex gap-2.5">
+                  <span class="text-brand-500 shrink-0">→</span>
+                  <span
+                    ><strong class="text-surface-900 dark:text-white" data-i18n="tech-mkt-li2-strong">Zero doppioni</strong>
+                    <span data-i18n="tech-mkt-li2-rest">grazie al collegamento diretto a Wikidata: cercare un'opera precompila titolo,
+                    autore, movimento e materiali con l'ID ufficiale, non testo libero da
+                    ridigitare.</span></span
+                  >
+                </li>
+                <li class="flex gap-2.5">
+                  <span class="text-brand-500 shrink-0">→</span>
+                  <span
+                    ><strong class="text-surface-900 dark:text-white" data-i18n="tech-mkt-li3-strong">Traduzione assistita dall'AI</strong>
+                    <span data-i18n="tech-mkt-li3-rest">in coda, tracciata per campo (badge "AI"/"Manuale"), non un bottone unico che
+                    sovrascrive tutto senza controllo.</span></span
+                  >
+                </li>
+                <li class="flex gap-2.5">
+                  <span class="text-brand-500 shrink-0">→</span>
+                  <span
+                    ><strong class="text-surface-900 dark:text-white" data-i18n="tech-mkt-li4-strong">Permessi granulari</strong>
+                    <span data-i18n="tech-mkt-li4-rest">per museo: un curatore vede e modifica solo il proprio museo, un admin vede
+                    tutto — senza account separati da gestire a mano.</span></span
+                  >
+                </li>
+                <li class="flex gap-2.5">
+                  <span class="text-brand-500 shrink-0">→</span>
+                  <span
+                    ><strong class="text-surface-900 dark:text-white" data-i18n="tech-mkt-li5-strong">Marketplace tra autori</strong>
+                    <span data-i18n="tech-mkt-li5-rest">— ogni acquisto è una transazione diretta tra due utenti: il credito
+                    dell'acquirente passa all'autore del contenuto, senza commissioni trattenute
+                    dalla piattaforma.</span></span
+                  >
+                </li>
+              </ul>
+            </div>
+
+            <!-- Navigator tech -->
+            <div
+              class="reveal grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-8 p-6 sm:p-8 rounded-2xl border border-surface-200 dark:border-surface-800"
+              style="animation-delay: 0.1s"
+            >
+              <div>
+                <div class="flex items-center gap-3 mb-3">
+                  <span
+                    class="gradient-aurora w-9 h-9 rounded-lg shrink-0 flex items-center justify-center overflow-hidden"
+                  >
+                    <svg viewBox="0 0 100 100" class="w-5 h-5" fill="white">
+                      <polygon
+                        points="50,2 53.83,40.76 71.21,28.79 59.24,46.17 98,50 59.24,53.83 71.21,71.21 53.83,59.24 50,98 46.17,59.24 28.79,71.21 40.76,53.83 2,50 40.76,46.17 28.79,28.79 46.17,40.76"
+                      />
+                    </svg>
+                  </span>
+                  <h3 class="text-xl font-semibold text-surface-900 dark:text-white" data-i18n="card-nav-title">Navigator</h3>
+                </div>
+                <p class="text-sm text-surface-600 dark:text-surface-400 mb-4" data-i18n="tech-nav-desc">
+                  Progressive Web App: si installa dal browser in pochi secondi, senza passare da
+                  App Store o Play Store.
+                </p>
+                <div class="flex flex-wrap gap-2">
+                  <span
+                    class="px-2.5 py-1 rounded-md text-xs font-medium bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300"
+                    >React 18 + TypeScript</span
+                  >
+                  <span
+                    class="px-2.5 py-1 rounded-md text-xs font-medium bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300"
+                    >Vite</span
+                  >
+                  <span
+                    class="px-2.5 py-1 rounded-md text-xs font-medium bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300"
+                    >Tailwind CSS</span
+                  >
+                  <span
+                    class="px-2.5 py-1 rounded-md text-xs font-medium bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300"
+                    data-i18n="tech-nav-tag-pwa"
+                    >PWA installabile</span
+                  >
+                  <span
+                    class="px-2.5 py-1 rounded-md text-xs font-medium bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300"
+                    >Web Speech API</span
+                  >
+                </div>
               </div>
-              <div class="flex items-center gap-2">
-                <svg class="w-8 h-8" viewBox="0 0 256 256" fill="currentColor">
-                  <path
-                    d="M128 8C57.308 8 0 65.308 0 136s57.308 128 128 128 128-57.308 128-128S198.692 8 128 8z"
-                  />
-                </svg>
-                <span class="font-medium">Node.js</span>
+              <ul class="space-y-3 text-sm text-surface-700 dark:text-surface-300">
+                <li class="flex gap-2.5">
+                  <span class="text-brand-500 shrink-0">→</span>
+                  <span
+                    ><strong class="text-surface-900 dark:text-white" data-i18n="tech-nav-li1-strong">Un motore, tanti musei</strong>
+                    <span data-i18n="tech-nav-li1-rest">— ogni museo può avere il proprio Navigator "white label" (nome, colori, font,
+                    icona, testo di benvenuto) senza che nessuno scriva una riga di codice: è
+                    configurazione, non un progetto a parte.</span></span
+                  >
+                </li>
+                <li class="flex gap-2.5">
+                  <span class="text-brand-500 shrink-0">→</span>
+                  <span
+                    ><strong class="text-surface-900 dark:text-white" data-i18n="tech-nav-li2-strong">Comandi vocali</strong>
+                    <span data-i18n="tech-nav-li2-rest">per
+                    navigare a mani libere ("avanti", "ripeti", "cos'è questo"), riconosciuti anche
+                    nella lingua del visitatore.</span></span
+                  >
+                </li>
+                <li class="flex gap-2.5">
+                  <span class="text-brand-500 shrink-0">→</span>
+                  <span
+                    ><strong class="text-surface-900 dark:text-white" data-i18n="tech-nav-li3-strong">Accessibilità di serie</strong>,
+                    <span data-i18n="tech-nav-li3-rest">non un'aggiunta: alto contrasto, font per dislessia, riduzione delle animazioni
+                    e focus da tastiera sempre visibile, attivabili in un pannello dedicato.</span></span
+                  >
+                </li>
+                <li class="flex gap-2.5">
+                  <span class="text-brand-500 shrink-0">→</span>
+                  <span
+                    ><strong class="text-surface-900 dark:text-white" data-i18n="tech-nav-li4-strong">Avvio istantaneo</strong>,
+                    <span data-i18n="tech-nav-li4-rest">anche con connessione instabile tra le sale: l'interfaccia è già in cache sul
+                    dispositivo una volta installata, niente schermata bianca in attesa della
+                    rete.</span></span
+                  >
+                </li>
+              </ul>
+            </div>
+
+            <!-- Server tech -->
+            <div
+              class="reveal grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-8 p-6 sm:p-8 rounded-2xl border border-surface-200 dark:border-surface-800"
+              style="animation-delay: 0.2s"
+            >
+              <div>
+                <div class="flex items-center gap-3 mb-3">
+                  <span
+                    class="w-9 h-9 rounded-lg shrink-0 bg-surface-800 flex items-center justify-center"
+                  >
+                    <svg
+                      class="w-5 h-5 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"
+                      ></path>
+                    </svg>
+                  </span>
+                  <h3 class="text-xl font-semibold text-surface-900 dark:text-white" data-i18n="tech-server-title">
+                    API &amp; dati
+                  </h3>
+                </div>
+                <p class="text-sm text-surface-600 dark:text-surface-400 mb-4" data-i18n="tech-server-desc">
+                  Un solo backend REST, documentato, che alimenta sia Marketplace che Navigator —
+                  nessun dato duplicato tra le due app.
+                </p>
+                <div class="flex flex-wrap gap-2">
+                  <span
+                    class="px-2.5 py-1 rounded-md text-xs font-medium bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300"
+                    >Node.js + Express</span
+                  >
+                  <span
+                    class="px-2.5 py-1 rounded-md text-xs font-medium bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300"
+                    >MongoDB</span
+                  >
+                  <span
+                    class="px-2.5 py-1 rounded-md text-xs font-medium bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300"
+                    >Wikidata SPARQL</span
+                  >
+                  <span
+                    class="px-2.5 py-1 rounded-md text-xs font-medium bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300"
+                    >OpenAPI/Swagger</span
+                  >
+                </div>
               </div>
-              <div class="flex items-center gap-2">
-                <svg class="w-8 h-8" viewBox="0 0 256 256" fill="currentColor">
-                  <path
-                    d="M67.2 145.6c0 3.2 2.4 6.4 8 6.4h17.6c5.6 0 8-3.2 8-6.4v-35.2h40v35.2c0 3.2 2.4 6.4 8 6.4h17.6c5.6 0 8-3.2 8-6.4V68.8c0-3.2-2.4-6.4-8-6.4h-17.6c-5.6 0-8 3.2-8 6.4v35.2h-40V68.8c0-3.2-2.4-6.4-8-6.4H75.2c-5.6 0-8 3.2-8 6.4v76.8z"
-                  />
-                </svg>
-                <span class="font-medium">Tailwind CSS</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <svg class="w-8 h-8" viewBox="0 0 256 256" fill="currentColor">
-                  <path
-                    d="M128 0C57.308 0 0 57.308 0 128s57.308 128 128 128 128-57.308 128-128S198.692 0 128 0z"
-                  />
-                </svg>
-                <span class="font-medium">MongoDB</span>
-              </div>
+              <ul class="space-y-3 text-sm text-surface-700 dark:text-surface-300">
+                <li class="flex gap-2.5">
+                  <span class="text-brand-500 shrink-0">→</span>
+                  <span
+                    ><strong class="text-surface-900 dark:text-white" data-i18n="tech-server-li1-strong">Job in background</strong>
+                    <span data-i18n="tech-server-li1-rest">per traduzioni e generazione audio: si lanciano da Marketplace e proseguono
+                    senza bloccare chi sta lavorando, con lo stato visibile in tempo reale.</span></span
+                  >
+                </li>
+                <li class="flex gap-2.5">
+                  <span class="text-brand-500 shrink-0">→</span>
+                  <span
+                    ><strong class="text-surface-900 dark:text-white" data-i18n="tech-server-li2-strong">Ricerca su Wikidata in tempo reale</strong>,
+                    <span data-i18n="tech-server-li2-rest">filtrabile per museo corrente: niente scraping manuale, niente copia-incolla da
+                    altri siti.</span></span
+                  >
+                </li>
+                <li class="flex gap-2.5">
+                  <span class="text-brand-500 shrink-0">→</span>
+                  <span
+                    ><strong class="text-surface-900 dark:text-white" data-i18n="tech-server-li3-strong">Login unificato</strong>:
+                    <span data-i18n="tech-server-li3-rest">lo
+                    stesso account vale su Marketplace e Navigator, un solo accesso invece di
+                    doversi autenticare due volte su app diverse.</span></span
+                  >
+                </li>
+                <li class="flex gap-2.5">
+                  <span class="text-brand-500 shrink-0">→</span>
+                  <span
+                    ><strong class="text-surface-900 dark:text-white" data-i18n="tech-server-li4-strong">Documentazione API aperta</strong>
+                    <span data-i18n="tech-server-li4-rest">via Swagger: ogni endpoint è ispezionabile e provabile dal browser, utile anche
+                    per chi vuole integrare i propri strumenti.</span></span
+                  >
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Disclaimer -->
+      <section class="py-16 bg-white dark:bg-surface-950">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div
+            class="flex items-start gap-4 p-6 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20"
+          >
+            <div
+              class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center shrink-0"
+            >
+              <svg
+                class="w-5 h-5 text-amber-600 dark:text-amber-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+                ></path>
+              </svg>
+            </div>
+            <div>
+              <h3
+                class="text-sm font-semibold text-amber-900 dark:text-amber-200 mb-1"
+                data-i18n="disclaimer-title"
+              >
+                Progetto didattico
+              </h3>
+              <p class="text-sm text-amber-800 dark:text-amber-300/90" data-i18n="disclaimer-text">
+                ArtAround è un progetto a scopo didattico, non un servizio museale ufficiale. Gran
+                parte dei testi, delle descrizioni e degli audio delle visite è generata con
+                l'assistenza di modelli linguistici (AI) a partire da riferimenti Wikidata: pur
+                curati, questi contenuti possono contenere imprecisioni o inesattezze storiche. Il
+                progetto e i suoi autori non garantiscono l'accuratezza né l'autenticità dei
+                contenuti pubblicati dagli utenti e non se ne assumono responsabilità.
+              </p>
             </div>
           </div>
         </div>
@@ -556,59 +1180,420 @@
     </main>
 
     <!-- Footer -->
-    <footer class="bg-surface-900 text-white py-12">
+    <footer class="bg-surface-950 text-white py-12 border-t border-surface-800">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div class="flex items-center gap-3">
-            <div
-              class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center"
+          <div class="flex items-center gap-2.5">
+            <span
+              class="gradient-aurora w-9 h-9 rounded-lg flex items-center justify-center overflow-hidden shrink-0"
             >
-              <span class="text-white font-bold text-lg">A</span>
-            </div>
-            <span class="font-semibold text-xl">ArtAround</span>
+              <svg viewBox="0 0 100 100" class="w-5 h-5" fill="white">
+                <polygon
+                  points="50,2 53.83,40.76 71.21,28.79 59.24,46.17 98,50 59.24,53.83 71.21,71.21 53.83,59.24 50,98 46.17,59.24 28.79,71.21 40.76,53.83 2,50 40.76,46.17 28.79,28.79 46.17,40.76"
+                />
+              </svg>
+            </span>
+            <span class="font-display font-semibold text-lg">ArtAround</span>
           </div>
           <nav class="flex items-center gap-6">
-            <a
-              href="/marketplace/"
-              class="text-sm text-surface-400 hover:text-white transition-colors"
+            <a href="/marketplace/" class="text-sm text-surface-400 hover:text-white transition-colors"
               >Marketplace</a
             >
-            <a
-              href="/navigator/"
-              class="text-sm text-surface-400 hover:text-white transition-colors"
+            <a href="#navigators" class="text-sm text-surface-400 hover:text-white transition-colors"
               >Navigator</a
             >
-            <a href="/api/" class="text-sm text-surface-400 hover:text-white transition-colors"
-              >API</a
-            >
+            <a href="/api/" class="text-sm text-surface-400 hover:text-white transition-colors">API</a>
             <a href="/api-docs" class="text-sm text-surface-400 hover:text-white transition-colors"
-              >Docs</a
+              >API Docs</a
             >
           </nav>
-          <p class="text-sm text-surface-500">© 2026 ArtAround. Tutti i diritti riservati.</p>
+          <p class="text-sm text-surface-500">© 2026 ArtAround - by <a href="mailto:giovanni.caini@studio.unibo.it">Giovanni Caini</a></p>
         </div>
       </div>
     </footer>
 
-    <script>
-      // Trigger animations when elements are in view
-      const observerOptions = {
-        threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px',
-      };
+    <!-- Modale QR code, centrato a schermo -->
+    <div
+      id="qr-modal"
+      class="hidden fixed inset-0 z-[60] items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="qr-modal-title"
+    >
+      <div id="qr-modal-backdrop" class="absolute inset-0 bg-surface-950/70 backdrop-blur-sm"></div>
+      <div
+        class="relative w-full max-w-sm rounded-2xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 shadow-2xl p-6 text-center"
+      >
+        <button
+          type="button"
+          id="qr-modal-close"
+          data-i18n-attr="aria-label:qr-modal-close-aria"
+          aria-label="Chiudi"
+          class="focus-glow absolute top-3 right-3 w-8 h-8 rounded-lg flex items-center justify-center text-surface-400 hover:text-surface-700 dark:hover:text-white hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            ></path>
+          </svg>
+        </button>
+        <h3
+          id="qr-modal-title"
+          class="text-base font-semibold text-surface-900 dark:text-white mb-1"
+        ></h3>
+        <p class="text-xs text-surface-500 dark:text-surface-400 mb-4" data-i18n="qr-modal-subtitle">
+          Inquadra per aprire questo Navigator
+        </p>
+        <div class="flex items-center justify-center p-4 bg-white rounded-xl mx-auto w-fit">
+          <div id="qr-modal-code"></div>
+        </div>
+        <p
+          id="qr-modal-url"
+          class="mt-4 text-xs text-surface-500 dark:text-surface-400 break-all select-all"
+        ></p>
+      </div>
+    </div>
 
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.style.opacity = '1';
-            observer.unobserve(entry.target);
+    <script type="application/json" id="landing-i18n-data">{"nav-perche":{"it":"Perché ArtAround","en":"Why ArtAround","fr":"Pourquoi ArtAround","de":"Warum ArtAround","es":"¿Por qué ArtAround?"},"nav-app":{"it":"Applicazioni","en":"Applications","fr":"Applications","de":"Anwendungen","es":"Aplicaciones"},"nav-tech":{"it":"Tecnologia","en":"Technology","fr":"Technologie","de":"Technologie","es":"Tecnología"},"theme-toggle-aria":{"it":"Cambia tema chiaro/scuro","en":"Change light/dark theme","fr":"Changer le thème clair/sombre","de":"Ändern Sie das Hell-/Dunkel-Thema","es":"Cambiar tema claro/oscuro"},"header-accedi":{"it":"Accedi","en":"Log in","fr":"Se connecter","de":"Einloggen","es":"Acceder"},"hero-badge":{"it":"Piattaforma per l'esperienza museale digitale","en":"Platform for the digital museum experience","fr":"Plateforme pour l'expérience muséale numérique","de":"Plattform für das digitale Museumserlebnis","es":"Plataforma para la experiencia del museo digital"},"hero-h1-lead":{"it":"I musei raccontati come","en":"Museums told how","fr":"Les musées racontent comment","de":"Museen erzählten wie","es":"Los museos contaron cómo"},"hero-h1-word":{"it":"meritano","en":"they deserve","fr":"ils méritent","de":"sie haben es verdient","es":"se merecen"},"hero-sub":{"it":"ArtAround collega chi gestisce un museo, chi ne racconta le opere e chi lo visita in un'unica piattaforma: dati collegati a Wikidata, traduzioni assistite dall'AI e guide audio installabili, brandizzate museo per museo.","en":"ArtAround connects those who manage a museum, those who talk about its works and those who visit it in a single platform: data connected to Wikidata, AI-assisted translations and installable audio guides, branded museum by museum.","fr":"ArtAround connecte ceux qui gèrent un musée, ceux qui parlent de ses œuvres et ceux qui le visitent dans une seule plateforme : données connectées à Wikidata, traductions assistées par l'IA et audioguides installables, brandés musée par musée.","de":"ArtAround verbindet diejenigen, die ein Museum leiten, diejenigen, die über seine Werke sprechen, und diejenigen, die es besuchen, auf einer einzigen Plattform: Daten, die mit Wikidata verknüpft sind, KI-gestützte Übersetzungen und installierbare Audioguides, gebrandmarktes Museum für Museum.","es":"ArtAround conecta en una única plataforma a quienes gestionan un museo, a quienes hablan de sus obras y a quienes lo visitan: datos conectados a Wikidata, traducciones asistidas por IA y audioguías instalables, marca museo por museo."},"hero-cta-navigator":{"it":"Esplora il Navigator","en":"Explore the Navigator","fr":"Explorez le Navigator","de":"Entdecken Sie den Navigator","es":"Explora el Navigator"},"hero-cta-marketplace":{"it":"Accedi al Marketplace","en":"Access the Marketplace","fr":"Accédez à Marketplace","de":"Greifen Sie auf Marketplace zu","es":"Accede a Marketplace"},"stat-museums-label":{"it":"Musei attivi","en":"Active museums","fr":"Musées actifs","de":"Aktive Museen","es":"Museos activos"},"stat-artworks-label":{"it":"Opere digitalizzate","en":"Digitized works","fr":"Œuvres numérisées","de":"Digitalisierte Werke","es":"Obras digitalizadas"},"stat-visits-label":{"it":"Visite guidate","en":"Guided tours","fr":"Visites guidées","de":"Geführte Touren","es":"Visitas guiadas"},"stat-langs-label":{"it":"Lingue supportate","en":"Supported languages","fr":"Langues prises en charge","de":"Unterstützte Sprachen","es":"Idiomas soportados"},"perchi-title":{"it":"Perché usare ArtAround","en":"Why use ArtAround","fr":"Pourquoi utiliser ArtAround","de":"Warum ArtAround verwenden?","es":"¿Por qué utilizar ArtAround?"},"perchi-sub":{"it":"Tre punti di vista, una sola piattaforma: quello che cambia è cosa vedi, non dove i dati vivono.","en":"Three points of view, one platform: what changes is what you see, not where the data lives.","fr":"Trois points de vue, une seule plateforme : ce qui change, c'est ce que vous voyez, et non l'endroit où se trouvent les données.","de":"Drei Standpunkte, eine Plattform: Was sich ändert, ist das, was Sie sehen, nicht der Ort, an dem die Daten gespeichert sind.","es":"Tres puntos de vista, una plataforma: lo que cambia es lo que ves, no dónde residen los datos."},"curatori-title":{"it":"Per i curatori","en":"For the curators","fr":"Pour les conservateurs","de":"Für die Kuratoren","es":"Para los curadores"},"curatori-desc":{"it":"Il museo digitale si gestisce da un unico pannello, senza reinserire a mano quello che esiste già.","en":"The digital museum is managed from a single panel, without manually re-entering what already exists.","fr":"Le musée numérique est géré à partir d'un seul panneau, sans ressaisir manuellement ce qui existe déjà.","de":"Das digitale Museum wird von einem einzigen Panel aus verwaltet, ohne dass bereits vorhandene Inhalte manuell erneut eingegeben werden müssen.","es":"El museo digital se gestiona desde un único panel, sin tener que volver a introducir manualmente lo que ya existe."},"curatori-li1":{"it":"Piantine interattive: piani, sale e marker su SVG, con generazione assistita dei punti opera dentro un contorno di sala","en":"Interactive maps: floors, rooms and markers on SVG, with assisted generation of work points within a room outline","fr":"Cartes interactives : étages, pièces et marqueurs sur SVG, avec génération assistée de points de travail dans le contour d'une pièce","de":"Interaktive Karten: Etagen, Räume und Markierungen auf SVG, mit unterstützter Generierung von Arbeitspunkten innerhalb eines Raumumrisses","es":"Mapas interactivos: pisos, habitaciones y marcadores en SVG, con generación asistida de puntos de trabajo dentro del contorno de una habitación."},"curatori-li2":{"it":"Ruoli granulari: admin di piattaforma o curatore di uno specifico museo, ognuno vede solo ciò che gli compete","en":"Granular roles: platform admin or curator of a specific museum, everyone sees only what they are entitled to","fr":"Rôles granulaires : administrateur de plateforme ou conservateur d'un musée spécifique, chacun ne voit que ce à quoi il a droit","de":"Granulare Rollen: Plattformadministrator oder Kurator eines bestimmten Museums, jeder sieht nur das, worauf er Anspruch hat","es":"Roles granulares: administrador de plataforma o curador de un museo específico, todos ven solo lo que les corresponde"},"curatori-li3":{"it":"Traduzioni assistite dall'AI in 5 lingue, con badge \"AI/Manuale\" sempre visibile su ogni campo","en":"AI-assisted translations in 5 languages, with \"AI/Manual\" badge always visible on every field","fr":"Traductions assistées par IA en 5 langues, avec badge \"AI/Manuel\" toujours visible sur chaque champ","de":"KI-gestützte Übersetzungen in 5 Sprachen, wobei das Abzeichen „KI/Manuell“ immer in jedem Feld sichtbar ist","es":"Traducciones asistidas por IA en 5 idiomas, con el distintivo \"AI/Manual\" siempre visible en todos los campos"},"curatori-li4":{"it":"Navigator brandizzato per il proprio museo — colori, font e icone propri, senza toccare una riga di codice","en":"Branded Navigator for your own museum — your own colors, fonts, and icons, without touching a line of code","fr":"Navigator personnalisé pour votre propre musée : vos propres couleurs, polices et icônes, sans toucher à une ligne de code","de":"Branded Navigator für Ihr eigenes Museum – Ihre eigenen Farben, Schriftarten und Symbole, ohne eine Codezeile zu berühren","es":"Branded Navigator para su propio museo: sus propios colores, fuentes e íconos, sin tocar una línea de código"},"autori-title":{"it":"Per gli autori di contenuti","en":"For content authors","fr":"Pour les auteurs de contenu","de":"Für Content-Autoren","es":"Para autores de contenido"},"autori-desc":{"it":"Da un'opera su Wikidata a una tappa di visita pronta, senza scrivere metadati a memoria.","en":"From a work on Wikidata to a ready-made visit stop, without writing metadata from memory.","fr":"D'un travail sur Wikidata à un arrêt de visite tout fait, sans écrire de métadonnées de mémoire.","de":"Von einer Arbeit auf Wikidata bis hin zu einem vorgefertigten Besuchsstopp, ohne Metadaten aus dem Speicher zu schreiben.","es":"Desde un trabajo en Wikidata hasta una parada de visita ya preparada, sin escribir metadatos de memoria."},"autori-li1":{"it":"Ricerca su Wikidata che precompila titolo, autore, movimento, tecnica, materiali e dimensioni — resta tutto modificabile","en":"Wikidata search that prefills title, author, movement, technique, materials and dimensions — everything remains editable","fr":"Recherche Wikidata qui pré-remplit le titre, l'auteur, le mouvement, la technique, les matériaux et les dimensions — tout reste modifiable","de":"Wikidata-Suche, die Titel, Autor, Bewegung, Technik, Materialien und Abmessungen vorab ausfüllt – alles bleibt editierbar","es":"Búsqueda de Wikidata que completa previamente el título, el autor, el movimiento, la técnica, los materiales y las dimensiones: todo sigue siendo editable"},"autori-li2":{"it":"Editor di percorso a tappe: opere, approfondimenti, indicazioni e svolte, con audio generato o caricato per ognuna","en":"Step-by-step route editor: works, insights, directions and turns, with audio generated or uploaded for each","fr":"Éditeur d'itinéraire étape par étape : travaux, informations, directions et virages, avec audio généré ou téléchargé pour chacun","de":"Schritt-für-Schritt-Routeneditor: Werke, Einblicke, Wegbeschreibungen und Abzweigungen, mit jeweils generiertem oder hochgeladenem Audio","es":"Editor de rutas paso a paso: obras, insights, indicaciones y giros, con audio generado o subido para cada uno"},"autori-li3":{"it":"Contenuti profilati per pubblico e livello di linguaggio, non un solo testo uguale per tutti","en":"Content profiled by audience and language level, not just one text that is the same for everyone","fr":"Contenu profilé par public et niveau de langue, pas seulement un texte identique pour tout le monde","de":"Inhalte, die nach Zielgruppe und Sprachniveau profiliert sind, nicht nur ein Text, der für alle gleich ist","es":"Contenido perfilado por audiencia y nivel de idioma, no solo un texto igual para todos"},"autori-li4":{"it":"Pubblicazione reversibile: una visita torna in bozza con un click, senza perdere il lavoro fatto","en":"Reversible publication: a visit returns to draft form with a click, without losing the work done","fr":"Publication réversible : une visite revient au brouillon en un clic, sans perdre le travail effectué","de":"Reversible Veröffentlichung: Ein Besucher kehrt mit einem Klick zum Entwurfsformular zurück, ohne dass die geleistete Arbeit verloren geht","es":"Publicación reversible: una visita vuelve a forma de borrador con un clic, sin perder el trabajo realizado"},"visitatori-title":{"it":"Per i visitatori","en":"For visitors","fr":"Pour les visiteurs","de":"Für Besucher","es":"Para visitantes"},"visitatori-desc":{"it":"Un'audioguida che si installa come un'app, capisce la lingua e si adatta a come vuoi visitare.","en":"An audio guide that installs like an app, understands the language and adapts to how you want to visit.","fr":"Un audioguide qui s'installe comme une application, comprend la langue et s'adapte à la façon dont vous souhaitez visiter.","de":"Ein Audioguide, der wie eine App installiert wird, die Sprache versteht und sich an Ihre Besichtigungswünsche anpasst.","es":"Una audioguía que se instala como una app, entiende el idioma y se adapta a cómo quieres visitar."},"visitatori-li1":{"it":"Nessun app store: si installa dal browser come PWA in pochi secondi, con la sua icona sulla schermata home come un'app vera","en":"No app store: installs from the browser as a PWA in seconds, with its icon on the home screen like a real app","fr":"Pas de boutique d'applications : s'installe depuis le navigateur comme une PWA en quelques secondes, avec son icône sur l'écran d'accueil comme une vraie application","de":"Kein App-Store: Lässt sich in Sekundenschnelle über den Browser als PWA installieren, mit dem Symbol auf dem Startbildschirm wie bei einer echten App","es":"Sin tienda de aplicaciones: se instala desde el navegador como una PWA en segundos, con su ícono en la pantalla de inicio como una aplicación real"},"visitatori-li2":{"it":"Comandi vocali hands-free: \"avanti\", \"ripeti\", \"cos'è questo\" — utile con le mani occupate da borsa e biglietti","en":"Hands-free voice commands: “next,” “repeat,” “what's this” — useful when your hands are full of bags and tickets","fr":"Commandes vocales mains libres : « suivant », « répéter », « qu'est-ce que c'est » – utiles lorsque vos mains sont pleines de sacs et de billets","de":"Freihändige Sprachbefehle: „Weiter“, „Wiederholen“, „Was ist das“ – nützlich, wenn Sie die Hände voller Taschen und Tickets haben","es":"Comandos de voz con manos libres: \"siguiente\", \"repetir\", \"¿qué es esto?\": útiles cuando tienes las manos llenas de bolsos y billetes"},"visitatori-li3":{"it":"Accessibilità reale: alto contrasto, font per dislessia, animazioni riducibili, focus da tastiera sempre visibile","en":"Real accessibility: high contrast, fonts for dyslexia, reducible animations, always visible keyboard focus","fr":"Une réelle accessibilité : contraste élevé, polices pour la dyslexie, animations réductibles, focus clavier toujours visible","de":"Echte Zugänglichkeit: hoher Kontrast, Schriftarten für Legasthenie, reduzierbare Animationen, immer sichtbarer Tastaturfokus","es":"Accesibilidad real: alto contraste, fuentes para dislexia, animaciones reducibles, foco de teclado siempre visible"},"visitatori-li4":{"it":"Mappa del museo sempre a portata, con la propria posizione nel percorso in tempo reale","en":"Map of the museum always at hand, with your position along the route in real time","fr":"Plan du musée toujours à portée de main, avec votre position le long du parcours en temps réel","de":"Karte des Museums immer zur Hand, mit Ihrer Position entlang der Route in Echtzeit","es":"Mapa del museo siempre a mano, con tu posición a lo largo del recorrido en tiempo real"},"app-title":{"it":"Le applicazioni","en":"The applications","fr":"Les applications","de":"Die Anwendungen","es":"Las aplicaciones"},"app-sub":{"it":"Tre superfici, un solo backend: quello che si crea in Marketplace appare subito in Navigator.","en":"Three surfaces, one backend: what you create in Marketplace immediately appears in Navigator.","fr":"Trois surfaces, un backend : ce que vous créez dans Marketplace apparaît immédiatement dans Navigator.","de":"Drei Oberflächen, ein Backend: Was Sie im Marketplace erstellen, erscheint sofort im Navigator.","es":"Tres superficies, un backend: lo que creas en Marketplace aparece inmediatamente en Navigator."},"card-mkt-title":{"it":"Marketplace","en":"Marketplace","fr":"Marketplace","de":"Marketplace","es":"Marketplace"},"card-mkt-desc":{"it":"Pannello di amministrazione per musei, opere, visite e contenuti — anche il marketplace dove si acquistano visite e contenuti di altri autori.","en":"Administration panel for museums, works, visits and content — also the marketplace where you purchase visits and content from other authors.","fr":"Panneau d'administration des musées, des œuvres, des visites et des contenus — ainsi que la place de marché où vous achetez des visites et des contenus auprès d'autres auteurs.","de":"Verwaltungsbereich für Museen, Werke, Besuche und Inhalte – auch der Marktplatz, auf dem Sie Besuche und Inhalte von anderen Autoren kaufen.","es":"Panel de administración de museos, obras, visitas y contenidos; también el Marketplace donde compras visitas y contenidos de otros autores."},"card-mkt-cta":{"it":"Vai al Marketplace","en":"Go to the Marketplace","fr":"Allez sur Marketplace","de":"Gehen Sie zu Marketplace","es":"Ir a Marketplace"},"card-nav-title":{"it":"Navigator","en":"Navigator","fr":"Navigator","de":"Navigator","es":"Navigator"},"card-nav-desc":{"it":"App per i visitatori: guide audio, mappe e percorsi museo per museo.","en":"App for visitors: audio guides, maps and museum-by-museum routes.","fr":"Application pour les visiteurs : audioguides, cartes et parcours musée par musée.","de":"App für Besucher: Audioguides, Karten und Museumsrouten.","es":"App para visitantes: audioguías, mapas y rutas museo por museo."},"card-nav-cta":{"it":"Apri il Navigator","en":"Open the Navigator","fr":"Ouvrez le Navigator","de":"Öffnen Sie den Navigator","es":"Abra el Navigator"},"card-api-title":{"it":"API Server","en":"API Server","fr":"Serveur API","de":"API-Server","es":"Servidor API"},"card-api-desc":{"it":"Backend REST su cui girano Marketplace e Navigator, dati aperti alle integrazioni.","en":"REST backend on which Marketplace and Navigator run, data open to integrations.","fr":"Backend REST sur lequel s'exécutent Marketplace et Navigator, données ouvertes aux intégrations.","de":"REST-Backend, auf dem Marketplace und Navigator laufen, Daten offen für Integrationen.","es":"Backend REST en el que se ejecutan Marketplace y Navigator, datos abiertos a integraciones."},"card-api-cta":{"it":"Vai alle API","en":"Go to APIs","fr":"Accédez aux API","de":"Gehen Sie zu APIs","es":"Ir a API"},"card-docs-desc":{"it":"Documentazione Swagger interattiva, per esplorare ogni endpoint.","en":"Interactive Swagger documentation, to explore every endpoint.","fr":"Documentation interactive Swagger, pour explorer chaque point de terminaison.","de":"Interaktive Swagger-Dokumentation, um jeden Endpunkt zu erkunden.","es":"Documentación interactiva de Swagger, para explorar cada punto final."},"card-docs-cta":{"it":"Vai alla documentazione","en":"Go to documentation","fr":"Aller à la documentation","de":"Gehen Sie zur Dokumentation","es":"Ir a documentación"},"navbox-title":{"it":"Navigator per museo","en":"Museum Navigator","fr":"Navigator par musée","de":"Museums-Navigator","es":"Navigator por museo"},"navbox-desc":{"it":"Il Navigator universale funziona per qualunque museo su ArtAround. I musei che hanno personalizzato la propria guida hanno anche un link dedicato, con colori, nome e icona propri. Ma c'è molto di più: ogni museo può creare tanti navigator diversi, adatti a pubblico diverso, con colori, font e icone personalizzate, percorsi diversi e contenuti specifici. Il tutto con solo qualche click nel Marketplace, senza scrivere una riga di codice, file di configurazione o altro.","en":"The Universal Navigator works for any museum on ArtAround. Museums that have customized their guide also have a dedicated link, with their own colours, name and icon. But there is much more: each museum can create many different navigators, suitable for different audiences, with colours, personalized fonts and icons, different paths and specific contents. All with just a few clicks in the Marketplace, without writing a line of code, configuration file or anything else.","fr":"Le navigateur universel fonctionne pour n’importe quel musée sur ArtAround. Les musées qui ont personnalisé leur guide disposent également d'un lien dédié, avec leurs propres couleurs, nom et icône. Mais il y a bien plus encore : chaque musée peut créer de nombreux navigateurs différents, adaptés à différents publics, avec des couleurs, des polices et des icônes personnalisées, des parcours différents et des contenus spécifiques. Le tout en quelques clics dans la Marketplace, sans écrire une ligne de code, un fichier de configuration ou autre.","de":"Der Universal Navigator funktioniert für jedes Museum auf ArtAround. Museen, die ihren Führer individuell angepasst haben, verfügen außerdem über einen eigenen Link mit eigenen Farben, eigenem Namen und eigenem Symbol. Aber es gibt noch viel mehr: Jedes Museum kann viele verschiedene Navigatoren erstellen, die für unterschiedliche Zielgruppen geeignet sind, mit Farben, personalisierten Schriftarten und Symbolen, unterschiedlichen Pfaden und spezifischen Inhalten. Alles mit nur wenigen Klicks im Marketplace, ohne eine Zeile Code, eine Konfigurationsdatei oder irgendetwas anderes zu schreiben.","es":"El Navigator Universal funciona para cualquier museo en ArtAround. Los museos que han personalizado su guía también tienen un enlace dedicado, con sus propios colores, nombre e icono. Pero hay mucho más: cada museo puede crear muchos navegadores diferentes, adecuados para diferentes públicos, con colores, fuentes e iconos personalizados, diferentes recorridos y contenidos específicos. Todo con sólo unos pocos clics en Marketplace, sin escribir una línea de código, archivo de configuración ni nada más."},"navbox-universal-cta":{"it":"Navigator universale","en":"Universal Navigator","fr":"Navigator universel","de":"Universeller Navigator","es":"Navigator universal"},"navbox-qr-aria-universal":{"it":"Mostra il QR code del Navigator universale","en":"Shows the Universal Navigator QR code","fr":"Affiche le code QR Universal Navigator","de":"Zeigt den Universal Navigator QR-Code an","es":"Muestra el código QR del Navigator Universal"},"navbox-loading":{"it":"Caricamento musei…","en":"Loading museums…","fr":"Chargement des musées…","de":"Museen werden geladen…","es":"Cargando museos…"},"navbox-empty":{"it":"Nessun museo ha ancora una guida personalizzata: usa il Navigator universale qui sopra, funziona comunque per tutti i musei attivi.","en":"No museum has a personalized guide yet: use the Universal Navigator above, it still works for all active museums.","fr":"Aucun musée ne dispose encore de guide personnalisé : utilisez le Navigator universel ci-dessus, il fonctionne toujours pour tous les musées actifs.","de":"Noch verfügt kein Museum über einen personalisierten Führer: Verwenden Sie den oben genannten Universal Navigator, er funktioniert weiterhin für alle aktiven Museen.","es":"Ningún museo tiene todavía una guía personalizada: utilice el Navigator Universal arriba, todavía funciona para todos los museos activos."},"navbox-open-arrow":{"it":"Apri →","en":"Open →","fr":"Ouvrir →","de":"Öffnen →","es":"Abrir →"},"qr-name-universal":{"it":"Navigator universale","en":"Universal Navigator","fr":"Navigator universel","de":"Universeller Navigator","es":"Navigator universal"},"tech-title":{"it":"Tecnologia e cosa ci rende diversi","en":"Technology and what makes us different","fr":"La technologie et ce qui nous différencie","de":"Technologie und was uns unterscheidet","es":"La tecnología y lo que nos hace diferentes"},"tech-sub":{"it":"Non la solita \"app museo\": ecco cosa c'è sotto il cofano, componente per componente.","en":"Not the usual \"museum app\": here's what's under the hood, component by component.","fr":"Ce n'est pas l'habituelle « application de musée » : voici ce qu'il y a sous le capot, composant par composant.","de":"Nicht die übliche „Museums-App“: Hier erfahren Sie, was sich unter der Haube befindet, Komponente für Komponente.","es":"No es la habitual \"aplicación de museo\": esto es lo que hay debajo del capó, componente por componente."},"tech-mkt-desc":{"it":"Web component nativi (Lit), niente framework pesante da scaricare: il pannello si carica a pagine, non tutto insieme.","en":"Native web components (Lit), no heavy framework to download: the panel loads in pages, not all at once.","fr":"Composants web natifs (Lit), pas de framework lourd à télécharger : le panel se charge par pages, pas toutes en même temps.","de":"Native Webkomponenten (Lit), kein umfangreiches Framework zum Herunterladen: Das Panel wird seitenweise geladen, nicht alle auf einmal.","es":"Componentes web nativos (Lit), sin necesidad de descargar un marco pesado: el panel se carga en páginas, no todas a la vez."},"tech-mkt-tag-svg":{"it":"SVG editor nativo","en":"SVG native editor","fr":"Éditeur natif SVG","de":"Nativer SVG-Editor","es":"Editor nativo SVG"},"tech-mkt-li1-strong":{"it":"Editor di piantine SVG","en":"SVG floor plan editor","fr":"Éditeur de plan d'étage SVG","de":"SVG-Grundrisseditor","es":"Editor de planos de planta SVG"},"tech-mkt-li1-rest":{"it":"con piani, contorni di sala disegnati a mano libera e generazione assistita dei marker opera al loro interno — la maggior parte dei concorrenti si ferma a un elenco senza posizione reale sulla mappa.","en":"with plans, freehand-drawn room outlines, and assisted marker generation working within them — most competitors stop at a list with no real location on the map.","fr":"avec des plans, des contours de pièces dessinés à main levée et une génération assistée de marqueurs qui y travaillent - la plupart des concurrents s'arrêtent à une liste sans emplacement réel sur la carte.","de":"mit Plänen, freihändig gezeichneten Raumumrissen und unterstützter Markierungsgenerierung – die meisten Konkurrenten bleiben bei einer Liste ohne echten Standort auf der Karte stehen.","es":"con planos, contornos de habitaciones dibujados a mano alzada y generación asistida de marcadores trabajando dentro de ellos; la mayoría de los competidores se detienen en una lista sin una ubicación real en el mapa."},"tech-mkt-li2-strong":{"it":"Zero doppioni","en":"Zero duplicates","fr":"Zéro doublon","de":"Keine Duplikate","es":"Cero duplicados"},"tech-mkt-li2-rest":{"it":"grazie al collegamento diretto a Wikidata: cercare un'opera precompila titolo, autore, movimento e materiali con l'ID ufficiale, non testo libero da ridigitare.","en":"thanks to the direct connection to Wikidata: searching for a work prefills title, author, movement and materials with the official ID, not free text to retype.","fr":"grâce à la connexion directe à Wikidata : la recherche d'une œuvre préremplit le titre, l'auteur, le mouvement et les matériaux avec l'identifiant officiel, pas de texte libre à retaper.","de":"Dank der direkten Verbindung zu Wikidata: Bei der Suche nach einem Werk werden Titel, Autor, Bewegung und Materialien mit der offiziellen ID vorausgefüllt, kein freier Text zum erneuten Eingeben.","es":"gracias a la conexión directa a Wikidata: la búsqueda de una obra precompleta título, autor, movimiento y materiales con la identificación oficial, no texto libre para volver a escribir."},"tech-mkt-li3-strong":{"it":"Traduzione assistita dall'AI","en":"AI-assisted translation","fr":"Traduction assistée par l'IA","de":"KI-gestützte Übersetzung","es":"Traducción asistida por IA"},"tech-mkt-li3-rest":{"it":"in coda, tracciata per campo (badge \"AI\"/\"Manuale\"), non un bottone unico che sovrascrive tutto senza controllo.","en":"in the queue, tracked by field (\"AI\"/\"Manual\" badge), not a single button that overwrites everything without control.","fr":"dans la file d'attente, suivie par champ (badge \"AI\"/\"Manuel\"), pas un seul bouton qui écrase tout sans contrôle.","de":"in der Warteschlange, verfolgt nach Feld („AI“/„Manuell“-Abzeichen), kein einziger Knopf, der alles unkontrolliert überschreibt.","es":"en la cola, rastreado por campo (insignia \"AI\"/\"Manual\"), ni un solo botón que sobrescriba todo sin control."},"tech-mkt-li4-strong":{"it":"Permessi granulari","en":"Granular permissions","fr":"Autorisations granulaires","de":"Detaillierte Berechtigungen","es":"Permisos granulares"},"tech-mkt-li4-rest":{"it":"per museo: un curatore vede e modifica solo il proprio museo, un admin vede tutto — senza account separati da gestire a mano.","en":"per museum: a curator sees and edits only his own museum, an admin sees everything — without separate accounts to manage manually.","fr":"par musée : un conservateur voit et modifie uniquement son propre musée, un administrateur voit tout, sans comptes séparés à gérer manuellement.","de":"pro Museum: Ein Kurator sieht und bearbeitet nur sein eigenes Museum, ein Administrator sieht alles – ohne separate Konten, die manuell verwaltet werden müssen.","es":"por museo: un curador ve y edita solo su propio museo, un administrador ve todo, sin cuentas separadas que administrar manualmente."},"tech-nav-desc":{"it":"Progressive Web App: si installa dal browser in pochi secondi, senza passare da App Store o Play Store.","en":"Progressive Web App: installs from the browser in a few seconds, without going through the App Store or Play Store.","fr":"Progressive Web App : s'installe depuis le navigateur en quelques secondes, sans passer par l'App Store ou le Play Store.","de":"Progressive Web App: Installation über den Browser in wenigen Sekunden, ohne den App Store oder Play Store zu durchlaufen.","es":"Progressive Web App: se instala desde el navegador en unos segundos, sin pasar por App Store o Play Store."},"tech-nav-tag-pwa":{"it":"PWA installabile","en":"Installable PWA","fr":"PWA installable","de":"Installierbare PWA","es":"PWA instalable"},"tech-nav-li1-strong":{"it":"Un motore, tanti musei","en":"One engine, many museums","fr":"Un moteur, plusieurs musées","de":"Ein Motor, viele Museen","es":"Un motor, muchos museos"},"tech-nav-li1-rest":{"it":"— ogni museo può avere il proprio Navigator \"white label\" (nome, colori, font, icona, testo di benvenuto) senza che nessuno scriva una riga di codice: è configurazione, non un progetto a parte.","en":"— each museum can have its own \"white label\" Navigator (name, colors, font, icon, welcome text) without anyone writing a line of code: it's configuration, not a separate project.","fr":"— chaque musée peut avoir son propre Navigator \"marque blanche\" (nom, couleurs, police, icône, texte de bienvenue) sans que personne n'écrive une ligne de code : c'est une configuration, pas un projet séparé.","de":"— Jedes Museum kann seinen eigenen „White-Label“-Navigator haben (Name, Farben, Schriftart, Symbol, Begrüßungstext), ohne dass jemand eine Codezeile schreiben muss: Es handelt sich um eine Konfiguration, nicht um ein separates Projekt.","es":"— cada museo puede tener su propio Navigator de \"etiqueta blanca\" (nombre, colores, fuente, ícono, texto de bienvenida) sin que nadie escriba una línea de código: es una configuración, no un proyecto separado."},"tech-nav-li2-strong":{"it":"Comandi vocali","en":"Voice commands","fr":"Commandes vocales","de":"Sprachbefehle","es":"Comandos de voz"},"tech-nav-li2-rest":{"it":"per navigare a mani libere (\"avanti\", \"ripeti\", \"cos'è questo\"), riconosciuti anche nella lingua del visitatore.","en":"to navigate hands-free (\"next\", \"repeat\", \"what's this\"), also recognized in the visitor's language.","fr":"pour naviguer en mains libres (« suivant », « répéter », « qu'est-ce que c'est »), également reconnu dans la langue du visiteur.","de":"zum freihändigen Navigieren („Weiter“, „Wiederholen“, „Was ist das“), auch in der Sprache des Besuchers erkannt.","es":"para navegar con manos libres (\"siguiente\", \"repetir\", \"qué es esto\"), también reconocido en el idioma del visitante."},"tech-nav-li3-strong":{"it":"Accessibilità di serie","en":"Standard accessibility","fr":"Accessibilité standard","de":"Standardzugänglichkeit","es":"Accesibilidad estándar"},"tech-nav-li3-rest":{"it":"non un'aggiunta: alto contrasto, font per dislessia, riduzione delle animazioni e focus da tastiera sempre visibile, attivabili in un pannello dedicato.","en":"not an addition: high contrast, font for dyslexia, reduction of animations and always visible keyboard focus, which can be activated in a dedicated panel.","fr":"pas un ajout : contraste élevé, police pour la dyslexie, réduction des animations et focus clavier toujours visible, activable dans un panneau dédié.","de":"kein Zusatz: hoher Kontrast, Schriftart für Legasthenie, Reduzierung von Animationen und immer sichtbarer Tastaturfokus, der in einem eigenen Panel aktiviert werden kann.","es":"No es un añadido: alto contraste, fuente para dislexia, reducción de animaciones y enfoque del teclado siempre visible, que se puede activar en un panel dedicado."},"tech-nav-li4-strong":{"it":"Avvio istantaneo","en":"Instant start","fr":"Démarrage instantané","de":"Sofortiger Start","es":"Inicio instantáneo"},"tech-nav-li4-rest":{"it":"anche con connessione instabile tra le sale: l'interfaccia è già in cache sul dispositivo una volta installata, niente schermata bianca in attesa della rete.","en":"even with unstable connection between rooms: the interface is already cached on the device once installed, no white screen waiting for the network.","fr":"même avec une connexion instable entre les pièces : l'interface est déjà mise en cache sur l'appareil une fois installée, pas d'écran blanc en attente du réseau.","de":"Selbst bei instabiler Verbindung zwischen Räumen: Die Schnittstelle ist nach der Installation bereits auf dem Gerät zwischengespeichert, kein weißer Bildschirm wartet auf das Netzwerk.","es":"incluso con conexión inestable entre habitaciones: la interfaz ya está almacenada en caché en el dispositivo una vez instalada, no hay pantalla blanca esperando la red."},"tech-server-title":{"it":"API & dati","en":"API & data","fr":"API et données","de":"API & Daten","es":"API y datos"},"tech-server-desc":{"it":"Un solo backend REST, documentato, che alimenta sia Marketplace che Navigator — nessun dato duplicato tra le due app.","en":"A single, documented REST backend that powers both Marketplace and Navigator — no duplicate data between the two apps.","fr":"Un backend REST unique et documenté qui alimente à la fois Marketplace et Navigator — pas de données en double entre les deux applications.","de":"Ein einziges, dokumentiertes REST-Backend, das sowohl Marketplace als auch Navigator unterstützt – keine doppelten Daten zwischen den beiden Apps.","es":"Un backend REST único y documentado que impulsa tanto Marketplace como Navigator, sin datos duplicados entre las dos aplicaciones."},"tech-server-li1-strong":{"it":"Job in background","en":"Jobs in the background","fr":"Des emplois en arrière-plan","de":"Jobs im Hintergrund","es":"Trabajos en segundo plano"},"tech-server-li1-rest":{"it":"per traduzioni e generazione audio: si lanciano da Marketplace e proseguono senza bloccare chi sta lavorando, con lo stato visibile in tempo reale.","en":"for translations and audio generation: they launch from Marketplace and continue without blocking whoever is working, with the status visible in real time.","fr":"pour les traductions et la génération audio : ils se lancent depuis Marketplace et continuent sans bloquer celui qui travaille, avec le statut visible en temps réel.","de":"für Übersetzungen und Audiogenerierung: Sie starten von Marketplace aus und arbeiten weiter, ohne den arbeitenden Benutzer zu blockieren, wobei der Status in Echtzeit sichtbar ist.","es":"para traducciones y generación de audio: se lanzan desde Marketplace y continúan sin bloquear a quien está trabajando, con el estado visible en tiempo real."},"tech-server-li2-strong":{"it":"Ricerca su Wikidata in tempo reale","en":"Real-time Wikidata research","fr":"Recherche Wikidata en temps réel","de":"Wikidata-Recherche in Echtzeit","es":"Investigación de Wikidata en tiempo real"},"tech-server-li2-rest":{"it":"filtrabile per museo corrente: niente scraping manuale, niente copia-incolla da altri siti.","en":"filterable by current museum: no manual scraping, no copy-pasting from other sites.","fr":"filtrable par musée actuel : pas de grattage manuel, pas de copier-coller depuis d'autres sites.","de":"Filterbar nach aktuellem Museum: kein manuelles Scrapen, kein Kopieren und Einfügen von anderen Websites.","es":"filtrable por museo actual: sin raspado manual, sin copiar y pegar de otros sitios."},"tech-server-li3-strong":{"it":"Login unificato","en":"Unified login","fr":"Connexion unifiée","de":"Einheitliches Login","es":"Inicio de sesión unificado"},"tech-server-li3-rest":{"it":"lo stesso account vale su Marketplace e Navigator, un solo accesso invece di doversi autenticare due volte su app diverse.","en":"the same account is valid on Marketplace and Navigator, only one login instead of having to authenticate twice on different apps.","fr":"le même compte est valable sur Marketplace et Navigator, un seul login au lieu de devoir s'authentifier deux fois sur des applications différentes.","de":"Das gleiche Konto ist auf Marketplace und Navigator gültig, nur eine Anmeldung, anstatt sich zweimal bei verschiedenen Apps authentifizieren zu müssen.","es":"la misma cuenta es válida en Marketplace y Navigator, solo un inicio de sesión en lugar de tener que autenticarse dos veces en diferentes aplicaciones."},"tech-server-li4-strong":{"it":"Documentazione API aperta","en":"Open API documentation","fr":"Documentation sur l'API ouverte","de":"Öffnen Sie die API-Dokumentation","es":"Abrir documentación API"},"tech-server-li4-rest":{"it":"via Swagger: ogni endpoint è ispezionabile e provabile dal browser, utile anche per chi vuole integrare i propri strumenti.","en":"via Swagger: each endpoint can be inspected and tested from the browser, also useful for those who want to integrate their own tools.","fr":"via Swagger : chaque point de terminaison peut être inspecté et testé depuis le navigateur, également utile pour ceux qui souhaitent intégrer leurs propres outils.","de":"über Swagger: Jeder Endpunkt kann über den Browser überprüft und getestet werden, was auch für diejenigen nützlich ist, die ihre eigenen Tools integrieren möchten.","es":"a través de Swagger: cada punto final se puede inspeccionar y probar desde el navegador, lo que también es útil para quienes desean integrar sus propias herramientas."},"footer-copyright":{"it":"ArtAround. Tutti i diritti riservati.","en":"ArtAround. All rights reserved.","fr":"ArtAround. Tous droits réservés.","de":"ArtAround. Alle Rechte vorbehalten.","es":"ArtAround. Todos los derechos reservados."},"qr-modal-close-aria":{"it":"Chiudi","en":"Close","fr":"Fermer","de":"Schließen","es":"Cerrar"},"qr-modal-subtitle":{"it":"Inquadra per aprire questo Navigator","en":"Point to open this Navigator","fr":"Pointez pour ouvrir ce navigateur","de":"Zeigen Sie, um diesen Navigator zu öffnen","es":"Señale para abrir este navegador"},"qr-aria-of":{"it":"Mostra il QR code di","en":"Show the QR code for","fr":"Afficher le QR code de","de":"QR-Code anzeigen für","es":"Mostrar el código QR de"},"autori-li5":{"it":"Il credito guadagnato vendendo le proprie visite e i propri contenuti si può spendere per acquistare quelli di altri autori — un'economia vera tra creator","en":"The credit earned by selling your own visits and content can be spent to purchase those of other authors — a real economy among creators","fr":"Le crédit gagné en vendant vos propres visites et contenus peut être dépensé pour acheter ceux d’autres auteurs – une véritable économie entre créateurs","de":"Das durch den Verkauf Ihrer eigenen Besuche und Inhalte verdiente Guthaben kann für den Kauf der Besuche anderer Autoren ausgegeben werden – eine echte Wirtschaft unter Urhebern","es":"El crédito obtenido vendiendo tus propias visitas y contenidos puedes gastarlo en comprar los de otros autores: una economía real entre los creadores."},"tech-mkt-li5-strong":{"it":"Marketplace tra autori","en":"Marketplace between authors","fr":"Marketplace entre auteurs","de":"Marketplace zwischen Autoren","es":"Marketplace entre autores"},"tech-mkt-li5-rest":{"it":"— ogni acquisto è una transazione diretta tra due utenti: il credito dell'acquirente passa all'autore del contenuto, senza commissioni trattenute dalla piattaforma.","en":"— each purchase is a direct transaction between two users: the buyer's credit passes to the author of the content, with no commissions retained by the platform.","fr":"— chaque achat est une transaction directe entre deux utilisateurs : le crédit de l'acheteur revient à l'auteur du contenu, sans aucune commission retenue par la plateforme.","de":"— Jeder Kauf ist eine direkte Transaktion zwischen zwei Nutzern: Das Guthaben des Käufers geht an den Autor des Inhalts über, ohne dass die Plattform Provisionen einbehält.","es":"— cada compra es una transacción directa entre dos usuarios: el crédito del comprador pasa al autor del contenido, sin que la plataforma retenga comisiones."},"disclaimer-title":{"it":"Progetto didattico","en":"Educational project","fr":"Projet pédagogique","de":"Bildungsprojekt","es":"Proyecto educativo"},"disclaimer-text":{"it":"ArtAround è un progetto a scopo didattico, non un servizio museale ufficiale. Gran parte dei testi, delle descrizioni e degli audio delle visite è generata con l'assistenza di modelli linguistici (AI) a partire da riferimenti Wikidata: pur curati, questi contenuti possono contenere imprecisioni o inesattezze storiche. Il progetto e i suoi autori non garantiscono l'accuratezza né l'autenticità dei contenuti pubblicati dagli utenti e non se ne assumono responsabilità.","en":"ArtAround is a project for educational purposes, not an official museum service. Much of the text, descriptions and audio of the visits is generated with the assistance of linguistic models (AI) starting from Wikidata references: although careful, this content may contain inaccuracies or historical inaccuracies. The project and its authors do not guarantee the accuracy or authenticity of the content published by users and do not assume responsibility for it.","fr":"ArtAround est un projet à des fins éducatives et non un service officiel du musée. Une grande partie du texte, des descriptions et de l'audio des visites est générée à l'aide de modèles linguistiques (IA) à partir de références Wikidata : bien que prudent, ce contenu peut contenir des inexactitudes ou des inexactitudes historiques. Le projet et ses auteurs ne garantissent pas l'exactitude ou l'authenticité du contenu publié par les utilisateurs et n'en assument pas la responsabilité.","de":"ArtAround ist ein Projekt zu Bildungszwecken und kein offizieller Museumsdienst. Ein Großteil des Textes, der Beschreibungen und des Audiomaterials der Besuche wird mit Hilfe von Sprachmodellen (KI) ausgehend von Wikidata-Referenzen generiert: Obwohl sorgfältig vorgegangen, kann dieser Inhalt Ungenauigkeiten oder historische Ungenauigkeiten enthalten. Das Projekt und seine Autoren übernehmen keine Gewähr für die Richtigkeit oder Authentizität der von Nutzern veröffentlichten Inhalte und übernehmen keine Verantwortung dafür.","es":"ArtAround es un proyecto con fines educativos, no un servicio oficial del museo. Gran parte del texto, las descripciones y el audio de las visitas se generan con la ayuda de modelos lingüísticos (IA) a partir de referencias de Wikidata: aunque cuidadoso, este contenido puede contener imprecisiones o imprecisiones históricas. El proyecto y sus autores no garantizan la exactitud o autenticidad del contenido publicado por los usuarios y no asumen responsabilidad por el mismo."},"stat-content-label":{"it":"Contenuti creati","en":"Content created","fr":"Contenus créés","de":"Erstellte Inhalte","es":"Contenidos creados"}}</script>
+
+    <script>
+      // Lingua dell'interfaccia: stessa chiave 'uiLanguage' di Marketplace/Navigator
+      const I18N_DICT = JSON.parse(document.getElementById('landing-i18n-data').textContent);
+      const SUPPORTED_LANGS = ['it', 'en', 'fr', 'de', 'es'];
+      const LANG_STORAGE_KEY = 'uiLanguage';
+
+      function t(key, lang) {
+        const entry = I18N_DICT[key];
+        if (!entry) return '';
+        return entry[lang || getLang()] || entry.it || '';
+      }
+
+      function getLang() {
+        try {
+          const stored = localStorage.getItem(LANG_STORAGE_KEY);
+          if (stored && SUPPORTED_LANGS.includes(stored)) return stored;
+        } catch {
+          // localStorage non disponibile: si passa alla lingua del browser
+        }
+        const browserLang = (navigator.language || 'it').slice(0, 2).toLowerCase();
+        return SUPPORTED_LANGS.includes(browserLang) ? browserLang : 'it';
+      }
+
+      let onLanguageChangeCallbacks = [];
+
+      function applyLanguage(lang) {
+        document.documentElement.lang = lang;
+        document.querySelectorAll('[data-i18n]').forEach((el) => {
+          el.textContent = t(el.dataset.i18n, lang);
+        });
+        document.querySelectorAll('[data-i18n-attr]').forEach((el) => {
+          const [attr, key] = el.dataset.i18nAttr.split(':');
+          el.setAttribute(attr, t(key, lang));
+        });
+        const switcher = document.getElementById('lang-switcher');
+        if (switcher) switcher.value = lang;
+        onLanguageChangeCallbacks.forEach((cb) => cb(lang));
+      }
+
+      (function setupLanguageSwitcher() {
+        const switcher = document.getElementById('lang-switcher');
+        applyLanguage(getLang());
+        switcher.addEventListener('change', () => {
+          try {
+            localStorage.setItem(LANG_STORAGE_KEY, switcher.value);
+          } catch {
+            // localStorage non disponibile: la scelta vale solo per questa visita
+          }
+          applyLanguage(switcher.value);
+        });
+      })();
+
+      // Tema chiaro/scuro: stessa logica a 3 stati di Marketplace/Navigator
+      // (scelta esplicita in localStorage, altrimenti segue il sistema).
+      (function () {
+        const STORAGE_KEY = 'artaround-theme';
+        const root = document.documentElement;
+        const sunIcon = document.getElementById('icon-sun');
+        const moonIcon = document.getElementById('icon-moon');
+
+        function systemPrefersDark() {
+          return window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+
+        function applyTheme(theme) {
+          const effective = theme === 'auto' ? (systemPrefersDark() ? 'dark' : 'light') : theme;
+          root.setAttribute('data-theme', effective);
+          root.classList.toggle('dark', effective === 'dark');
+          sunIcon.classList.toggle('hidden', effective !== 'dark');
+          moonIcon.classList.toggle('hidden', effective === 'dark');
+        }
+
+        function getStoredTheme() {
+          try {
+            return localStorage.getItem(STORAGE_KEY) || 'auto';
+          } catch {
+            return 'auto';
+          }
+        }
+
+        let currentTheme = getStoredTheme();
+        applyTheme(currentTheme);
+
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+          const effective = root.getAttribute('data-theme');
+          currentTheme = effective === 'dark' ? 'light' : 'dark';
+          applyTheme(currentTheme);
+          try {
+            localStorage.setItem(STORAGE_KEY, currentTheme);
+          } catch {
+            // localStorage non disponibile: la preferenza vale solo per questa visita
           }
         });
-      }, observerOptions);
 
-      document.querySelectorAll('.animate-fade-in-up').forEach((el) => {
-        observer.observe(el);
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+          if (getStoredTheme() === 'auto') applyTheme('auto');
+        });
+      })();
+
+      // Rivela le sezioni allo scroll
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('in-view');
+              observer.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.1, rootMargin: '0px 0px -50px 0px' },
+      );
+      document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
+
+      // Icona QR riusata su ogni riga generata via JS
+      const QR_ICON_SVG = `
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 4h6v6H4V4zm0 10h6v6H4v-6zm10-10h6v6h-6V4zm0 10h2v2m4 0h-2m-2 4h4v-4m-6-2h2m2 2v2"></path>
+        </svg>`;
+
+      function qrTriggerButton(url, name) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className =
+          'qr-trigger focus-glow w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-surface-500 dark:text-surface-400 border border-surface-200 dark:border-surface-700 hover:border-brand-400 dark:hover:border-brand-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors';
+        btn.dataset.qrUrl = url;
+        btn.dataset.qrName = name;
+        btn.setAttribute('aria-label', `${t('qr-aria-of')} ${name}`);
+        btn.title = 'QR code';
+        btn.innerHTML = QR_ICON_SVG;
+        return btn;
+      }
+
+      // Il pulsante QR del Navigator universale è già nel markup: il nome che
+      // finisce nel titolo del modale segue comunque la lingua corrente.
+      const universalQrTrigger = document.getElementById('qr-universal-trigger');
+      onLanguageChangeCallbacks.push(() => {
+        universalQrTrigger.dataset.qrName = t('qr-name-universal');
       });
+      universalQrTrigger.dataset.qrName = t('qr-name-universal');
+
+      // Elenco di tutti i Navigator esistenti
+      let cachedMuseumNavigators = null;
+
+      function renderMuseumNavigatorsList() {
+        const listEl = document.getElementById('museum-navigators-list');
+        if (!cachedMuseumNavigators) return;
+        listEl.innerHTML = '';
+
+        for (const { museum, configs: museumOwnConfigs } of cachedMuseumNavigators.values()) {
+          const group = document.createElement('div');
+          const heading = document.createElement('p');
+          heading.className =
+            'text-xs font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500 mb-2';
+          heading.textContent = museum.name;
+          group.appendChild(heading);
+
+          const rows = document.createElement('div');
+          rows.className = 'grid sm:grid-cols-2 gap-3';
+
+          for (const config of museumOwnConfigs) {
+            const url = `/navigator/?ncfg=${encodeURIComponent(config.slug)}`;
+            const color = config.branding?.primaryColor || '#8b3ffc';
+
+            const row = document.createElement('div');
+            row.className =
+              'flex items-center gap-2 p-3 rounded-xl border border-surface-200 dark:border-surface-800';
+
+            const link = document.createElement('a');
+            link.href = url;
+            link.className = 'flex items-center gap-3 min-w-0 flex-1 group';
+            link.innerHTML = `
+              <span class="w-2.5 h-8 rounded-full shrink-0" style="background:${color}"></span>
+              <span class="min-w-0">
+                <span class="block text-sm font-semibold text-surface-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">${config.name}</span>
+                <span class="block text-xs text-surface-500 dark:text-surface-400">${t('navbox-open-arrow')}</span>
+              </span>
+            `;
+
+            row.appendChild(link);
+            row.appendChild(qrTriggerButton(url, config.name));
+            rows.appendChild(row);
+          }
+
+          group.appendChild(rows);
+          listEl.appendChild(group);
+        }
+      }
+      onLanguageChangeCallbacks.push(renderMuseumNavigatorsList);
+
+      (async function loadMuseumNavigators() {
+        const loadingEl = document.getElementById('museum-navigators-loading');
+        const emptyEl = document.getElementById('museum-navigators-empty');
+
+        try {
+          const [museumsRes, configsRes] = await Promise.all([
+            fetch('/api/museums?limit=200'),
+            fetch('/api/navigator-configs/public'),
+          ]);
+          const museums = (await museumsRes.json())?.data || [];
+          const configs = (await configsRes.json())?.data || [];
+
+          const museumConfigs = configs.filter((c) => c.applicability === 'museum' && c.slug);
+          const museumsById = new Map(museums.map((m) => [m._id, m]));
+
+          const byMuseum = new Map();
+          for (const config of museumConfigs) {
+            const museum = museumsById.get(config.museumId);
+            if (!museum) continue;
+            if (!byMuseum.has(museum._id)) byMuseum.set(museum._id, { museum, configs: [] });
+            byMuseum.get(museum._id).configs.push(config);
+          }
+
+          loadingEl.classList.add('hidden');
+
+          if (byMuseum.size === 0) {
+            emptyEl.classList.remove('hidden');
+            return;
+          }
+
+          cachedMuseumNavigators = byMuseum;
+          renderMuseumNavigatorsList();
+        } catch {
+          loadingEl.classList.add('hidden');
+          emptyEl.classList.remove('hidden');
+        }
+      })();
+
+      // Modale QR code: un solo modale condiviso
+      (function setupQrModal() {
+        const modal = document.getElementById('qr-modal');
+        const titleEl = document.getElementById('qr-modal-title');
+        const urlEl = document.getElementById('qr-modal-url');
+        const codeEl = document.getElementById('qr-modal-code');
+        let lastFocused = null;
+
+        function openModal(url, name) {
+          const fullUrl = new URL(url, window.location.origin).toString();
+          titleEl.textContent = name;
+          urlEl.textContent = fullUrl;
+          codeEl.innerHTML = '';
+          // eslint-disable-next-line no-undef
+          new QRCode(codeEl, {
+            text: fullUrl,
+            width: 220,
+            height: 220,
+            colorDark: '#18181b',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M,
+          });
+          lastFocused = document.activeElement;
+          modal.classList.remove('hidden');
+          modal.classList.add('flex');
+          document.getElementById('qr-modal-close').focus();
+        }
+
+        function closeModal() {
+          modal.classList.add('hidden');
+          modal.classList.remove('flex');
+          if (lastFocused instanceof HTMLElement) lastFocused.focus();
+        }
+
+        document.addEventListener('click', (e) => {
+          const trigger = e.target.closest('.qr-trigger');
+          if (trigger) {
+            openModal(trigger.dataset.qrUrl, trigger.dataset.qrName);
+          }
+        });
+
+        document.getElementById('qr-modal-close').addEventListener('click', closeModal);
+        document.getElementById('qr-modal-backdrop').addEventListener('click', closeModal);
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+        });
+      })();
+
+      // Numeri reali in hero: se la chiamata fallisce restano i valori statici già in pagina.
+      // Anima un numero in hero dal valore attuale al nuovo, con un leggero
+      // rallentamento in chiusura — disattivata per chi preferisce meno
+      // animazioni, il numero finale compare comunque di colpo.
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      function animateStatNumber(el, to, duration = 1400) {
+        if (!el) return;
+        const from = parseInt(el.textContent.replace(/\D/g, ''), 10) || 0;
+        if (prefersReducedMotion || from === to) {
+          el.textContent = to;
+          return;
+        }
+        const start = performance.now();
+        function tick(now) {
+          const progress = Math.min((now - start) / duration, 1);
+          const eased = 1 - Math.pow(1 - progress, 4);
+          el.textContent = Math.round(from + (to - from) * eased);
+          if (progress < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      }
+
+      // Al primo caricamento anima subito dallo zero i numeri già in pagina
+      // (i valori statici di fallback), a prescindere da come va la fetch qui sotto.
+      document.querySelectorAll('#stat-museums, #stat-artworks, #stat-visits, #stat-content, #stat-langs').forEach((el) => {
+        const target = parseInt(el.textContent.replace(/\D/g, ''), 10) || 0;
+        el.textContent = '0';
+        animateStatNumber(el, target);
+      });
+
+      // Numeri reali in hero: se la chiamata fallisce restano i valori statici già in pagina.
+      (async function loadStats() {
+        try {
+          const [museumsRes, artworksRes, visitsRes, itemsRes] = await Promise.all([
+            fetch('/api/museums?limit=1'),
+            fetch('/api/artworks?limit=1'),
+            fetch('/api/visits?limit=1'),
+            fetch('/api/items?limit=1'),
+          ]);
+          const [museumsBody, artworksBody, visitsBody, itemsBody] = await Promise.all([
+            museumsRes.json(),
+            artworksRes.json(),
+            visitsRes.json(),
+            itemsRes.json(),
+          ]);
+          const museumsCount = Array.isArray(museumsBody?.data) ? museumsBody.data.length : null;
+          const artworksTotal = artworksBody?.pagination?.total;
+          const visitsTotal = visitsBody?.pagination?.total;
+          const itemsTotal = itemsBody?.pagination?.total;
+
+          if (museumsCount) animateStatNumber(document.getElementById('stat-museums'), museumsCount);
+          if (artworksTotal) animateStatNumber(document.getElementById('stat-artworks'), artworksTotal);
+          if (visitsTotal) animateStatNumber(document.getElementById('stat-visits'), visitsTotal);
+          if (itemsTotal) animateStatNumber(document.getElementById('stat-content'), itemsTotal);
+        } catch {
+          // Le cifre statiche in pagina restano valide come fallback
+        }
+      })();
     </script>
   </body>
 </html>

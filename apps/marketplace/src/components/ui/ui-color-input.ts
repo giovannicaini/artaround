@@ -68,14 +68,10 @@ export class UiColorInput extends LitElement {
                   .value=${this.value}
                   ?disabled=${this.disabled}
                   @input-change=${(e: CustomEvent<{ value: string }>) => {
+                    // Aggiorna solo lo stato interno (per l'input type="color" accanto):
+                    // l'evento di ui-input si propaga già da solo fino a qui, ridispatcharlo
+                    // duplicava ogni cambio per chi ascolta input-change su questo componente.
                     this.value = e.detail.value;
-                    this.dispatchEvent(
-                      new CustomEvent('input-change', {
-                        detail: { value: this.value },
-                        bubbles: true,
-                        composed: true,
-                      }),
-                    );
                   }}
                 ></ui-input>
               `

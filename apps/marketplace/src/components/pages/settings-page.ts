@@ -223,6 +223,11 @@ export class SettingsPage extends LitElement {
     if (transaction.type === CreditTransactionType.TOPUP) {
       return __('Ricarica credito');
     }
+    if (transaction.type === CreditTransactionType.EARNING) {
+      return transaction.description
+        ? `${__('Vendita')}: ${transaction.description}`
+        : __('Vendita');
+    }
     return transaction.description || __('Acquisto');
   }
 
@@ -237,7 +242,7 @@ export class SettingsPage extends LitElement {
             'Saldo spendibile nel marketplace. Nessun pagamento reale: scegli una cifra e ricaricala.',
           )}
           .help=${__(
-            'Il credito è personale: serve per acquistare item e visite di altri autori nel Marketplace. Se il saldo non basta per un acquisto, ricarica il credito qui prima di riprovare.',
+            'Il credito è personale: serve per acquistare item e visite di altri autori nel Marketplace, e cresce quando qualcun altro acquista i tuoi. Se il saldo non basta per un acquisto, ricarica il credito qui prima di riprovare.',
           )}
         ></ui-section-header>
 
