@@ -85,7 +85,7 @@ const ORIENTATION_OPTIONS = [
 ];
 
 /**
- * Configurazioni Navigator di UN museo: carica/salva/elimina da sola.
+ * Configurazioni Navigator di un museo
  */
 @customElement('museum-navigator-configs-panel')
 export class MuseumNavigatorConfigsPanel extends LitElement {
@@ -419,8 +419,7 @@ export class MuseumNavigatorConfigsPanel extends LitElement {
     );
   }
 
-  // Apre l'app Navigator vera e propria con questa config attiva (?ncfg=slug,
-  // stesso parametro letto da navigatorConfigStore.ts lato Navigator).
+  // Apre l'app Navigator vera e propria con questa config attiva (?ncfg=slug)
   private openNavigatorPreview(config: NavigatorConfigFormData) {
     if (!config.slug) return;
     window.open(`/navigator/?ncfg=${encodeURIComponent(config.slug)}`, '_blank');

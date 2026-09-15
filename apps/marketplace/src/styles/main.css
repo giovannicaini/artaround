@@ -1,4 +1,34 @@
-/* Fonts loaded async in HTML head for better performance */
+/*
+ * File: /src/styles/main.css                                                            *
+ * Project: @artaround/marketplace                                                       *
+ * Last Modified: 14/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
+
 
 @tailwind base;
 @tailwind components;
@@ -10,8 +40,7 @@
   background-image: linear-gradient(135deg, #8b3ffc 0%, #f59e0b 100%);
 }
 
-/* Stesso gradiente ma applicato al testo (logo "ArtAround") invece che allo
-   sfondo — uguale in chiaro e scuro, resta leggibile su entrambi. */
+/* Stesso gradiente ma applicato al testo (logo "ArtAround") */
 .gradient-aurora-text {
   background-image: linear-gradient(100deg, #8b3ffc, #f59e0b);
   background-clip: text;
@@ -19,10 +48,7 @@
   color: transparent;
 }
 
-/* Bordo in gradiente (stesso gradient-aurora) sul pulsante "outline", sfondo
-   tonale pieno dietro — border-image non rispetta il border-radius, quindi
-   uso il trucco del doppio background (padding-box per il riempimento,
-   border-box per il gradiente) invece. */
+/* Bordo in gradiente (stesso gradient-aurora) sul pulsante "outline" */
 .btn-gradient-outline {
   border: 1px solid transparent;
   background-image:
@@ -47,9 +73,7 @@
     linear-gradient(135deg, #8b3ffc 0%, #f59e0b 100%);
 }
 
-/* Stesso trucco per il pulsante "secondary": bordo in gradiente ma
-   riempimento neutro (bianco/scuro) invece del tenue viola di "outline",
-   così restano visivamente distinti. */
+/* Bordo in gradiente con riempimento neutro (bianco/scuro) */
 .btn-gradient-secondary {
   border: 1px solid transparent;
   background-image:
@@ -74,8 +98,7 @@
     linear-gradient(135deg, #8b3ffc 0%, #f59e0b 100%);
 }
 
-/* Sfumatura viola tenue sul focus di campi e pulsanti, al posto dell'anello
-   netto di Tailwind (box-shadow senza blur) — usata al posto di focus:ring-*. */
+/* Sfumatura viola tenue sul focus di campi e pulsanti */
 .focus-glow:focus {
   outline: none;
   box-shadow: 0 0 10px 3px rgb(139 63 252 / 0.35);
@@ -85,9 +108,7 @@
   box-shadow: 0 0 10px 3px rgb(239 68 68 / 0.35);
 }
 
-/* Colonne ridimensionabili di Gestione Mappe: sotto lg resta la griglia a
-   colonna singola di Tailwind; da lg in su le larghezze arrivano dalle
-   variabili scelte trascinando i separatori. */
+/* Colonne ridimensionabili di Gestione Mappe*/
 @media (min-width: 1024px) {
   .museum-map-columns {
     grid-template-columns:
@@ -154,7 +175,7 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Dark Theme */
+/* Tema Dark */
 :root[data-theme='dark'] {
   --surface: #1e293b;
   --background: #0f172a;
@@ -175,16 +196,14 @@
   --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.4);
 }
 
-/* High Contrast Mode */
-/* We must override Tailwind's hardcoded color utilities via attribute selectors */
 
-/* LIGHT HIGH CONTRAST */
+
+/* Alto contrasto light */
 :root[data-contrast='high'] {
   --primary: #3730a3;
   --text-primary: #000000;
 }
 
-/* Force dark text on muted/subtle colors */
 :root[data-contrast='high'] .text-surface-400,
 :root[data-contrast='high'] .text-surface-500 {
   color: #1f2937 !important;
@@ -199,7 +218,7 @@
   color: #374151 !important;
 }
 
-/* Force strong borders */
+
 :root[data-contrast='high'] .border-surface-200,
 :root[data-contrast='high'] .border-surface-100 {
   border-color: #6b7280 !important;
@@ -209,7 +228,7 @@
   border-color: #374151 !important;
 }
 
-/* Force backgrounds to be more distinct */
+
 :root[data-contrast='high'] .bg-surface-50 {
   background-color: #f3f4f6 !important;
 }
@@ -222,7 +241,7 @@
   background-color: #d1d5db !important;
 }
 
-/* Brand colors - higher contrast */
+
 :root[data-contrast='high'] .text-brand-400,
 :root[data-contrast='high'] .text-brand-500 {
   color: #1d4ed8 !important;
@@ -232,13 +251,12 @@
   color: #1e40af !important;
 }
 
-/* Dividers */
 :root[data-contrast='high'] .divide-surface-200 > * + *,
 :root[data-contrast='high'] .divide-surface-100 > * + * {
   border-color: #6b7280 !important;
 }
 
-/* DARK HIGH CONTRAST */
+/* Alto contrasto dark */
 :root[data-theme='dark'][data-contrast='high'] {
   --primary: #818cf8;
   --surface: #0a0a0a;
@@ -295,7 +313,7 @@
   outline-color: #818cf8 !important;
 }
 
-/* Font Size Options */
+/* Dimensioni del testo */
 :root[data-font-size='large'] {
   font-size: 18px;
 }
@@ -304,14 +322,14 @@
   font-size: 20px;
 }
 
-/* Letter Spacing */
+/* Spaziatura tra le lettere */
 :root[data-letter-spacing='wide'] {
   letter-spacing: 0.06em;
   word-spacing: 0.16em;
   line-height: 1.8;
 }
 
-/* Dyslexic Font */
+/* Font per dislessia */
 @font-face {
   font-family: 'OpenDyslexic';
   src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic-regular.otf')
@@ -328,13 +346,14 @@
   font-family: inherit !important;
 }
 
-/* Underline Links */
+
+/* Link sottolineati */
 :root[data-underline-links='true'] a {
   text-decoration: underline !important;
   text-underline-offset: 3px;
 }
 
-/* Enhanced Focus Visible */
+/* Focus maggiormente visibile */
 :root[data-focus-visible='true'] *:focus {
   outline: 3px solid var(--primary) !important;
   outline-offset: 3px !important;
@@ -374,7 +393,7 @@ h6 {
   letter-spacing: -0.02em;
 }
 
-/* Modern Animations */
+/* Animazioni */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -426,7 +445,7 @@ h6 {
   }
 }
 
-/* Respect user's motion preferences */
+/* Riduci animazioni */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -456,7 +475,7 @@ h6 {
   background: var(--gray-400);
 }
 
-/* Dark theme scrollbar */
+/* Tema dark scrollbar */
 :root[data-theme='dark'] ::-webkit-scrollbar-thumb {
   background: var(--gray-600);
 }
@@ -465,17 +484,7 @@ h6 {
   background: var(--gray-500);
 }
 
-/*
- * La topbar è "fixed" (fuori dal flusso, sempre sopra): un elemento portato
- * a filo del bordo superiore della viewport da scrollIntoView() o da un
- * focus() (comportamento nativo del browser, non solo le chiamate esplicite
- * in questo repo) finisce dietro di lei invece che sotto, anche se <main> ha
- * il proprio pt-16 per la posizione di riposo a scroll=0 — quel padding non
- * si applica quando lo scroll è mirato a un elemento specifico più in basso
- * nella pagina. scroll-margin-top lascia lo spazio corrispondente anche in
- * quel caso. Vale per ui-alert ovunque compaia, non solo dove oggi la
- * scrolliamo esplicitamente in vista.
- */
+/* Margine top per gli alert (causa topbar) */
 ui-alert {
   scroll-margin-top: 5rem;
 }

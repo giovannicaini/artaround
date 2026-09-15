@@ -184,7 +184,7 @@ export class UsersPage extends DeletableMixin(HistorySyncMixin(LitElement)) {
     }
   }
 
-  // Stato granulare (viewMode + utente selezionato) verso app-root, per la history — stesso schema di artworks-page.ts.
+  // Stato granulare (viewMode + utente selezionato) verso app-root, per la history
   private emitStateChange(): void {
     const hasUserContext = this.viewMode === 'view' || this.viewMode === 'edit';
     const userId = hasUserContext ? this.selectedUser?._id || this.openingUserId || '' : '';

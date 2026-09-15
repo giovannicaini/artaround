@@ -37,8 +37,7 @@ import './auth-shell';
 import { __ } from '../../services/i18n.service';
 import { renderFeedbackAlerts } from '../../utils/feedback-alerts';
 
-// Utenti seed di sviluppo, uno per ruolo (più uno "secondo" per i ruoli che
-// tipicamente ne servono due per testare i permessi tra pari) — stessa password.
+// Utenti previsti dal progetto + altri ruoli aggiunti, tutti con stessa pw
 const TEST_USERS_PASSWORD = '12345678';
 const TEST_USER_GROUPS: { role: string; usernames: string[] }[] = [
   { role: __('Admin'), usernames: ['admin'] },
@@ -110,7 +109,6 @@ export class LoginPage extends LitElement {
   }
 
   // ─── Helper di render ──────────────────────────────────────
-  // Discreto di proposito: solo per sviluppo, non deve competere col login vero.
   private renderTestUsersPanel() {
     return html`
       <div class="pl-4 border-l border-surface-200 dark:border-surface-800">

@@ -1,3 +1,33 @@
+/*
+ * File: /src/components/pages/artworks-page.ts                                          *
+ * Project: @artaround/marketplace                                                       *
+ * Last Modified: 14/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 import { html, nothing } from 'lit';
 import { customElement, state, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -142,11 +172,10 @@ export class ArtworksPage extends DeletableMixin(
   }
 
   updated(changedProps: Map<string, unknown>) {
-    // Solo il caricamento dati: viewMode lo decide il blocco sotto, non il fetch.
     if (changedProps.has('openingArtworkId') && this.openingArtworkId) {
       void this.loadSelectedArtwork(this.openingArtworkId);
     }
-    // Gestisce l'apertura con un viewMode specifico (es. dalla navigazione history)
+    // Gestisce l'apertura con un viewMode specifico (es. dalla history)
     if (changedProps.has('openingViewMode')) {
       if (this.openingViewMode === 'list') {
         // Torna alla vista lista dalla history
@@ -311,10 +340,7 @@ export class ArtworksPage extends DeletableMixin(
         filters.floor = this.filterFloor.trim();
       }
 
-      // filterYearFrom/To partono già valorizzati con l'intero range disponibile
-      // (vedi loadArtworkFilterOptions): li manda al server solo se l'utente li
-      // ha davvero ristretti, altrimenti un'opera senza anno verrebbe esclusa
-      // da un filtro "range intero" pensato per non filtrare nulla.
+      // filterYearFrom/To li manda al server solo se l'utente li ha davvero ristretti
       if (
         this.filterYearFrom.trim() &&
         (this.availableYearMin === null || this.filterYearFrom !== String(this.availableYearMin))
@@ -1215,8 +1241,6 @@ export class ArtworksPage extends DeletableMixin(
 
   private renderViewMode() {
     if (!this.selectedArtwork) return this.renderListView();
-    // Costante locale: <ui-panel-section> invoca .renderContent in un render
-    // separato, se selectedArtwork torna null nel frattempo le chiusure leggerebbero null.
     const artwork = this.selectedArtwork;
 
     const createdAt = this.formatDateTime(artwork.createdAt as unknown as string);
@@ -1497,8 +1521,6 @@ export class ArtworksPage extends DeletableMixin(
 
   // ─── Sincronizzazione stato navigazione ───────────────────────────────
   private emitStateChange(): void {
-    // selectedArtwork si popola in modo asincrono; openingArtworkId è già corretto
-    // nello stesso giro in cui cambia viewMode — usarlo come fallback evita uno stato "a metà" in history.
     const hasArtworkContext = this.viewMode === 'view' || this.viewMode === 'edit';
     const artworkId = hasArtworkContext
       ? this.selectedArtwork?._id || this.openingArtworkId || ''

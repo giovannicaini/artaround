@@ -1,3 +1,33 @@
+/*
+ * File: /src/components/museums/museum-map-page.ts                                      *
+ * Project: @artaround/marketplace                                                       *
+ * Last Modified: 14/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { HistorySyncMixin } from '../../base';
@@ -39,8 +69,7 @@ export class MuseumMapPage extends HistorySyncMixin(LitElement) {
   @property({ type: String })
   museumId: string = '';
 
-  // Piano/marker da cui aprire (es. tornando da un avanti/indietro del
-  // browser) — vedi emitStateChange().
+  // Piano/marker da cui aprire
   @property({ type: String })
   openingFloorId: string = '';
 
@@ -127,8 +156,6 @@ export class MuseumMapPage extends HistorySyncMixin(LitElement) {
     return counts;
   }
 
-  // La primissima volta che piano/marker vengono impostati corregge solo l'URL
-  // (replace), poi ogni cambio è una vera selezione e aggiunge un passo di history.
   private hasEmittedStateOnce = false;
 
   async connectedCallback() {
@@ -194,8 +221,6 @@ export class MuseumMapPage extends HistorySyncMixin(LitElement) {
   };
 
   updated(changedProps: Map<string, unknown>) {
-    // Piano/marker richiesti da fuori sono cambiati: la pagina persiste come istanza
-    // unica per tutta la route, va aggiornata a mano perché non viene mai ricreata.
     if (
       changedProps.has('openingFloorId') &&
       this.openingFloorId &&
@@ -256,8 +281,7 @@ export class MuseumMapPage extends HistorySyncMixin(LitElement) {
       this.artworks = artworksResponse || [];
       this.rooms = rooms || [];
 
-      // Seleziona il piano indicato da fuori (deep-link/history), altrimenti
-      // il primo di default.
+      // Seleziona il piano indicato da fuori (deep-link/history), altrimenti il primo di default.
       if (this.floors.length > 0 && !this.selectedFloorId) {
         const opening =
           this.openingFloorId && this.floors.find((f) => f.id === this.openingFloorId);
@@ -568,15 +592,12 @@ export class MuseumMapPage extends HistorySyncMixin(LitElement) {
 
     try {
       await museumService.updateFloor(this.museumId, floorData.id, floorData);
-      // Aggiorna solo i campi del form: markers/connections restano quelli correnti,
-      // lo snapshot del form potrebbe essere superato da un drag nel frattempo.
+      // Aggiorna solo i campi del form
       this.floors = this.floors.map((f) =>
         f.id === floorData.id
           ? { ...floorData, markers: f.markers, connections: f.connections }
           : f,
       );
-      // Nota: NON resettare hasChanges qui, per lo stesso motivo di handleFloorAdd
-      // (marker non ancora salvati su altri piani non vanno persi).
     } catch (err) {
       console.error('Error updating floor:', err);
       await modalService.error(__("Errore durante l'aggiornamento del piano"));
@@ -707,7 +728,7 @@ export class MuseumMapPage extends HistorySyncMixin(LitElement) {
     const room = e.detail as MuseumRoom;
     this.roomDrawMode = true;
     this.drawingRoomId = room.id;
-    // "Disegna"/"Ridisegna" sostituisce l'eventuale contorno precedente, mai lo modifica.
+    // sostituisce l'eventuale contorno precedente, mai lo modifica.
     this.roomDrawPoints = [];
     this.selectedMarker = null;
     this.clickPosition = null;
@@ -807,6 +828,7 @@ export class MuseumMapPage extends HistorySyncMixin(LitElement) {
     }
   }
 
+  // Genera i marker per tutte le opere sprovviste e permette quindi di creare sale
   private async handleGenerateRoomMarkers(e: CustomEvent) {
     const room = e.detail as MuseumRoom;
     if (!room.floorId || !room.polygon || room.polygon.length < 3) return;

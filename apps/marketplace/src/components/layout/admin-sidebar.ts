@@ -1,3 +1,33 @@
+/*
+ * File: /src/components/layout/admin-sidebar.ts                                         *
+ * Project: @artaround/marketplace                                                       *
+ * Last Modified: 14/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { type User } from '@artaround/shared';
@@ -61,8 +91,7 @@ export class AdminSidebar extends LitElement {
     return { id: 'dashboard', label: __('Dashboard'), icon: 'home' };
   }
 
-  // Nessuna restrizione di ruolo: acquistare visite/vedere i propri acquisti
-  // è aperto a qualunque utente autenticato.
+  // Nessuna restrizione di ruolo
   private get marketplaceMenuItems(): MenuItem[] {
     return [
       { id: 'marketplace', label: __('Marketplace'), icon: 'euro', requiresMuseum: true },
@@ -70,7 +99,7 @@ export class AdminSidebar extends LitElement {
     ];
   }
 
-  // "Area Autore" a chiunque sia autore/curatore; il catalogo completo del museo solo al curatore attivo.
+  // Ruoli menu
   private get contentCreatorMenuItems(): MenuItem[] {
     return [
       {
@@ -97,8 +126,7 @@ export class AdminSidebar extends LitElement {
     ];
   }
 
-  // Solo il curatore del museo attivo: dati del museo, opere, piantina,
-  // configurazione Navigator specifica — mai un semplice autore.
+  // Area curatore
   private get configureMuseumMenuItems(): MenuItem[] {
     return [
       { id: 'museum-edit', label: __('Modifica Museo'), icon: 'edit' },
@@ -131,8 +159,6 @@ export class AdminSidebar extends LitElement {
   }
 
   private handleNavigate(route: string) {
-    // museum-map-page ha bisogno del museumId del museo attivo come routeParam esplicito,
-    // a differenza delle altre pagine che lo leggono da preferencesService da sole.
     const params =
       route === 'museum-maps' && this.selectedMuseum
         ? { museumId: this.selectedMuseum._id }
@@ -146,7 +172,6 @@ export class AdminSidebar extends LitElement {
       }),
     );
 
-    // Sul cellulare il menu restava aperto dopo una scelta — innocuo su desktop.
     this.mobileOpen = false;
   }
 

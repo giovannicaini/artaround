@@ -1,3 +1,33 @@
+/*
+ * File: /src/components/museums/marker-editor.ts                                        *
+ * Project: @artaround/marketplace                                                       *
+ * Last Modified: 14/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
@@ -64,10 +94,6 @@ export class MarkerEditor extends LitElement {
   }
 
   updated(changedProperties: Map<string, unknown>) {
-    // Quando si seleziona un NUOVO marker (non quando i suoi dati cambiano,
-    // es. trascinando il punto focale) passa alla tab lista e porta a fuoco
-    // la sua riga — altrimenti ogni tick di drag/zoom del ritaglio immagine
-    // riportava lo scroll sulla riga, impedendo di fatto la modifica.
     if (changedProperties.has('selectedMarker') && this.selectedMarker) {
       const previous = changedProperties.get('selectedMarker') as { id: string } | null | undefined;
       if (previous?.id === this.selectedMarker.id) return;
@@ -92,8 +118,7 @@ export class MarkerEditor extends LitElement {
     super.disconnectedCallback();
   }
 
-  // Invio aggiunge subito il marker in coda a un click sulla mappa, utile per
-  // piazzare tante svolte di fila — non intercetta Invio in textarea o altri pannelli.
+  // Invio per aggiungere il marker
   private handleGlobalKeydown = (e: KeyboardEvent) => {
     if (e.key !== 'Enter') return;
     if (this.activeTab !== 'add' || !this.clickPosition) return;
@@ -221,7 +246,6 @@ export class MarkerEditor extends LitElement {
                 .placeholder=${__('Seleziona opera')}
                 @select-change=${(e: CustomEvent) => {
                   this.selectedArtworkId = e.detail.value;
-                  // marker.artworkId deve essere il Wikidata ID, non l'_id di Mongo, o il marker non si ricollega all'opera.
                   const artwork = this.artworks.find((a) => a.wikidataId === e.detail.value);
                   if (artwork) {
                     this.markerLabel = artwork.title;
@@ -529,12 +553,9 @@ export class MarkerEditor extends LitElement {
     const maxFocal = 100 - 50 / zoom;
 
     const onMove = (moveEvent: MouseEvent) => {
-      // Calculate how much the mouse moved as percentage of container
       const dx = ((moveEvent.clientX - startX) / rect.width) * 100;
       const dy = ((moveEvent.clientY - startY) / rect.height) * 100;
 
-      // Moving image right = focal point moves left (inverse)
-      // Divide by zoom because larger zoom = smaller movements have bigger effect
       const newFocalX = Math.max(minFocal, Math.min(maxFocal, startFocalX - dx / zoom));
       const newFocalY = Math.max(minFocal, Math.min(maxFocal, startFocalY - dy / zoom));
 

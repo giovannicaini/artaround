@@ -79,7 +79,7 @@ type NavigatorTextFieldKey = 'startUrl' | 'scope';
 type NavigatorGeneralFieldKey = 'name' | 'slug' | 'homeTitle' | 'manifestName' | 'shortName';
 
 /**
- * Editor della configurazione Navigator globale (applicability 'global').
+ * Editor della configurazione Navigator globale
  */
 @customElement('navigator-default-config-page')
 export class NavigatorDefaultConfigPage extends LitElement {

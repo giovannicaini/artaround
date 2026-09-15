@@ -1,3 +1,33 @@
+/*
+ * File: /src/app-root.ts                                                                *
+ * Project: @artaround/marketplace                                                       *
+ * Last Modified: 14/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { authService } from './services/auth.service';
@@ -16,7 +46,7 @@ import './components/layout/area-tour';
 import './components/ui/ui-scroll-top';
 import './components/ui/ui-button';
 
-// Pagine caricate on-demand (PAGE_LOADERS sotto): evita ~700KB nel bundle iniziale.
+// Pagine caricate on-demand: evita unico bundle pesante iniziale
 const PAGE_LOADERS: Record<string, () => Promise<unknown>> = {
   dashboard: () => import('./components/pages/dashboard-page'),
   museums: () => import('./components/pages/museums-page'),
@@ -81,8 +111,7 @@ export class AppRoot extends LitElement {
   // pilota lo spinner "vs" messaggio d'errore in renderPageLoading.
   private pageLoadError: string | null = null;
 
-  // sessionStorage key usata per ricordare l'ultimo reload automatico tentato per un
-  // chunk non caricabile (vedi handlePageLoadError) e non entrare in un loop di reload.
+  // sessionStorage key usata per non entrare in un loop di reload.
   private static readonly CHUNK_RELOAD_KEY = 'mp_chunk_reload_at';
 
   connectedCallback() {
@@ -259,8 +288,7 @@ export class AppRoot extends LitElement {
       return;
     }
 
-    // Abbiamo già ricaricato di recente e continua a fallire: non è uno stale chunk,
-    // niente altro reload automatico, mostriamo un errore con retry manuale.
+    // Abbiamo già ricaricato di recente e continua a fallire:  mostriamo un errore con retry manuale.
     this.pageLoadError = route;
   }
 

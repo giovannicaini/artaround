@@ -59,7 +59,6 @@ export class BackupsPage extends LitElement {
   @state() private newLabel = '';
   @state() private error = '';
   @state() private success = '';
-  // id del backup per cui è aperta la conferma di ripristino, e testo digitato per confermarla
   @state() private confirmingRestoreId: string | null = null;
   @state() private restoreConfirmText = '';
   @state() private restoringId: string | null = null;
