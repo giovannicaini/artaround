@@ -1,22 +1,23 @@
 /**
- * generate-borghese-top50.ts
- *
- * Genera galleria_borghese_top50.json con le 50 opere più famose della
- * Galleria Borghese nel formato usato dal seed di ArtAround.
- *
- * Pipeline:
- *  1. SPARQL su Wikidata → candidati con P195=Q841506, P170, P135, P973
- *  2. Fetch HTML da collezionegalleriaborghese.it/opere/... per ogni candidato
- *  3. Estrae room, floor, description, dimensions, materials
- *  4. Valida campi obbligatori; scarta e passa avanti se mancano
- *  5. Scrive galleria_borghese_top50.json (root workspace)
- *  6. Scrive scarti.csv (root workspace) con motivo scarto
- *
- * Uso:
- *   cd apps/server && npx tsx src/scripts/generate-borghese-top50.ts
- *   -- oppure tramite npm --
- *   npm run generate:borghese --workspace=apps/server
+ * Genera il file seed delle 50 opere più famose della Galleria Borghese, via SPARQL su Wikidata + fetch dal sito ufficiale.
  */
+// generate-borghese-top50.ts
+//
+// Genera galleria_borghese_top50.json con le 50 opere più famose della
+// Galleria Borghese nel formato usato dal seed di ArtAround.
+//
+// Pipeline:
+//  1. SPARQL su Wikidata → candidati con P195=Q841506, P170, P135, P973
+//  2. Fetch HTML da collezionegalleriaborghese.it/opere/... per ogni candidato
+//  3. Estrae room, floor, description, dimensions, materials
+//  4. Valida campi obbligatori; scarta e passa avanti se mancano
+//  5. Scrive galleria_borghese_top50.json (root workspace)
+//  6. Scrive scarti.csv (root workspace) con motivo scarto
+//
+// Uso:
+//   cd apps/server && npx tsx src/scripts/generate-borghese-top50.ts
+//   -- oppure tramite npm --
+//   npm run generate:borghese --workspace=apps/server
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -68,7 +69,7 @@ interface BorgheseArtwork {
   inventoryNumber?: string;
   room: string;
   floor: string;
-  /** A=P973-link, B=museum-link+slug, C=label-match (verificare manualmente) */
+  // /** A=P973-link, B=museum-link+slug, C=label-match (verificare manualmente)
   querySource: 'A' | 'B' | 'C';
 }
 
@@ -95,7 +96,7 @@ interface WDRow {
   source: 'A' | 'B' | 'C';
 }
 
-/** Helper per estrarre in sicurezza il valore da un binding SPARQL. */
+// Helper per estrarre in sicurezza il valore da un binding SPARQL.
 function val(binding: WDBinding, key: string): string {
   const v = binding[key];
   if (!v || typeof v !== 'object') return '';
@@ -165,7 +166,7 @@ function commonsThumbUrl(imageUrl: string | undefined, width = 600): string | un
 }
 
 // ---------------------------------------------------------------------------
-// HTTP with retry + exponential backoff
+// HTTP con retry + backoff esponenziale
 // ---------------------------------------------------------------------------
 
 async function fetchWithRetry(
@@ -250,13 +251,11 @@ async function fetchHtml(url: string): Promise<string> {
 
 const CATALOG_CATEGORIES = ['pittura', 'scultura', 'arte-antica'];
 
-/**
- * Scarica tutte le pagine lista-sala del sito Borghese (s1→s20, pittura+scultura)
- * e restituisce una Map da slug → numero sala.
- * Usata per:
- * 1) Fallback room quando extractRoom() fallisce sull'HTML dell'opera.
- * 2) Trovare lo slug esatto per i candidati Query B (titolo Wikidata ≠ slug museo).
- */
+// Scarica tutte le pagine lista-sala del sito Borghese (s1→s20, pittura+scultura)
+// e restituisce una Map da slug → numero sala.
+// Usata per:
+// 1) Fallback room quando extractRoom() fallisce sull'HTML dell'opera.
+// 2) Trovare lo slug esatto per i candidati Query B (titolo Wikidata ≠ slug museo).
 async function fetchAllCatalogSlugs(): Promise<Map<string, number>> {
   const slugToSala = new Map<string, number>();
   console.log('🗂️  Scarico lista opere per sala dal sito catalogo…');
@@ -279,7 +278,7 @@ async function fetchAllCatalogSlugs(): Promise<Map<string, number>> {
   return slugToSala;
 }
 
-/** Normalizza un titolo per il confronto: minuscolo, no diacritici, no articoli, no punteggiatura. */
+// Normalizza un titolo per il confronto: minuscolo, no diacritici, no articoli, no punteggiatura.
 function normalizeTitle(s: string): string {
   return s
     .toLowerCase()
@@ -292,11 +291,9 @@ function normalizeTitle(s: string): string {
     .trim();
 }
 
-/**
- * Scarica l'H1 di ogni slug del catalogo (404 silenziosi) e costruisce:
- * - normToSlug: Map<titolo normalizzato, slug>  (per findCatalogSlug)
- * - slugToH1:   Map<slug, titolo raw>           (per Query C)
- */
+// Scarica l'H1 di ogni slug del catalogo (404 silenziosi) e costruisce:
+// - normToSlug: Map<titolo normalizzato, slug>  (per findCatalogSlug)
+// - slugToH1:   Map<slug, titolo raw>           (per Query C)
 async function buildCatalogTitleIndex(
   slugToSala: Map<string, number>,
 ): Promise<{ normToSlug: Map<string, string>; slugToH1: Map<string, string> }> {
@@ -323,12 +320,10 @@ async function buildCatalogTitleIndex(
   return { normToSlug, slugToH1 };
 }
 
-/**
- * Query C: cerca su Wikidata per label italiana gli slug del catalogo
- * non ancora coperti da Query A/B. Usa VALUES label+catalogUrl accoppiati
- * così ogni risultato porta già l'URL del catalogo.
- * Massimo 80 titoli per chiamata per evitare timeout WDQS.
- */
+// Query C: cerca su Wikidata per label italiana gli slug del catalogo
+// non ancora coperti da Query A/B. Usa VALUES label+catalogUrl accoppiati
+// così ogni risultato porta già l'URL del catalogo.
+// Massimo 80 titoli per chiamata per evitare timeout WDQS.
 function buildSparqlC(pairs: Array<{ title: string; catalogUrl: string }>): string {
   const valuesList = pairs
     .map((p) => `("${p.title.replace(/"/g, "'")}"@it <${p.catalogUrl}>)`)
@@ -370,13 +365,12 @@ GROUP BY ?item ?itemLabel ?itemDescription
 `.trim();
 }
 
-/** Cerca lo slug esatto nel catalogo partendo dal titolo Wikidata.
- *  Strategie (in ordine di affidabilità):
- *  1. slug derivato dal titolo coincide esattamente
- *  2. titolo normalizzato trovato nel title-index (H1 delle pagine catalogo)
- *  3. Jaccard similarity ≥ 0.45 su token ≥ 4 char  (titolo WD vs slug museo)
- *     con almeno 2 token in comune — tollera parole extra o mancanti
- */
+// Cerca lo slug esatto nel catalogo partendo dal titolo Wikidata.
+//  Strategie (in ordine di affidabilità):
+//  1. slug derivato dal titolo coincide esattamente
+//  2. titolo normalizzato trovato nel title-index (H1 delle pagine catalogo)
+//  3. Jaccard similarity ≥ 0.45 su token ≥ 4 char  (titolo WD vs slug museo)
+//     con almeno 2 token in comune — tollera parole extra o mancanti
 function findCatalogSlug(
   title: string,
   slugToSala: Map<string, number>,
@@ -407,11 +401,9 @@ function findCatalogSlug(
   return bestJaccard >= 0.45 ? bestSlug : null;
 }
 
-/**
- * Fallback: cerca lo slug del museo sulla pagina Wikipedia italiana (o inglese)
- * dell'opera. Usato quando findCatalogSlug() fallisce per titoli completamente
- * diversi (es. "Pala Baglioni" → "deposizione-trasporto-di-cristo-morto-al-sepolcro").
- */
+// Fallback: cerca lo slug del museo sulla pagina Wikipedia italiana (o inglese)
+// dell'opera. Usato quando findCatalogSlug() fallisce per titoli completamente
+// diversi (es. "Pala Baglioni" → "deposizione-trasporto-di-cristo-morto-al-sepolcro").
 async function findSlugViaWikipedia(
   wikidataId: string,
   catalogSlugs: Map<string, number>,
@@ -429,7 +421,7 @@ async function findSlugViaWikipedia(
       articleUrl = data.results.bindings[0]?.['article']?.value ?? null;
     } catch {}
     if (!articleUrl) continue;
-    // Fetch Wikipedia page e cerca URL del catalogo Borghese
+    // Scarica la pagina Wikipedia e cerca l'URL del catalogo Borghese
     try {
       const html = await fetchHtml(articleUrl);
       await sleep(200);
@@ -451,13 +443,12 @@ async function findSlugViaWikipedia(
 // HTML parsers (regex-based, no external dep)
 // ---------------------------------------------------------------------------
 
-/** Estrae "Sala N" e il relativo floor dall'HTML del catalogo Borghese.
- *
- * La pagina ha struttura:
- *   <b>Posizione</b>  →  <a href="/collezione/...?sala=8">Sala VIII</a>
- * oppure per i depositi:
- *   <a href="/collezione/...?sala=dep">Deposito</a>  → da scartare
- */
+// Estrae "Sala N" e il relativo floor dall'HTML del catalogo Borghese.
+//
+// La pagina ha struttura:
+//   <b>Posizione</b>  →  <a href="/collezione/...?sala=8">Sala VIII</a>
+// oppure per i depositi:
+//   <a href="/collezione/...?sala=dep">Deposito</a>  → da scartare
 function extractRoom(html: string): { room: string; floor: string } | null {
   // Strategia 1 (più affidabile): parametro URL sala=s<numero> nel link della scheda
   // Pattern osservato: href="/collezione/pittura?sala=s20"
@@ -514,7 +505,7 @@ function extractRoom(html: string): { room: string; floor: string } | null {
   return null;
 }
 
-/** Estrae descrizione dalla pagina: blocco <hr>…<hr> > meta description > primo <p> lungo. */
+// Estrae descrizione dalla pagina: blocco <hr>…<hr> > meta description > primo <p> lungo.
 function extractDescription(html: string): string {
   // 1) Formato catalogo Borghese: testo tra le due <hr> (blocco descrittivo principale)
   const hrBlocks = [...html.matchAll(/<hr\s*\/?>([\s\S]{80,5000}?)<hr\s*\/?>/gi)];
@@ -569,11 +560,10 @@ function extractDescription(html: string): string {
   return '';
 }
 
-/** Estrae dimensioni dalla pagina. Gestisce:
- *  - "cm 104 x 85"  (formato catalogo Borghese)
- *  - "123 × 456 cm" (formato generico)
- *  - "123 cm"        (singola misura)
- */
+// Estrae dimensioni dalla pagina. Gestisce:
+//  - "cm 104 x 85"  (formato catalogo Borghese)
+//  - "123 × 456 cm" (formato generico)
+//  - "123 cm"        (singola misura)
 function extractDimensions(html: string): BorgheseArtwork['dimensions'] {
   // Formato Borghese: "cm H x W" (con spazio opzionale e separatori vari)
   const borgheseTwo = html.match(/\bcm\s+(\d+(?:[.,]\d+)?)\s*[x×xX]\s*(\d+(?:[.,]\d+)?)/i);
@@ -618,7 +608,7 @@ function extractDimensions(html: string): BorgheseArtwork['dimensions'] {
   return null;
 }
 
-/** Estrae materiali dalla sezione "Materia / Tecnica" della scheda. */
+// Estrae materiali dalla sezione "Materia / Tecnica" della scheda.
 function extractMaterials(html: string): string[] {
   // Formato catalogo Borghese:
   //   <b>Materia / Tecnica</b></div>...<div class="vline">olio su tavola<br></div>
@@ -658,7 +648,7 @@ function extractMaterials(html: string): string[] {
   return [];
 }
 
-/** Estrae etichette soggetti/temi dalla scheda HTML (tag, keyword, sezione "Soggetto"). */
+// Estrae etichette soggetti/temi dalla scheda HTML (tag, keyword, sezione "Soggetto").
 function extractSubjects(html: string): string[] {
   // Cerca blocco "Soggetto" / "Subject" / "Iconografia"
   const sec = html.match(
@@ -693,13 +683,11 @@ function extractSubjects(html: string): string[] {
 // SPARQL query
 // ---------------------------------------------------------------------------
 
-/**
- * Query A (prioritaria): opere con P973 → collezionegalleriaborghese.it/opere/
- *   Garantisce la disponibilità dell'URL scheda per room/description.
- *
- * Query B (supplementare): opere con P195/P276 = Borghese, P170, P31
- *   senza P973. Useremo lo slug derivato dal titolo per cercare la scheda.
- */
+// Query A (prioritaria): opere con P973 → collezionegalleriaborghese.it/opere/
+//   Garantisce la disponibilità dell'URL scheda per room/description.
+//
+// Query B (supplementare): opere con P195/P276 = Borghese, P170, P31
+//   senza P973. Useremo lo slug derivato dal titolo per cercare la scheda.
 function buildSparqlA(): string {
   return `
 SELECT
@@ -745,7 +733,7 @@ LIMIT ${SPARQL_LIMIT}
 `.trim();
 }
 
-/** Query supplementare: opere senza P973 (pool più ampio, URL costruita dallo slug). */
+// Query supplementare: opere senza P973 (pool più ampio, URL costruita dallo slug).
 function buildSparqlB(): string {
   return `
 SELECT
@@ -790,10 +778,8 @@ LIMIT ${SPARQL_LIMIT}
 `.trim();
 }
 
-/**
- * Costruisce lo slug del catalogo Borghese da un titolo italiano.
- * Es: "Davide con la testa di Golia" → "davide-con-la-testa-di-golia"
- */
+// Costruisce lo slug del catalogo Borghese da un titolo italiano.
+// Es: "Davide con la testa di Golia" → "davide-con-la-testa-di-golia"
 function titleToSlug(title: string): string {
   return title
     .toLowerCase()

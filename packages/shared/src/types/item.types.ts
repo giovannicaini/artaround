@@ -1,3 +1,33 @@
+/*
+ * File: /src/types/item.types.ts                                                        *
+ * Project: @artaround/shared                                                            *
+ * Last Modified: 14/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 /**
  * Tipi Item (Contenuti)
  *
@@ -14,13 +44,11 @@
 
 import type { AppLanguage } from './i18n.types';
 
-/**
- * Una parola trascritta dell'audio generato, con la sua posizione nel testo
- * originale già calcolata (charIndex) — l'allineamento parola→testo si fa
- * una sola volta, al momento della generazione (vedi audio-generation.service.ts
- * lato server), non ad ogni ascolto: il client si limita a confrontare
- * audio.currentTime con start/end per sapere quale charIndex evidenziare.
- */
+// Una parola trascritta dell'audio generato, con la sua posizione nel testo
+// originale già calcolata (charIndex) — l'allineamento parola→testo si fa
+// una sola volta, al momento della generazione (vedi audio-generation.service.ts
+// lato server), non ad ogni ascolto: il client si limita a confrontare
+// audio.currentTime con start/end per sapere quale charIndex evidenziare.
 export interface AudioWordTiming {
   word: string;
   start: number; // secondi dall'inizio dell'audio
@@ -28,13 +56,11 @@ export interface AudioWordTiming {
   charIndex: number; // posizione di questa parola nel testo originale
 }
 
-/**
- * Audio (generato con OpenAI o caricato a mano) per un testo in una lingua
- * specifica. `source` manca sui documenti creati prima della sua
- * introduzione: sempre 'ai' in quel caso (era l'unico modo di produrne uno),
- * quindi il client la tratta come 'ai' quando assente — vedi
- * item-audio-panel.ts.
- */
+// Audio (generato con OpenAI o caricato a mano) per un testo in una lingua
+// specifica. `source` manca sui documenti creati prima della sua
+// introduzione: sempre 'ai' in quel caso (era l'unico modo di produrne uno),
+// quindi il client la tratta come 'ai' quando assente — vedi
+// item-audio-panel.ts.
 export interface GeneratedAudio {
   url: string;
   words: AudioWordTiming[];

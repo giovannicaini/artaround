@@ -1,3 +1,36 @@
+/*
+ * File: /src/controllers/marketplace.controller.ts                                      *
+ * Project: @artaround/server                                                            *
+ * Last Modified: 15/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
+/**
+ * Catalogo, acquisti e movimenti di credito del marketplace.
+ */
 import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/async-handler.util.js';
 import {
@@ -166,7 +199,7 @@ export class MarketplaceController {
       );
     }
 
-    // Create purchase record (pagata col credito se a pagamento, nessun
+    // Crea il record di acquisto (pagata col credito se a pagamento, nessun
     // pagamento reale coinvolto — vedi chargeCredit)
     const purchase = new VisitPurchase({
       visitId,
@@ -313,14 +346,13 @@ export class MarketplaceController {
   );
 
   // ─── Credito ────────────────────────────────────────────
-  /**
-   * Addebita `price` euro sul saldo dell'acquirente e li accredita all'autore
-   * del contenuto: è una transazione tra due utenti, non un pagamento verso
-   * la piattaforma — nessuna commissione trattenuta. Lancia INSUFFICIENT_CREDIT
-   * se il saldo dell'acquirente non basta — va chiamata PRIMA di creare il
-   * record di acquisto, così un saldo insufficiente blocca l'acquisto invece
-   * di crearlo comunque "gratis".
-   */
+  // /**
+  // Addebita `price` euro sul saldo dell'acquirente e li accredita all'autore
+  // del contenuto: è una transazione tra due utenti, non un pagamento verso
+  // la piattaforma — nessuna commissione trattenuta. Lancia INSUFFICIENT_CREDIT
+  // se il saldo dell'acquirente non basta — va chiamata PRIMA di creare il
+  // record di acquisto, così un saldo insufficiente blocca l'acquisto invece
+  // di crearlo comunque "gratis".
   private static async chargeCredit(
     userId: string,
     sellerId: string,
@@ -377,11 +409,10 @@ export class MarketplaceController {
     }).save();
   }
 
-  /**
-   * POST /api/marketplace/credit/topup — ricarica credito (simulata): l'utente sceglie
-   * una cifra e il saldo viene accreditato direttamente, senza nessun pagamento reale —
-   * non c'è ancora un gateway di pagamento collegato.
-   */
+  // /**
+  // POST /api/marketplace/credit/topup — ricarica credito (simulata): l'utente sceglie
+  // una cifra e il saldo viene accreditato direttamente, senza nessun pagamento reale —
+  // non c'è ancora un gateway di pagamento collegato.
   static topUpCredit = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     if (!req.user) {
       throw new AppError(401, 'UNAUTHORIZED', 'Autenticazione richiesta');

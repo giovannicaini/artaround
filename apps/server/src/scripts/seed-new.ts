@@ -1,3 +1,6 @@
+/**
+ * Seed di sviluppo: crea un set minimo di dati (utenti, museo, opere) per lavorare in locale senza un dump reale.
+ */
 import { fileURLToPath } from 'url';
 import path from 'path';
 import { spawn } from 'child_process';

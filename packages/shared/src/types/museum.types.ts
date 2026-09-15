@@ -1,3 +1,33 @@
+/*
+ * File: /src/types/museum.types.ts                                                      *
+ * Project: @artaround/shared                                                            *
+ * Last Modified: 12/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 /**
  * Tipi Museo
  *
@@ -99,12 +129,10 @@ export interface CreateMuseumData {
   services?: Partial<MuseumServices>;
 }
 
-/**
- * Font selezionabili per titoli/corpo del testo del Navigator — set fisso,
- * non testo libero: ogni id è una famiglia Google Fonts già caricata
- * dall'app (vedi apps/navigator/index.html). Fonte unica per il menu a
- * tendina lato marketplace e per l'enum di validazione lato server.
- */
+// Font selezionabili per titoli/corpo del testo del Navigator — set fisso,
+// non testo libero: ogni id è una famiglia Google Fonts già caricata
+// dall'app (vedi apps/navigator/index.html). Fonte unica per il menu a
+// tendina lato marketplace e per l'enum di validazione lato server.
 export const NAVIGATOR_FONT_OPTIONS = [
   { id: 'unbounded', label: 'Unbounded', family: '"Unbounded"' },
   { id: 'plus-jakarta-sans', label: 'Plus Jakarta Sans', family: '"Plus Jakarta Sans"' },
@@ -123,13 +151,11 @@ export type NavigatorFontId = (typeof NAVIGATOR_FONT_OPTIONS)[number]['id'];
 export const isNavigatorFontId = (value: unknown): value is NavigatorFontId =>
   typeof value === 'string' && NAVIGATOR_FONT_OPTIONS.some((f) => f.id === value);
 
-/**
- * Configurazione di aspetto/branding dell'app Navigator: o vale per tutto
- * l'ecosistema (applicability 'global', ce n'è al massimo una), o è propria
- * di UN museo specifico (applicability 'museum' + museumId — un museo può
- * averne più di una, raggiungibili via link/QR per slug, es.
- * "borghese-bambini" vs "borghese-default"). Vedi NavigatorConfigController.resolve.
- */
+// Configurazione di aspetto/branding dell'app Navigator: o vale per tutto
+// l'ecosistema (applicability 'global', ce n'è al massimo una), o è propria
+// di UN museo specifico (applicability 'museum' + museumId — un museo può
+// averne più di una, raggiungibili via link/QR per slug, es.
+// "borghese-bambini" vs "borghese-default"). Vedi NavigatorConfigController.resolve.
 export interface NavigatorConfig {
   _id: string;
   name: string;
@@ -187,12 +213,10 @@ export type UpdateNavigatorConfigData = Partial<
   Omit<CreateNavigatorConfigData, 'applicability' | 'museumId'>
 >;
 
-/**
- * Estetica attuale del Navigator (main.css/tailwind.config.js), usata dal
- * server come fallback quando non esiste ancora nessuna NavigatorConfig con
- * applicability 'global' — così il comportamento resta identico a oggi
- * finché un admin non salva davvero una configurazione.
- */
+// Estetica attuale del Navigator (main.css/tailwind.config.js), usata dal
+// server come fallback quando non esiste ancora nessuna NavigatorConfig con
+// applicability 'global' — così il comportamento resta identico a oggi
+// finché un admin non salva davvero una configurazione.
 export const DEFAULT_NAVIGATOR_CONFIG: Omit<NavigatorConfig, '_id' | 'createdAt' | 'updatedAt'> = {
   name: 'ArtAround Navigator',
   slug: 'default',

@@ -1,3 +1,6 @@
+/**
+ * Seed originale del progetto: popola il database con i dati demo iniziali.
+ */
 import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'url';
 import { connectDB } from '../config/database.js';
@@ -23,17 +26,15 @@ type SeedUser = {
   };
 };
 
-/**
- * Account richiesti dalle specifiche di progetto: "Nel marketplace sono già creati 4
- * account: autore1, autore2, visitatore1 e visitatore2, tutti con password 12345678."
- * "admin" è aggiuntivo, necessario per le funzionalità riservate all'amministratore.
- *
- * Non esiste un ruolo globale CURATOR/AUTHOR: autore1/autore2 vengono creati
- * come utenti non-admin — diventano curatori/autori di un museo specifico
- * solo se un admin (o il curatore di quel museo) li promuove via
- * MuseumController.addAuthor, es. quando si esegue seed-borghese.ts su un
- * museo reale.
- */
+// Account richiesti dalle specifiche di progetto: "Nel marketplace sono già creati 4
+// account: autore1, autore2, visitatore1 e visitatore2, tutti con password 12345678."
+// "admin" è aggiuntivo, necessario per le funzionalità riservate all'amministratore.
+//
+// Non esiste un ruolo globale CURATOR/AUTHOR: autore1/autore2 vengono creati
+// come utenti non-admin — diventano curatori/autori di un museo specifico
+// solo se un admin (o il curatore di quel museo) li promuove via
+// MuseumController.addAuthor, es. quando si esegue seed-borghese.ts su un
+// museo reale.
 function getRequiredUsers(): SeedUser[] {
   return [
     {

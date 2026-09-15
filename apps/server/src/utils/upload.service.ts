@@ -1,3 +1,36 @@
+/*
+ * File: /src/utils/upload.service.ts                                                    *
+ * Project: @artaround/server                                                            *
+ * Last Modified: 13/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
+/**
+ * Configurazione Multer per i caricamenti e utilità per salvare/eliminare i file caricati (immagini con varianti, audio).
+ */
 import multer from 'multer';
 import sharp from 'sharp';
 import path from 'path';
@@ -20,9 +53,7 @@ const RESPONSIVE_WIDTHS = [480, 768, 1200];
 
 // Sottocartelle per i diversi tipi di entità
 
-/**
- * Assicura che la cartella upload e le sottocartelle esistano
- */
+// Assicura che la cartella upload e le sottocartelle esistano
 async function ensureUploadDirs(): Promise<void> {
   const categories: UploadCategory[] = ['museums', 'items', 'artworks', 'visits', 'users', 'misc'];
   for (const cat of categories) {
@@ -33,10 +64,8 @@ async function ensureUploadDirs(): Promise<void> {
 // Assicura che le cartelle esistano all'import
 ensureUploadDirs();
 
-/**
- * Configurazione Multer per l'upload temporaneo dei file
- * I file sono tenuti in memoria per l'elaborazione con sharp prima del salvataggio
- */
+// Configurazione Multer per l'upload temporaneo dei file
+// I file sono tenuti in memoria per l'elaborazione con sharp prima del salvataggio
 const storage = multer.memoryStorage();
 
 const fileFilter = (
@@ -94,9 +123,8 @@ export const audioUpload = multer({
 });
 
 export class UploadService {
-  /**
-   * Elabora e salva un file immagine caricato
-   */
+  // /**
+  // Elabora e salva un file immagine caricato
   static async processAndSave(
     buffer: Buffer,
     originalName: string,
@@ -187,9 +215,8 @@ export class UploadService {
     };
   }
 
-  /**
-   * Elabora e salva un'immagine scaricata da un URL
-   */
+  // /**
+  // Elabora e salva un'immagine scaricata da un URL
   static async processFromUrl(
     imageUrl: string,
     category: UploadCategory,
@@ -217,10 +244,9 @@ export class UploadService {
     return this.processAndSave(buffer, originalName, category, options);
   }
 
-  /**
-   * Elimina un file caricato dal suo percorso
-   * @param filePath - Percorso relativo tipo /uploads/museums/abc123.webp
-   */
+  // /**
+  // Elimina un file caricato dal suo percorso
+  // @param filePath - Percorso relativo tipo /uploads/museums/abc123.webp
   static async deleteFile(filePath: string): Promise<boolean> {
     if (!filePath || !filePath.startsWith('/uploads/')) {
       return false;
@@ -259,9 +285,8 @@ export class UploadService {
     }
   }
 
-  /**
-   * Ottieni il percorso assoluto del filesystem alla cartella upload
-   */
+  // /**
+  // Ottieni il percorso assoluto del filesystem alla cartella upload
   static getUploadsDir(): string {
     return UPLOADS_DIR;
   }

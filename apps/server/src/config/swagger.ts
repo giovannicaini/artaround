@@ -1,3 +1,36 @@
+/*
+ * File: /src/config/swagger.ts                                                          *
+ * Project: @artaround/server                                                            *
+ * Last Modified: 08/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
+/**
+ * Configura swagger-jsdoc: legge i blocchi @swagger da routes/*.ts e genera lo spec OpenAPI servito su /api-docs.
+ */
 import swaggerJsdoc from 'swagger-jsdoc';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -20,13 +53,15 @@ const swaggerDefinition = {
       Includi il token nell'header: \`Authorization: Bearer <token>\`
       
       ## Ruoli
-      - **VISITOR**: Può acquistare e fruire visite
-      - **AUTHOR**: Può creare items e visite
-      - **CURATOR**: Può gestire un museo
-      - **ADMIN**: Accesso completo al sistema
+      Ogni utente ha un ruolo globale (\`isAdmin\`: true/false) più, opzionalmente,
+      ruoli specifici su singoli musei (\`museumRoles\`):
+      - Utente semplice: può acquistare e fruire visite/contenuti nel marketplace
+      - **author**: può creare item e visite per il museo su cui ha questo ruolo
+      - **curator**: può gestire un museo (piantine, sale, curatori, lingue...)
+      - **isAdmin**: accesso completo al sistema, su tutti i musei
     `,
     contact: {
-      name: 'ArtAround Support',
+      name: 'Giovanni Caini',
       email: 'giovanni.caini@studio.unibo.it',
     },
     license: {
@@ -64,19 +99,43 @@ const swaggerDefinition = {
           _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
           username: { type: 'string', example: 'autore1' },
           email: { type: 'string', format: 'email', example: 'autore1@artaround.com' },
-          role: { type: 'string', enum: ['VISITOR', 'AUTHOR', 'ADMIN'], example: 'AUTHOR' },
+          isAdmin: {
+            type: 'boolean',
+            description: 'Ruolo globale di amministratore',
+            example: false,
+          },
+          isActive: { type: 'boolean', example: true },
+          creditBalance: { type: 'number', example: 12.5 },
+          lastLogin: { type: 'string', format: 'date-time' },
+          museumRoles: {
+            type: 'array',
+            description:
+              'Ruoli assegnati su singoli musei (curatore/autore) — diversi dal ruolo globale isAdmin',
+            items: {
+              type: 'object',
+              properties: {
+                museumId: { type: 'string' },
+                role: { type: 'string', enum: ['curator', 'author'], example: 'curator' },
+                assignedAt: { type: 'string', format: 'date-time' },
+                assignedBy: { type: 'string' },
+              },
+            },
+          },
           preferences: {
             type: 'object',
             properties: {
+              competenceLevel: {
+                type: 'string',
+                enum: ['infantile', 'semplice', 'medio', 'avanzato'],
+                example: 'medio',
+              },
+              availableTime: {
+                type: 'string',
+                enum: ['veloce', 'normale', 'approfondito'],
+                example: 'normale',
+              },
+              age: { type: 'number' },
               language: { type: 'string', example: 'it' },
-              targetAudience: {
-                type: 'string',
-                enum: ['CHILDREN', 'FAMILIES', 'ADULTS', 'EXPERTS'],
-              },
-              difficulty: {
-                type: 'string',
-                enum: ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'],
-              },
             },
           },
           createdAt: { type: 'string', format: 'date-time' },
@@ -86,16 +145,29 @@ const swaggerDefinition = {
       Museum: {
         type: 'object',
         properties: {
-          _id: { type: 'string' },
-          name: { type: 'string', example: 'Museo Archeologico Nazionale' },
+          _id: { type: 'string', description: 'ObjectId MongoDB' },
+          wikidataId: {
+            type: 'string',
+            description:
+              'Q number Wikidata — chiave primaria del museo, usata anche come museumId su opere/item/visite',
+            example: 'Q841506',
+          },
+          name: { type: 'string', example: 'Galleria Borghese' },
           description: { type: 'string' },
+          nameTranslations: { type: 'object', additionalProperties: { type: 'string' } },
+          descriptionTranslations: { type: 'object', additionalProperties: { type: 'string' } },
+          activeLanguages: {
+            type: 'array',
+            items: { type: 'string', example: 'it' },
+            description: 'Sottoinsieme delle lingue app in cui questo museo va tradotto',
+          },
           location: {
             type: 'object',
             properties: {
               address: { type: 'string' },
               city: { type: 'string' },
               nation: { type: 'string' },
-              country: { type: 'string', description: 'Deprecated alias of nation' },
+              postalCode: { type: 'string' },
               coordinates: {
                 type: 'object',
                 properties: {
@@ -105,46 +177,70 @@ const swaggerDefinition = {
               },
             },
           },
-          configFile: { type: 'object', description: 'Configurazione museo in formato JSON' },
+          images: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Foto importate da Wikidata',
+          },
+          coverImage: { type: 'string', description: 'Foto scelta esplicitamente dal curatore' },
+          floors: { type: 'array', items: { type: 'object' }, description: 'Piantine del museo' },
+          rooms: { type: 'array', items: { type: 'object' }, description: 'Sale del museo' },
+          isActive: { type: 'boolean' },
           createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
         },
       },
       Item: {
         type: 'object',
+        description:
+          "Contenuto riusabile (testo/audio) su un'opera, autore, movimento, periodo o museo",
         properties: {
           _id: { type: 'string' },
           museumId: { type: 'string' },
-          objectId: { type: 'string', example: 'Q123456' },
-          contents: {
-            type: 'array',
-            items: {
+          referenceType: {
+            type: 'string',
+            enum: ['artwork', 'author', 'movement', 'period', 'museum'],
+            description: 'A cosa si riferisce questo item',
+          },
+          referenceId: {
+            type: 'string',
+            description: "ID Wikidata dell'entità referenziata",
+            example: 'Q123456',
+          },
+          referenceTitle: { type: 'string' },
+          sourceLanguage: { type: 'string', example: 'it' },
+          title: { type: 'string' },
+          text: { type: 'string' },
+          translatedTitles: { type: 'object', additionalProperties: { type: 'string' } },
+          translatedTexts: { type: 'object', additionalProperties: { type: 'string' } },
+          audio: {
+            type: 'object',
+            description: 'Audio generato (OpenAI) per lingua, con i tempi delle singole parole',
+            additionalProperties: {
               type: 'object',
               properties: {
-                targetAudience: {
-                  type: 'string',
-                  enum: ['CHILDREN', 'FAMILIES', 'ADULTS', 'EXPERTS'],
-                },
-                difficulty: {
-                  type: 'string',
-                  enum: ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'],
-                },
-                title: { type: 'string' },
-                description: { type: 'string' },
-                audioUrl: { type: 'string' },
+                url: { type: 'string' },
+                words: { type: 'array', items: { type: 'object' } },
+                source: { type: 'string', enum: ['ai', 'manual'] },
               },
             },
           },
-          metadata: {
-            type: 'object',
-            properties: {
-              author: { type: 'string' },
-              period: { type: 'string' },
-              technique: { type: 'string' },
-              dimensions: { type: 'string' },
-            },
+          duration: { type: 'string', enum: ['3s', '15s', '1min', '4min'] },
+          languageLevel: {
+            type: 'string',
+            enum: ['infantile', 'elementare', 'medio', 'specialistico'],
           },
-          image: { type: 'string', description: 'Base64 o URL immagine' },
           authorId: { type: 'string' },
+          authorName: { type: 'string' },
+          license: {
+            type: 'string',
+            enum: ['CC0', 'CC-BY', 'CC-BY-SA', 'CC-BY-NC', 'CC-BY-NC-SA', 'proprietary'],
+          },
+          price: { type: 'number', description: '0 per gratis' },
+          isFree: { type: 'boolean' },
+          image: { type: 'string' },
+          usageCount: { type: 'number' },
+          tags: { type: 'array', items: { type: 'string' } },
           createdAt: { type: 'string', format: 'date-time' },
         },
       },
@@ -152,26 +248,61 @@ const swaggerDefinition = {
         type: 'object',
         properties: {
           _id: { type: 'string' },
-          museumId: { type: 'string' },
-          title: { type: 'string', example: 'Visita per Famiglie' },
+          museumId: { type: 'string', description: 'ID Wikidata del museo' },
+          authorId: { type: 'string' },
+          authorName: { type: 'string' },
+          title: { type: 'string', example: 'Galleria Borghese — Visita per famiglie' },
           description: { type: 'string' },
-          items: {
+          titleTranslations: { type: 'object', additionalProperties: { type: 'string' } },
+          descriptionTranslations: { type: 'object', additionalProperties: { type: 'string' } },
+          coverImage: { type: 'string' },
+          steps: {
             type: 'array',
+            description:
+              'Sequenza ordinata di tappe (opera, logistica, indicazioni, approfondimento, svolta)',
             items: {
               type: 'object',
               properties: {
-                itemId: { type: 'string' },
+                id: { type: 'string' },
                 order: { type: 'number' },
+                type: {
+                  type: 'string',
+                  enum: ['artwork', 'logistic', 'navigation', 'waypoint', 'content'],
+                },
+                artworkId: { type: 'string' },
+                itemIds: { type: 'array', items: { type: 'string' } },
               },
             },
           },
-          targetAudience: { type: 'string', enum: ['CHILDREN', 'FAMILIES', 'ADULTS', 'EXPERTS'] },
-          difficulty: { type: 'string', enum: ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'] },
-          estimatedDuration: { type: 'number', description: 'Minuti' },
-          price: { type: 'number', description: 'Prezzo in euro' },
+          generalInfo: { type: 'object' },
+          targetAudience: {
+            type: 'object',
+            properties: {
+              minAge: { type: 'number' },
+              maxAge: { type: 'number' },
+              languageLevels: { type: 'array', items: { type: 'string' } },
+              interests: { type: 'array', items: { type: 'string' } },
+              estimatedDuration: { type: 'number', description: 'Minuti' },
+            },
+          },
+          metadata: {
+            type: 'object',
+            properties: {
+              language: { type: 'string' },
+              supportedLanguages: { type: 'array', items: { type: 'string' } },
+              artworksCount: { type: 'number' },
+              totalItemsCount: { type: 'number' },
+              estimatedDuration: { type: 'number', description: 'Minuti' },
+              price: { type: 'number', description: '0 per gratis' },
+              isFree: { type: 'boolean' },
+              license: { type: 'string' },
+              downloadsCount: { type: 'number' },
+            },
+          },
           isPublished: { type: 'boolean' },
-          authorId: { type: 'string' },
+          publishedAt: { type: 'string', format: 'date-time' },
           createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
         },
       },
       APIResponse: {
@@ -190,7 +321,7 @@ const swaggerDefinition = {
             type: 'object',
             properties: {
               code: { type: 'string', example: 'VALIDATION_ERROR' },
-              message: { type: 'string', example: 'Invalid input data' },
+              message: { type: 'string', example: 'Dati non validi' },
               details: { type: 'array', items: { type: 'object' } },
             },
           },
@@ -299,13 +430,15 @@ const swaggerDefinition = {
       name: 'Notifications',
       description: 'Notifiche in-app (richieste di ruolo museo)',
     },
+    {
+      name: 'Backups',
+      description: 'Snapshot di database + uploads, solo admin',
+    },
   ],
 };
 
 const options: swaggerJsdoc.Options = {
   definition: swaggerDefinition,
-  // Percorso assoluto derivato da questo file (non dalla cwd, che a runtime
-  // può non essere apps/server/): da dist/config risale a src/routes.
   apis: [path.join(moduleDir, '../../src/routes/*.ts')],
 };
 

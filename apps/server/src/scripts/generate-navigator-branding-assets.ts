@@ -1,16 +1,17 @@
 /**
- * generate-navigator-branding-assets.ts
- *
- * Genera icone PWA, logo e immagine di apertura per le NavigatorConfig che
- * ne sono prive, usando i colori di brand della config stessa (non un
- * placeholder generico uguale per tutte) — un badge con l'iniziale del
- * nome su gradiente primaryColor→secondaryColor per icone/logo, un motivo
- * "aurora" (stesso linguaggio visivo del Navigator, vedi main.css) per
- * l'immagine di apertura.
- *
- * Uso:
- *   npx tsx src/scripts/generate-navigator-branding-assets.ts [--dry-run]
+ * Genera icone PWA, logo e immagine di apertura per le NavigatorConfig che ne sono prive.
  */
+// generate-navigator-branding-assets.ts
+//
+// Genera icone PWA, logo e immagine di apertura per le NavigatorConfig che
+// ne sono prive, usando i colori di brand della config stessa (non un
+// placeholder generico uguale per tutte) — un badge con l'iniziale del
+// nome su gradiente primaryColor→secondaryColor per icone/logo, un motivo
+// "aurora" (stesso linguaggio visivo del Navigator, vedi main.css) per
+// l'immagine di apertura.
+//
+// Uso:
+//   npx tsx src/scripts/generate-navigator-branding-assets.ts [--dry-run]
 
 import sharp from 'sharp';
 import { connectDB } from '../config/database.js';

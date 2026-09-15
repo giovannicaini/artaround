@@ -1,3 +1,36 @@
+/*
+ * File: /src/controllers/navigator-config.controller.ts                                 *
+ * Project: @artaround/server                                                            *
+ * Last Modified: 14/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
+/**
+ * Gestione della configurazione di branding/PWA del Navigator per museo.
+ */
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { asyncHandler } from '../utils/async-handler.util.js';
@@ -7,12 +40,10 @@ import { AuthRequest } from '../middleware/auth.middleware.js';
 import { assertCan, getCuratedMuseumIds } from '../utils/policy.util.js';
 import { DEFAULT_NAVIGATOR_CONFIG, type NavigatorConfig } from '@artaround/shared';
 
-/**
- * Configurazioni Navigator: una 'global' (al massimo una, per tutto
- * l'ecosistema) o 'museum' (una o più per museo, raggiungibili via QR/link
- * per slug — vedi resolve). Le globali sono solo admin, quelle di museo
- * anche del curatore di quel museo (policy.util.ts, subject 'navigatorConfig').
- */
+// Configurazioni Navigator: una 'global' (al massimo una, per tutto
+// l'ecosistema) o 'museum' (una o più per museo, raggiungibili via QR/link
+// per slug — vedi resolve). Le globali sono solo admin, quelle di museo
+// anche del curatore di quel museo (policy.util.ts, subject 'navigatorConfig').
 export class NavigatorConfigController {
   private static readonly HEX_COLOR_REGEX = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
   private static readonly SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -191,14 +222,13 @@ export class NavigatorConfigController {
     res.json({ success: true, message: 'Configurazione eliminata con successo' });
   });
 
-  /**
-   * Risolve quale config applicare, in ordine di specificità:
-   * 1. slug richiesto esplicitamente (link/QR) — se compatibile col museumId
-   *    dato (globale, o il suo museumId coincide, o non è stato richiesto
-   *    nessun museumId).
-   * 2. museumId dato — la prima config di quel museo (ordine di creazione).
-   * 3. la config globale, o il fallback hardcoded se non esiste ancora.
-   */
+  // /**
+  // Risolve quale config applicare, in ordine di specificità:
+  // 1. slug richiesto esplicitamente (link/QR) — se compatibile col museumId
+  //    dato (globale, o il suo museumId coincide, o non è stato richiesto
+  //    nessun museumId).
+  // 2. museumId dato — la prima config di quel museo (ordine di creazione).
+  // 3. la config globale, o il fallback hardcoded se non esiste ancora.
   private static async resolveConfig(
     museumId: string | undefined,
     slug: string | undefined,

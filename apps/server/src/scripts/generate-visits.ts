@@ -1,21 +1,22 @@
 /**
- * generate-visits.ts
- *
- * Compone visite guidate reali a partire da artwork/item già seedati per un museo,
- * per soddisfare il requisito di specifica: "ci devono essere almeno 3 visite di
- * almeno 10 opere ciascuna sullo stesso museo, differenziate per contenuti, livello
- * di conoscenza".
- *
- * Per ogni museo con abbastanza opere+contenuti crea 3 visite (famiglie/generale/
- * esperti) sullo STESSO set di opere ordinato per piano/sala, differenziate per
- * livello linguistico e durata primaria degli item collegati — esattamente come
- * l'esempio "Ritratto di frate..." nelle specifiche (stessa opera, toni diversi).
- *
- * Idempotente: salta le visite il cui titolo esiste già per quel museo.
- *
- * Uso:
- *   npx tsx src/scripts/generate-visits.ts
+ * Compone visite guidate reali a partire da opere/item già seedati per un museo.
  */
+// generate-visits.ts
+//
+// Compone visite guidate reali a partire da artwork/item già seedati per un museo,
+// per soddisfare il requisito di specifica: "ci devono essere almeno 3 visite di
+// almeno 10 opere ciascuna sullo stesso museo, differenziate per contenuti, livello
+// di conoscenza".
+//
+// Per ogni museo con abbastanza opere+contenuti crea 3 visite (famiglie/generale/
+// esperti) sullo STESSO set di opere ordinato per piano/sala, differenziate per
+// livello linguistico e durata primaria degli item collegati — esattamente come
+// l'esempio "Ritratto di frate..." nelle specifiche (stessa opera, toni diversi).
+//
+// Idempotente: salta le visite il cui titolo esiste già per quel museo.
+//
+// Uso:
+//   npx tsx src/scripts/generate-visits.ts
 
 import { connectDB } from '../config/database.js';
 import { MuseumModel, ArtworkModel, ItemModel, VisitModel, User } from '../models/index.js';

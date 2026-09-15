@@ -1,3 +1,6 @@
+/**
+ * Migrazione: valorizza il campo nation nella location dei musei che ne sono privi.
+ */
 import { connectDB } from '../config/database.js';
 import { MuseumModel } from '../models/index.js';
 

@@ -1,3 +1,6 @@
+/**
+ * Migrazione: normalizza i museumId salvati in formato legacy sulle varie collezioni.
+ */
 import { connectDB } from '../config/database.js';
 import { ArtworkModel, ItemModel, MuseumModel, VisitModel } from '../models/index.js';
 

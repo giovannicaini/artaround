@@ -1,15 +1,16 @@
 /**
- * backfill-artwork-labels.ts
- *
- * Risolve nome autore/movimento su Artwork quando manca (o è rimasto il
- * placeholder "Autore sconosciuto") pur avendo già l'ID Wikidata salvato —
- * capita quando l'import originale non è riuscito a recuperare la label.
- * Scoperto per le opere effettivamente usate nelle visite pubblicate; usa
- * WikidataService.getEntity, stessa fonte già usata altrove nell'app.
- *
- * Uso:
- *   npx tsx src/scripts/backfill-artwork-labels.ts [--dry-run]
+ * Risolve nome autore/movimento sulle opere che ne sono prive pur avendo già l'ID Wikidata.
  */
+// backfill-artwork-labels.ts
+//
+// Risolve nome autore/movimento su Artwork quando manca (o è rimasto il
+// placeholder "Autore sconosciuto") pur avendo già l'ID Wikidata salvato —
+// capita quando l'import originale non è riuscito a recuperare la label.
+// Scoperto per le opere effettivamente usate nelle visite pubblicate; usa
+// WikidataService.getEntity, stessa fonte già usata altrove nell'app.
+//
+// Uso:
+//   npx tsx src/scripts/backfill-artwork-labels.ts [--dry-run]
 
 import { connectDB } from '../config/database.js';
 import { ArtworkModel, VisitModel } from '../models/index.js';

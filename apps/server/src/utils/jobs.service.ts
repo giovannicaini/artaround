@@ -1,3 +1,36 @@
+/*
+ * File: /src/utils/jobs.service.ts                                                      *
+ * Project: @artaround/server                                                            *
+ * Last Modified: 08/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
+/**
+ * Gestione dei job in background (oggi generazione audio e sincronizzazione traduzioni): avvio con esclusione reciproca per tipo, avanzamento, cancellazione, riconciliazione all'avvio.
+ */
 import {
   JobModel,
   type IJob,
@@ -11,21 +44,19 @@ import type { AuthRequest } from '../middleware/auth.middleware.js';
 
 type AuthUser = NonNullable<AuthRequest['user']>;
 
-/**
- * Processi lunghi (oggi solo la generazione audio OpenAI) eseguiti in
- * background: partono da una richiesta HTTP che risponde subito, avanzano
- * per conto proprio aggiornando un documento Job, e possono essere fermati
- * a metà. Un solo Job per `type` alla volta, ovunque (vedi startJob) — la
- * generazione audio condivide lo stesso account/quota OpenAI qualunque sia
- * il museo o la visita, quindi l'esclusione reciproca è globale per tipo,
- * non per museo.
- *
- * Il flag di cancellazione va controllato molto spesso (dentro un loop su
- * centinaia di item) — un Set in memoria evita una query Mongo ad ogni
- * iterazione; è specchiato su `cancelRequested` nel documento solo perché la
- * richiesta di stop e l'esecuzione del job possono vivere in due request
- * diverse (mai in due processi diversi: vedi reconcileOnStartup).
- */
+// Processi lunghi (oggi solo la generazione audio OpenAI) eseguiti in
+// background: partono da una richiesta HTTP che risponde subito, avanzano
+// per conto proprio aggiornando un documento Job, e possono essere fermati
+// a metà. Un solo Job per `type` alla volta, ovunque (vedi startJob) — la
+// generazione audio condivide lo stesso account/quota OpenAI qualunque sia
+// il museo o la visita, quindi l'esclusione reciproca è globale per tipo,
+// non per museo.
+//
+// Il flag di cancellazione va controllato molto spesso (dentro un loop su
+// centinaia di item) — un Set in memoria evita una query Mongo ad ogni
+// iterazione; è specchiato su `cancelRequested` nel documento solo perché la
+// richiesta di stop e l'esecuzione del job possono vivere in due request
+// diverse (mai in due processi diversi: vedi reconcileOnStartup).
 const cancelledJobIds = new Set<string>();
 
 const emptyProgress = (): JobProgress => ({
@@ -119,12 +150,10 @@ export const reconcileOnStartup = async (): Promise<void> => {
   }
 };
 
-/**
- * Job attivi (sempre inclusi) più gli ultimi conclusi, filtrati a quelli che
- * `user` può vedere: admin tutti, altrimenti solo i musei di cui è curatore
- * (stesso criterio con cui può avviarli — vedi authorizeResource('museum',
- * 'manage') sulle route di generazione).
- */
+// Job attivi (sempre inclusi) più gli ultimi conclusi, filtrati a quelli che
+// `user` può vedere: admin tutti, altrimenti solo i musei di cui è curatore
+// (stesso criterio con cui può avviarli — vedi authorizeResource('museum',
+// 'manage') sulle route di generazione).
 export const listJobs = async (user: AuthUser, recentLimit = 20): Promise<IJob[]> => {
   const museumFilter = user.isAdmin
     ? {}

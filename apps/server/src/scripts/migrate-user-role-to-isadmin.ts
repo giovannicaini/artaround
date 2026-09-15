@@ -1,15 +1,16 @@
+/**
+ * Migrazione: converte il vecchio campo role dell'utente nel nuovo isAdmin booleano.
+ */
 import { connectDB } from '../config/database.js';
 import { User } from '../models/index.js';
 
-/**
- * User.role (stringa 'admin'/'visitor'/'curator'/'author', a seconda di quando
- * l'utente è stato creato) è stato sostituito da User.isAdmin (booleano) — non
- * esiste più un ruolo globale intermedio, essere curatore/autore è sempre
- * relativo a un museo specifico (User.museumRoles, non toccato da questa
- * migrazione). Senza questo script, ogni utente con role: 'admin' già salvato
- * perderebbe silenziosamente i permessi di amministratore al primo save
- * successivo al deploy (isAdmin assente -> default false).
- */
+// User.role (stringa 'admin'/'visitor'/'curator'/'author', a seconda di quando
+// l'utente è stato creato) è stato sostituito da User.isAdmin (booleano) — non
+// esiste più un ruolo globale intermedio, essere curatore/autore è sempre
+// relativo a un museo specifico (User.museumRoles, non toccato da questa
+// migrazione). Senza questo script, ogni utente con role: 'admin' già salvato
+// perderebbe silenziosamente i permessi di amministratore al primo save
+// successivo al deploy (isAdmin assente -> default false).
 
 type ScriptOptions = {
   dryRun: boolean;

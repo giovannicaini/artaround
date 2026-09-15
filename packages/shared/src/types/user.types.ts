@@ -1,3 +1,33 @@
+/*
+ * File: /src/types/user.types.ts                                                        *
+ * Project: @artaround/shared                                                            *
+ * Last Modified: 11/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
 /**
  * Tipi Utente
  */
@@ -16,13 +46,11 @@ export interface User {
   updatedAt: Date;
 }
 
-/**
- * Assegna un utente come curatore o autore di UN museo specifico. Non esiste
- * un CURATOR o un AUTHOR "generici": lo si è sempre e solo di un museo preciso.
- * - CURATOR: assegnabile solo da un admin (vedi MuseumController.addCurator).
- * - AUTHOR: assegnabile da un admin, oppure dal CURATOR di quello stesso museo
- *   per promuovere un utente già a sistema (vedi MuseumController.addAuthor).
- */
+// Assegna un utente come curatore o autore di UN museo specifico. Non esiste
+// un CURATOR o un AUTHOR "generici": lo si è sempre e solo di un museo preciso.
+// - CURATOR: assegnabile solo da un admin (vedi MuseumController.addCurator).
+// - AUTHOR: assegnabile da un admin, oppure dal CURATOR di quello stesso museo
+//   per promuovere un utente già a sistema (vedi MuseumController.addAuthor).
 export interface MuseumRoleAssignment {
   museumId: string;
   role: MuseumRole;
@@ -35,11 +63,9 @@ export enum MuseumRole {
   AUTHOR = 'author',
 }
 
-/**
- * Richiesta di un utente di diventare curatore o autore di un museo — in
- * attesa che un admin (sempre) o il curatore del museo (solo per AUTHOR)
- * la confermi. Vedi MuseumController.requestRole/approveRoleRequest.
- */
+// Richiesta di un utente di diventare curatore o autore di un museo — in
+// attesa che un admin (sempre) o il curatore del museo (solo per AUTHOR)
+// la confermi. Vedi MuseumController.requestRole/approveRoleRequest.
 export interface MuseumRoleRequest {
   _id: string;
   userId: string;
@@ -48,12 +74,10 @@ export interface MuseumRoleRequest {
   requestedAt: Date;
 }
 
-/**
- * MuseumRoleRequest con username e nome museo già risolti — così chi
- * revisiona (un curatore non ha accesso a GET /api/users) non deve fare
- * chiamate aggiuntive per capire chi/cosa. Vedi
- * MuseumController.listReviewableRoleRequests.
- */
+// MuseumRoleRequest con username e nome museo già risolti — così chi
+// revisiona (un curatore non ha accesso a GET /api/users) non deve fare
+// chiamate aggiuntive per capire chi/cosa. Vedi
+// MuseumController.listReviewableRoleRequests.
 export interface MuseumRoleRequestWithNames extends MuseumRoleRequest {
   username?: string;
   museumName?: string;

@@ -1,3 +1,6 @@
+/**
+ * Ritenta il recupero dell'immagine da Wikidata per le opere che ne sono rimaste prive dopo il seed.
+ */
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -412,7 +415,7 @@ async function resolveArtworkCandidates(meta: ArtworkSourceMeta): Promise<Candid
       }
     }
   } catch {
-    // ignore page-level failures and continue with Wikidata fallbacks
+    // ignora i fallimenti di questa pagina e prosegue con i fallback Wikidata
   }
 
   try {

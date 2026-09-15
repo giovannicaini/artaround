@@ -1,3 +1,36 @@
+/*
+ * File: /src/utils/audio-generation.service.ts                                          *
+ * Project: @artaround/server                                                            *
+ * Last Modified: 13/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
+/**
+ * Genera l'audio (OpenAI TTS) di un testo con i tempi delle singole parole allineati, per l'evidenziazione sincronizzata nel Navigator.
+ */
 import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
@@ -30,16 +63,14 @@ const TTS_INSTRUCTIONS: Record<AppLanguage, string> = {
   es: 'Habla en español, con acento y prosodia españoles naturales. Lee números, fechas, horas e importes como lo haría un guía de museo hispanohablante.',
 };
 
-/**
- * Trova, per ogni parola trascritta, la sua posizione (charIndex) nel testo
- * originale — cercando in avanti dall'ultimo punto trovato, senza tornare
- * mai indietro, così l'ordine delle parole guida la ricerca invece di
- * confondersi con ripetizioni della stessa parola altrove nel testo. Una
- * parola trascritta che non si trova (differenze di punteggiatura/normalizzazione
- * tra ciò che OpenAI trascrive e il testo scritto dal curatore) viene
- * semplicemente scartata: non deve mai far fallire l'intera generazione per
- * un disallineamento minore.
- */
+// Trova, per ogni parola trascritta, la sua posizione (charIndex) nel testo
+// originale — cercando in avanti dall'ultimo punto trovato, senza tornare
+// mai indietro, così l'ordine delle parole guida la ricerca invece di
+// confondersi con ripetizioni della stessa parola altrove nel testo. Una
+// parola trascritta che non si trova (differenze di punteggiatura/normalizzazione
+// tra ciò che OpenAI trascrive e il testo scritto dal curatore) viene
+// semplicemente scartata: non deve mai far fallire l'intera generazione per
+// un disallineamento minore.
 function alignWordsToText(text: string, words: TranscribedWord[]): AudioWordTiming[] {
   const lowerText = text.toLowerCase();
   const aligned: AudioWordTiming[] = [];
@@ -59,13 +90,11 @@ function alignWordsToText(text: string, words: TranscribedWord[]): AudioWordTimi
   return aligned;
 }
 
-/**
- * Genera l'audio (OpenAI TTS) di un testo in una lingua, lo salva su disco
- * e lo trascrive per ricavare i tempi delle singole parole — allineati al
- * testo una sola volta qui, non ad ogni ascolto (vedi AudioWordTiming).
- * Chiamata dai due sync in museum.controller.ts (item/tappe di visita), mai
- * automaticamente: è un'azione esplicita per il costo/tempo che comporta.
- */
+// Genera l'audio (OpenAI TTS) di un testo in una lingua, lo salva su disco
+// e lo trascrive per ricavare i tempi delle singole parole — allineati al
+// testo una sola volta qui, non ad ogni ascolto (vedi AudioWordTiming).
+// Chiamata dai due sync in museum.controller.ts (item/tappe di visita), mai
+// automaticamente: è un'azione esplicita per il costo/tempo che comporta.
 export async function generateAudioForText(
   text: string,
   language: AppLanguage,
@@ -90,22 +119,20 @@ export async function generateAudioForText(
   return { url: `/uploads/${AUDIO_DIR}/${filename}`, words, source: 'ai' };
 }
 
-/** Elimina il file audio su disco di una GeneratedAudio, se presente — usata
- * quando il testo che descriveva cambia e l'audio generato non è più valido. */
+// Elimina il file audio su disco di una GeneratedAudio, se presente — usata
+// quando il testo che descriveva cambia e l'audio generato non è più valido.
 export async function deleteGeneratedAudioFile(audio: GeneratedAudio | undefined): Promise<void> {
   if (audio?.url) {
     await UploadService.deleteFile(audio.url);
   }
 }
 
-/**
- * Salva su disco un file audio caricato a mano da un autore (nessuna sintesi
- * OpenAI, quindi nessuna trascrizione/allineamento parole — `words` resta
- * vuoto, il Navigator mostra il testo senza evidenziazione parola-per-parola
- * per questa lingua). Stessa cartella usata da generateAudioForText; `source`
- * distingue le due provenienze per l'interfaccia (vedi item-audio-panel.ts),
- * ma per chi ascolta il file è identico.
- */
+// Salva su disco un file audio caricato a mano da un autore (nessuna sintesi
+// OpenAI, quindi nessuna trascrizione/allineamento parole — `words` resta
+// vuoto, il Navigator mostra il testo senza evidenziazione parola-per-parola
+// per questa lingua). Stessa cartella usata da generateAudioForText; `source`
+// distingue le due provenienze per l'interfaccia (vedi item-audio-panel.ts),
+// ma per chi ascolta il file è identico.
 export async function saveUploadedAudioFile(
   buffer: Buffer,
   originalName: string,

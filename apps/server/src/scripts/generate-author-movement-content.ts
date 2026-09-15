@@ -1,19 +1,20 @@
 /**
- * generate-author-movement-content.ts
- *
- * Genera Item di tipo AUTHOR/MOVEMENT (biografia/descrizione, non legati a
- * una singola opera) per gli autori e i movimenti effettivamente citati
- * nelle visite pubblicate — stessa matrice durata/livello e stesso motore
- * AI di seed-borghese.ts, prompt e validazioni adattati al registro
- * biografico/informativo invece che "opera davanti a te".
- *
- * Richiede che gli Artwork abbiano già author/movement risolti (vedi
- * backfill-artwork-labels.ts) e AIService configurata e con credito
- * disponibile.
- *
- * Uso:
- *   npx tsx src/scripts/generate-author-movement-content.ts [--dry-run] [--limit N]
+ * Genera item di tipo autore/movimento per chi è effettivamente citato nelle visite pubblicate.
  */
+// generate-author-movement-content.ts
+//
+// Genera Item di tipo AUTHOR/MOVEMENT (biografia/descrizione, non legati a
+// una singola opera) per gli autori e i movimenti effettivamente citati
+// nelle visite pubblicate — stessa matrice durata/livello e stesso motore
+// AI di seed-borghese.ts, prompt e validazioni adattati al registro
+// biografico/informativo invece che "opera davanti a te".
+//
+// Richiede che gli Artwork abbiano già author/movement risolti (vedi
+// backfill-artwork-labels.ts) e AIService configurata e con credito
+// disponibile.
+//
+// Uso:
+//   npx tsx src/scripts/generate-author-movement-content.ts [--dry-run] [--limit N]
 
 import { connectDB } from '../config/database.js';
 import { ArtworkModel, ItemModel, VisitModel, User } from '../models/index.js';

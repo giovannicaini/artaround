@@ -1,3 +1,36 @@
+/*
+ * File: /src/controllers/upload.controller.ts                                           *
+ * Project: @artaround/server                                                            *
+ * Last Modified: 05/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
+/**
+ * Caricamento ed eliminazione di file (immagini con varianti, audio).
+ */
 import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/async-handler.util.js';
 import { UploadService } from '../utils/upload.service.js';
@@ -14,16 +47,15 @@ const VALID_CATEGORIES: UploadCategory[] = [
 ];
 
 export class UploadController {
-  /**
-   * POST /api/uploads
-   * Carica ed elabora un'immagine da un file
-   * Accetta multipart/form-data con:
-   * - file: file immagine
-   * - category: una tra museums, items, artworks, visits, users, misc
-   * - width, height, fit, quality, format: parametri di elaborazione opzionali
-   * - cropX, cropY, cropWidth, cropHeight: regione di ritaglio opzionale
-   * - oldPath: percorso opzionale della vecchia immagine da eliminare (sostituzione)
-   */
+  // /**
+  // POST /api/uploads
+  // Carica ed elabora un'immagine da un file
+  // Accetta multipart/form-data con:
+  // - file: file immagine
+  // - category: una tra museums, items, artworks, visits, users, misc
+  // - width, height, fit, quality, format: parametri di elaborazione opzionali
+  // - cropX, cropY, cropWidth, cropHeight: regione di ritaglio opzionale
+  // - oldPath: percorso opzionale della vecchia immagine da eliminare (sostituzione)
   static uploadImage = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     if (!req.file) {
       throw new AppError(400, 'NO_FILE', 'Nessun file caricato');
@@ -53,11 +85,10 @@ export class UploadController {
     });
   });
 
-  /**
-   * POST /api/uploads/from-url
-   * Scarica, elabora e salva un'immagine da un URL
-   * Body: { url, category, width, height, fit, quality, format, cropX, cropY, cropWidth, cropHeight, oldPath }
-   */
+  // /**
+  // POST /api/uploads/from-url
+  // Scarica, elabora e salva un'immagine da un URL
+  // Body: { url, category, width, height, fit, quality, format, cropX, cropY, cropWidth, cropHeight, oldPath }
   static uploadFromUrl = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { url, category = 'misc', oldPath } = req.body;
 
@@ -83,11 +114,10 @@ export class UploadController {
     });
   });
 
-  /**
-   * DELETE /api/uploads
-   * Elimina un'immagine caricata
-   * Body: { path: "/uploads/museums/abc123.webp" }
-   */
+  // /**
+  // DELETE /api/uploads
+  // Elimina un'immagine caricata
+  // Body: { path: "/uploads/museums/abc123.webp" }
   static deleteImage = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { path } = req.body;
 
@@ -103,9 +133,8 @@ export class UploadController {
     });
   });
 
-  /**
-   * Estrae le opzioni di elaborazione immagine dal body della richiesta
-   */
+  // /**
+  // Estrae le opzioni di elaborazione immagine dal body della richiesta
   private static parseProcessOptions(body: Record<string, string>): ImageProcessOptions {
     const options: ImageProcessOptions = {};
 

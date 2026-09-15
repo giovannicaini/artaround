@@ -1,21 +1,22 @@
 /**
- * seed-borghese.ts
- *
- * Seed script per Galleria Borghese — carica tutto da seed-borghese.json
- *
- * Uso:
- *   npx tsx src/scripts/seed-borghese.ts
- *
- * Il JSON contiene:
- *   - museum:   documento Museum completo (wikidataId, location, floors, services…)
- *   - rooms:    metadati delle 20 sale (non un modello MongoDB separato)
- *   - artworks: 84 opere con tutti i campi pronti per ArtworkModel
- *
- * Immagini:
- *   - Le opere con URL Wikimedia Commons vengono scaricate in /uploads/artworks/<wikidataId>.jpg
- *   - Le opere senza immagine vengono inserite con image: ""
- *   - Le immagini già scaricate vengono saltate (idempotente)
+ * Seed della Galleria Borghese a partire da seed-borghese.json.
  */
+// seed-borghese.ts
+//
+// Seed script per Galleria Borghese — carica tutto da seed-borghese.json
+//
+// Uso:
+//   npx tsx src/scripts/seed-borghese.ts
+//
+// Il JSON contiene:
+//   - museum:   documento Museum completo (wikidataId, location, floors, services…)
+//   - rooms:    metadati delle 20 sale (non un modello MongoDB separato)
+//   - artworks: 84 opere con tutti i campi pronti per ArtworkModel
+//
+// Immagini:
+//   - Le opere con URL Wikimedia Commons vengono scaricate in /uploads/artworks/<wikidataId>.jpg
+//   - Le opere senza immagine vengono inserite con image: ""
+//   - Le immagini già scaricate vengono saltate (idempotente)
 
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
@@ -98,7 +99,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Scarica un URL in un file locale. Se il file esiste già, skippa. Ritorna il path locale /uploads/artworks/<name>. */
+// Scarica un URL in un file locale. Se il file esiste già, skippa. Ritorna il path locale /uploads/artworks/<name>.
 async function downloadImage(remoteUrl: string, wikidataId: string): Promise<string> {
   let imageBuffer: Buffer | null = null;
   let lastStatus = 0;
@@ -209,7 +210,7 @@ async function cleanupLocalImagesForMuseum(museumId: string): Promise<void> {
   console.log(`   🧹  Immagini locali rimosse: ${deleted}/${paths.size}`);
 }
 
-/** Esegue il download in parallelo con limite di concorrenza. */
+// Esegue il download in parallelo con limite di concorrenza.
 async function downloadAllImages(artworks: SeedArtwork[]): Promise<Map<string, string>> {
   const result = new Map<string, string>(); // wikidataId → publicPath
   let done = 0;

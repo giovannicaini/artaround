@@ -1,3 +1,36 @@
+/*
+ * File: /src/controllers/user.controller.ts                                             *
+ * Project: @artaround/server                                                            *
+ * Last Modified: 05/09/2026                                                             *
+ * Author: Giovanni Caini (giovanni.caini@studio.unibo.it)                               *
+ * -----                                                                                 *
+ * MIT License                                                                           *
+ *                                                                                       *
+ * Copyright (c) 2026 Giovanni Caini                                                     *
+ *                                                                                       *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of       *
+ * this software and associated documentation files (the "Software"), to deal in         *
+ * the Software without restriction, including without limitation the rights to          *
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies         *
+ * of the Software, and to permit persons to whom the Software is furnished to do        *
+ * so, subject to the following conditions:                                              *
+ *                                                                                       *
+ * The above copyright notice and this permission notice shall be included in all        *
+ * copies or substantial portions of the Software.                                       *
+ *                                                                                       *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR            *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,              *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE           *
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER                *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,         *
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE         *
+ * SOFTWARE.                                                                             *
+ * ************************************************************************************* *
+ */
+
+/**
+ * CRUD utenti, riservato agli amministratori.
+ */
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { body, validationResult } from 'express-validator';
@@ -6,15 +39,13 @@ import { parsePagination, buildPaginationMeta } from '../utils/pagination.util.j
 import { User } from '../models/User.js';
 import { AppError } from '../middleware/index.js';
 
-/**
- * Controller Utenti
- *
- * Gestisce le operazioni CRUD sugli utenti. Ruolo globale (isAdmin: true/false)
- * gestito solo qui, da un admin. Non esiste un CURATOR o un AUTHOR generico:
- * chi cura o scrive contenuti per un museo lo è solo per quel museo
- * specifico — vedi MuseumController.addCurator/addAuthor.
- * Accessibile solo dagli admin (vedi user.routes.ts).
- */
+// Controller Utenti
+//
+// Gestisce le operazioni CRUD sugli utenti. Ruolo globale (isAdmin: true/false)
+// gestito solo qui, da un admin. Non esiste un CURATOR o un AUTHOR generico:
+// chi cura o scrive contenuti per un museo lo è solo per quel museo
+// specifico — vedi MuseumController.addCurator/addAuthor.
+// Accessibile solo dagli admin (vedi user.routes.ts).
 
 // Regole di validazione per la creazione (usate da POST /api/users)
 export const createUserValidation = [

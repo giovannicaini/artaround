@@ -1,3 +1,6 @@
+/**
+ * Ripristina un dump di scripts/db-dump.mjs nel database, usando la connessione mongoose già aperta dall'app.
+ */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { EJSON } from 'bson';
@@ -11,15 +14,13 @@ function chunk<T>(array: T[], size: number): T[][] {
   return out;
 }
 
-/**
- * Ripristina uno specchio esatto da un dump prodotto da scripts/db-dump.mjs,
- * usando la connessione mongoose già aperta (nessun nuovo MongoClient) —
- * pensato per ambienti dove il database è raggiungibile solo dall'app in
- * esecuzione, non da uno script esterno lanciato a mano (vedi config.restoreDump).
- *
- * Ogni collection trovata nella cartella viene svuotata e reinserita da zero,
- * indici compresi — mai verso un database con dati propri da preservare.
- */
+// Ripristina uno specchio esatto da un dump prodotto da scripts/db-dump.mjs,
+// usando la connessione mongoose già aperta (nessun nuovo MongoClient) —
+// pensato per ambienti dove il database è raggiungibile solo dall'app in
+// esecuzione, non da uno script esterno lanciato a mano (vedi config.restoreDump).
+//
+// Ogni collection trovata nella cartella viene svuotata e reinserita da zero,
+// indici compresi — mai verso un database con dati propri da preservare.
 export async function restoreDump(dir: string): Promise<void> {
   const db = mongoose.connection.db;
   if (!db) throw new Error('Connessione al database non ancora stabilita');
