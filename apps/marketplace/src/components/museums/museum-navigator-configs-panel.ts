@@ -67,6 +67,7 @@ import '../ui/ui-loading';
 import '../ui/ui-empty';
 import '../ui/ui-alert';
 import '../ui/ui-info-tip';
+import '../ui/ui-qr-modal';
 import { __ } from '../../services/i18n.service';
 import { renderFeedbackAlerts } from '../../utils/feedback-alerts';
 
@@ -102,6 +103,7 @@ export class MuseumNavigatorConfigsPanel extends LitElement {
   @state() private translationLanguage: AppLanguage | null = null;
   @state() private error = '';
   @state() private success = '';
+  @state() private qrModalConfig: NavigatorConfigFormData | null = null;
 
   private readonly imageEditors = getNavigatorImageEditorDefinitions();
 
@@ -464,6 +466,11 @@ export class MuseumNavigatorConfigsPanel extends LitElement {
                     @click=${() => this.openNavigatorPreview(config)}
                   ></ui-button>
                   <ui-icon-button
+                    icon="qr-code"
+                    .title=${__('Mostra QR code')}
+                    @click=${() => (this.qrModalConfig = config)}
+                  ></ui-icon-button>
+                  <ui-icon-button
                     icon="edit"
                     .title=${__('Modifica')}
                     @click=${() => this.openEdit(config)}
@@ -513,6 +520,12 @@ export class MuseumNavigatorConfigsPanel extends LitElement {
                 ?disabled=${!config.id}
                 @click=${() => this.openNavigatorPreview(config)}
               ></ui-button>
+              <ui-icon-button
+                icon="qr-code"
+                .title=${__('Mostra QR code')}
+                ?disabled=${!config.slug}
+                @click=${() => (this.qrModalConfig = config)}
+              ></ui-icon-button>
             </div>
           </div>
 
@@ -787,6 +800,15 @@ export class MuseumNavigatorConfigsPanel extends LitElement {
         ${!this.loading && !this.editing ? this.renderList() : nothing}
         ${this.editing ? this.renderEditor(this.editing) : nothing}
       </div>
+
+      <ui-qr-modal
+        .open=${!!this.qrModalConfig}
+        .title=${__('QR code — {name}').replace('{name}', this.qrModalConfig?.name || '')}
+        .value=${this.qrModalConfig?.slug
+          ? `/navigator/?ncfg=${encodeURIComponent(this.qrModalConfig.slug)}`
+          : ''}
+        @close=${() => (this.qrModalConfig = null)}
+      ></ui-qr-modal>
     `;
   }
 }

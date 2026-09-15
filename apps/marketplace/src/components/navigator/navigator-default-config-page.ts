@@ -40,7 +40,6 @@ import {
 } from '@artaround/shared';
 import { navigatorConfigService } from '../../services/navigator-config.service';
 import { museumService } from '../../services/museum.service';
-import { aiService } from '../../services/ai.service';
 import {
   HEX_COLOR_REGEX,
   SLUG_REGEX,
@@ -51,7 +50,6 @@ import {
   renderNavigatorColorField,
   renderNavigatorTranslationsSection,
   computeNavigatorMissingTranslations,
-  getNavigatorConfigTourSlides,
   NAVIGATOR_FONT_SELECT_OPTIONS,
   type NavigatorConfigFormData,
   type NavigatorColorFieldKey,
@@ -63,6 +61,7 @@ import { getAppLanguageLabel } from '../../utils/language-label';
 import '../ui/ui-page-header';
 import '../ui/ui-card';
 import '../ui/ui-button';
+import '../ui/ui-icon-button';
 import '../ui/ui-input';
 import '../ui/ui-textarea';
 import '../ui/ui-select';
@@ -71,8 +70,8 @@ import '../ui/ui-loading';
 import '../ui/ui-badge';
 import '../ui/ui-color-input';
 import '../ui/ui-info-tip';
-import '../ui/ui-tour';
 import '../ui/image-editor';
+import '../ui/ui-qr-modal';
 import { __ } from '../../services/i18n.service';
 
 type NavigatorTextFieldKey = 'startUrl' | 'scope';
@@ -84,17 +83,13 @@ type NavigatorGeneralFieldKey = 'name' | 'slug' | 'homeTitle' | 'manifestName' |
 @customElement('navigator-default-config-page')
 export class NavigatorDefaultConfigPage extends LitElement {
   private readonly navigatorImageEditors = getNavigatorImageEditorDefinitions();
-  private readonly tourSlides = getNavigatorConfigTourSlides();
-
-  // Mostrato ad ogni visita di questa pagina (nessuna persistenza).
-  @state() private showTour = true;
 
   @state() private config: NavigatorConfigFormData | null = null;
   @state() private museums: Museum[] = [];
   @state() private loading = true;
   @state() private saving = false;
-  @state() private checkingAI = false;
   @state() private translatingNavigatorConfig = false;
+  @state() private qrModalOpen = false;
   @state() private error = '';
   @state() private success = '';
   @state() private translationLanguage: AppLanguage | null = null;
@@ -459,23 +454,6 @@ export class NavigatorDefaultConfigPage extends LitElement {
     this.saving = false;
   }
 
-  private async testOpenAI() {
-    this.error = '';
-    this.success = '';
-    this.checkingAI = true;
-    try {
-      const result = await aiService.checkHealth();
-      if (result.data?.ok) {
-        this.success = `OpenAI connessa correttamente (model: ${result.data.model})`;
-      } else {
-        this.error =
-          result.error || result.data?.error || 'OpenAI non configurata o non raggiungibile';
-      }
-    } finally {
-      this.checkingAI = false;
-    }
-  }
-
   private openManifestPreview() {
     if (!this.config?.slug) return;
     window.open(
@@ -522,13 +500,6 @@ export class NavigatorDefaultConfigPage extends LitElement {
         >
           <div slot="actions">
             <ui-button
-              variant="secondary"
-              icon="sparkles"
-              .label=${__('Test OpenAI')}
-              .loading=${this.checkingAI}
-              @click=${this.testOpenAI}
-            ></ui-button>
-            <ui-button
               variant="primary"
               icon="check"
               .label=${__('Salva')}
@@ -562,6 +533,12 @@ export class NavigatorDefaultConfigPage extends LitElement {
                       ?disabled=${!config.id}
                       @click=${() => this.openNavigatorPreview()}
                     ></ui-button>
+                    <ui-icon-button
+                      icon="qr-code"
+                      .title=${__('Mostra QR code')}
+                      ?disabled=${!config.slug}
+                      @click=${() => (this.qrModalOpen = true)}
+                    ></ui-icon-button>
                   </div>
 
                   <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -744,14 +721,12 @@ export class NavigatorDefaultConfigPage extends LitElement {
           : nothing}
       </div>
 
-      ${this.showTour
-        ? html`
-            <ui-tour
-              .slides=${this.tourSlides}
-              @tour-finished=${() => (this.showTour = false)}
-            ></ui-tour>
-          `
-        : nothing}
+      <ui-qr-modal
+        .open=${this.qrModalOpen}
+        .title=${__('QR code — Navigator globale')}
+        .value=${config?.slug ? `/navigator/?ncfg=${encodeURIComponent(config.slug)}` : ''}
+        @close=${() => (this.qrModalOpen = false)}
+      ></ui-qr-modal>
     `;
   }
 }
