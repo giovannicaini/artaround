@@ -12,10 +12,10 @@
 // Uso:
 //   npx tsx src/scripts/backfill-artwork-labels.ts [--dry-run]
 
-import { connectDB } from '../config/database.js';
-import { ArtworkModel, VisitModel } from '../models/index.js';
+import { connectDB } from '../../apps/server/src/config/database.js';
+import { ArtworkModel, VisitModel } from '../../apps/server/src/models/index.js';
 import { VisitStepType } from '@artaround/shared';
-import { WikidataService } from '../utils/wikidata.service.js';
+import { WikidataService } from '../../apps/server/src/utils/wikidata.service.js';
 
 const UNKNOWN_AUTHOR = 'Autore sconosciuto';
 

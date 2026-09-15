@@ -1,1 +1,19 @@
-[]
+[
+  {
+    "id": "2026-09-15T03-23-54-001Z-tl501g",
+    "label": "Prima della pulizia audio orfani",
+    "status": "ready",
+    "createdAt": "2026-09-15T03:23:54.001Z",
+    "createdBy": "69b7c7dec8333380b4a56118",
+    "createdByName": "admin",
+    "progress": {
+      "phase": "done",
+      "collectionsDone": 12,
+      "collectionsTotal": 12
+    },
+    "finishedAt": "2026-09-15T03:24:32.449Z",
+    "sizeBytes": 1545999533,
+    "collectionsCount": 12,
+    "documentsCount": 3573
+  }
+]

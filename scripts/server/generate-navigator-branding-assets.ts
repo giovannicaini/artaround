@@ -14,9 +14,9 @@
 //   npx tsx src/scripts/generate-navigator-branding-assets.ts [--dry-run]
 
 import sharp from 'sharp';
-import { connectDB } from '../config/database.js';
-import { NavigatorConfigModel } from '../models/index.js';
-import { UploadService } from '../utils/upload.service.js';
+import { connectDB } from '../../apps/server/src/config/database.js';
+import { NavigatorConfigModel } from '../../apps/server/src/models/index.js';
+import { UploadService } from '../../apps/server/src/utils/upload.service.js';
 
 function escapeXml(value: string): string {
   return value.replace(

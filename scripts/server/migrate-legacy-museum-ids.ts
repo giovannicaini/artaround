@@ -1,8 +1,8 @@
 /**
  * Migrazione: normalizza i museumId salvati in formato legacy sulle varie collezioni.
  */
-import { connectDB } from '../config/database.js';
-import { ArtworkModel, ItemModel, MuseumModel, VisitModel } from '../models/index.js';
+import { connectDB } from '../../apps/server/src/config/database.js';
+import { ArtworkModel, ItemModel, MuseumModel, VisitModel } from '../../apps/server/src/models/index.js';
 
 type ScriptOptions = {
   dryRun: boolean;

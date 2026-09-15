@@ -4,9 +4,9 @@
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import { connectDB } from '../config/database.js';
-import { ArtworkModel, ItemModel } from '../models/index.js';
-import { UploadService } from '../utils/upload.service.js';
+import { connectDB } from '../../apps/server/src/config/database.js';
+import { ArtworkModel, ItemModel } from '../../apps/server/src/models/index.js';
+import { UploadService } from '../../apps/server/src/utils/upload.service.js';
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);

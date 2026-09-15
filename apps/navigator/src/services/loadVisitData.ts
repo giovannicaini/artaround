@@ -79,9 +79,17 @@ export async function loadVisitData(visitId: string): Promise<{
     }
   }
 
-  // Solo gli item scelti dal curatore o tutti se non ne ha scelto nessuno esplicitamente.
-  const filterByItemIds = (items: Item[], itemIds?: string[]): Item[] =>
-    itemIds && itemIds.length > 0 ? items.filter((item) => itemIds.includes(item._id)) : items;
+  // Solo gli item scelti dall'autore, o tutti quelli leggibili (non
+  // bloccati) se non ne ha scelto nessuno esplicitamente — mai un item a
+  // pagamento che questo visitatore non ha diritto a leggere: il server
+  // restituisce già `locked: true` con testo/audio vuoti per quelli, 
+  // qui si evita solo di mostrare una tappa vuota per un contenuto che 
+  // comunque non si può leggere.
+  const filterByItemIds = (items: Item[], itemIds?: string[]): Item[] => {
+    const selected =
+      itemIds && itemIds.length > 0 ? items.filter((item) => itemIds.includes(item._id)) : items;
+    return selected.filter((item) => !item.locked);
+  };
 
   const orderedSteps = [...visit.steps]
     .filter((step) => step.type !== VisitStepType.WAYPOINT)

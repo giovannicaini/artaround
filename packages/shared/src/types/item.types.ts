@@ -93,6 +93,11 @@ export interface Item {
   // (rimosso, mai lasciato a leggere un testo che non c'è più) quando
   // text/translatedTexts cambiano, vedi ItemController.update.
   audio?: Partial<Record<AppLanguage, GeneratedAudio>>;
+  // true se questo item è a pagamento e chi lo ha ricevuto non ne ha
+  // diritto (non l'ha acquistato, non ne è l'autore) — in quel caso
+  // text/translatedTexts/audio arrivano vuoti dal server, gli altri campi
+  // (titolo, prezzo, durata...) restano per la vetrina del marketplace.
+  locked?: boolean;
 
   // Caratteristiche del contenuto
   duration: ContentDuration; // 3s, 15s, 1min, 4min

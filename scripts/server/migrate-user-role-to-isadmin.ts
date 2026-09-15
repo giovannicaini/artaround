@@ -1,8 +1,8 @@
 /**
  * Migrazione: converte il vecchio campo role dell'utente nel nuovo isAdmin booleano.
  */
-import { connectDB } from '../config/database.js';
-import { User } from '../models/index.js';
+import { connectDB } from '../../apps/server/src/config/database.js';
+import { User } from '../../apps/server/src/models/index.js';
 
 // User.role (stringa 'admin'/'visitor'/'curator'/'author', a seconda di quando
 // l'utente è stato creato) è stato sostituito da User.isAdmin (booleano) — non

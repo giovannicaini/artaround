@@ -32,6 +32,12 @@
  * Verifica se un utente può leggere il contenuto completo di un item (proprietario, acquistato, o gratuito).
  */
 import { ItemPurchase } from '../models/index.js';
+import type { GeneratedAudio } from '@artaround/shared';
+
+async function getPurchasedItemIds(userId: string): Promise<Set<string>> {
+  const purchases = await ItemPurchase.find({ userId }).select('itemId').lean();
+  return new Set(purchases.map((p) => String(p.itemId)));
+}
 
 // Filtro Mongo per gli Item che un utente può *usare* (abbinare a una tappa
 // di una visita che sta costruendo) — a differenza del catalogo pubblico
@@ -42,10 +48,52 @@ import { ItemPurchase } from '../models/index.js';
 // pubblici di sfoglio (getAll/getByArtwork/getByReference/search), che
 // restano intenzionalmente non filtrati.
 export async function buildUsableItemsFilter(userId: string): Promise<Record<string, unknown>> {
-  const purchases = await ItemPurchase.find({ userId }).select('itemId').lean();
-  const purchasedItemIds = purchases.map((p) => p.itemId);
+  const purchasedItemIds = await getPurchasedItemIds(userId);
 
   return {
-    $or: [{ authorId: userId }, { isFree: true }, { _id: { $in: purchasedItemIds } }],
+    $or: [{ authorId: userId }, { isFree: true }, { _id: { $in: Array.from(purchasedItemIds) } }],
   };
+}
+
+// Forma minima su cui opera redactUnpurchasedItems — funziona sia su
+// documenti .lean() sia su oggetti già serializzati per la risposta.
+interface RedactableItem {
+  _id: unknown;
+  authorId: string;
+  isFree: boolean;
+  text: string;
+  translatedTexts?: unknown;
+  audio?: Partial<Record<string, GeneratedAudio>>;
+  locked?: boolean;
+}
+
+// Toglie il contenuto vero e proprio (testo, traduzioni, audio) dagli item a
+// pagamento che l'utente (loggato o meno) non può leggere per intero —
+// gratuiti, propri, o già acquistati restano intatti. Va applicata da OGNI
+// endpoint pubblico di sfoglio (getAll/getByArtwork/getByReference/search/
+// getById), altrimenti il filtro "usable" dell'editor visite (sopra) è
+// aggirabile chiamando direttamente questi endpoint: prima di questa
+// funzione lo facevano, esponendo testo e audio di item mai acquistati a
+// chiunque, autenticato o no. Il resto dei campi (titolo, prezzo, durata...)
+// resta sempre visibile: serve per la vetrina del marketplace.
+export async function redactUnpurchasedItems<T extends RedactableItem>(
+  items: T[],
+  userId: string | undefined,
+): Promise<T[]> {
+  const purchasedItemIds = userId ? await getPurchasedItemIds(userId) : new Set<string>();
+
+  return items.map((item) => {
+    const canReadFull =
+      item.isFree ||
+      (!!userId && (item.authorId === userId || purchasedItemIds.has(String(item._id))));
+    if (canReadFull) return item;
+
+    return {
+      ...item,
+      text: '',
+      translatedTexts: undefined,
+      audio: undefined,
+      locked: true,
+    };
+  });
 }

@@ -33,7 +33,10 @@
  */
 import { Router } from 'express';
 import { ItemController } from '../controllers/item.controller.js';
-import { authMiddleware as authenticate } from '../middleware/index.js';
+import {
+  authMiddleware as authenticate,
+  optionalAuthMiddleware as optionalAuth,
+} from '../middleware/index.js';
 import { authorizeCreate } from '../utils/policy.util.js';
 import { audioUpload } from '../utils/upload.service.js';
 
@@ -140,7 +143,7 @@ const router = Router();
  *       200:
  *         description: Lista item con paginazione
  */
-router.get('/', ItemController.getAll);
+router.get('/', optionalAuth, ItemController.getAll);
 
 /**
  * @swagger
@@ -179,7 +182,7 @@ router.get('/', ItemController.getAll);
  *       200:
  *         description: Risultati della ricerca
  */
-router.get('/search', ItemController.search);
+router.get('/search', optionalAuth, ItemController.search);
 
 /**
  * @swagger
@@ -222,7 +225,7 @@ router.get('/my-items', authenticate, ItemController.getMyItems);
  *       200:
  *         description: Item dell'opera
  */
-router.get('/artwork/:artworkId', ItemController.getByArtwork);
+router.get('/artwork/:artworkId', optionalAuth, ItemController.getByArtwork);
 
 /**
  * @swagger
@@ -283,7 +286,7 @@ router.get('/artwork/:artworkId/usable', authenticate, ItemController.getUsableI
  *       200:
  *         description: Item per il riferimento richiesto
  */
-router.get('/reference/:referenceType/:referenceId', ItemController.getByReference);
+router.get('/reference/:referenceType/:referenceId', optionalAuth, ItemController.getByReference);
 
 /**
  * @swagger
@@ -339,7 +342,7 @@ router.get(
  *       404:
  *         description: Item non trovato
  */
-router.get('/:id', ItemController.getById);
+router.get('/:id', optionalAuth, ItemController.getById);
 
 /**
  * @swagger

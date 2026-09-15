@@ -34,9 +34,9 @@ const SPARQL_LIMIT = 2000;
 const USER_AGENT = 'ArtAroundBorgheseGenerator/1.0 (https://artaround.app; dev@artaround.app)';
 const FETCH_DELAY_MS = 300; // polite delay between catalog fetches
 
-// Root del monorepo (4 livelli su da src/scripts/)
+// Root del monorepo (2 livelli su da scripts/server/)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const WORKSPACE_ROOT = path.resolve(__dirname, '../../../../..');
+const WORKSPACE_ROOT = path.resolve(__dirname, '../..');
 const OUT_FILE = path.join(WORKSPACE_ROOT, `galleria_borghese_top${TARGET_COUNT}.json`);
 const REJECTS_FILE = path.join(WORKSPACE_ROOT, 'scarti.csv');
 

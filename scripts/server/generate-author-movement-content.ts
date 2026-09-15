@@ -16,10 +16,10 @@
 // Uso:
 //   npx tsx src/scripts/generate-author-movement-content.ts [--dry-run] [--limit N]
 
-import { connectDB } from '../config/database.js';
-import { ArtworkModel, ItemModel, VisitModel, User } from '../models/index.js';
-import { AIService } from '../utils/ai.service.js';
-import { WikidataService } from '../utils/wikidata.service.js';
+import { connectDB } from '../../apps/server/src/config/database.js';
+import { ArtworkModel, ItemModel, VisitModel, User } from '../../apps/server/src/models/index.js';
+import { AIService } from '../../apps/server/src/utils/ai.service.js';
+import { WikidataService } from '../../apps/server/src/utils/wikidata.service.js';
 import {
   ItemReferenceType,
   ContentDuration,

@@ -31,7 +31,7 @@
 /**
  * CRUD degli item (contenuti/approfondimenti), traduzioni e generazione audio.
  */
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { asyncHandler } from '../utils/async-handler.util.js';
 import { body, validationResult } from 'express-validator';
 import { ItemModel, MuseumModel } from '../models/index.js';
@@ -46,7 +46,7 @@ import {
   generateAudioForText,
   saveUploadedAudioFile,
 } from '../utils/audio-generation.service.js';
-import { buildUsableItemsFilter } from '../utils/item-access.util.js';
+import { buildUsableItemsFilter, redactUnpurchasedItems } from '../utils/item-access.util.js';
 import { attachAuthorNames } from '../utils/author-name.util.js';
 import {
   ItemReferenceType,
@@ -161,7 +161,7 @@ export class ItemController {
   ];
 
   // GET /api/items — lista item con filtri (museo, riferimento, durata, livello...) e paginazione
-  static getAll = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  static getAll = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const {
       museumId,
       referenceType,
@@ -205,13 +205,13 @@ export class ItemController {
 
     res.json({
       success: true,
-      data: items,
+      data: await redactUnpurchasedItems(items, req.user?.id),
       pagination: buildPaginationMeta(total, page, limit),
     });
   });
 
   // GET /api/items/artwork/:artworkId — item collegati a un'opera (per ID Wikidata)
-  static getByArtwork = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  static getByArtwork = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { artworkId } = req.params;
     const { duration, languageLevel } = req.query;
 
@@ -227,12 +227,12 @@ export class ItemController {
 
     res.json({
       success: true,
-      data: items,
+      data: await redactUnpurchasedItems(items, req.user?.id),
     });
   });
 
   // GET /api/items/reference/:referenceType/:referenceId — item per riferimento generico (ogni tipo)
-  static getByReference = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  static getByReference = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { referenceType, referenceId } = req.params;
 
     const items = await ItemModel.find({
@@ -244,7 +244,7 @@ export class ItemController {
 
     res.json({
       success: true,
-      data: items,
+      data: await redactUnpurchasedItems(items, req.user?.id),
     });
   });
 
@@ -305,7 +305,7 @@ export class ItemController {
   );
 
   // GET /api/items/search — ricerca testuale su titolo/testo, con filtri e paginazione
-  static search = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  static search = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { q, museumId, referenceType, tags } = req.query;
 
     const filter: Record<string, unknown> = {};
@@ -339,13 +339,13 @@ export class ItemController {
 
     res.json({
       success: true,
-      data: items,
+      data: await redactUnpurchasedItems(items, req.user?.id),
       pagination: buildPaginationMeta(total, page, limit),
     });
   });
 
   // GET /api/items/:id — dettaglio di un singolo item
-  static getById = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  static getById = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { id } = req.params;
 
     const item = await ItemModel.findById(id).lean();
@@ -354,9 +354,11 @@ export class ItemController {
     }
     await attachAuthorNames([item]);
 
+    const [redacted] = await redactUnpurchasedItems([item], req.user?.id);
+
     res.json({
       success: true,
-      data: item,
+      data: redacted,
     });
   });
 

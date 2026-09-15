@@ -1,8 +1,8 @@
 /**
  * Migrazione: valorizza il campo nation nella location dei musei che ne sono privi.
  */
-import { connectDB } from '../config/database.js';
-import { MuseumModel } from '../models/index.js';
+import { connectDB } from '../../apps/server/src/config/database.js';
+import { MuseumModel } from '../../apps/server/src/models/index.js';
 
 type ScriptOptions = {
   dryRun: boolean;

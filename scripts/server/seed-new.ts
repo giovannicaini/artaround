@@ -5,11 +5,12 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 import { spawn } from 'child_process';
 import mongoose from 'mongoose';
-import { seedDatabase as seedBaseDatabase } from './seed.js';
+import { seedDatabase as seedBaseDatabase } from '../../apps/server/src/scripts/seed.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const serverRoot = path.resolve(__dirname, '../..');
+// Cartella apps/server: gli altri script vengono lanciati da lì, come "npm run seed:*".
+const serverRoot = path.resolve(__dirname, '../../apps/server');
 
 function runCommand(command: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -37,12 +38,12 @@ export async function seedNewDatabase(): Promise<void> {
     await seedBaseDatabase({ connect: true, exitOnComplete: false });
 
     console.log('\n🏛️ Running Borghese seed...\n');
-    await runCommand('npx', ['tsx', 'src/scripts/seed-borghese.ts']);
+    await runCommand('npx', ['tsx', '../../scripts/server/seed-borghese.ts']);
 
     console.log('\n🏛️ Running Uffizi seed...\n');
     await runCommand('npx', [
       'tsx',
-      'src/scripts/seed-borghese.ts',
+      '../../scripts/server/seed-borghese.ts',
       '--seed-file',
       'seed-uffizi.json',
       '--cache-file',

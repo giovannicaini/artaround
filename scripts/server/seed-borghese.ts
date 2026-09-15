@@ -23,11 +23,11 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs';
 import bcrypt from 'bcryptjs';
-import { connectDB } from '../config/database.js';
-import { MuseumModel, ArtworkModel, ItemModel, User } from '../models/index.js';
-import { AIService } from '../utils/ai.service.js';
-import { UploadService } from '../utils/upload.service.js';
-import { deleteGeneratedAudioFile } from '../utils/audio-generation.service.js';
+import { connectDB } from '../../apps/server/src/config/database.js';
+import { MuseumModel, ArtworkModel, ItemModel, User } from '../../apps/server/src/models/index.js';
+import { AIService } from '../../apps/server/src/utils/ai.service.js';
+import { UploadService } from '../../apps/server/src/utils/upload.service.js';
+import { deleteGeneratedAudioFile } from '../../apps/server/src/utils/audio-generation.service.js';
 import {
   ItemReferenceType,
   ContentDuration,
@@ -47,8 +47,8 @@ function getArgValue(flag: string): string | undefined {
   return args[idx + 1];
 }
 
-// /uploads/ è nella root del progetto (../../../../ da apps/server/src/scripts/)
-const UPLOADS_DIR = path.resolve(__dirname, '../../../../uploads');
+// /uploads/ è nella root del progetto (../../ da scripts/server/)
+const UPLOADS_DIR = path.resolve(__dirname, '../../uploads');
 const ARTWORKS_DIR = path.join(UPLOADS_DIR, 'artworks');
 
 const seedFileName = getArgValue('--seed-file') ?? 'seed-borghese.json';

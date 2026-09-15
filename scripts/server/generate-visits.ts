@@ -18,8 +18,8 @@
 // Uso:
 //   npx tsx src/scripts/generate-visits.ts
 
-import { connectDB } from '../config/database.js';
-import { MuseumModel, ArtworkModel, ItemModel, VisitModel, User } from '../models/index.js';
+import { connectDB } from '../../apps/server/src/config/database.js';
+import { MuseumModel, ArtworkModel, ItemModel, VisitModel, User } from '../../apps/server/src/models/index.js';
 import {
   ItemReferenceType,
   LanguageLevel,

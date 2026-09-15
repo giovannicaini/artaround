@@ -1,8 +1,8 @@
 /**
  * Migrazione: valorizza museumId sugli item che ne sono privi, ricavandolo dal riferimento (opera/museo) collegato.
  */
-import { connectDB } from '../config/database.js';
-import { ArtworkModel, ItemModel } from '../models/index.js';
+import { connectDB } from '../../apps/server/src/config/database.js';
+import { ArtworkModel, ItemModel } from '../../apps/server/src/models/index.js';
 import { ItemReferenceType } from '@artaround/shared';
 
 type ScriptOptions = {
